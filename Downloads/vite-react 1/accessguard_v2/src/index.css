@@ -3,7 +3,41 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
   body {
     @apply bg-slate-950 text-white antialiased;
+    overflow-x: hidden;
   }
+}
+
+/* ── Global box-sizing ── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+/* ── Recharts fix ── */
+.recharts-wrapper, .recharts-wrapper * {
+  max-width: none !important;
+}
+
+/* ── Smooth transitions ── */
+.transition-all {
+  transition-property: all;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 200ms;
+}
+
+/* ── Scrollbar styling ── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.2); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.4); }
+
+/* ── Mobile responsive — targeted, not aggressive ── */
+@media (max-width: 768px) {
+  img, video, iframe { max-width: 100%; height: auto; }
 }
