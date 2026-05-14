@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
+    <!-- Favicon - magnifying glass (Stacklens "lens" theme) -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔍</text></svg>">
+    
+    <!-- Primary Meta Tags -->
+    <title>Stacklens — See your SaaS stack clearly | SaaS Spend & Access Management</title>
+    <meta name="title" content="Stacklens — See your SaaS stack clearly | SaaS Spend & Access Management" />
+    <meta name="description" content="Stacklens is the clarity layer for your SaaS stack. Cut spend by 30%, close security risks, and pass audits in days — not weeks. Trusted by 847+ companies." />
+    <meta name="keywords" content="SaaS management, SaaS spend, access control, cost reduction, security, compliance, SOC 2, GDPR, license optimization" />
+    <meta name="author" content="Roland D." />
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://stacklens.fr/" />
+    <meta property="og:title" content="Stacklens — See your SaaS stack clearly" />
+    <meta property="og:description" content="The clarity layer for your SaaS stack. Cut spend, close security gaps, pass audits in days. Trusted by 847+ companies." />
+    <meta property="og:image" content="https://stacklens.fr/og-image.png" />
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://stacklens.fr/" />
+    <meta property="twitter:title" content="Stacklens — See your SaaS stack clearly" />
+    <meta property="twitter:description" content="The clarity layer for your SaaS stack. Cut spend, close security gaps, pass audits in days." />
+    <meta property="twitter:image" content="https://stacklens.fr/og-image.png" />
+    
+    <!-- Theme -->
+    <meta name="theme-color" content="#0f172a" />
+    
+    <!-- ════════════════════════════════════════════════════════════════════
+         Google Consent Mode v2 — CNIL / GDPR compliant
+         MUST run before any analytics SDK initialises.
+         All 4 consent parameters default to 'denied' (CNIL requirement).
+         ════════════════════════════════════════════════════════════════════ -->
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      window.gtag = gtag;
+
+      // Default: all 4 Consent Mode v2 parameters denied until user acts
+      gtag('consent', 'default', {
+        analytics_storage: 'denied',
+        ad_storage: 'denied',
+        ad_user_data: 'denied',
+        ad_personalization: 'denied',
+        wait_for_update: 500
+      });
+
+      // Consent version — bump this when cookie categories change to re-ask users
+      window.CONSENT_VERSION = 'v2-2026-04';
+
+      // If user previously accepted (and version matches), grant consent immediately on page load
+      (function() {
+        try {
+          var raw = localStorage.getItem('cookie_consent_v2');
+          if (!raw) return;
+          var stored = JSON.parse(raw);
+          if (stored.version !== window.CONSENT_VERSION) return;
+          // Consent expires after 6 months (CNIL minimum) — we use 13 months as ceiling
+          var THIRTEEN_MONTHS_MS = 13 * 30 * 24 * 60 * 60 * 1000;
+          if (Date.now() - stored.timestamp > THIRTEEN_MONTHS_MS) return;
+
+          if (stored.choice === 'accepted') {
+            gtag('consent', 'update', {
+              analytics_storage: 'granted',
+              ad_storage: 'granted',
+              ad_user_data: 'granted',
+              ad_personalization: 'granted'
+            });
+            loadGtagScript();
+          }
+        } catch (e) { /* corrupted storage — ignore, banner will re-ask */ }
+      })();
+
+      function loadGtagScript() {
+        if (window.__gtag_loaded) return;
+        window.__gtag_loaded = true;
+        var s = document.createElement('script');
+        s.async = true;
+        s.src = 'https://www.googletagmanager.com/gtag/js?id=G-MDRVRX854L';
+        document.head.appendChild(s);
+        gtag('js', new Date());
+        gtag('config', 'G-MDRVRX854L', { anonymize_ip: true });
+      }
+
+      // Called from React when user clicks Accept
+      window.enableAnalytics = function() {
+        gtag('consent', 'update', {
+          analytics_storage: 'granted',
+          ad_storage: 'granted',
+          ad_user_data: 'granted',
+          ad_personalization: 'granted'
+        });
+        loadGtagScript();
+        // Propagate to Firebase Analytics SDK if initialised
+        if (window.__firebaseAnalyticsSetConsent) {
+          window.__firebaseAnalyticsSetConsent({
+            analytics_storage: 'granted',
+            ad_storage: 'granted',
+            ad_user_data: 'granted',
+            ad_personalization: 'granted'
+          });
+        }
+      };
+
+      // Called from React when user clicks Reject
+      window.disableAnalytics = function() {
+        gtag('consent', 'update', {
+          analytics_storage: 'denied',
+          ad_storage: 'denied',
+          ad_user_data: 'denied',
+          ad_personalization: 'denied'
+        });
+        if (window.__firebaseAnalyticsSetConsent) {
+          window.__firebaseAnalyticsSetConsent({
+            analytics_storage: 'denied',
+            ad_storage: 'denied',
+            ad_user_data: 'denied',
+            ad_personalization: 'denied'
+          });
+        }
+      };
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
