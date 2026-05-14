@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+functions/node_modules/
+
+# Build output
+dist/
+
+# Environment & secrets
+.env
+.env.local
+.env.production
+*.json.key
+*firebase-adminsdk*.json
+credentials.json
+token.json
+service-account*.json
+
+# Firebase
+.firebase/
+firebase-debug.log*
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+desktop.ini
+Thumbs.db
+
+# Backups & old scripts
+backups/
+*.sh
+*.backup
+*.bak
+_archive/
+src/src/
+
+# IDE
+.vscode/
+.idea/
