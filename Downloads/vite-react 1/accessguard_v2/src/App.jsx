@@ -3696,7 +3696,7 @@ function TrialPage() {
             <h2 className="text-3xl md:text-4xl font-bold text-white mb-3">{t('transparent_pricing')}</h2>
             <p className="text-slate-500">{t('public_pricing')}</p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             {[
               { name: 'Free', price: '€0', sub: 'Forever', features: ['10 tools', '25 employees', 'Shadow IT discovery', 'Basic alerts'], cta: 'Start free', highlight: false },
               { name: 'Starter', price: '€29', sub: '/month', features: ['100 tools', '250 employees', 'Renewal alerts', 'CSV import', '5 team seats'], cta: 'Start trial', highlight: false },
@@ -3706,14 +3706,19 @@ function TrialPage() {
             ].map((p, i) => (
               <div
                 key={i}
-                className={"rounded-2xl border p-6 transition-all " + (
+                className={"rounded-2xl border p-6 transition-all relative " + (
                   p.highlight
-                    ? 'border-blue-500/60 bg-gradient-to-b from-blue-500/10 to-slate-900/40 relative'
+                    ? 'border-blue-500/60 bg-gradient-to-b from-blue-500/10 to-slate-900/40'
                     : 'border-slate-800 bg-slate-900/40 hover:border-slate-700'
                 )}>
                 {p.highlight && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-blue-500 text-[10px] font-bold text-white uppercase tracking-wider">
                     Most popular
+                  </div>
+                )}
+                {p.badge && !p.highlight && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-teal-500 text-[10px] font-bold text-white uppercase tracking-wider">
+                    {p.badge}
                   </div>
                 )}
                 <div className="text-sm font-semibold text-slate-400 mb-2">{p.name}</div>
@@ -8836,23 +8841,33 @@ function BillingPage({ noShell = false }) {
     // Feature translations (inline since they are plan-specific)
   const featureText = {
     en: {
+      plan_free:'Free', plan_free_tag:'For small teams getting started',
+      plan_starter:'Starter', plan_starter_tag:'For growing teams',
+      plan_hr_finance:'HR & Finance', plan_hr_finance_tag:'For HR & Finance directors',
+      plan_pro:'Pro', plan_pro_tag:'For teams that need full visibility and control',
+      plan_enterprise:'Enterprise', plan_enterprise_tag:'For large organisations',
       f_free_1:'Up to 10 SaaS tools',f_free_2:'Up to 25 employees',f_free_3:'Shadow IT discovery',f_free_4:'Basic security alerts',f_free_5:'No credit card required',f_free_6:'Forever free',
-      f_starter_1:'Up to 50 SaaS tools',f_starter_2:'Up to 100 employees',f_starter_3:'Add / edit / delete data',f_starter_4:'Renewal alerts',f_starter_5:'CSV import & export',f_starter_6:'3 team members',f_starter_7:'Email support',
+      f_starter_1:'Up to 100 SaaS tools',f_starter_2:'Up to 250 employees',f_starter_3:'Add / edit / delete data',f_starter_4:'Renewal alerts',f_starter_5:'CSV import & export',f_starter_6:'5 team members',f_starter_7:'Email support',
       f_hrf_1:'Full Finance Board',f_hrf_2:'People & HR Board',f_hrf_3:'Access tracking & map',f_hrf_4:'Offboarding queue',f_hrf_5:'Budget tracking & renewal calendar',f_hrf_6:'10 team members',f_hrf_7:'Priority email support',
       f_growth_8:'Priority email support',
       f_unl_1:'Unlimited tools & employees',f_unl_2:'SSO / SAML',f_unl_3:'Custom integrations',f_unl_4:'Dedicated account manager',f_unl_5:'Custom contracts',f_unl_6:'SLA 99.9% uptime',f_unl_7:'Unlimited team members',f_unl_8:'24/7 priority support',
       f_startup_1:'Full access for 7 days',f_startup_2:'All features unlocked',f_startup_3:'Up to 10 SaaS tools',f_startup_4:'Up to 10 employees',f_startup_5:'No credit card required',f_startup_6:'Community support',
       f_growth_1:'Up to 200 SaaS tools',f_growth_2:'Up to 500 employees',f_growth_3:'AI recommendations',f_growth_4:'Cost management & finance',f_growth_5:'Full security suite',f_growth_6:'License optimization',f_growth_7:'10 team members',
-      f_scale_1:'Up to 1,000 SaaS tools',f_scale_2:'Up to 2,500 employees',f_scale_3:'Analytics & BI exports',f_scale_4:'Audit & compliance reports',f_scale_5:'API access',f_scale_6:'Bulk operations',f_scale_7:'25 team members',f_scale_8:'Phone & chat support',
-      f_pro_1:'Everything in Scale',f_pro_2:'Advanced analytics & BI exports',f_pro_3:'Custom integrations',f_pro_4:'Unlimited team members',f_pro_5:'SSO / SAML (up to 500 users)',f_pro_6:'Dedicated onboarding',f_pro_7:'SLA 99.9% uptime',f_pro_8:'Phone & chat support',
+      f_pro_1:'Up to 500 SaaS tools',f_pro_2:'Up to 1,500 employees',f_pro_3:'AI contract analysis',f_pro_4:'Full security & audit suite',f_pro_5:'Advanced analytics',f_pro_6:'15 team members',f_pro_7:'Priority support',f_pro_8:'CSV & data exports',
+      f_ent_1:'Unlimited tools & employees',f_ent_2:'SSO / SAML',f_ent_3:'SCIM provisioning',f_ent_4:'Dedicated account manager',f_ent_5:'24/7 phone & Slack support',f_ent_6:'Custom contracts & invoicing',f_ent_7:'On-premise / private cloud option',f_ent_8:'Security review & SLA guarantee',
       f_ent_1:'Everything in Professional',f_ent_2:'Unlimited users & workspaces',f_ent_3:'SCIM provisioning',f_ent_4:'Dedicated account manager',f_ent_5:'24/7 phone & Slack support',f_ent_6:'Custom contracts & invoicing',f_ent_7:'On-premise / private cloud option',f_ent_8:'Security review & pen test report',
     },
     fr: {
-      f_startup_1:"Jusqu’à 10 outils SaaS",f_startup_2:"Jusqu’à 10 employés",f_startup_3:"Alertes de risque basiques",f_startup_4:"Export CSV",f_startup_5:"1 membre d’équipe",f_startup_6:"Support communautaire",
+      plan_free:'Gratuit', plan_free_tag:'Pour les petites équipes',
+      plan_starter:'Starter', plan_starter_tag:'Pour les équipes en croissance',
+      plan_hr_finance:'RH & Finance', plan_hr_finance_tag:'Pour les DRH et directeurs financiers',
+      plan_pro:'Pro', plan_pro_tag:'Pour les équipes qui ont besoin de visibilité totale',
+      plan_enterprise:'Enterprise', plan_enterprise_tag:'Pour les grandes organisations',
+      f_startup_1:"Jusqu'à 10 outils SaaS",f_startup_2:"Jusqu'à 10 employés",f_startup_3:"Alertes de risque basiques",f_startup_4:"Export CSV",f_startup_5:"1 membre d'équipe",f_startup_6:"Support communautaire",
       f_growth_1:"Jusqu’à 50 outils SaaS",f_growth_2:"Jusqu’à 50 employés",f_growth_3:"Score de risque avancé",f_growth_4:"Tableau de bord Finance",f_growth_5:"Exports d’audit",f_growth_6:"Jusqu’à 5 membres",f_growth_7:"Support par email",
       f_scale_1:"Outils SaaS illimités",f_scale_2:"Employés illimités",f_scale_3:"Analyse IA des contrats",f_scale_4:"Gestion des licences",f_scale_5:"Rapports d’audit complets",f_scale_6:"Jusqu’à 15 membres",f_scale_7:"Support prioritaire",f_scale_8:"Accès API",
-      f_pro_1:"Tout inclus dans Scale",f_pro_2:"Analyses avancées & exports BI",f_pro_3:"Intégrations personnalisées",f_pro_4:"Membres illimités",f_pro_5:"SSO / SAML (jusqu’à 500 utilisateurs)",f_pro_6:"Onboarding dédié",f_pro_7:"SLA 99,9% de disponibilité",f_pro_8:"Support téléphone & chat",
-      f_ent_1:"Tout inclus dans Professionnel",f_ent_2:"Utilisateurs & espaces de travail illimités",f_ent_3:"Provisionnement SCIM",f_ent_4:"Responsable de compte dédié",f_ent_5:"Support 24/7 téléphone & Slack",f_ent_6:"Contrats & facturation personnalisés",f_ent_7:"Option sur site / cloud privé",f_ent_8:"Audit de sécurité & rapport de test d’intrusion",
+      f_pro_1:"Jusqu'à 500 outils SaaS",f_pro_2:"Jusqu'à 1 500 employés",f_pro_3:"Analyse IA des contrats",f_pro_4:"Suite sécurité & audit complète",f_pro_5:"Analytics avancés",f_pro_6:"15 membres d'équipe",f_pro_7:"Support prioritaire",f_pro_8:"Export CSV & données",
+      f_ent_1:"Outils & employés illimités",f_ent_2:"SSO / SAML",f_ent_3:"Provisionnement SCIM",f_ent_4:"Responsable de compte dédié",f_ent_5:"Support 24/7 téléphone & Slack",f_ent_6:"Contrats & facturation personnalisés",f_ent_7:"Option sur site / cloud privé",f_ent_8:"Audit de sécurité & garantie SLA",
     },
     es: {
       f_startup_1:'Hasta 10 herramientas SaaS',f_startup_2:'Hasta 10 empleados',f_startup_3:'Alertas de riesgo básicas',f_startup_4:'Exportación CSV',f_startup_5:'1 miembro del equipo',f_startup_6:'Soporte comunitario',
@@ -14938,7 +14953,7 @@ export default function App() {
           />
           <Route
             path="/executive"
-            element={<RequireAuth><FinanceDashboard /></RequireAuth>}
+            element={<RequireAuth><ModuleGate module="finance" feature="Finance Board"><FinanceDashboard /></ModuleGate></RequireAuth>}
           />
           <Route
             path="/tools"
@@ -14946,11 +14961,11 @@ export default function App() {
           />
           <Route
             path="/employees"
-            element={<RequireAuth><EmployeesPage /></RequireAuth>}
+            element={<RequireAuth><ModuleGate module="people" feature="People & HR Board"><EmployeesPage /></ModuleGate></RequireAuth>}
           />
           <Route
             path="/access"
-            element={<RequireAuth><AccessPage /></RequireAuth>}
+            element={<RequireAuth><ModuleGate module="people" feature="Access Map"><AccessPage /></ModuleGate></RequireAuth>}
           />
           <Route path="/integrations" element={<Navigate to="/settings" replace />} />
           <Route
@@ -14959,20 +14974,20 @@ export default function App() {
           />
           <Route
             path="/offboarding"
-            element={<RequireAuth><OffboardingPage /></RequireAuth>}
+            element={<RequireAuth><ModuleGate module="people" feature="Offboarding"><OffboardingPage /></ModuleGate></RequireAuth>}
           />
           <Route
             path="/audit"
-            element={<RequireAuth><SecurityCompliancePage /></RequireAuth>}
+            element={<RequireAuth><ModuleGate module="security" feature="Security & Audit"><SecurityCompliancePage /></ModuleGate></RequireAuth>}
           />
           <Route path="/billing" element={<Navigate to="/settings" replace />} />
           <Route
             path="/security"
-            element={<RequireAuth><SecurityCompliancePage /></RequireAuth>}
+            element={<RequireAuth><ModuleGate module="security" feature="Security"><SecurityCompliancePage /></ModuleGate></RequireAuth>}
           />
           <Route
             path="/cost"
-            element={<RequireAuth><FinanceDashboard /></RequireAuth>}
+            element={<RequireAuth><ModuleGate module="finance" feature="Finance Board"><FinanceDashboard /></ModuleGate></RequireAuth>}
           />
           <Route path="/analytics" element={<Navigate to="/finance" replace />} />
           <Route
@@ -14981,7 +14996,7 @@ export default function App() {
           />
           <Route
             path="/finance"
-            element={<RequireAuth><FinanceDashboard /></RequireAuth>}
+            element={<RequireAuth><ModuleGate module="finance" feature="Finance Board"><FinanceDashboard /></ModuleGate></RequireAuth>}
           />
           <Route path="/licenses" element={<Navigate to="/finance" replace />} />
           <Route path="/renewals" element={<Navigate to="/finance" replace />} />
