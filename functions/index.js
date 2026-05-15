@@ -33,7 +33,8 @@ const ANTHROPIC_API_KEY     = defineSecret('ANTHROPIC_API_KEY');
 const STRIPE_SECRET_KEY     = defineSecret('STRIPE_SECRET_KEY');
 const STRIPE_WEBHOOK_SECRET = defineSecret('STRIPE_WEBHOOK_SECRET');
 
-const RATE_LIMIT = { maxCalls: 20, windowMs: 60 * 60 * 1000 };
+const RATE_LIMIT          = { maxCalls: 20, windowMs: 60 * 60 * 1000 };
+const CHECKOUT_RATE_LIMIT = { maxCalls: 5,  windowMs: 60 * 60 * 1000 };
 
 async function verifyAuth(req, res) {
   const header = req.headers.authorization || '';
@@ -43,11 +44,11 @@ async function verifyAuth(req, res) {
   catch { res.status(401).json({ error: 'Invalid auth token' }); return null; }
 }
 
-async function checkRateLimit(uid, res) {
+async function checkRateLimit(uid, res, limit = RATE_LIMIT, keyPrefix = 'ai') {
   const db = admin.firestore();
   const now = Date.now();
-  const windowStart = now - RATE_LIMIT.windowMs;
-  const ref = db.collection('rate_limits').doc(uid);
+  const windowStart = now - limit.windowMs;
+  const ref = db.collection('rate_limits').doc(`${keyPrefix}_${uid}`);
   try {
     const result = await db.runTransaction(async (tx) => {
       const snap = await tx.get(ref);
@@ -55,9 +56,9 @@ async function checkRateLimit(uid, res) {
       if (data.blocked_until && now < data.blocked_until)
         return { allowed: false, minutesLeft: Math.ceil((data.blocked_until - now) / 60000) };
       const recentCalls = (data.calls || []).filter(t => t > windowStart);
-      if (recentCalls.length >= RATE_LIMIT.maxCalls) {
-        tx.set(ref, { calls: recentCalls, blocked_until: now + RATE_LIMIT.windowMs }, { merge: true });
-        return { allowed: false, minutesLeft: 60 };
+      if (recentCalls.length >= limit.maxCalls) {
+        tx.set(ref, { calls: recentCalls, blocked_until: now + limit.windowMs }, { merge: true });
+        return { allowed: false, minutesLeft: Math.ceil(limit.windowMs / 60000) };
       }
       recentCalls.push(now);
       tx.set(ref, { calls: recentCalls, blocked_until: null, uid });
@@ -65,7 +66,7 @@ async function checkRateLimit(uid, res) {
     });
     if (!result.allowed) { res.status(429).json({ error: `Rate limit exceeded. Try again in ${result.minutesLeft} minutes.` }); return false; }
     return true;
-  } catch { return true; }
+  } catch (err) { console.error('checkRateLimit error:', err); return true; }
 }
 
 function sanitizeMessages(messages) {
@@ -148,6 +149,7 @@ exports.createCheckout = onRequest({ secrets: [STRIPE_SECRET_KEY], cors: true, t
     if (req.method === 'OPTIONS') return res.status(204).send('');
     if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
     const decoded = await verifyAuth(req, res); if (!decoded) return;
+    const allowed = await checkRateLimit(decoded.uid, res, CHECKOUT_RATE_LIMIT, 'checkout'); if (!allowed) return;
     const { priceId } = req.body;
     if (!priceId) return res.status(400).json({ error: 'priceId required' });
     try {
@@ -174,6 +176,7 @@ exports.createPortal = onRequest({ secrets: [STRIPE_SECRET_KEY], cors: true, tim
     if (req.method === 'OPTIONS') return res.status(204).send('');
     if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
     const decoded = await verifyAuth(req, res); if (!decoded) return;
+    const allowed = await checkRateLimit(decoded.uid, res, CHECKOUT_RATE_LIMIT, 'portal'); if (!allowed) return;
     try {
       const stripe = require('stripe')(STRIPE_SECRET_KEY.value());
       const snap = await admin.firestore().collection('users').doc(decoded.uid).get();
@@ -282,6 +285,7 @@ exports.renewalAlerts = onSchedule({
     const email = data?.user?.email;
     const tools = data?.tools || [];
     if (!email) continue;
+    if (data?.user?.renewal_alerts === false) continue;
     const upcoming = tools.filter(t => t.renewal_date >= todayStr && t.renewal_date <= in30Str);
     if (!upcoming.length) continue;
     const rows = upcoming.map(t => {

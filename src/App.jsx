@@ -8,10 +8,7 @@ import {
   useLocation,
   useNavigate,
 } from "react-router-dom";
-import { signInWithGoogle, handleRedirectResult, signOutUser, onAuthChange, sendMagicLink, completeMagicLinkSignIn, callAI, loadUserData, saveUserData, syncUserProfile, getUserPlanFromFirestore, registerWithEmail, signInWithEmail, resetPassword, createBillingPortal, createCheckoutSession, logConsent, startTrial } from './firebase-config';
-
-// Expose callAI globally for the live translation system
-window.__callAI = callAI;
+import { signInWithGoogle, handleRedirectResult, signOutUser, onAuthChange, sendMagicLink, completeMagicLinkSignIn, callAI, loadUserData, saveUserData, syncUserProfile, getUserPlanFromFirestore, registerWithEmail, signInWithEmail, resetPassword, createBillingPortal, createCheckoutSession, logConsent, startTrial, logLegalAcceptance } from './firebase-config';
 
 // ── Compatibility stubs (migrated to Firestore) ──────────────
 async function getUserProfile(uid) {
@@ -1143,7 +1140,6 @@ async function resetDb() {
     if (_firestoreUid) {
       try {
         await saveUserData(_firestoreUid, emptyDb);
-        console.log('✓ Firestore cleared');
       } catch(e) {
         console.error('✗ Firestore reset failed:', e);
         alert('Failed to reset cloud data. Please check your connection and try again.');
@@ -1153,14 +1149,12 @@ async function resetDb() {
 
     // 3. Now save empty db to localStorage
     saveDb(emptyDb);
-    console.log('✓ Local storage cleared');
 
     // 4. Clear all caches
     localStorage.removeItem('accessguard_fx_rates');
     localStorage.removeItem('sg_general');
     localStorage.removeItem('ag_ai_recs_cache');
     localStorage.removeItem('ag_live_translations');
-    console.log('✓ Caches cleared');
 
     // 5. Wait a moment for any pending writes, then reload
     await new Promise(r => setTimeout(r, 500));
@@ -2422,8 +2416,9 @@ function TopBar({ title, right }) {
 const CONSENT_STORAGE_KEY = 'cookie_consent_v2';
 const CONSENT_VERSION = 'v2-2026-04';
 
-// Global re-open trigger used by the footer link
-window.__openCookieBanner = null;
+// Module-level ref for the cookie banner open function.
+// Kept inside the module — not on window — so third-party scripts can't call it.
+let _openCookieBanner = null;
 
 function readStoredConsent() {
   try {
@@ -2460,11 +2455,11 @@ function CookieBanner() {
 
   // Allow footer link to re-open the banner
   useEffect(() => {
-    window.__openCookieBanner = () => {
+    _openCookieBanner = () => {
       setShowDetails(false);
       setVisible(true);
     };
-    return () => { window.__openCookieBanner = null; };
+    return () => { _openCookieBanner = null; };
   }, []);
 
   if (!visible) return null;
@@ -3877,7 +3872,7 @@ function TrialPage() {
                 <li>
                   <button
                     type="button"
-                    onClick={() => { if (window.__openCookieBanner) window.__openCookieBanner(); }}
+                    onClick={() => { if (_openCookieBanner) _openCookieBanner(); }}
                     className="text-slate-300 hover:text-white transition-colors text-sm text-left"
                   >
                     Manage cookies
@@ -8665,19 +8660,9 @@ function PricingTiers({ currentPlan = 'free' }) {
                     return;
                   }
                   try {
-                    // Log legal acceptance to Firestore for audit trail
+                    // Log legal acceptance to Firestore for audit trail (best-effort)
                     if (db?.user?.uid) {
-                      import('./firebase-config').then(({ getFirestore, doc, setDoc, serverTimestamp }) => {}).catch(() => {});
-                      // Best-effort log — non-blocking
-                      const { firestoreDb } = await import('./firebase-config');
-                      const { doc, setDoc, serverTimestamp } = await import('firebase/firestore');
-                      await setDoc(doc(firestoreDb, 'legal_acceptances', `${db.user.uid}_${Date.now()}`), {
-                        uid: db.user.uid, email: db.user.email || '',
-                        accepted_at: serverTimestamp(),
-                        documents: ['terms', 'privacy', 'dpa'],
-                        plan_id: plan.id,
-                        ip_hint: 'client', // we don't log IPs — just flag that acceptance happened
-                      }).catch(() => {});
+                      logLegalAcceptance(db.user.uid, db.user.email, plan.id).catch(() => {});
                     }
                     const priceId = billing === 'annual' ? plan.annualPriceId : plan.monthlyPriceId;
                     if (!priceId) { toast.error('Price not configured for this plan'); return; }
@@ -8855,7 +8840,6 @@ function BillingPage({ noShell = false }) {
       f_growth_1:'Up to 200 SaaS tools',f_growth_2:'Up to 500 employees',f_growth_3:'AI recommendations',f_growth_4:'Cost management & finance',f_growth_5:'Full security suite',f_growth_6:'License optimization',f_growth_7:'10 team members',
       f_pro_1:'Up to 500 SaaS tools',f_pro_2:'Up to 1,500 employees',f_pro_3:'AI contract analysis',f_pro_4:'Full security & audit suite',f_pro_5:'Advanced analytics',f_pro_6:'15 team members',f_pro_7:'Priority support',f_pro_8:'CSV & data exports',
       f_ent_1:'Unlimited tools & employees',f_ent_2:'SSO / SAML',f_ent_3:'SCIM provisioning',f_ent_4:'Dedicated account manager',f_ent_5:'24/7 phone & Slack support',f_ent_6:'Custom contracts & invoicing',f_ent_7:'On-premise / private cloud option',f_ent_8:'Security review & SLA guarantee',
-      f_ent_1:'Everything in Professional',f_ent_2:'Unlimited users & workspaces',f_ent_3:'SCIM provisioning',f_ent_4:'Dedicated account manager',f_ent_5:'24/7 phone & Slack support',f_ent_6:'Custom contracts & invoicing',f_ent_7:'On-premise / private cloud option',f_ent_8:'Security review & pen test report',
     },
     fr: {
       plan_free:'Gratuit', plan_free_tag:'Pour les petites équipes',

@@ -19,14 +19,21 @@ service cloud.firestore {
                              'stripe_subscription_id', 'subscription_status',
                              'subscription_current_period_end', 'is_admin',
                              'is_founder', 'role'];
-      // Check if user is just starting their trial — that's allowed
+      // Check if user is just starting their trial — that's allowed once.
+      // For updates: only permit if the existing doc has no trial_started_at yet
+      // and the current plan is 'free', preventing trial replay attacks.
+      let isNewDoc = resource == null;
       let isTrialStart = request.resource.data.keys().hasAny(['plan', 'trial_started_at'])
                          && request.resource.data.get('plan', '') == 'trial'
                          && !request.resource.data.keys().hasAny(
                               ['subscription_plan', 'stripe_customer_id',
                                'stripe_subscription_id', 'subscription_status',
                                'subscription_current_period_end', 'is_admin',
-                               'is_founder', 'role']);
+                               'is_founder', 'role'])
+                         && (isNewDoc || (
+                               !resource.data.keys().hasAny(['trial_started_at'])
+                               && resource.data.get('plan', 'free') == 'free'
+                            ));
       // Reject if the incoming data has any protected field at all,
       // UNLESS it's 'plan' == 'free' (new user default allowed)
       // OR plan='trial' + trial_started_at (self-start trial allowed)

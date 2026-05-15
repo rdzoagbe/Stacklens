@@ -39,6 +39,17 @@ lerna-debug.log*
 .firebase
 .firebaserc
 firebase-debug.log
+# Backup / scratch files
+*.bak
+*.bak.*
+*.backup
+*.backup-*
+*.backup_*
+*.old
+*.pre-*
+*.before-*
+*emergency-backup*
+
 # Old scripts & docs
 _archive/
 backups/
@@ -46,5 +57,8 @@ backups/
 env.example
 .env.example
 SECURITY_SETUP.md
-public/
+public/*
+!public/favicon.svg
+!public/robots.txt
+!public/sitemap.xml
 scripts/

@@ -1,0 +1,7 @@
+User-agent: *
+Disallow: /app/
+Disallow: /settings/
+Disallow: /finishSignUp
+Allow: /
+
+Sitemap: https://stacklens.fr/sitemap.xml
