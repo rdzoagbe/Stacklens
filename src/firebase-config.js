@@ -170,8 +170,6 @@ export async function getUserPlanFromFirestore(uid) {
 
 export async function saveUserData(uid, db) {
   try {
-    // Wait for auth to be ready
-    const currentUser = auth.currentUser;
     await setDoc(
       doc(firestoreDb, 'userdata', uid),
       { ...db, _uid: uid, _updatedAt: Date.now() },
@@ -212,7 +210,6 @@ export async function signInWithGoogle() {
   try {
     const result = await signInWithPopup(auth, googleProvider);
     return { user: result.user, error: null };
-    return { user: result.user, error: null };
   } catch (error) {
     return { user: null, error: error.message };
   }
@@ -222,7 +219,7 @@ export async function handleRedirectResult() {
   try {
     const result = await getRedirectResult(auth);
     if (result?.user) return { user: result.user, error: null };
-    return { user: result.user, error: null };
+    return { user: null, error: null };
   } catch (error) {
     return { user: null, error: error.message };
   }
@@ -277,8 +274,6 @@ export { auth, firestoreDb as db, analytics };
 // ============================================================================
 // STRIPE BILLING HELPERS
 // ============================================================================
-const PUBLISHABLE_KEY = 'pk_test_51T9WuO0E2aOcllaPMV63oZUQxoOvicsiEH4al7rVveemRco2ZPcGOgAzvkPqPowAcheZpxij8Pl2SNzuSAca1F002XrD9IKX';
-
 export async function createCheckoutSession(priceId) {
   const token = await getToken();
   if (!token) throw new Error('Not authenticated');
@@ -305,17 +300,6 @@ export async function createBillingPortal() {
   return data;
 }
 
-export async function getUserPlan(uid) {
-  try {
-    const { getFirestore, doc, getDoc } = await import('firebase/firestore');
-    const db = getFirestore();
-    const snap = await getDoc(doc(db, 'users', uid));
-    if (snap.exists()) return snap.data();
-    return null;
-  } catch(e) {
-    return null;
-  }
-}
 
 // Email/Password Registration
 export async function registerWithEmail(email, password, displayName) {

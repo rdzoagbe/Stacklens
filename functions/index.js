@@ -65,7 +65,7 @@ async function checkRateLimit(uid, res) {
     });
     if (!result.allowed) { res.status(429).json({ error: `Rate limit exceeded. Try again in ${result.minutesLeft} minutes.` }); return false; }
     return true;
-  } catch { return true; }
+  } catch (err) { console.error('checkRateLimit error:', err); return true; }
 }
 
 function sanitizeMessages(messages) {
