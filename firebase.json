@@ -42,7 +42,7 @@
           },
           {
             "key": "Content-Security-Policy",
-            "value": "default-src 'none'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google.com https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://us-central1-accessguard-v2.cloudfunctions.net https://*.googleapis.com https://www.google-analytics.com https://analytics.google.com https://www.googletagmanager.com; frame-src https://www.google.com https://accessguard-v2.firebaseapp.com https://accessguard-v2.web.app; object-src 'none'; base-uri 'self'; frame-ancestors 'none';"
+            "value": "default-src 'none'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google.com https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://us-central1-accessguard-v2.cloudfunctions.net https://*.googleapis.com https://www.google-analytics.com https://analytics.google.com https://www.googletagmanager.com https://www.google.com https://www.gstatic.com; frame-src https://www.google.com https://accessguard-v2.firebaseapp.com https://accessguard-v2.web.app; object-src 'none'; base-uri 'self'; frame-ancestors 'none';"
           }
         ]
       },
