@@ -59,4 +59,6 @@ env.example
 SECURITY_SETUP.md
 public/*
 !public/favicon.svg
+!public/robots.txt
+!public/sitemap.xml
 scripts/
