@@ -356,6 +356,26 @@ export async function logConsent({ choice, version, userAgent, language }) {
 }
 
 // ============================================================================
+// LEGAL ACCEPTANCE LOG — GDPR/LCEN audit trail
+// Writes to /legal_acceptances/{uid}_{ts} — best-effort, never blocks UI.
+// ============================================================================
+export async function logLegalAcceptance(uid, email, planId) {
+  try {
+    await setDoc(
+      doc(firestoreDb, 'legal_acceptances', `${uid}_${Date.now()}`),
+      {
+        uid,
+        email: email || '',
+        accepted_at: serverTimestamp(),
+        documents: ['terms', 'privacy', 'dpa'],
+        plan_id: planId,
+        ip_hint: 'client',
+      }
+    );
+  } catch { /* best-effort — never block checkout */ }
+}
+
+// ============================================================================
 // 7-DAY TRIAL — start trial for a new user
 // Sets plan='trial' and trial_started_at on /users/{uid}.
 // Best-effort: silently fails if Firestore rules reject (Cloud Function may have already set it).
