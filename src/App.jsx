@@ -10,9 +10,6 @@ import {
 } from "react-router-dom";
 import { signInWithGoogle, handleRedirectResult, signOutUser, onAuthChange, sendMagicLink, completeMagicLinkSignIn, callAI, loadUserData, saveUserData, syncUserProfile, getUserPlanFromFirestore, registerWithEmail, signInWithEmail, resetPassword, createBillingPortal, createCheckoutSession, logConsent, startTrial } from './firebase-config';
 
-// Expose callAI globally for the live translation system
-window.__callAI = callAI;
-
 // ── Compatibility stubs (migrated to Firestore) ──────────────
 async function getUserProfile(uid) {
   const data = await loadUserData(uid);
@@ -2422,8 +2419,9 @@ function TopBar({ title, right }) {
 const CONSENT_STORAGE_KEY = 'cookie_consent_v2';
 const CONSENT_VERSION = 'v2-2026-04';
 
-// Global re-open trigger used by the footer link
-window.__openCookieBanner = null;
+// Module-level ref for the cookie banner open function.
+// Kept inside the module — not on window — so third-party scripts can't call it.
+let _openCookieBanner = null;
 
 function readStoredConsent() {
   try {
@@ -2460,11 +2458,11 @@ function CookieBanner() {
 
   // Allow footer link to re-open the banner
   useEffect(() => {
-    window.__openCookieBanner = () => {
+    _openCookieBanner = () => {
       setShowDetails(false);
       setVisible(true);
     };
-    return () => { window.__openCookieBanner = null; };
+    return () => { _openCookieBanner = null; };
   }, []);
 
   if (!visible) return null;
@@ -3877,7 +3875,7 @@ function TrialPage() {
                 <li>
                   <button
                     type="button"
-                    onClick={() => { if (window.__openCookieBanner) window.__openCookieBanner(); }}
+                    onClick={() => { if (_openCookieBanner) _openCookieBanner(); }}
                     className="text-slate-300 hover:text-white transition-colors text-sm text-left"
                   >
                     Manage cookies

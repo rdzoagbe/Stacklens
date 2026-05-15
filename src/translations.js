@@ -2950,10 +2950,8 @@ async function flushTranslationQueue() {
     });
 
     try {
-      // Try using the AI function
-      // Get callAI from the global window (set by App.jsx on mount)
-      if (!window.__callAI) { throw new Error('AI not available yet'); }
-      const result = await window.__callAI({
+      // Call the AI proxy directly via the imported function
+      const result = await callAI({
         system: `You are a professional translator. Translate the following UI labels from English to ${langName}. Return ONLY a valid JSON object with the same keys and translated values. Keep translations concise — these are button labels, menu items, and short phrases for a SaaS management app. Do not add explanations.`,
         messages: [{ role: 'user', content: JSON.stringify(toTranslate) }],
         max_tokens: 4000,
@@ -3001,6 +2999,7 @@ function queueForTranslation(key, enValue, lang) {
 
 // React hook version that triggers re-render when translations arrive
 import { useState, useEffect, useCallback } from 'react';
+import { callAI } from './firebase-config';
 
 export function useTranslation(language = 'en') {
   const [, forceUpdate] = useState(0);
