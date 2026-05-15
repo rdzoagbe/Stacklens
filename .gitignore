@@ -39,3 +39,10 @@ lerna-debug.log*
 .firebase
 .firebaserc
 firebase-debug.log
+# Old scripts & docs
+_archive/
+backups/
+*.sh
+env.example
+.env.example
+SECURITY_SETUP.md
