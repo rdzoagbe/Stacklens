@@ -206,7 +206,20 @@ export async function syncUserProfile(user) {
 // ============================================================================
 // AUTHENTICATION
 // ============================================================================
-export async function signInWithGoogle() {
+export async function signInWithGoogleWorkspace() {
+  const provider = new GoogleAuthProvider();
+  provider.addScope('https://www.googleapis.com/auth/admin.directory.user.readonly');
+  provider.setCustomParameters({ prompt: 'select_account' });
+  try {
+    const result = await signInWithPopup(auth, provider);
+    const credential = GoogleAuthProvider.credentialFromResult(result);
+    return { accessToken: credential?.accessToken || null, error: null };
+  } catch (error) {
+    return { accessToken: null, error: error.message };
+  }
+}
+
+
   try {
     const result = await signInWithPopup(auth, googleProvider);
     return { user: result.user, error: null };

@@ -8,7 +8,7 @@ import {
   useLocation,
   useNavigate,
 } from "react-router-dom";
-import { signInWithGoogle, handleRedirectResult, signOutUser, onAuthChange, sendMagicLink, completeMagicLinkSignIn, callAI, loadUserData, saveUserData, syncUserProfile, getUserPlanFromFirestore, registerWithEmail, signInWithEmail, resetPassword, createBillingPortal, createCheckoutSession, logConsent, startTrial, logLegalAcceptance } from './firebase-config';
+import { signInWithGoogle, signInWithGoogleWorkspace, handleRedirectResult, signOutUser, onAuthChange, sendMagicLink, completeMagicLinkSignIn, callAI, loadUserData, saveUserData, syncUserProfile, getUserPlanFromFirestore, registerWithEmail, signInWithEmail, resetPassword, createBillingPortal, createCheckoutSession, logConsent, startTrial, logLegalAcceptance } from './firebase-config';
 
 // ── Compatibility stubs (migrated to Firestore) ──────────────
 async function getUserProfile(uid) {
@@ -4266,88 +4266,196 @@ function ExecutivePageWrapper() {
 // GOOGLE WORKSPACE SYNC BUTTON
 // ============================================================================
 
-function WorkspaceConnector() {
-  const { language } = useLang();
-  const t = useTranslation(language);
-  const { firebaseUser } = useAuth();
-  const muts = useDbMutations();
-  const [syncing, setSyncing] = useState(false);
-  const [syncStatus, setSyncStatus] = useState(null);
-  const [activeProvider, setActiveProvider] = useState(null);
+const OKTA_CLIENT_ID = import.meta.env.VITE_OKTA_CLIENT_ID || '6a09e0ebf5aaa66d02e605a6';
 
-  const getToken = (u) => u?.stsTokenManager?.accessToken || null;
+function WorkspaceConnector({ compact = false }) {
+  const muts = useDbMutations();
+  const [syncing, setSyncing] = useState(null);
+  const [status, setStatus]   = useState(null);
+  const [oktaStep, setOktaStep]     = useState(null);
+  const [oktaDomain, setOktaDomain] = useState('');
+
+  // Handle Okta PKCE callback when redirected back from Okta
+  useEffect(() => {
+    const params      = new URLSearchParams(window.location.search);
+    const code        = params.get('code');
+    const urlState    = params.get('state');
+    const storedState = sessionStorage.getItem('okta_state');
+    if (!code || !storedState || urlState !== storedState) return;
+
+    const domain   = sessionStorage.getItem('okta_domain');
+    const verifier = sessionStorage.getItem('okta_code_verifier');
+    if (!domain || !verifier) return;
+
+    sessionStorage.removeItem('okta_state');
+    sessionStorage.removeItem('okta_code_verifier');
+    sessionStorage.removeItem('okta_domain');
+    window.history.replaceState({}, '', window.location.pathname);
+
+    setSyncing('okta');
+    setStatus({ type: 'loading', msg: 'Completing Okta connection…' });
+
+    (async () => {
+      try {
+        const tokenRes = await fetch(`https://${domain}/oauth2/v1/token`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            grant_type:    'authorization_code',
+            client_id:     OKTA_CLIENT_ID,
+            code,
+            redirect_uri:  window.location.origin,
+            code_verifier: verifier,
+          }),
+        });
+        const tokenData = await tokenRes.json();
+        if (!tokenRes.ok) throw new Error(tokenData.error_description || 'Token exchange failed');
+
+        setStatus({ type: 'loading', msg: 'Importing users from Okta…' });
+        const usersRes = await fetch(
+          `https://${domain}/api/v1/users?limit=200&filter=status+eq+"ACTIVE"`,
+          { headers: { Authorization: `Bearer ${tokenData.access_token}`, Accept: 'application/json' } }
+        );
+        if (!usersRes.ok) throw new Error('Failed to fetch Okta users — ensure API Access Management is enabled');
+        const oktaUsers = await usersRes.json();
+
+        let count = 0;
+        for (const u of oktaUsers) {
+          try {
+            await muts.createEmployee.mutateAsync({
+              full_name:       `${u.profile.firstName} ${u.profile.lastName}`.trim(),
+              email:           u.profile.email,
+              department:      u.profile.department || 'general',
+              role:            u.profile.userType || 'Member',
+              status:          'active',
+              imported_from:   'okta',
+            });
+            count++;
+          } catch {}
+        }
+        setStatus({ type: 'success', msg: `Imported ${count} employees from Okta!` });
+      } catch (err) {
+        setStatus({ type: 'error', msg: `Okta sync failed: ${err.message}` });
+      } finally {
+        setSyncing(null);
+      }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const syncGoogle = async () => {
-    if (!firebaseUser) { setSyncStatus({ type: 'error', msg: 'Sign in with Google first.' }); return; }
-    const token = getToken(firebaseUser);
-    if (!token) { setSyncStatus({ type: 'error', msg: 'No Google access token. Please sign in with Google.' }); return; }
-    setSyncing(true); setActiveProvider('google');
-    setSyncStatus({ type: 'loading', msg: 'Importing from Google Workspace...' });
+    setSyncing('google');
+    setStatus({ type: 'loading', msg: 'Requesting Google Workspace access…' });
     try {
-      const res = await fetch('https://admin.googleapis.com/admin/directory/v1/users?domain=primary&maxResults=500', {
-        headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
-      });
-      if (!res.ok) throw new Error(`API ${res.status}: ${res.statusText}`);
-      const data = await res.json();
-      const users = (data.users || []).map(u => ({
-        full_name: u.name?.fullName || '', email: u.primaryEmail,
-        status: u.suspended ? 'offboarded' : 'active',
-        department: u.orgUnitPath?.split('/').pop() || 'general',
-        role: u.isAdmin ? 'Admin' : 'Member',
-        imported_from: 'google_workspace',
-      }));
+      const { accessToken, error } = await signInWithGoogleWorkspace();
+      if (error || !accessToken) throw new Error(error || 'Could not get Google access token');
+
+      setStatus({ type: 'loading', msg: 'Importing users from Google Workspace…' });
+      const res = await fetch(
+        'https://admin.googleapis.com/admin/directory/v1/users?customer=my_customer&maxResults=500&orderBy=email',
+        { headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' } }
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error?.message || `API error ${res.status} — make sure you are a Google Workspace admin`);
+      }
+      const data  = await res.json();
+      const users = data.users || [];
       let count = 0;
-      for (const u of users) { try { await muts.createEmployee.mutateAsync(u); count++; } catch {} }
-      setSyncStatus({ type: 'success', msg: `Imported ${count} users from Google Workspace!` });
-      setTimeout(() => window.location.reload(), 2000);
+      for (const u of users) {
+        try {
+          await muts.createEmployee.mutateAsync({
+            full_name:     u.name?.fullName || u.primaryEmail,
+            email:         u.primaryEmail,
+            status:        u.suspended ? 'offboarded' : 'active',
+            department:    u.orgUnitPath?.split('/').filter(Boolean).pop() || 'general',
+            role:          u.isAdmin ? 'Admin' : 'Member',
+            imported_from: 'google_workspace',
+          });
+          count++;
+        } catch {}
+      }
+      setStatus({ type: 'success', msg: `Imported ${count} employees from Google Workspace!` });
     } catch (err) {
-      setSyncStatus({ type: 'error', msg: `Sync failed: ${err.message}` });
-    } finally { setSyncing(false); }
+      setStatus({ type: 'error', msg: `Google sync failed: ${err.message}` });
+    } finally {
+      setSyncing(null);
+    }
   };
 
-  const syncMicrosoft = async () => {
-    setSyncing(true); setActiveProvider('microsoft');
-    setSyncStatus({ type: 'info', msg: 'Microsoft 365 SSO — connecting...' });
-    // Microsoft OAuth flow
-    const clientId = 'YOUR_AZURE_CLIENT_ID';
-    const redirectUri = encodeURIComponent(window.location.origin + '/auth/callback');
-    const scope = encodeURIComponent('https://graph.microsoft.com/User.Read.All https://graph.microsoft.com/Directory.Read.All');
-    const authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${clientId}&response_type=token&redirect_uri=${redirectUri}&scope=${scope}&response_mode=fragment`;
-    // For now show coming soon
-    setSyncStatus({ type: 'info', msg: 'Microsoft 365 integration coming soon. Contact us to join the beta.' });
-    setSyncing(false);
+  const connectOkta = async () => {
+    const domain = oktaDomain.trim().replace(/^https?:\/\//, '').replace(/\/$/, '');
+    if (!domain) return;
+
+    const arr      = new Uint8Array(32);
+    crypto.getRandomValues(arr);
+    const verifier = btoa(String.fromCharCode(...arr)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+    const hash     = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
+    const challenge = btoa(String.fromCharCode(...new Uint8Array(hash))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+
+    const stateArr = new Uint8Array(16);
+    crypto.getRandomValues(stateArr);
+    const state = btoa(String.fromCharCode(...stateArr)).replace(/[+/=]/g, '');
+
+    sessionStorage.setItem('okta_code_verifier', verifier);
+    sessionStorage.setItem('okta_state', state);
+    sessionStorage.setItem('okta_domain', domain);
+
+    const params = new URLSearchParams({
+      client_id:             OKTA_CLIENT_ID,
+      response_type:         'code',
+      scope:                 'openid profile email okta.users.read',
+      redirect_uri:          window.location.origin,
+      state,
+      code_challenge:        challenge,
+      code_challenge_method: 'S256',
+    });
+    window.location.href = `https://${domain}/oauth2/v1/authorize?${params}`;
   };
 
   const providers = [
     {
-      id: 'google',
-      name: 'Google Workspace',
-      desc: 'Import employees, departments & org structure',
-      icon: '🔵',
-      color: 'blue',
-      action: () => toast.success('Added to the Google Workspace waitlist. We\'ll email you when full sync is ready (target: Q1 2026).', { duration: 5000 }),
-      available: false,
-      badge: 'Q1 2026',
+      id:        'google',
+      name:      'Google Workspace',
+      desc:      'Import employees, departments & org structure',
+      available: true,
+      badge:     null,
+      logo: (
+        <svg viewBox="0 0 24 24" className="w-5 h-5">
+          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+        </svg>
+      ),
+      action: syncGoogle,
     },
     {
-      id: 'microsoft',
-      name: 'Microsoft 365',
-      desc: 'Sync from Azure AD / Entra ID',
-      icon: '🟦',
-      color: 'indigo',
-      action: () => toast.success('Added to the Microsoft 365 waitlist. We\'ll email you when it\'s ready (target: Q2 2026).', { duration: 5000 }),
+      id:        'microsoft',
+      name:      'Microsoft 365',
+      desc:      'Sync from Azure AD / Entra ID',
       available: false,
-      badge: 'Q2 2026',
+      badge:     'Q2 2026',
+      logo: (
+        <div className="w-5 h-5 grid grid-cols-2 gap-0.5">
+          <div className="bg-[#F25022] rounded-sm"/><div className="bg-[#7FBA00] rounded-sm"/>
+          <div className="bg-[#00A4EF] rounded-sm"/><div className="bg-[#FFB900] rounded-sm"/>
+        </div>
+      ),
+      action: () => toast('Microsoft 365 sync is coming in Q2 2026 — you\'ll be notified when it\'s ready.', { icon: '🔔', duration: 4000 }),
     },
     {
-      id: 'okta',
-      name: 'Okta',
-      desc: 'Import users from Okta directory',
-      icon: '⚫',
-      color: 'slate',
-      action: () => toast.success('Added to the Okta waitlist. We\'ll email you when it\'s ready (target: Q3 2026).', { duration: 5000 }),
-      available: false,
-      badge: 'Q3 2026',
+      id:        'okta',
+      name:      'Okta',
+      desc:      'Import users from Okta directory',
+      available: true,
+      badge:     null,
+      logo: (
+        <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center">
+          <span className="text-[9px] font-black text-white">OK</span>
+        </div>
+      ),
+      action: () => setOktaStep('domain'),
     },
   ];
 
@@ -4355,26 +4463,63 @@ function WorkspaceConnector() {
     <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 mb-6">
       <div className="flex items-center gap-3 mb-4">
         <div className="p-2 bg-blue-500/20 rounded-xl">
-          <svg className="h-5 w-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+          <svg className="h-5 w-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z"/>
+          </svg>
         </div>
         <div>
           <h3 className="text-base font-bold text-white">Directory Sync</h3>
           <p className="text-xs text-slate-400">Auto-import employees from your identity provider</p>
         </div>
       </div>
+
+      {oktaStep === 'domain' && (
+        <div className="mb-4 p-4 bg-slate-800 rounded-xl border border-slate-700">
+          <p className="text-sm font-semibold text-white mb-1">Connect Okta</p>
+          <p className="text-xs text-slate-400 mb-3">Enter your Okta organization domain. You'll be redirected to authorize Stacklens to read your directory.</p>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              placeholder="company.okta.com"
+              value={oktaDomain}
+              onChange={e => setOktaDomain(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && connectOkta()}
+              className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+            />
+            <button
+              onClick={connectOkta}
+              disabled={!oktaDomain.trim()}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition-colors"
+            >
+              Authorize →
+            </button>
+            <button onClick={() => { setOktaStep(null); setOktaDomain(''); }} className="px-3 py-2 text-slate-400 hover:text-white text-sm rounded-lg transition-colors">
+              Cancel
+            </button>
+          </div>
+          <p className="text-xs text-slate-500 mt-2">Stacklens only reads user directory data — no write access.</p>
+        </div>
+      )}
+
       <div className="space-y-2 mb-4">
         {providers.map(p => (
-          <button key={p.id}
+          <button
+            key={p.id}
             onClick={p.action}
-            disabled={syncing}
-            className={"group relative flex items-center gap-4 p-4 rounded-xl border transition-all text-left w-full " + (p.available ? "border-slate-700 hover:border-" + p.color + "-500/50 hover:bg-slate-800/60 cursor-pointer" : "border-slate-800 opacity-60 cursor-not-allowed")}
+            disabled={syncing !== null}
+            className={cx(
+              "group relative flex items-center gap-4 p-4 rounded-xl border transition-all text-left w-full",
+              p.available
+                ? "border-slate-700 hover:border-blue-500/40 hover:bg-slate-800/60 cursor-pointer"
+                : "border-slate-800 opacity-50 cursor-not-allowed"
+            )}
           >
-            {/* Provider icon — larger and more prominent */}
-            <div className={"flex-shrink-0 w-11 h-11 rounded-lg flex items-center justify-center text-xl " + (p.available ? "bg-" + p.color + "-500/15 border border-" + p.color + "-500/20" : "bg-slate-800 border border-slate-800")}>
-              {p.icon}
+            <div className={cx(
+              "flex-shrink-0 w-11 h-11 rounded-lg flex items-center justify-center",
+              p.available ? "bg-slate-700/60 border border-slate-600/40" : "bg-slate-800 border border-slate-800"
+            )}>
+              {p.logo}
             </div>
-
-            {/* Name + description — full width, no truncation needed */}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-0.5">
                 <span className="text-sm font-semibold text-white">{p.name}</span>
@@ -4382,25 +4527,37 @@ function WorkspaceConnector() {
               </div>
               <div className="text-xs text-slate-500">{p.desc}</div>
             </div>
-
-            {/* Right-side action indicator */}
             <div className="flex-shrink-0">
-              {syncing && activeProvider === p.id ? (
+              {syncing === p.id ? (
                 <div className="h-5 w-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
               ) : p.available ? (
-                <svg className="h-4 w-4 text-slate-500 group-hover:text-slate-300 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/></svg>
+                <svg className="h-4 w-4 text-slate-500 group-hover:text-blue-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/>
+                </svg>
               ) : (
-                <svg className="h-4 w-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/></svg>
+                <svg className="h-4 w-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
               )}
             </div>
           </button>
         ))}
       </div>
-      {syncStatus && (
-        <div className={"flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm " + (syncStatus.type === 'success' ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20' : syncStatus.type === 'error' ? 'bg-red-500/15 text-red-400 border border-red-500/20' : 'bg-blue-500/15 text-blue-400 border border-blue-500/20')}>
-          <span>{syncStatus.type === 'success' ? '✓' : syncStatus.type === 'error' ? '✗' : 'ℹ'}</span>
-          <span>{syncStatus.msg}</span>
-          <button onClick={() => setSyncStatus(null)} className="ml-auto text-slate-500 hover:text-slate-300">✕</button>
+
+      {status && (
+        <div className={cx(
+          "flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm",
+          status.type === 'success' ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20' :
+          status.type === 'error'   ? 'bg-red-500/15 text-red-400 border border-red-500/20' :
+                                      'bg-blue-500/15 text-blue-400 border border-blue-500/20'
+        )}>
+          {status.type === 'loading' && <div className="h-3.5 w-3.5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin flex-shrink-0" />}
+          {status.type === 'success' && <span>✓</span>}
+          {status.type === 'error'   && <span>✗</span>}
+          <span className="flex-1">{status.msg}</span>
+          {status.type !== 'loading' && (
+            <button onClick={() => setStatus(null)} className="ml-auto text-slate-500 hover:text-slate-300 flex-shrink-0">✕</button>
+          )}
         </div>
       )}
     </div>
