@@ -4018,16 +4018,16 @@ function TrialPage() {
       </footer>
 
       {/* ══════════════════════════════════════════════════════
-           UNIFIED AUTH MODAL — Create Account / Sign In / SSO
+           UNIFIED AUTH MODAL — SSO-first redesign
           ══════════════════════════════════════════════════════ */}
       {showAuth && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{background:'rgba(2,6,23,0.85)', backdropFilter:'blur(12px)'}}>
+          style={{background:'rgba(2,6,23,0.88)', backdropFilter:'blur(14px)'}}>
           <div className="relative w-full max-w-md bg-slate-900 border border-slate-700/60 rounded-3xl shadow-2xl overflow-hidden"
-            style={{boxShadow:'0 0 80px rgba(59,130,246,0.15)'}}>
+            style={{boxShadow:'0 0 100px rgba(59,130,246,0.18)'}}>
 
             {/* Subtle top glow bar */}
-            <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-blue-500/60 to-transparent" />
+            <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-blue-500/70 to-transparent" />
 
             {/* Close button */}
             <button onClick={() => { setShowAuth(false); setAuthError(''); setMagicSent(false); }}
@@ -4035,10 +4035,10 @@ function TrialPage() {
               ✕
             </button>
 
-            {/* Header */}
-            <div className="px-4 md:px-8 pt-8 pb-0">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg">
+            <div className="px-6 md:px-8 pt-8 pb-8">
+              {/* Header */}
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg flex-shrink-0">
                   <Shield className="w-5 h-5 text-white" />
                 </div>
                 <div>
@@ -4050,36 +4050,90 @@ function TrialPage() {
               {/* Tab switcher */}
               <div className="flex gap-1 p-1 bg-slate-800/80 rounded-2xl border border-slate-700/50 mb-6">
                 {[
-                  { id: 'signin',  label: 'Sign In' },
-                  { id: 'create',  label: 'Create Account' },
+                  { id: 'signin', label: 'Sign In' },
+                  { id: 'create', label: 'Create Account' },
                 ].map(tab => (
                   <button key={tab.id} onClick={() => { setAuthTab(tab.id); setAuthError(''); setMagicSent(false); }}
                     className={"flex-1 py-2 rounded-xl text-sm font-semibold transition-all duration-200 " +
-                      (authTab === tab.id
-                        ? "bg-blue-600 text-white shadow-md"
-                        : "text-slate-400 hover:text-slate-200")}>
+                      (authTab === tab.id ? "bg-blue-600 text-white shadow-md" : "text-slate-400 hover:text-slate-200")}>
                     {tab.label}
                   </button>
                 ))}
               </div>
-            </div>
 
-            {/* Tab content */}
-            <div className="px-4 md:px-8 pb-8">
+              {magicSent ? (
+                /* ── Magic link sent state (shared between both tabs) ── */
+                <div className="text-center py-6 space-y-4">
+                  <div className="w-16 h-16 mx-auto rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
+                    <Mail className="w-8 h-8 text-blue-400" />
+                  </div>
+                  <div>
+                    <div className="text-white font-bold text-lg mb-1">{t("hc_check_your_inbox")}</div>
+                    <div className="text-slate-400 text-sm">{t("hc_we_sent_a_magic_link_to")}</div>
+                    <div className="text-blue-400 font-semibold text-sm mt-1">{authEmail}</div>
+                  </div>
+                  <div className="text-slate-500 text-xs">Click the link in the email to sign in instantly — no password needed.</div>
+                  <button onClick={() => setMagicSent(false)} className="text-sm text-slate-400 hover:text-white transition-colors underline underline-offset-2">
+                    ← Use a different method
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {authError && <div className="text-rose-400 text-xs px-1 pb-1">{authError}</div>}
 
-              {/* ── SIGN IN TAB ── */}
-              {authTab === 'signin' && (
-                <div className="space-y-4">
-                  {!magicSent ? (
+                  {/* ── SSO buttons — always visible at the top ── */}
+                  <button onClick={() => handleSSOClick({ id: 'google', live: true })}
+                    disabled={loading}
+                    className="w-full py-3.5 bg-white hover:bg-slate-100 disabled:opacity-50 rounded-2xl text-slate-900 font-bold text-sm transition-all flex items-center justify-center gap-3 shadow-sm">
+                    <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+                    Continue with Google
+                  </button>
+
+                  <button onClick={async () => {
+                      setLoading(true); setAuthError('');
+                      const { user, error } = await signInWithMicrosoft();
+                      if (error) {
+                        const msg = error.includes('auth/popup-blocked') ? 'Pop-up blocked — please allow pop-ups for this site.'
+                          : error.includes('auth/account-exists') ? 'An account already exists with this email. Try Google sign-in.'
+                          : 'Microsoft sign-in failed. Try Google or use email below.';
+                        setAuthError(msg); setLoading(false); return;
+                      }
+                      if (user) {
+                        const cur = seedDbIfEmpty();
+                        cur.user = { ...cur.user, is_authenticated: true, is_demo: false, email: user.email, displayName: user.displayName || user.email?.split('@')[0], uid: user.uid };
+                        saveDb(cur);
+                        const done = localStorage.getItem('sg_onboarded_' + user.uid) === 'true';
+                        window.location.replace(done ? '/dashboard' : '/onboarding');
+                      }
+                      setLoading(false);
+                    }}
+                    disabled={loading}
+                    className="w-full py-3.5 bg-[#2F2F2F] hover:bg-[#3D3D3D] disabled:opacity-50 border border-slate-700/50 rounded-2xl text-white font-bold text-sm transition-all flex items-center justify-center gap-3">
+                    <div className="w-5 h-5 grid grid-cols-2 gap-[3px] flex-shrink-0">
+                      <div className="bg-[#F25022] rounded-[2px]"/><div className="bg-[#7FBA00] rounded-[2px]"/>
+                      <div className="bg-[#00A4EF] rounded-[2px]"/><div className="bg-[#FFB900] rounded-[2px]"/>
+                    </div>
+                    Continue with Microsoft 365
+                  </button>
+
+                  {/* Divider */}
+                  <div className="flex items-center gap-3 py-1">
+                    <div className="flex-1 h-px bg-slate-700/80" />
+                    <span className="text-xs text-slate-500 font-medium">or with email</span>
+                    <div className="flex-1 h-px bg-slate-700/80" />
+                  </div>
+
+                  {/* ── SIGN IN — email fields ── */}
+                  {authTab === 'signin' && (
                     <>
                       <div>
-                        <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">{t("hc_work_email")}</label>
+                        <label className="block text-[11px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">{t("hc_work_email")}</label>
                         <input type="email" value={authEmail} onChange={e => setAuthEmail(e.target.value)}
                           placeholder="you@company.com"
                           className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" />
                       </div>
                       <div>
-                        <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">Password</label>
+                        <label className="block text-[11px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">Password</label>
                         <div className="relative">
                           <input type={showPassword ? 'text' : 'password'} value={authPassword} onChange={e => setAuthPassword(e.target.value)}
                             placeholder="••••••••"
@@ -4090,10 +4144,8 @@ function TrialPage() {
                           </button>
                         </div>
                       </div>
-                      {authError && <div className="text-rose-400 text-xs px-1">{authError}</div>}
                       <button onClick={async () => {
                           setLoading(true); setAuthError('');
-                          // Email/password sign-in via Google (same account) or magic link fallback
                           if (!authEmail) { setAuthError('Enter your email.'); setLoading(false); return; }
                           if (!authPassword) { setAuthError('Enter your password.'); setLoading(false); return; }
                           const { user, error } = await signInWithEmail(authEmail, authPassword);
@@ -4112,125 +4164,51 @@ function TrialPage() {
                         }}
                         disabled={loading || !authEmail || !authPassword}
                         className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl text-white font-bold text-sm transition-all shadow-lg shadow-blue-500/20">
-                        {loading ? 'Signing in…' : 'Sign In'}
+                        {loading ? 'Signing in…' : 'Sign In with Email'}
                       </button>
-                      <button onClick={async()=>{if(!authEmail){setAuthError('Enter email first.');return;}const{error}=await resetPassword(authEmail);if(!error)toast.success(t('password_reset_sent'));else setAuthError(error);}} className="w-full text-xs text-slate-500 hover:text-slate-300 transition-colors mt-1 text-center block">{t('forgot_password')}</button>
-
-                      {/* Divider */}
-                      <div className="flex items-center gap-3 my-1">
-                        <div className="flex-1 h-px bg-slate-700" />
-                        <span className="text-xs text-slate-500">or</span>
-                        <div className="flex-1 h-px bg-slate-700" />
+                      <div className="flex items-center justify-between gap-4">
+                        <button onClick={async () => {
+                            if (!authEmail) { setAuthError('Enter your email above first.'); return; }
+                            setLoading(true); setAuthError('');
+                            const { error } = await sendMagicLink(authEmail);
+                            if (!error) { setMagicSent(true); }
+                            else { setAuthError('Could not send link: ' + error); }
+                            setLoading(false);
+                          }}
+                          disabled={loading}
+                          className="text-xs text-slate-500 hover:text-blue-400 transition-colors flex items-center gap-1.5">
+                          <Mail className="w-3.5 h-3.5" />
+                          Send magic link
+                        </button>
+                        <button onClick={async () => { if (!authEmail) { setAuthError('Enter email first.'); return; } const { error } = await resetPassword(authEmail); if (!error) toast.success(t('password_reset_sent')); else setAuthError(error); }}
+                          className="text-xs text-slate-500 hover:text-slate-300 transition-colors">
+                          {t('forgot_password')}
+                        </button>
                       </div>
-
-                      {/* Magic link */}
-                      <button onClick={async () => {
-                          if (!authEmail) { setAuthError('Enter your email above first.'); return; }
-                          setLoading(true); setAuthError('');
-                          const { error } = await sendMagicLink(authEmail);
-                          if (!error) { setMagicSent(true); }
-                          else { setAuthError('Could not send link: ' + error); }
-                          setLoading(false);
-                        }}
-                        disabled={loading}
-                        className="w-full py-3 bg-slate-800 hover:bg-slate-700 border border-slate-600 hover:border-blue-500/50 rounded-xl text-slate-300 hover:text-white font-semibold text-sm transition-all flex items-center justify-center gap-2">
-                        <Mail className="w-4 h-4" />
-                        Send Magic Link to this Email
-                      </button>
-
-                      {/* Google */}
-                      <button onClick={() => handleSSOClick({ id: 'google', live: true })}
-                        disabled={loading}
-                        className="w-full py-3 bg-white hover:bg-slate-100 rounded-xl text-slate-900 font-bold text-sm transition-all flex items-center justify-center gap-3 shadow-sm">
-                        <svg className="w-4 h-4" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-                        Continue with Google
-                      </button>
-                      <button onClick={async () => {
-                          setLoading(true); setAuthError('');
-                          const { user, error } = await signInWithMicrosoft();
-                          if (error) {
-                            const msg = error.includes('auth/popup-blocked') ? 'Pop-up blocked. Allow pop-ups for this site.'
-                              : error.includes('auth/account-exists') ? 'An account already exists with this email. Try Google sign-in.'
-                              : 'Microsoft sign-in failed. Try Google or email instead.';
-                            setAuthError(msg); setLoading(false); return;
-                          }
-                          if (user) {
-                            const cur = seedDbIfEmpty();
-                            cur.user = { ...cur.user, is_authenticated: true, is_demo: false, email: user.email, displayName: user.displayName || user.email?.split('@')[0], uid: user.uid };
-                            saveDb(cur);
-                            const done = localStorage.getItem('sg_onboarded_' + user.uid) === 'true';
-                            window.location.replace(done ? '/dashboard' : '/onboarding');
-                          }
-                          setLoading(false);
-                        }}
-                        disabled={loading}
-                        className="w-full py-3 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-xl text-white font-bold text-sm transition-all flex items-center justify-center gap-3">
-                        <div className="w-4 h-4 grid grid-cols-2 gap-0.5 flex-shrink-0">
-                          <div className="bg-[#F25022] rounded-sm"/><div className="bg-[#7FBA00] rounded-sm"/>
-                          <div className="bg-[#00A4EF] rounded-sm"/><div className="bg-[#FFB900] rounded-sm"/>
-                        </div>
-                        Continue with Microsoft 365
-                      </button>
                     </>
-                  ) : (
-                    /* Magic link sent state */
-                    <div className="text-center py-6 space-y-4">
-                      <div className="w-16 h-16 mx-auto rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
-                        <Mail className="w-8 h-8 text-blue-400" />
-                      </div>
-                      <div>
-                        <div className="text-white font-bold text-lg mb-1">{t("hc_check_your_inbox")}</div>
-                        <div className="text-slate-400 text-sm">{t("hc_we_sent_a_magic_link_to")}</div>
-                        <div className="text-blue-400 font-semibold text-sm mt-1">{authEmail}</div>
-                      </div>
-                      <div className="text-slate-500 text-xs">Click the link in the email to sign in instantly — no password needed.</div>
-                      <button onClick={() => setMagicSent(false)} className="text-sm text-slate-400 hover:text-white transition-colors underline underline-offset-2">
-                        ← Use a different email
-                      </button>
-                    </div>
                   )}
-                </div>
-              )}
 
-              {/* ── CREATE ACCOUNT TAB ── */}
-              {authTab === 'create' && (
-                <div className="space-y-4">
-                  {!magicSent ? (
+                  {/* ── CREATE ACCOUNT — email fields ── */}
+                  {authTab === 'create' && (
                     <>
                       <div>
-                        <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">{t("hc_full_name")}</label>
+                        <label className="block text-[11px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">{t("hc_full_name")}</label>
                         <input type="text" value={authName} onChange={e => setAuthName(e.target.value)}
                           placeholder="Jane Smith"
                           className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" />
                       </div>
                       <div>
-                        <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">{t("hc_work_email")}</label>
+                        <label className="block text-[11px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">{t("hc_work_email")}</label>
                         <input type="email" value={authEmail} onChange={e => setAuthEmail(e.target.value)}
                           placeholder="you@company.com"
                           className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" />
                       </div>
-
-                      {authError && <div className="text-rose-400 text-xs px-1">{authError}</div>}
-
-                      {/* Password field for registration */}
                       <div>
-                        <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">Password</label>
+                        <label className="block text-[11px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">Password</label>
                         <input type="password" value={authPassword} onChange={e => setAuthPassword(e.target.value)}
                           placeholder="Min. 8 characters"
                           className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" />
                       </div>
-                      {/* Terms acceptance — required at signup, proof of consent (LCEN + RGPD) */}
-                      <label className="flex items-start gap-2 cursor-pointer group mt-1">
-                        <input type="checkbox" id="signup-terms"
-                          className="mt-0.5 w-4 h-4 rounded border-slate-600 bg-slate-800 text-blue-500 flex-shrink-0"
-                          onChange={e => { const btn = document.getElementById('signup-btn'); if (btn) btn.disabled = !e.target.checked; }} />
-                        <span className="text-xs text-slate-400 leading-relaxed">
-                          {language === 'fr'
-                            ? <>{`J'accepte les `}<Link to="/terms" target="_blank" className="text-blue-400 hover:text-blue-300 underline">{`CGU`}</Link>{` et la `}<Link to="/privacy" target="_blank" className="text-blue-400 hover:text-blue-300 underline">{`Politique de confidentialité`}</Link></>
-                            : <>{'I agree to the '}<Link to="/terms" target="_blank" className="text-blue-400 hover:text-blue-300 underline">{'Terms of Service'}</Link>{' and '}<Link to="/privacy" target="_blank" className="text-blue-400 hover:text-blue-300 underline">{'Privacy Policy'}</Link></>
-                          }
-                        </span>
-                      </label>
                       <button id="signup-btn" onClick={async () => {
                           if (!authName) { setAuthError('Please enter your name.'); return; }
                           if (!authEmail) { setAuthError('Please enter your email.'); return; }
@@ -4251,78 +4229,30 @@ function TrialPage() {
                           setLoading(false);
                         }}
                         disabled={loading || !authEmail || !authName || !authPassword}
-                        className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl text-white font-bold text-sm transition-all shadow-lg flex items-center justify-center gap-2">
-                        {loading ? 'Creating account…' : 'Create Account'}
+                        className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl text-white font-bold text-sm transition-all shadow-lg">
+                        {loading ? 'Creating account…' : 'Create Account with Email'}
                       </button>
-
-                      <div className="flex items-center gap-3 my-1">
-                        <div className="flex-1 h-px bg-slate-700" />
-                        <span className="text-xs text-slate-500">or sign up with</span>
-                        <div className="flex-1 h-px bg-slate-700" />
-                      </div>
-
-                      <button onClick={() => handleSSOClick({ id: 'google', live: true })}
-                        disabled={loading}
-                        className="w-full py-3 bg-white hover:bg-slate-100 rounded-xl text-slate-900 font-bold text-sm transition-all flex items-center justify-center gap-3 shadow-sm">
-                        <svg className="w-4 h-4" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-                        Sign Up with Google
-                      </button>
-                      <button onClick={async () => {
-                          setLoading(true); setAuthError('');
-                          const { user, error } = await signInWithMicrosoft();
-                          if (error) { setAuthError('Microsoft sign-in failed. Try Google or email.'); setLoading(false); return; }
-                          if (user) {
-                            const cur = seedDbIfEmpty();
-                            cur.user = { ...cur.user, is_authenticated: true, is_demo: false, email: user.email, displayName: user.displayName || user.email?.split('@')[0], uid: user.uid };
-                            saveDb(cur);
-                            window.location.replace('/onboarding');
-                          }
-                          setLoading(false);
-                        }}
-                        disabled={loading}
-                        className="w-full py-3 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-xl text-white font-bold text-sm transition-all flex items-center justify-center gap-3">
-                        <div className="w-4 h-4 grid grid-cols-2 gap-0.5 flex-shrink-0">
-                          <div className="bg-[#F25022] rounded-sm"/><div className="bg-[#7FBA00] rounded-sm"/>
-                          <div className="bg-[#00A4EF] rounded-sm"/><div className="bg-[#FFB900] rounded-sm"/>
-                        </div>
-                        Sign Up with Microsoft 365
-                      </button>
-
-                      <p className="text-center text-[11px] text-slate-600 leading-relaxed">
-                        By creating an account you agree to our{' '}
+                      <p className="text-center text-[11px] text-slate-600 leading-relaxed pt-1">
+                        By continuing you agree to our{' '}
                         <Link to="/terms" className="text-slate-400 hover:text-white underline" onClick={() => setShowAuth(false)}>Terms</Link>
                         {' '}and{' '}
                         <Link to="/privacy" className="text-slate-400 hover:text-white underline" onClick={() => setShowAuth(false)}>{t("hc_privacy_policy")}</Link>
                       </p>
                     </>
-                  ) : (
-                    <div className="text-center py-6 space-y-4">
-                      <div className="w-16 h-16 mx-auto rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
-                        <Mail className="w-8 h-8 text-emerald-400" />
-                      </div>
-                      <div>
-                        <div className="text-white font-bold text-lg mb-1">Almost there, {authName.split(' ')[0]}!</div>
-                        <div className="text-slate-400 text-sm">{t("hc_your_activation_link_is_on_its_way_")}</div>
-                        <div className="text-emerald-400 font-semibold text-sm mt-1">{authEmail}</div>
-                      </div>
-                      <div className="text-slate-500 text-xs px-4">{t('click_link_activate')}</div>
-                      <button onClick={() => { setMagicSent(false); setAuthName(''); setAuthEmail(''); }} className="text-sm text-slate-400 hover:text-white transition-colors underline underline-offset-2">
-                        ← Start over
-                      </button>
-                    </div>
                   )}
                 </div>
               )}
 
-              {/* ── Demo + divider ── */}
-              <div className="mt-6 pt-5 border-t border-slate-800">
-                <button onClick={() => { setShowAuth(false); startDemo(); navigate('/dashboard'); }}
-                  className="w-full py-2.5 rounded-xl border border-emerald-600/30 bg-emerald-600/5 hover:bg-emerald-600/10 text-emerald-400 hover:text-emerald-300 text-sm font-semibold transition-all flex items-center justify-center gap-2">
-                  <Play className="w-3.5 h-3.5" />
-                  Try Live Demo — No Account Needed
-                </button>
-              </div>
-
+              {/* ── Demo link ── */}
+              {!magicSent && (
+                <div className="mt-5 pt-5 border-t border-slate-800">
+                  <button onClick={() => { setShowAuth(false); startDemo(); navigate('/dashboard'); }}
+                    className="w-full py-2.5 rounded-xl border border-emerald-600/30 bg-emerald-600/5 hover:bg-emerald-600/10 text-emerald-400 hover:text-emerald-300 text-sm font-semibold transition-all flex items-center justify-center gap-2">
+                    <Play className="w-3.5 h-3.5" />
+                    Try Live Demo — No Account Needed
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
