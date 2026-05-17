@@ -17,6 +17,7 @@ import {
   signInWithRedirect,
   getRedirectResult,
   GoogleAuthProvider,
+  OAuthProvider,
   signOut,
   onAuthStateChanged,
   sendSignInLinkToEmail,
@@ -426,6 +427,17 @@ export async function founderSetPlan(targetUid, plan) {
   } catch (err) {
     console.error('founderSetPlan:', err);
     throw err;
+  }
+}
+
+export async function signInWithMicrosoft() {
+  try {
+    const provider = new OAuthProvider('microsoft.com');
+    provider.setCustomParameters({ prompt: 'select_account', tenant: 'common' });
+    const result = await signInWithPopup(auth, provider);
+    return { user: result.user, error: null };
+  } catch (error) {
+    return { user: null, error: error.message };
   }
 }
 

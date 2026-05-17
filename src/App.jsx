@@ -8,7 +8,7 @@ import {
   useLocation,
   useNavigate,
 } from "react-router-dom";
-import { signInWithGoogle, signInWithGoogleWorkspace, handleRedirectResult, signOutUser, onAuthChange, sendMagicLink, completeMagicLinkSignIn, callAI, loadUserData, saveUserData, syncUserProfile, getUserPlanFromFirestore, registerWithEmail, signInWithEmail, resetPassword, createBillingPortal, createCheckoutSession, logConsent, startTrial, logLegalAcceptance, loadAllUsersAdmin, founderExtendTrial, founderSetPlan } from './firebase-config';
+import { signInWithGoogle, signInWithGoogleWorkspace, handleRedirectResult, signOutUser, onAuthChange, sendMagicLink, completeMagicLinkSignIn, callAI, loadUserData, saveUserData, syncUserProfile, getUserPlanFromFirestore, registerWithEmail, signInWithEmail, resetPassword, createBillingPortal, createCheckoutSession, logConsent, startTrial, logLegalAcceptance, loadAllUsersAdmin, founderExtendTrial, founderSetPlan, signInWithMicrosoft } from './firebase-config';
 
 // ── Compatibility stubs (migrated to Firestore) ──────────────
 async function getUserProfile(uid) {
@@ -1972,7 +1972,8 @@ function useAuth() {
           localStorage.setItem('accessguard_v1', JSON.stringify(db2));
         }
       } catch(e) {}
-      window.location.replace('/dashboard');
+      const done = localStorage.getItem('sg_onboarded_' + googleUser.uid) === 'true';
+      window.location.replace(done ? '/dashboard' : '/onboarding');
     }
     return googleUser;
   };
@@ -3112,233 +3113,341 @@ function OnboardingPage() {
   const navigate = useNavigate();
   const { user, firebaseUser } = useAuth();
   const { language } = useLang();
-  const t = useTranslation(language);
+  const qc = useQueryClient();
+  const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
-    workEmail: firebaseUser?.email || '',
-    fullName: firebaseUser?.displayName || '',
     companyName: '',
     jobTitle: '',
     companySize: '',
-    numTools: 50
   });
+  const [teamEmails, setTeamEmails] = useState(['']);
+  const [directoryChoice, setDirectoryChoice] = useState(null); // null | 'google' | 'microsoft' | 'okta'
+  const [dirSyncDone, setDirSyncDone] = useState(false);
+  const [tourSlide, setTourSlide] = useState(0);
+
+  const firstName = firebaseUser?.displayName?.split(' ')[0] || user?.email?.split('@')[0] || 'there';
 
   // If no user, redirect to home
   useEffect(() => {
-    if (!firebaseUser) {
-      navigate('/', { replace: true });
-    }
+    if (!firebaseUser) { navigate('/', { replace: true }); return; }
+    const key = 'sg_onboarded_' + firebaseUser.uid;
+    if (localStorage.getItem(key) === 'true') { navigate('/dashboard', { replace: true }); }
   }, [firebaseUser, navigate]);
 
-  // Check if user already completed onboarding (localStorage is instant, no Firestore race)
-  useEffect(() => {
-    if (firebaseUser) {
-      const onboardingKey = 'sg_onboarded_' + firebaseUser.uid;
-      if (localStorage.getItem(onboardingKey) === 'true') {
-        navigate('/dashboard', { replace: true });
-        return;
-      }
-      // Fallback: also check Firestore in case they signed in on another device
-      getUserProfile(firebaseUser.uid).then(({ user: userData }) => {
-        if (userData?.onboardingCompleted) {
-          localStorage.setItem(onboardingKey, 'true');
-          navigate('/dashboard', { replace: true });
-        }
-      });
-    }
-  }, [firebaseUser, navigate]);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const completeOnboardingAndGo = async (goToImport = false) => {
     setLoading(true);
-
     try {
-      // Save onboarding data to Firestore
-      const { success, error } = await completeOnboarding(firebaseUser.uid, {
-        ...formData,
-        onboardingCompleted: true,
-        onboardingDate: new Date().toISOString()
-      });
-
-      if (success) {
-        // Mark onboarding done in localStorage so redirect handler works instantly next time
+      if (firebaseUser) {
+        await completeOnboarding(firebaseUser.uid, {
+          ...formData,
+          onboardingCompleted: true,
+          onboardingDate: new Date().toISOString(),
+          pendingTeamInvites: teamEmails.filter(e => e.trim()),
+        });
         localStorage.setItem('sg_onboarded_' + firebaseUser.uid, 'true');
-        navigate('/dashboard', { replace: true });
-      } else {
-        // Firestore save failed — still let them in, flag locally
-        localStorage.setItem('sg_onboarded_' + firebaseUser.uid, 'true');
-        navigate('/dashboard', { replace: true });
       }
-    } catch (error) {
-      console.error('Onboarding error:', error);
-      toast.error('Something went wrong. Please try again.');
-    } finally {
-      setLoading(false);
-    }
+    } catch(e) {
+      if (firebaseUser) localStorage.setItem('sg_onboarded_' + firebaseUser.uid, 'true');
+    } finally { setLoading(false); }
+    navigate(goToImport ? '/import' : '/dashboard', { replace: true });
   };
 
+  const TOTAL_STEPS = 5; // 0=welcome, 1=profile, 2=team, 3=directory, 4=tour
+
+  const tourSlides = [
+    {
+      icon: '📊',
+      title: 'Your SaaS Dashboard',
+      desc: 'See all your tools, costs, and usage in one place. Spot redundancies and unused licenses instantly.',
+    },
+    {
+      icon: '👥',
+      title: 'People & Access',
+      desc: 'Track which employees have access to which tools. Offboard leavers in seconds — no more orphaned accounts.',
+    },
+    {
+      icon: '💶',
+      title: 'Finance & Renewals',
+      desc: 'Never miss a renewal. Get alerts 30 days before contracts expire and track your full SaaS spend.',
+    },
+  ];
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-4 md:p-6">
-      <div className="w-full max-w-2xl">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-3 mb-6">
-            <RDLogo size="lg" onClick={() => window.location.href = "/dashboard"} />
-            <div className="text-xl md:text-3xl font-black bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
-              Stacklens
-            </div>
-          </div>
-          <h1 className="text-2xl md:text-4xl font-black text-white mb-3">{t('tell_us_about_yourself')}</h1>
-          <p className="text-xl text-slate-400">{t('personalize_experience')}</p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-4">
+      <div className="w-full max-w-lg">
+        {/* Logo */}
+        <div className="flex items-center justify-center gap-3 mb-8">
+          <RDLogo size="md" />
+          <div className="text-xl font-black bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">Stacklens</div>
         </div>
 
-        {/* Onboarding Form */}
-        <div className="rounded-3xl border border-white/10 bg-slate-900/60 backdrop-blur-xl p-8 md:p-12">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Work Email */}
-            <div>
-              <label className="block text-sm font-semibold text-slate-300 mb-3">
-                Work Email
-              </label>
-              <input
-                type="email"
-                value={formData.workEmail}
-                onChange={(e) => setFormData({ ...formData, workEmail: e.target.value })}
-                className="w-full px-6 py-4 bg-slate-950 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-lg focus:border-blue-500 focus:outline-none transition-colors"
-                placeholder="you@company.com"
-                required
-                disabled
-              />
-            </div>
+        {/* Progress bar */}
+        <div className="flex gap-1 mb-8">
+          {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
+            <div key={i} className={"flex-1 h-1 rounded-full transition-all duration-300 " + (i <= step ? 'bg-emerald-500' : 'bg-slate-700')} />
+          ))}
+        </div>
 
-            {/* Full Name */}
-            <div>
-              <label className="block text-sm font-semibold text-slate-300 mb-3">
-                Full Name
-              </label>
-              <input
-                type="text"
-                value={formData.fullName}
-                onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                className="w-full px-6 py-4 bg-slate-950 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-lg focus:border-blue-500 focus:outline-none transition-colors"
-                placeholder="John Doe"
-                required
-              />
-            </div>
+        <div className="rounded-3xl border border-white/10 bg-slate-900/60 backdrop-blur-xl p-8">
 
-            {/* Company Name */}
-            <div>
-              <label className="block text-sm font-semibold text-slate-300 mb-3">
-                Company Name
-              </label>
-              <input
-                type="text"
-                value={formData.companyName}
-                onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
-                className="w-full px-6 py-4 bg-slate-950 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-lg focus:border-blue-500 focus:outline-none transition-colors"
-                placeholder="Acme Corporation"
-                required
-              />
+          {/* STEP 0 — Welcome */}
+          {step === 0 && (
+            <div className="text-center space-y-6">
+              <div className="text-5xl">👋</div>
+              <div>
+                <h1 className="text-3xl font-black text-white mb-2">Welcome, {firstName}!</h1>
+                <p className="text-slate-400 text-sm leading-relaxed">
+                  Stacklens helps you track your SaaS tools, manage team access, and cut wasted spend.<br/>
+                  This takes about 2 minutes to set up.
+                </p>
+              </div>
+              <button onClick={() => setStep(1)}
+                className="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded-2xl transition-all shadow-lg shadow-emerald-500/20">
+                Let's get started →
+              </button>
+              <button onClick={() => completeOnboardingAndGo(false)} className="text-sm text-slate-500 hover:text-slate-300 transition-colors">
+                Skip setup, go to dashboard
+              </button>
             </div>
+          )}
 
-            {/* Job Title */}
-            <div>
-              <label className="block text-sm font-semibold text-slate-300 mb-3">
-                Job Title
-              </label>
-              <select
-                value={formData.jobTitle}
-                onChange={(e) => setFormData({ ...formData, jobTitle: e.target.value })}
-                className="w-full px-6 py-4 bg-slate-950 border border-slate-700 rounded-xl text-white text-lg focus:border-blue-500 focus:outline-none transition-colors"
-                required
-              >
-                <option value="">{t('select_role')}</option>
-                <option value="CTO">CTO</option>
-                <option value="VP of IT">{t("hc_vp_of_it")}</option>
-                <option value="IT Manager">{t("hc_it_manager")}</option>
-                <option value="IT Director">{t("hc_it_director")}</option>
-                <option value="CEO">CEO</option>
-                <option value="CFO">CFO</option>
-                <option value="Operations Manager">{t("hc_operations_manager")}</option>
-                <option value="Security Manager">{t("hc_security_manager")}</option>
-                <option value="Other">Other</option>
-              </select>
+          {/* STEP 1 — Profile */}
+          {step === 1 && (
+            <div className="space-y-5">
+              <div>
+                <h2 className="text-xl font-black text-white mb-1">About your company</h2>
+                <p className="text-slate-500 text-sm">Helps us personalise your experience</p>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">Company name</label>
+                <input value={formData.companyName} onChange={e => setFormData(p => ({ ...p, companyName: e.target.value }))}
+                  placeholder="Acme Corp"
+                  className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:border-emerald-500 transition-colors" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">Your role</label>
+                <select value={formData.jobTitle} onChange={e => setFormData(p => ({ ...p, jobTitle: e.target.value }))}
+                  className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:border-emerald-500 transition-colors">
+                  <option value="">Select your role</option>
+                  {['CTO','VP of IT','IT Manager','IT Director','CEO','CFO','Operations Manager','Security Manager','Other'].map(r => (
+                    <option key={r} value={r}>{r}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">Company size</label>
+                <select value={formData.companySize} onChange={e => setFormData(p => ({ ...p, companySize: e.target.value }))}
+                  className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:border-emerald-500 transition-colors">
+                  <option value="">Select size</option>
+                  {['1-50','51-200','201-500','501-1000','1000+'].map(s => (
+                    <option key={s} value={s}>{s} employees</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button onClick={() => setStep(0)} className="px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-semibold rounded-xl transition-colors">
+                  ← Back
+                </button>
+                <button onClick={() => setStep(2)}
+                  className="flex-1 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded-xl transition-all">
+                  Continue →
+                </button>
+              </div>
+              <button onClick={() => setStep(2)} className="w-full text-center text-sm text-slate-500 hover:text-slate-300 transition-colors">
+                Skip this step
+              </button>
             </div>
+          )}
 
-            {/* Company Size */}
-            <div>
-              <label className="block text-sm font-semibold text-slate-300 mb-3">
-                Company Size
-              </label>
-              <select
-                value={formData.companySize}
-                onChange={(e) => setFormData({ ...formData, companySize: e.target.value })}
-                className="w-full px-6 py-4 bg-slate-950 border border-slate-700 rounded-xl text-white text-lg focus:border-blue-500 focus:outline-none transition-colors"
-                required
-              >
-                <option value="">{t('select_company_size')}</option>
-                <option value="1-50">1-50 employees</option>
-                <option value="51-200">51-200 employees</option>
-                <option value="201-500">201-500 employees</option>
-                <option value="501-1000">501-1,000 employees</option>
-                <option value="1000+">1,000+ employees</option>
-              </select>
+          {/* STEP 2 — Team members */}
+          {step === 2 && (
+            <div className="space-y-6">
+              <div>
+                <div className="text-4xl mb-3">👥</div>
+                <h2 className="text-xl font-black text-white mb-1">Invite team members?</h2>
+                <p className="text-slate-400 text-sm">Add colleagues who will manage SaaS tools alongside you.</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <button onClick={() => setStep('2-yes')}
+                  className="py-4 rounded-2xl border-2 border-emerald-500/50 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 font-bold text-sm transition-all">
+                  ✅ Yes, invite team
+                </button>
+                <button onClick={() => setStep(3)}
+                  className="py-4 rounded-2xl border border-slate-700 bg-slate-800/60 hover:bg-slate-800 text-slate-400 font-semibold text-sm transition-all">
+                  Skip for now
+                </button>
+              </div>
+              <button onClick={() => setStep(1)} className="text-sm text-slate-500 hover:text-slate-300 transition-colors">
+                ← Back
+              </button>
             </div>
+          )}
 
-            {/* Number of SaaS Tools */}
-            <div>
-              <label className="block text-sm font-semibold text-slate-300 mb-3">
-                Estimated Number of SaaS Tools
-              </label>
-              <input
-                type="range"
-                min="5"
-                max="200"
-                value={formData.numTools}
-                onChange={(e) => setFormData({ ...formData, numTools: parseInt(e.target.value) })}
-                className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
-              />
-              <div className="mt-3 text-center text-2xl font-bold text-white">{formData.numTools} tools</div>
+          {/* STEP 2-yes — Email invite form */}
+          {step === '2-yes' && (
+            <div className="space-y-5">
+              <div>
+                <h2 className="text-xl font-black text-white mb-1">Invite your team</h2>
+                <p className="text-slate-400 text-sm">Enter email addresses — we'll send them an invite.</p>
+              </div>
+              <div className="space-y-2">
+                {teamEmails.map((email, idx) => (
+                  <div key={idx} className="flex gap-2">
+                    <input value={email} onChange={e => {
+                        const next = [...teamEmails]; next[idx] = e.target.value; setTeamEmails(next);
+                      }}
+                      type="email" placeholder={`colleague${idx + 1}@company.com`}
+                      className="flex-1 px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:border-emerald-500 transition-colors" />
+                    {teamEmails.length > 1 && (
+                      <button onClick={() => setTeamEmails(teamEmails.filter((_, i) => i !== idx))}
+                        className="px-3 py-2.5 bg-slate-800 hover:bg-red-500/20 border border-slate-700 text-slate-400 hover:text-red-400 rounded-xl text-sm transition-colors">✕</button>
+                    )}
+                  </div>
+                ))}
+                {teamEmails.length < 5 && (
+                  <button onClick={() => setTeamEmails([...teamEmails, ''])}
+                    className="w-full py-2 border border-dashed border-slate-600 hover:border-emerald-500/50 text-slate-500 hover:text-emerald-400 text-sm rounded-xl transition-colors">
+                    + Add another
+                  </button>
+                )}
+              </div>
+              <div className="flex gap-3">
+                <button onClick={() => setStep(2)} className="px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-semibold rounded-xl transition-colors">
+                  ← Back
+                </button>
+                <button onClick={() => { setStep(3); toast.success('Team invites saved! We\'ll notify your colleagues.'); }}
+                  className="flex-1 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded-xl transition-all">
+                  Save invites & continue →
+                </button>
+              </div>
             </div>
+          )}
 
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full px-8 py-5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 rounded-xl text-white font-bold text-xl transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
-            >
-              {loading ? (
-                <>
-                  <RefreshCw className="w-6 h-6 animate-spin" />
-                  Setting up your workspace...
-                </>
-              ) : (
-                <>
-                  Continue to Dashboard
-                  <ChevronRight className="w-6 h-6" />
-                </>
-              )}
+          {/* STEP 3 — Directory sync */}
+          {step === 3 && (
+            <div className="space-y-6">
+              <div>
+                <div className="text-4xl mb-3">📂</div>
+                <h2 className="text-xl font-black text-white mb-1">Import your directory?</h2>
+                <p className="text-slate-400 text-sm">Connect Google Workspace, Microsoft 365, or Okta to auto-import your employees.</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <button onClick={() => setStep('3-yes')}
+                  className="py-4 rounded-2xl border-2 border-blue-500/50 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 font-bold text-sm transition-all">
+                  ✅ Yes, connect it
+                </button>
+                <button onClick={() => setStep(4)}
+                  className="py-4 rounded-2xl border border-slate-700 bg-slate-800/60 hover:bg-slate-800 text-slate-400 font-semibold text-sm transition-all">
+                  Skip for now
+                </button>
+              </div>
+              <button onClick={() => setStep(2)} className="text-sm text-slate-500 hover:text-slate-300 transition-colors">
+                ← Back
+              </button>
+            </div>
+          )}
+
+          {/* STEP 3-yes — Directory provider picker */}
+          {step === '3-yes' && (
+            <div className="space-y-5">
+              <div>
+                <h2 className="text-xl font-black text-white mb-1">Choose your directory</h2>
+                <p className="text-slate-400 text-sm">You can always add more from Settings → Integrations.</p>
+              </div>
+              <div className="space-y-2">
+                {[
+                  { id: 'google', name: 'Google Workspace', sub: 'Import employees from G Suite / Cloud Identity',
+                    logo: <svg className="w-5 h-5" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>,
+                  },
+                  { id: 'microsoft', name: 'Microsoft 365', sub: 'Import from Azure AD / Entra ID',
+                    logo: <div className="w-5 h-5 grid grid-cols-2 gap-0.5"><div className="bg-[#F25022] rounded-sm"/><div className="bg-[#7FBA00] rounded-sm"/><div className="bg-[#00A4EF] rounded-sm"/><div className="bg-[#FFB900] rounded-sm"/></div>,
+                  },
+                  { id: 'okta', name: 'Okta', sub: 'Import from Okta Universal Directory',
+                    logo: <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-[8px] font-black text-white">OK</div>,
+                  },
+                ].map(p => (
+                  <button key={p.id} onClick={() => setDirectoryChoice(p.id)}
+                    className={"w-full flex items-center gap-3 p-4 rounded-2xl border transition-all " +
+                      (directoryChoice === p.id ? 'border-blue-500 bg-blue-500/10' : 'border-slate-700 bg-slate-800/60 hover:border-slate-600')}>
+                    <div className="w-9 h-9 rounded-xl bg-slate-900 border border-slate-700 flex items-center justify-center flex-shrink-0">{p.logo}</div>
+                    <div className="text-left">
+                      <div className="text-sm font-semibold text-white">{p.name}</div>
+                      <div className="text-xs text-slate-500">{p.sub}</div>
+                    </div>
+                    {directoryChoice === p.id && <div className="ml-auto text-blue-400 text-lg">✓</div>}
+                  </button>
+                ))}
+              </div>
+              <div className="flex gap-3">
+                <button onClick={() => setStep(3)} className="px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-semibold rounded-xl transition-colors">
+                  ← Back
+                </button>
+                <button
+                  onClick={() => {
+                    if (!directoryChoice) { toast.error('Please select a provider first.'); return; }
+                    setStep(4);
+                    toast.success('Great! We\'ll connect your directory — you\'ll finish the setup from the Integrations page after this wizard.');
+                  }}
+                  disabled={!directoryChoice}
+                  className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:opacity-40 text-white font-bold rounded-xl transition-all">
+                  Select & continue →
+                </button>
+              </div>
+              <button onClick={() => setStep(4)} className="w-full text-center text-sm text-slate-500 hover:text-slate-300 transition-colors">
+                Skip for now
+              </button>
+            </div>
+          )}
+
+          {/* STEP 4 — Quick tour */}
+          {step === 4 && (
+            <div className="space-y-6">
+              <div className="text-center">
+                <div className="text-5xl mb-3">{tourSlides[tourSlide].icon}</div>
+                <h2 className="text-xl font-black text-white mb-2">{tourSlides[tourSlide].title}</h2>
+                <p className="text-slate-400 text-sm leading-relaxed">{tourSlides[tourSlide].desc}</p>
+              </div>
+              {/* Slide dots */}
+              <div className="flex justify-center gap-2">
+                {tourSlides.map((_, i) => (
+                  <button key={i} onClick={() => setTourSlide(i)}
+                    className={"w-2 h-2 rounded-full transition-all " + (i === tourSlide ? 'bg-emerald-400 w-5' : 'bg-slate-600')} />
+                ))}
+              </div>
+              <div className="flex gap-3">
+                {tourSlide > 0 && (
+                  <button onClick={() => setTourSlide(p => p - 1)}
+                    className="px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-semibold rounded-xl transition-colors">
+                    ←
+                  </button>
+                )}
+                {tourSlide < tourSlides.length - 1 ? (
+                  <button onClick={() => setTourSlide(p => p + 1)}
+                    className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 font-semibold rounded-xl transition-all">
+                    Next →
+                  </button>
+                ) : (
+                  <button onClick={() => completeOnboardingAndGo(directoryChoice !== null)}
+                    disabled={loading}
+                    className="flex-1 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-50 text-white font-bold rounded-xl transition-all shadow-lg">
+                    {loading ? 'Setting up…' : directoryChoice ? 'Go to dashboard & connect directory →' : 'Go to dashboard →'}
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+        </div>
+
+        {/* Skip all escape hatch (except on tour slide) */}
+        {step !== 4 && step !== 0 && (
+          <div className="text-center mt-4">
+            <button onClick={() => completeOnboardingAndGo(false)} className="text-xs text-slate-600 hover:text-slate-400 transition-colors">
+              Skip everything and go to dashboard
             </button>
-
-            {/* Terms */}
-            <p className="text-center text-sm text-slate-500 mt-6">
-              By continuing, you agree to our{' '}
-              <Link to="/terms" className="text-blue-400 hover:underline">{t("hc_terms_of_service")}</Link>
-              {' '}and{' '}
-              <Link to="/privacy" className="text-blue-400 hover:underline">{t("hc_privacy_policy")}</Link>
-            </p>
-          </form>
-        </div>
-
-        {/* Skip Option (for demo) */}
-        <div className="text-center mt-6">
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="text-slate-500 hover:text-slate-300 text-sm transition-colors"
-          >
-            Skip for now →
-          </button>
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -3943,7 +4052,6 @@ function TrialPage() {
                 {[
                   { id: 'signin',  label: 'Sign In' },
                   { id: 'create',  label: 'Create Account' },
-                  { id: 'sso',     label: 'SSO' },
                 ].map(tab => (
                   <button key={tab.id} onClick={() => { setAuthTab(tab.id); setAuthError(''); setMagicSent(false); }}
                     className={"flex-1 py-2 rounded-xl text-sm font-semibold transition-all duration-200 " +
@@ -3997,7 +4105,8 @@ function TrialPage() {
                             const cur = seedDbIfEmpty();
                             cur.user = { ...cur.user, is_authenticated: true, is_demo: false, email: user.email, displayName: user.displayName || authEmail.split('@')[0], uid: user.uid };
                             saveDb(cur);
-                            window.location.replace('/dashboard');
+                            const done = localStorage.getItem('sg_onboarded_' + user.uid) === 'true';
+                            window.location.replace(done ? '/dashboard' : '/onboarding');
                           }
                           setLoading(false);
                         }}
@@ -4035,6 +4144,32 @@ function TrialPage() {
                         className="w-full py-3 bg-white hover:bg-slate-100 rounded-xl text-slate-900 font-bold text-sm transition-all flex items-center justify-center gap-3 shadow-sm">
                         <svg className="w-4 h-4" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
                         Continue with Google
+                      </button>
+                      <button onClick={async () => {
+                          setLoading(true); setAuthError('');
+                          const { user, error } = await signInWithMicrosoft();
+                          if (error) {
+                            const msg = error.includes('auth/popup-blocked') ? 'Pop-up blocked. Allow pop-ups for this site.'
+                              : error.includes('auth/account-exists') ? 'An account already exists with this email. Try Google sign-in.'
+                              : 'Microsoft sign-in failed. Try Google or email instead.';
+                            setAuthError(msg); setLoading(false); return;
+                          }
+                          if (user) {
+                            const cur = seedDbIfEmpty();
+                            cur.user = { ...cur.user, is_authenticated: true, is_demo: false, email: user.email, displayName: user.displayName || user.email?.split('@')[0], uid: user.uid };
+                            saveDb(cur);
+                            const done = localStorage.getItem('sg_onboarded_' + user.uid) === 'true';
+                            window.location.replace(done ? '/dashboard' : '/onboarding');
+                          }
+                          setLoading(false);
+                        }}
+                        disabled={loading}
+                        className="w-full py-3 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-xl text-white font-bold text-sm transition-all flex items-center justify-center gap-3">
+                        <div className="w-4 h-4 grid grid-cols-2 gap-0.5 flex-shrink-0">
+                          <div className="bg-[#F25022] rounded-sm"/><div className="bg-[#7FBA00] rounded-sm"/>
+                          <div className="bg-[#00A4EF] rounded-sm"/><div className="bg-[#FFB900] rounded-sm"/>
+                        </div>
+                        Continue with Microsoft 365
                       </button>
                     </>
                   ) : (
@@ -4111,7 +4246,7 @@ function TrialPage() {
                             const cur = seedDbIfEmpty();
                             cur.user = { ...cur.user, is_authenticated: true, is_demo: false, email: user.email, displayName: authName, uid: user.uid };
                             saveDb(cur);
-                            window.location.replace('/dashboard');
+                            window.location.replace('/onboarding');
                           }
                           setLoading(false);
                         }}
@@ -4131,6 +4266,26 @@ function TrialPage() {
                         className="w-full py-3 bg-white hover:bg-slate-100 rounded-xl text-slate-900 font-bold text-sm transition-all flex items-center justify-center gap-3 shadow-sm">
                         <svg className="w-4 h-4" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
                         Sign Up with Google
+                      </button>
+                      <button onClick={async () => {
+                          setLoading(true); setAuthError('');
+                          const { user, error } = await signInWithMicrosoft();
+                          if (error) { setAuthError('Microsoft sign-in failed. Try Google or email.'); setLoading(false); return; }
+                          if (user) {
+                            const cur = seedDbIfEmpty();
+                            cur.user = { ...cur.user, is_authenticated: true, is_demo: false, email: user.email, displayName: user.displayName || user.email?.split('@')[0], uid: user.uid };
+                            saveDb(cur);
+                            window.location.replace('/onboarding');
+                          }
+                          setLoading(false);
+                        }}
+                        disabled={loading}
+                        className="w-full py-3 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-xl text-white font-bold text-sm transition-all flex items-center justify-center gap-3">
+                        <div className="w-4 h-4 grid grid-cols-2 gap-0.5 flex-shrink-0">
+                          <div className="bg-[#F25022] rounded-sm"/><div className="bg-[#7FBA00] rounded-sm"/>
+                          <div className="bg-[#00A4EF] rounded-sm"/><div className="bg-[#FFB900] rounded-sm"/>
+                        </div>
+                        Sign Up with Microsoft 365
                       </button>
 
                       <p className="text-center text-[11px] text-slate-600 leading-relaxed">
@@ -4156,35 +4311,6 @@ function TrialPage() {
                       </button>
                     </div>
                   )}
-                </div>
-              )}
-
-              {/* ── SSO TAB ── */}
-              {authTab === 'sso' && (
-                <div className="space-y-3">
-                  <p className="text-xs text-slate-500 mb-4">Enterprise SSO — sign in with your company identity provider.</p>
-                  {[
-                    { id: 'google',    name: 'Google Workspace', sub: 'G Suite / Google Cloud Identity', live: true,  logo: <svg className="w-5 h-5" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg> },
-                    { id: 'microsoft', name: 'Microsoft 365',    sub: 'Azure AD / Entra ID',            live: false, logo: <div className="w-5 h-5 grid grid-cols-2 gap-0.5"><div className="bg-[#F25022] rounded-sm"/><div className="bg-[#7FBA00] rounded-sm"/><div className="bg-[#00A4EF] rounded-sm"/><div className="bg-[#FFB900] rounded-sm"/></div> },
-                    { id: 'okta',      name: 'Okta',             sub: 'Enterprise SSO via Okta',         live: false, logo: <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-[9px] font-black text-white">OK</div> },
-                    { id: 'saml',      name: 'SAML 2.0',         sub: 'Custom SAML identity provider',   live: false, logo: <div className="w-5 h-5 rounded bg-slate-600 flex items-center justify-center"><Lock className="w-3 h-3 text-slate-300" /></div> },
-                  ].map(p => (
-                    <button key={p.id}
-                      onClick={() => p.live ? handleSSOClick({ id: p.id, live: true }) : toast.info(p.name + ' SSO is coming soon. Use Google or magic link for now.')}
-                      className={"w-full flex items-center justify-between p-4 rounded-2xl border transition-all group " +
-                        (p.live ? "border-slate-700 bg-slate-800/60 hover:bg-slate-800 hover:border-blue-500/40" : "border-slate-800 bg-slate-800/20 opacity-50 cursor-not-allowed")}>
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-slate-900 border border-slate-700 flex items-center justify-center flex-shrink-0">{p.logo}</div>
-                        <div className="text-left">
-                          <div className={"text-sm font-semibold " + (p.live ? "text-white" : "text-slate-500")}>{p.name}</div>
-                          <div className="text-xs text-slate-600">{p.sub}</div>
-                        </div>
-                      </div>
-                      {p.live
-                        ? <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-blue-400 transition-colors" />
-                        : <span className="text-[9px] font-bold text-slate-600 bg-slate-900 border border-slate-700 px-2 py-0.5 rounded-full uppercase tracking-widest">Soon</span>}
-                    </button>
-                  ))}
                 </div>
               )}
 
