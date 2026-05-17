@@ -4266,7 +4266,8 @@ function ExecutivePageWrapper() {
 // GOOGLE WORKSPACE SYNC BUTTON
 // ============================================================================
 
-const OKTA_CLIENT_ID = import.meta.env.VITE_OKTA_CLIENT_ID || '6a09e0ebf5aaa66d02e605a6';
+const OKTA_CLIENT_ID  = import.meta.env.VITE_OKTA_CLIENT_ID  || '6a09e0ebf5aaa66d02e605a6';
+const AZURE_CLIENT_ID = import.meta.env.VITE_AZURE_CLIENT_ID || '5270e1b9-2a70-48d6-b0e1-cd5f22904968';
 
 function WorkspaceConnector({ compact = false }) {
   const muts = useDbMutations();
@@ -4274,6 +4275,75 @@ function WorkspaceConnector({ compact = false }) {
   const [status, setStatus]   = useState(null);
   const [oktaStep, setOktaStep]     = useState(null);
   const [oktaDomain, setOktaDomain] = useState('');
+
+  // Handle Microsoft 365 PKCE callback
+  useEffect(() => {
+    const params   = new URLSearchParams(window.location.search);
+    const code     = params.get('code');
+    const urlState = params.get('state');
+    const msState  = sessionStorage.getItem('ms_state');
+    if (!code || !msState || urlState !== msState) return;
+
+    const verifier = sessionStorage.getItem('ms_code_verifier');
+    if (!verifier) return;
+
+    sessionStorage.removeItem('ms_state');
+    sessionStorage.removeItem('ms_code_verifier');
+    window.history.replaceState({}, '', window.location.pathname);
+
+    setSyncing('microsoft');
+    setStatus({ type: 'loading', msg: 'Completing Microsoft 365 connection…' });
+
+    (async () => {
+      try {
+        const tokenRes = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            grant_type:    'authorization_code',
+            client_id:     AZURE_CLIENT_ID,
+            code,
+            redirect_uri:  window.location.origin,
+            code_verifier: verifier,
+            scope:         'https://graph.microsoft.com/User.Read.All offline_access openid',
+          }),
+        });
+        const tokenData = await tokenRes.json();
+        if (!tokenRes.ok) throw new Error(tokenData.error_description || 'Token exchange failed');
+
+        setStatus({ type: 'loading', msg: 'Importing users from Microsoft 365…' });
+        const usersRes = await fetch(
+          'https://graph.microsoft.com/v1.0/users?$top=999&$select=displayName,mail,userPrincipalName,jobTitle,department,accountEnabled',
+          { headers: { Authorization: `Bearer ${tokenData.access_token}`, Accept: 'application/json' } }
+        );
+        if (!usersRes.ok) throw new Error('Failed to fetch users — ensure User.Read.All permission is granted in Azure');
+        const msUsers = (await usersRes.json()).value || [];
+
+        let count = 0;
+        for (const u of msUsers) {
+          const email = u.mail || u.userPrincipalName;
+          if (!email) continue;
+          try {
+            await muts.createEmployee.mutateAsync({
+              full_name:     u.displayName || email,
+              email,
+              department:    u.department || 'general',
+              role:          u.jobTitle || 'Member',
+              status:        u.accountEnabled ? 'active' : 'offboarded',
+              imported_from: 'microsoft365',
+            });
+            count++;
+          } catch {}
+        }
+        setStatus({ type: 'success', msg: `Imported ${count} employees from Microsoft 365!` });
+      } catch (err) {
+        setStatus({ type: 'error', msg: `Microsoft sync failed: ${err.message}` });
+      } finally {
+        setSyncing(null);
+      }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Handle Okta PKCE callback when redirected back from Okta
   useEffect(() => {
@@ -4383,6 +4453,31 @@ function WorkspaceConnector({ compact = false }) {
     }
   };
 
+  const connectMicrosoft = async () => {
+    const arr      = new Uint8Array(32);
+    crypto.getRandomValues(arr);
+    const verifier  = btoa(String.fromCharCode(...arr)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+    const hash      = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
+    const challenge = btoa(String.fromCharCode(...new Uint8Array(hash))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+    const stateArr  = new Uint8Array(16);
+    crypto.getRandomValues(stateArr);
+    const state = btoa(String.fromCharCode(...stateArr)).replace(/[+/=]/g, '');
+
+    sessionStorage.setItem('ms_code_verifier', verifier);
+    sessionStorage.setItem('ms_state', state);
+
+    const params = new URLSearchParams({
+      client_id:             AZURE_CLIENT_ID,
+      response_type:         'code',
+      redirect_uri:          window.location.origin,
+      scope:                 'https://graph.microsoft.com/User.Read.All offline_access openid',
+      state,
+      code_challenge:        challenge,
+      code_challenge_method: 'S256',
+    });
+    window.location.href = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params}`;
+  };
+
   const connectOkta = async () => {
     const domain = oktaDomain.trim().replace(/^https?:\/\//, '').replace(/\/$/, '');
     if (!domain) return;
@@ -4434,15 +4529,15 @@ function WorkspaceConnector({ compact = false }) {
       id:        'microsoft',
       name:      'Microsoft 365',
       desc:      'Sync from Azure AD / Entra ID',
-      available: false,
-      badge:     'Q2 2026',
+      available: true,
+      badge:     null,
       logo: (
         <div className="w-5 h-5 grid grid-cols-2 gap-0.5">
           <div className="bg-[#F25022] rounded-sm"/><div className="bg-[#7FBA00] rounded-sm"/>
           <div className="bg-[#00A4EF] rounded-sm"/><div className="bg-[#FFB900] rounded-sm"/>
         </div>
       ),
-      action: () => toast('Microsoft 365 sync is coming in Q2 2026 — you\'ll be notified when it\'s ready.', { icon: '🔔', duration: 4000 }),
+      action: connectMicrosoft,
     },
     {
       id:        'okta',
