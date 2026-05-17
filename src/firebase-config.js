@@ -219,7 +219,7 @@ export async function signInWithGoogleWorkspace() {
   }
 }
 
-
+export async function signInWithGoogle() {
   try {
     const result = await signInWithPopup(auth, googleProvider);
     return { user: result.user, error: null };
