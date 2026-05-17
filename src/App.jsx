@@ -2258,19 +2258,6 @@ function SidebarFooter({ collapsed }) {
 
   return (
     <div className="border-t border-slate-800 p-3">
-      {user?.is_founder && !collapsed && (
-        <div className="mb-2">
-          <a href="/founder-admin" className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[10px] font-bold uppercase tracking-wider hover:bg-amber-500/20 transition-colors">
-            <span>⚡</span>
-            <span>Founder Admin</span>
-          </a>
-        </div>
-      )}
-      {user?.is_founder && collapsed && (
-        <div className="mb-2 flex justify-center">
-          <a href="/founder-admin" title="Founder Admin" className="text-amber-400 text-base hover:text-amber-300 transition-colors">⚡</a>
-        </div>
-      )}
       <div
         className={cx(
           "flex items-center gap-3 rounded-2xl bg-slate-900/40 p-3",
@@ -2278,7 +2265,7 @@ function SidebarFooter({ collapsed }) {
         )}
       >
         {/* User Photo or Avatar */}
-        <div className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-700 bg-slate-950/30 overflow-hidden">
+        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-slate-700 bg-slate-950/30 overflow-hidden">
           {photoURL ? (
             <img src={photoURL} alt={displayName} className="w-full h-full object-cover" />
           ) : (
@@ -2287,7 +2274,12 @@ function SidebarFooter({ collapsed }) {
         </div>
         {!collapsed ? (
           <div className="min-w-0 flex-1">
-            <div className="truncate text-xs font-medium text-slate-100">{displayName}</div>
+            <div className="flex items-center gap-1.5">
+              <div className="truncate text-xs font-medium text-slate-100">{displayName}</div>
+              {user?.is_founder && (
+                <span className="flex-shrink-0 text-amber-400 text-[10px] font-bold">⚡</span>
+              )}
+            </div>
             <div className="mt-0.5 text-xs text-slate-500">
               {jobTitle && companyName ? (
                 <span className="text-slate-400">{jobTitle} at {companyName}</span>
@@ -2300,27 +2292,44 @@ function SidebarFooter({ collapsed }) {
             </div>
           </div>
         ) : null}
+        {collapsed && user?.is_founder && (
+          <div className="absolute -top-1 -right-1 text-amber-400 text-[10px]">⚡</div>
+        )}
       </div>
-      
+
       {!collapsed ? (
-        <div className="mt-3 flex gap-2">
-          <Button
-            variant="secondary"
-            className="w-full"
-            onClick={() => {
-              if (isDemo) endDemo();
-              logout();
-            }}
-          >
-            <BadgeX className="h-4 w-4" />
-            {isDemo ? "Exit Demo" : "Logout"}
-          </Button>
-          <Button variant="ghost" className="w-full" onClick={() => { navigate('/settings'); setTimeout(() => { const el = document.querySelector('[data-tab="billing"]'); if(el) el.click(); }, 100); }}>
-              <ExternalLink className="h-4 w-4" />
-              {(() => { const _p = JSON.parse(localStorage.getItem('accessguard_v1') || '{}')?.user?.plan || 'free'; return _p === 'free' || _p === 'trial' ? 'Trial' : (_p.charAt(0).toUpperCase() + _p.slice(1)); })()}
-          </Button>
+        <div className="mt-2 space-y-1.5">
+          {user?.is_founder && (
+            <a href="/founder-admin"
+              className="flex items-center gap-2 w-full px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-semibold hover:bg-amber-500/20 transition-colors">
+              <span>⚡</span>
+              <span>Founder Admin</span>
+            </a>
+          )}
+          <div className="flex gap-2">
+            <Button
+              variant="secondary"
+              className="w-full"
+              onClick={() => {
+                if (isDemo) endDemo();
+                logout();
+              }}
+            >
+              <BadgeX className="h-4 w-4" />
+              {isDemo ? "Exit Demo" : "Logout"}
+            </Button>
+            <Button variant="ghost" className="w-full" onClick={() => { navigate('/settings'); setTimeout(() => { const el = document.querySelector('[data-tab="billing"]'); if(el) el.click(); }, 100); }}>
+                <ExternalLink className="h-4 w-4" />
+                {(() => { const _p = JSON.parse(localStorage.getItem('accessguard_v1') || '{}')?.user?.plan || 'free'; return _p === 'free' || _p === 'trial' ? 'Trial' : (_p.charAt(0).toUpperCase() + _p.slice(1)); })()}
+            </Button>
+          </div>
         </div>
       ) : null}
+      {collapsed && user?.is_founder && (
+        <div className="mt-2 flex justify-center">
+          <a href="/founder-admin" title="Founder Admin" className="text-amber-400 text-base hover:text-amber-300 transition-colors">⚡</a>
+        </div>
+      )}
     </div>
   );
 }
@@ -15309,6 +15318,7 @@ function FloatingChatbot() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [initialized, setInitialized] = useState(false);
+  const [serviceDown, setServiceDown] = useState(false);
   const bottomRef = React.useRef(null);
 
   React.useEffect(() => {
@@ -15323,7 +15333,7 @@ function FloatingChatbot() {
   }, [messages]);
 
   const send = async () => {
-    if (!input.trim() || loading) return;
+    if (!input.trim() || loading || serviceDown) return;
     const userMsg = { role: 'user', content: input };
     const newMessages = [...messages, userMsg];
     setMessages(newMessages);
@@ -15338,7 +15348,11 @@ function FloatingChatbot() {
       const reply = data.content?.[0]?.text || 'Sorry, I could not respond right now.';
       setMessages(prev => [...prev, { role: 'assistant', content: reply }]);
     } catch {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Connection error. Please try again or email hello@stacklens.fr' }]);
+      setServiceDown(true);
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: 'The AI assistant is temporarily unavailable. Please email us at hello@stacklens.fr and we\'ll get back to you shortly.',
+      }]);
     } finally { setLoading(false); }
   };
 
@@ -15354,7 +15368,10 @@ function FloatingChatbot() {
               <div>
                 <div className="text-white font-bold text-sm">{t('chatbot_title')}</div>
                 <div className="text-blue-200 text-xs flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" /> Online
+                  {serviceDown
+                    ? <><span className="w-1.5 h-1.5 rounded-full bg-red-400 inline-block" /> Unavailable</>
+                    : <><span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" /> Online</>
+                  }
                 </div>
               </div>
             </div>
@@ -15381,20 +15398,29 @@ function FloatingChatbot() {
             )}
             <div ref={bottomRef} />
           </div>
-          <div className="p-3 border-t border-slate-800 flex gap-2 flex-shrink-0">
-            <input
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={handleKey}
-              placeholder={t('chatbot_placeholder')}
-              className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
-            />
-            <button onClick={send} disabled={!input.trim() || loading}
-              className="px-3 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white rounded-xl transition-colors">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-              </svg>
-            </button>
+          <div className="p-3 border-t border-slate-800 flex-shrink-0">
+            {serviceDown ? (
+              <div className="flex items-center gap-2 text-xs text-slate-500 py-1">
+                <span>💬</span>
+                <span>Email us: <a href="mailto:hello@stacklens.fr" className="text-blue-400 hover:text-blue-300">hello@stacklens.fr</a></span>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <input
+                  value={input}
+                  onChange={e => setInput(e.target.value)}
+                  onKeyDown={handleKey}
+                  placeholder={t('chatbot_placeholder')}
+                  className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                />
+                <button onClick={send} disabled={!input.trim() || loading}
+                  className="px-3 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white rounded-xl transition-colors">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                  </svg>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
