@@ -11685,7 +11685,7 @@ function PrivacyPage() {
 
       <div className="max-w-4xl mx-auto px-6 py-20">
         <h1 className="text-3xl md:text-5xl font-black mb-4 text-white">{isFr ? 'Politique de confidentialité' : 'Privacy Policy'}</h1>
-        <p className="text-slate-400 mb-12">{isFr ? 'Dernière mise à jour' : 'Last updated'}: April 17, 2026</p>
+        <p className="text-slate-400 mb-12">{isFr ? 'Dernière mise à jour' : 'Last updated'}: May 17, 2026</p>
 
         <div className="space-y-10 text-sm text-slate-300 leading-relaxed">
           <section>
@@ -11714,6 +11714,14 @@ function PrivacyPage() {
                 <p className="text-xs text-slate-500 mt-1">{isFr ? 'Base légale : Exécution du contrat (Art. 6.1.b RGPD)' : 'Legal basis: Contract performance (Art. 6.1.b GDPR)'}</p>
               </div>
               <div className="p-3 rounded-lg bg-slate-900/60 border border-slate-800">
+                <div className="font-semibold text-white mb-1">{isFr ? 'Données de synchronisation d\'annuaire' : 'Directory sync data'}</div>
+                <p>{isFr
+                  ? 'Si vous activez la synchronisation avec Google Workspace, Microsoft 365 ou Okta, Stacklens accède, via OAuth, aux données d\'annuaire suivantes : noms complets des employés, adresses email professionnelles, département, statut du compte (actif / suspendu), rôle d\'administrateur. Ces données sont importées dans votre espace Stacklens et stockées dans Firestore. Nous ne demandons que les permissions de lecture strictement nécessaires (admin.directory.user.readonly pour Google, User.Read.All pour Microsoft 365). Aucune donnée n\'est partagée avec des tiers. Vous pouvez révoquer l\'accès à tout moment depuis votre tableau de bord d\'annuaire.'
+                  : 'If you enable directory sync with Google Workspace, Microsoft 365, or Okta, Stacklens accesses the following directory data via OAuth: employee full names, work email addresses, department, account status (active / suspended), admin role. This data is imported into your Stacklens workspace and stored in Firestore. We only request the minimum read-only permissions required (admin.directory.user.readonly for Google, User.Read.All for Microsoft 365). No data is shared with third parties. You can revoke access at any time from your directory dashboard.'
+                }</p>
+                <p className="text-xs text-slate-500 mt-1">{isFr ? 'Base légale : Exécution du contrat (Art. 6.1.b RGPD) — fonctionnalité optionnelle, activée uniquement si vous connectez un annuaire' : 'Legal basis: Contract performance (Art. 6.1.b GDPR) — optional feature, only active if you connect a directory'}</p>
+              </div>
+              <div className="p-3 rounded-lg bg-slate-900/60 border border-slate-800">
                 <div className="font-semibold text-white mb-1">{isFr ? 'Données analytiques' : 'Analytics data'}</div>
                 <p>{isFr ? 'Google Analytics (uniquement avec votre consentement via notre bandeau cookies). Données anonymisées : pages visitées, durée de session, type d\'appareil.' : 'Google Analytics (only with your consent via our cookie banner). Anonymised data: pages visited, session duration, device type.'}</p>
                 <p className="text-xs text-slate-500 mt-1">{isFr ? 'Base légale : Consentement (Art. 6.1.a RGPD)' : 'Legal basis: Consent (Art. 6.1.a GDPR)'}</p>
@@ -11737,7 +11745,10 @@ function PrivacyPage() {
                   <tr className="border-b border-slate-800"><td className="py-2 pr-4">Anthropic (Claude AI)</td><td className="py-2 pr-4">{isFr ? 'Analyse de contrats IA' : 'AI contract analysis'}</td><td className="py-2">USA</td></tr>
                   <tr className="border-b border-slate-800"><td className="py-2 pr-4">Google Analytics</td><td className="py-2 pr-4">{isFr ? 'Analytiques (avec consentement)' : 'Analytics (with consent)'}</td><td className="py-2">EU</td></tr>
                   <tr className="border-b border-slate-800"><td className="py-2 pr-4">OVHcloud</td><td className="py-2 pr-4">{isFr ? 'Domaine et emails' : 'Domain and email'}</td><td className="py-2">EU (France)</td></tr>
-                  <tr><td className="py-2 pr-4">Web3Forms</td><td className="py-2 pr-4">{isFr ? 'Formulaire de contact' : 'Contact form'}</td><td className="py-2">USA</td></tr>
+                  <tr className="border-b border-slate-800"><td className="py-2 pr-4">Web3Forms</td><td className="py-2 pr-4">{isFr ? 'Formulaire de contact' : 'Contact form'}</td><td className="py-2">USA</td></tr>
+                  <tr className="border-b border-slate-800"><td className="py-2 pr-4">Google Workspace Admin API</td><td className="py-2 pr-4">{isFr ? 'Synchronisation d\'annuaire (optionnel, lecture seule)' : 'Directory sync (optional, read-only)'}</td><td className="py-2">USA/EU</td></tr>
+                  <tr className="border-b border-slate-800"><td className="py-2 pr-4">Microsoft Graph API</td><td className="py-2 pr-4">{isFr ? 'Synchronisation d\'annuaire Microsoft 365 (optionnel, lecture seule)' : 'Microsoft 365 directory sync (optional, read-only)'}</td><td className="py-2">EU</td></tr>
+                  <tr><td className="py-2 pr-4">Okta</td><td className="py-2 pr-4">{isFr ? 'Synchronisation d\'annuaire Okta (optionnel, lecture seule)' : 'Okta directory sync (optional, read-only)'}</td><td className="py-2">{isFr ? 'Varie selon le domaine' : 'Varies by domain'}</td></tr>
                 </tbody>
               </table>
             </div>
@@ -11835,7 +11846,7 @@ function TermsPage() {
 
       <div className="max-w-4xl mx-auto px-6 py-20">
         <h1 className="text-3xl md:text-5xl font-black mb-4 text-white">{isFr ? 'Conditions générales d\'utilisation' : 'Terms of Service'}</h1>
-        <p className="text-slate-400 mb-12">{isFr ? 'Dernière mise à jour' : 'Last updated'}: April 17, 2026</p>
+        <p className="text-slate-400 mb-12">{isFr ? 'Dernière mise à jour' : 'Last updated'}: May 17, 2026</p>
 
         <div className="space-y-10 text-sm text-slate-300 leading-relaxed">
           <section>
@@ -11949,7 +11960,37 @@ function TermsPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-bold mb-3 text-white">{isFr ? '9. Limitation de responsabilité' : '9. Limitation of Liability'}</h2>
+            <h2 className="text-xl font-bold mb-3 text-white">{isFr ? '9. Intégrations d\'annuaire (Google Workspace, Microsoft 365, Okta)' : '9. Directory Integrations (Google Workspace, Microsoft 365, Okta)'}</h2>
+            <p className="mb-3">{isFr
+              ? 'Stacklens propose des intégrations optionnelles avec des fournisseurs d\'annuaires d\'entreprise. En activant ces intégrations, vous acceptez les conditions suivantes :'
+              : 'Stacklens offers optional integrations with enterprise directory providers. By enabling these integrations, you agree to the following:'
+            }</p>
+            <ul className="list-disc list-inside space-y-2 ml-2">
+              <li>{isFr
+                ? 'Vous êtes autorisé par votre organisation à connecter le fournisseur d\'annuaire et à accorder les permissions OAuth demandées.'
+                : 'You are authorised by your organisation to connect the directory provider and grant the requested OAuth permissions.'
+              }</li>
+              <li>{isFr
+                ? 'Stacklens ne demande que des permissions de lecture (admin.directory.user.readonly pour Google Workspace ; User.Read.All pour Microsoft 365). Aucun donnée n\'est modifiée dans votre annuaire.'
+                : 'Stacklens only requests read-only permissions (admin.directory.user.readonly for Google Workspace; User.Read.All for Microsoft 365). No data is modified in your directory.'
+              }</li>
+              <li>{isFr
+                ? 'Les données importées (noms, emails professionnels, département, statut de compte) sont stockées dans votre espace Stacklens et couvertes par notre Politique de confidentialité.'
+                : 'Imported data (names, work emails, department, account status) is stored in your Stacklens workspace and covered by our Privacy Policy.'
+              }</li>
+              <li>{isFr
+                ? 'Vous pouvez révoquer l\'accès à tout moment depuis les paramètres de votre fournisseur d\'annuaire. La révocation n\'efface pas les données déjà importées — vous devez les supprimer manuellement depuis votre tableau de bord.'
+                : 'You can revoke access at any time from your directory provider\'s settings. Revocation does not erase already-imported data — you must delete it manually from your dashboard.'
+              }</li>
+              <li>{isFr
+                ? 'Stacklens n\'est pas responsable de l\'exactitude des données fournies par votre annuaire. En cas d\'écart entre les données de l\'annuaire et la réalité de votre organisation, vous êtes responsable de la réconciliation.'
+                : 'Stacklens is not responsible for the accuracy of data provided by your directory. If data differs from your organisation\'s reality, you are responsible for reconciliation.'
+              }</li>
+            </ul>
+          </section>
+
+          <section>
+            <h2 className="text-xl font-bold mb-3 text-white">{isFr ? '10. Limitation de responsabilité' : '10. Limitation of Liability'}</h2>
             <p>{isFr
               ? 'Le Service est fourni « en l\'état ». Dans les limites permises par la loi, nous ne sommes pas responsables des dommages indirects, accessoires ou consécutifs résultant de votre utilisation du Service. Notre responsabilité totale est limitée au montant que vous avez payé pour le Service au cours des 12 derniers mois.'
               : 'The Service is provided "as is". To the extent permitted by law, we are not liable for indirect, incidental, or consequential damages arising from your use of the Service. Our total liability is limited to the amount you have paid for the Service in the preceding 12 months.'
@@ -11957,7 +11998,7 @@ function TermsPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-bold mb-3 text-white">{isFr ? '10. Résiliation' : '10. Termination'}</h2>
+            <h2 className="text-xl font-bold mb-3 text-white">{isFr ? '11. Résiliation' : '11. Termination'}</h2>
             <p>{isFr
               ? 'Chaque partie peut résilier le contrat à tout moment. En cas de résiliation, votre accès au Service cessera à la fin de la période de facturation en cours. Nous supprimerons vos données conformément à notre politique de conservation.'
               : 'Either party may terminate the agreement at any time. Upon termination, your access to the Service will cease at the end of the current billing period. We will delete your data according to our retention policy.'
@@ -11965,7 +12006,7 @@ function TermsPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-bold mb-3 text-white">{isFr ? '11. Droit applicable' : '11. Applicable Law'}</h2>
+            <h2 className="text-xl font-bold mb-3 text-white">{isFr ? '12. Droit applicable' : '12. Applicable Law'}</h2>
             <p>{isFr
               ? 'Les présentes conditions sont régies par le droit français. Tout litige relève de la compétence exclusive des tribunaux de Paris, France.'
               : 'These terms are governed by French law. Any dispute falls under the exclusive jurisdiction of the courts of Paris, France.'
@@ -11973,7 +12014,7 @@ function TermsPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-bold mb-3 text-white">{isFr ? '12. Contact' : '12. Contact'}</h2>
+            <h2 className="text-xl font-bold mb-3 text-white">{isFr ? '13. Contact' : '13. Contact'}</h2>
             <p>{isFr ? 'Pour toute question concernant ces conditions :' : 'For questions about these Terms:'}</p>
             <p className="mt-2"><a href="mailto:hello@stacklens.fr" className="text-blue-400 hover:text-blue-300">hello@stacklens.fr</a></p>
             <p className="mt-1"><Link to="/contact" className="text-blue-400 hover:text-blue-300">{isFr ? 'Formulaire de contact' : 'Contact form'}</Link></p>
