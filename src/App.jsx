@@ -8,7 +8,7 @@ import {
   useLocation,
   useNavigate,
 } from "react-router-dom";
-import { signInWithGoogle, signInWithGoogleWorkspace, handleRedirectResult, signOutUser, onAuthChange, sendMagicLink, completeMagicLinkSignIn, callAI, loadUserData, saveUserData, syncUserProfile, getUserPlanFromFirestore, registerWithEmail, signInWithEmail, resetPassword, createBillingPortal, createCheckoutSession, logConsent, startTrial, logLegalAcceptance } from './firebase-config';
+import { signInWithGoogle, signInWithGoogleWorkspace, handleRedirectResult, signOutUser, onAuthChange, sendMagicLink, completeMagicLinkSignIn, callAI, loadUserData, saveUserData, syncUserProfile, getUserPlanFromFirestore, registerWithEmail, signInWithEmail, resetPassword, createBillingPortal, createCheckoutSession, logConsent, startTrial, logLegalAcceptance, loadAllUsersAdmin, founderExtendTrial, founderSetPlan } from './firebase-config';
 
 // ── Compatibility stubs (migrated to Firestore) ──────────────
 async function getUserProfile(uid) {
@@ -2259,13 +2259,16 @@ function SidebarFooter({ collapsed }) {
   return (
     <div className="border-t border-slate-800 p-3">
       {user?.is_founder && !collapsed && (
-        <div className="mb-2 px-2 py-1 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[10px] font-bold uppercase tracking-wider text-center">
-          ⚡ Founder mode
+        <div className="mb-2">
+          <a href="/founder-admin" className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[10px] font-bold uppercase tracking-wider hover:bg-amber-500/20 transition-colors">
+            <span>⚡</span>
+            <span>Founder Admin</span>
+          </a>
         </div>
       )}
       {user?.is_founder && collapsed && (
-        <div className="mb-2 flex justify-center" title="Founder mode active">
-          <span className="text-amber-400 text-base">⚡</span>
+        <div className="mb-2 flex justify-center">
+          <a href="/founder-admin" title="Founder Admin" className="text-amber-400 text-base hover:text-amber-300 transition-colors">⚡</a>
         </div>
       )}
       <div
@@ -9099,7 +9102,10 @@ function BillingPage({ noShell = false }) {
       plan_hr_finance:'RH & Finance', plan_hr_finance_tag:'Pour les DRH et directeurs financiers',
       plan_pro:'Pro', plan_pro_tag:'Pour les équipes qui ont besoin de visibilité totale',
       plan_enterprise:'Enterprise', plan_enterprise_tag:'Pour les grandes organisations',
-      f_startup_1:"Jusqu'à 10 outils SaaS",f_startup_2:"Jusqu'à 10 employés",f_startup_3:"Alertes de risque basiques",f_startup_4:"Export CSV",f_startup_5:"1 membre d'équipe",f_startup_6:"Support communautaire",
+      f_free_1:"Jusqu’à 10 outils SaaS",f_free_2:"Jusqu’à 25 employés",f_free_3:"Détection du Shadow IT",f_free_4:"Alertes sécurité basiques",f_free_5:"Sans carte bancaire",f_free_6:"Gratuit pour toujours",
+      f_starter_1:"Jusqu’à 100 outils SaaS",f_starter_2:"Jusqu’à 250 employés",f_starter_3:"Ajouter / modifier / supprimer",f_starter_4:"Alertes de renouvellement",f_starter_5:"Import & export CSV",f_starter_6:"5 membres d’équipe",f_starter_7:"Support par email",
+      f_hrf_1:"Tableau de bord Finance complet",f_hrf_2:"Tableau RH & Personnes",f_hrf_3:"Suivi des accès & cartographie",f_hrf_4:"File d’attente d’offboarding",f_hrf_5:"Suivi budgétaire & calendrier de renouvellement",f_hrf_6:"10 membres d’équipe",f_hrf_7:"Support email prioritaire",
+      f_startup_1:"Jusqu’à 10 outils SaaS",f_startup_2:"Jusqu’à 10 employés",f_startup_3:"Alertes de risque basiques",f_startup_4:"Export CSV",f_startup_5:"1 membre d’équipe",f_startup_6:"Support communautaire",
       f_growth_1:"Jusqu’à 50 outils SaaS",f_growth_2:"Jusqu’à 50 employés",f_growth_3:"Score de risque avancé",f_growth_4:"Tableau de bord Finance",f_growth_5:"Exports d’audit",f_growth_6:"Jusqu’à 5 membres",f_growth_7:"Support par email",
       f_scale_1:"Outils SaaS illimités",f_scale_2:"Employés illimités",f_scale_3:"Analyse IA des contrats",f_scale_4:"Gestion des licences",f_scale_5:"Rapports d’audit complets",f_scale_6:"Jusqu’à 15 membres",f_scale_7:"Support prioritaire",f_scale_8:"Accès API",
       f_pro_1:"Jusqu'à 500 outils SaaS",f_pro_2:"Jusqu'à 1 500 employés",f_pro_3:"Analyse IA des contrats",f_pro_4:"Suite sécurité & audit complète",f_pro_5:"Analytics avancés",f_pro_6:"15 membres d'équipe",f_pro_7:"Support prioritaire",f_pro_8:"Export CSV & données",
@@ -9275,8 +9281,8 @@ function BillingPage({ noShell = false }) {
                 <div className={"h-10 w-10 rounded-xl bg-gradient-to-br flex items-center justify-center text-xl mb-3 " + p.color}>
                   {p.icon}
                 </div>
-                <div className="font-black text-lg text-white mb-0.5">{t(p.tName)}</div>
-                <div className="text-xs text-slate-500 mb-3 min-h-[2rem]">{t(p.tTag)}</div>
+                <div className="font-black text-lg text-white mb-0.5">{ft(p.tName)}</div>
+                <div className="text-xs text-slate-500 mb-3 min-h-[2rem]">{ft(p.tTag)}</div>
                 <div className="mb-4">
                   {p.isTrial ? (
                     <div>
@@ -10786,6 +10792,210 @@ function SettingsPage() {
             </div>
           )}
         </div>
+      </div>
+    </AppShell>
+  );
+}
+
+// ============================================================================
+// FOUNDER ADMIN DASHBOARD — only visible when db.user.is_founder === true
+// ============================================================================
+function FounderAdminPage() {
+  const { data: db } = useDbQuery();
+  const dbUser = db?.user;
+  const navigate = useNavigate();
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [search, setSearch] = useState('');
+  const [actionLoading, setActionLoading] = useState({});
+
+  const TRIAL_MS = 7 * 24 * 60 * 60 * 1000;
+
+  useEffect(() => {
+    if (!dbUser?.is_founder) { navigate('/dashboard', { replace: true }); return; }
+    loadAllUsersAdmin()
+      .then(list => { setUsers(list); setLoading(false); })
+      .catch(e => { setError(e.message); setLoading(false); });
+  }, [dbUser, navigate]);
+
+  const trialDaysLeft = (u) => {
+    if (!u.trial_started_at) return null;
+    const start = typeof u.trial_started_at === 'number' ? u.trial_started_at : u.trial_started_at?.toMillis?.() || 0;
+    const left = Math.ceil((start + TRIAL_MS - Date.now()) / 86400000);
+    return left;
+  };
+
+  const effectivePlan = (u) => {
+    if (u.is_founder) return 'founder';
+    if (u.plan === 'trial') {
+      const left = trialDaysLeft(u);
+      return left > 0 ? `trial (${left}d left)` : 'trial (expired)';
+    }
+    return u.subscription_plan || u.plan || 'free';
+  };
+
+  const handleExtendTrial = async (uid, days) => {
+    setActionLoading(prev => ({ ...prev, [uid]: true }));
+    try {
+      await founderExtendTrial(uid, days);
+      toast.success(`Trial extended by ${days} days`);
+      const updated = await loadAllUsersAdmin();
+      setUsers(updated);
+    } catch (e) {
+      toast.error('Failed: ' + e.message);
+    } finally {
+      setActionLoading(prev => ({ ...prev, [uid]: false }));
+    }
+  };
+
+  const handleSetPlan = async (uid, plan) => {
+    setActionLoading(prev => ({ ...prev, [uid]: true }));
+    try {
+      await founderSetPlan(uid, plan);
+      toast.success(`Plan set to ${plan}`);
+      const updated = await loadAllUsersAdmin();
+      setUsers(updated);
+    } catch (e) {
+      toast.error('Failed: ' + e.message);
+    } finally {
+      setActionLoading(prev => ({ ...prev, [uid]: false }));
+    }
+  };
+
+  const filtered = users.filter(u => {
+    const q = search.toLowerCase();
+    return !q || (u.email || '').toLowerCase().includes(q) || (u.displayName || '').toLowerCase().includes(q);
+  });
+
+  const planBadgeColor = (u) => {
+    const p = u.subscription_plan || u.plan || 'free';
+    if (u.is_founder) return 'bg-amber-500/20 text-amber-300 border-amber-500/30';
+    if (p === 'trial') return trialDaysLeft(u) > 0 ? 'bg-blue-500/20 text-blue-300 border-blue-500/30' : 'bg-red-500/20 text-red-400 border-red-500/30';
+    if (['pro', 'enterprise', 'scale'].includes(p)) return 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30';
+    if (['starter', 'hr_finance'].includes(p)) return 'bg-teal-500/20 text-teal-300 border-teal-500/30';
+    return 'bg-slate-700/60 text-slate-400 border-slate-600/30';
+  };
+
+  if (!dbUser?.is_founder) return null;
+
+  const stats = {
+    total: users.length,
+    trial: users.filter(u => u.plan === 'trial' && trialDaysLeft(u) > 0).length,
+    paid: users.filter(u => ['starter','hr_finance','pro','enterprise','scale','growth','unlimited'].includes(u.subscription_plan || u.plan)).length,
+    free: users.filter(u => (u.plan || 'free') === 'free').length,
+  };
+
+  return (
+    <AppShell title="Founder Admin" right={
+      <span className="text-xs text-amber-400 font-bold bg-amber-500/10 border border-amber-500/30 px-3 py-1.5 rounded-full">
+        ⚡ Founder only
+      </span>
+    }>
+      <div className="space-y-6">
+        {/* Stats row */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            { label: 'Total accounts', value: stats.total, color: 'text-white' },
+            { label: 'Active trials', value: stats.trial, color: 'text-blue-400' },
+            { label: 'Paid', value: stats.paid, color: 'text-emerald-400' },
+            { label: 'Free', value: stats.free, color: 'text-slate-400' },
+          ].map(s => (
+            <div key={s.label} className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
+              <div className={`text-2xl font-black ${s.color}`}>{s.value}</div>
+              <div className="text-xs text-slate-500 mt-0.5">{s.label}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search by email or name…"
+            className="w-full pl-9 pr-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+          />
+        </div>
+
+        {/* Table */}
+        {loading ? (
+          <div className="text-center py-16 text-slate-500">Loading accounts…</div>
+        ) : error ? (
+          <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-6 text-red-400 text-sm">{error}</div>
+        ) : (
+          <div className="rounded-2xl border border-slate-800 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-800 bg-slate-900/60">
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide">Account</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide">Plan</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide">Trial started</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60">
+                  {filtered.length === 0 ? (
+                    <tr><td colSpan={4} className="text-center py-12 text-slate-500">No accounts found</td></tr>
+                  ) : filtered.map(u => {
+                    const busy = actionLoading[u.uid];
+                    const trialStart = u.trial_started_at
+                      ? new Date(typeof u.trial_started_at === 'number' ? u.trial_started_at : u.trial_started_at?.toMillis?.() || 0).toLocaleDateString()
+                      : '—';
+                    return (
+                      <tr key={u.uid} className="hover:bg-slate-800/30 transition-colors">
+                        <td className="px-4 py-3">
+                          <div className="font-semibold text-white">{u.displayName || u.email || u.uid}</div>
+                          {u.displayName && <div className="text-xs text-slate-500">{u.email}</div>}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${planBadgeColor(u)}`}>
+                            {effectivePlan(u)}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-slate-400 text-xs">{trialStart}</td>
+                        <td className="px-4 py-3">
+                          {!u.is_founder && (
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <button
+                                onClick={() => handleExtendTrial(u.uid, 7)}
+                                disabled={busy}
+                                className="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-all whitespace-nowrap"
+                              >
+                                {busy ? '…' : '+7 days trial'}
+                              </button>
+                              <button
+                                onClick={() => handleExtendTrial(u.uid, 14)}
+                                disabled={busy}
+                                className="px-2.5 py-1 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-slate-300 text-xs font-semibold rounded-lg transition-all whitespace-nowrap"
+                              >
+                                {busy ? '…' : '+14 days'}
+                              </button>
+                              <select
+                                onChange={e => { if (e.target.value) handleSetPlan(u.uid, e.target.value); e.target.value = ''; }}
+                                disabled={busy}
+                                defaultValue=""
+                                className="px-2 py-1 bg-slate-800 border border-slate-700 text-slate-300 text-xs rounded-lg cursor-pointer disabled:opacity-50"
+                              >
+                                <option value="">Set plan…</option>
+                                {['free','trial','starter','hr_finance','pro','enterprise'].map(p => (
+                                  <option key={p} value={p}>{p}</option>
+                                ))}
+                              </select>
+                            </div>
+                          )}
+                          {u.is_founder && <span className="text-amber-400 text-xs">⚡ You</span>}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
     </AppShell>
   );
@@ -15238,6 +15448,10 @@ export default function App() {
           <Route path="/renewals" element={<Navigate to="/finance" replace />} />
           <Route path="/invoices" element={<Navigate to="/finance" replace />} />
           <Route path="/contracts" element={<Navigate to="/finance" replace />} />
+          <Route
+            path="/founder-admin"
+            element={<RequireAuth><FounderAdminPage /></RequireAuth>}
+          />
           <Route path="*" element={<NotFound />} />
         </Routes>
         <FloatingChatbotGated />

@@ -28,9 +28,13 @@ import {
   getFirestore,
   doc,
   getDoc,
+  getDocs,
   setDoc,
   addDoc,
+  updateDoc,
   collection,
+  query,
+  orderBy,
   serverTimestamp,
 } from 'firebase/firestore';
 import { getAnalytics, isSupported, setConsent as firebaseSetConsent } from 'firebase/analytics';
@@ -386,6 +390,43 @@ export async function logLegalAcceptance(uid, email, planId) {
       }
     );
   } catch { /* best-effort — never block checkout */ }
+}
+
+// ============================================================================
+// FOUNDER ADMIN — read all users, extend trials
+// Requires is_founder=true on the calling user's /users/{uid} doc.
+// Firestore rules enforce this server-side.
+// ============================================================================
+export async function loadAllUsersAdmin() {
+  try {
+    const snap = await getDocs(query(collection(firestoreDb, 'users'), orderBy('trial_started_at', 'desc')));
+    return snap.docs.map(d => ({ uid: d.id, ...d.data() }));
+  } catch (err) {
+    console.error('loadAllUsersAdmin:', err);
+    throw err;
+  }
+}
+
+export async function founderExtendTrial(targetUid, extraDays = 7) {
+  try {
+    const newStart = Date.now() - (7 - extraDays) * 24 * 60 * 60 * 1000;
+    await updateDoc(doc(firestoreDb, 'users', targetUid), {
+      plan: 'trial',
+      trial_started_at: newStart,
+    });
+  } catch (err) {
+    console.error('founderExtendTrial:', err);
+    throw err;
+  }
+}
+
+export async function founderSetPlan(targetUid, plan) {
+  try {
+    await updateDoc(doc(firestoreDb, 'users', targetUid), { plan });
+  } catch (err) {
+    console.error('founderSetPlan:', err);
+    throw err;
+  }
 }
 
 // ============================================================================
