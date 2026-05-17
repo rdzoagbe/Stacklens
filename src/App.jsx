@@ -10818,7 +10818,7 @@ function SettingsPage() {
                           <div className="font-medium text-slate-200 text-sm">{item.label}</div>
                           <div className="text-xs text-slate-500">{item.desc}</div>
                         </div>
-                        <button onClick={() => toast.info('This action is disabled in demo mode.')}
+                        <button onClick={() => toast('This action is disabled in demo mode.')}
                           className={"text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors " + (item.danger ? 'border-rose-500/40 text-rose-400 hover:bg-rose-500/10' : 'border-slate-700 text-slate-400 hover:text-white hover:border-slate-600')}>
                           {item.btn}
                         </button>
