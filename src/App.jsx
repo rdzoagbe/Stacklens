@@ -2874,7 +2874,9 @@ function toCsv(rows, columns) {
 }
 
 function parseCsv(text) {
-  const lines = text.split(/\r?\n/).filter((l) => l.trim().length);
+  // Strip UTF-8 BOM that Excel adds when saving as CSV
+  const clean = text.replace(/^﻿/, '');
+  const lines = clean.split(/\r?\n/).filter((l) => l.trim().length);
   if (!lines.length) return [];
   const headers = splitCsvLine(lines[0]).map((h) => h.trim());
   return lines.slice(1).map((line) => {
@@ -8028,32 +8030,39 @@ function ImportWizard({ defaultKind = null, onDone = null }) {
     if (!file) return;
     const name = file.name.toLowerCase();
     let csv;
-    if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
-      if (!window.XLSX) {
-        await new Promise((res, rej) => {
-          const s = document.createElement('script');
-          s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
-          s.onload = res; s.onerror = rej;
-          document.head.appendChild(s);
+    try {
+      if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
+        if (!window.XLSX) {
+          await new Promise((res, rej) => {
+            const s = document.createElement('script');
+            s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+            s.onload = res; s.onerror = () => rej(new Error('Failed to load Excel reader. Check your connection.'));
+            document.head.appendChild(s);
+          });
+        }
+        const ab = await file.arrayBuffer();
+        const wb = window.XLSX.read(ab, { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        csv = window.XLSX.utils.sheet_to_csv(ws);
+      } else {
+        csv = await new Promise((res, rej) => {
+          const reader = new FileReader();
+          reader.onload = (e) => res(e.target.result);
+          reader.onerror = () => rej(new Error('Could not read file'));
+          reader.readAsText(file);
         });
       }
-      const ab = await file.arrayBuffer();
-      const wb = window.XLSX.read(ab, { type: 'array' });
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      csv = window.XLSX.utils.sheet_to_csv(ws);
-    } else {
-      csv = await new Promise((res) => {
-        const reader = new FileReader();
-        reader.onload = (e) => res(e.target.result);
-        reader.readAsText(file);
-      });
+    } catch (err) {
+      toast.error(err.message || 'Could not read file. Try saving as CSV and uploading again.');
+      return;
     }
     setText(csv);
-    // Auto-detect type from headers
     const detected = detectKind(csv);
     if (detected) {
       setKind(detected);
       toast.success('Detected: ' + (KINDS[detected]?.label || detected));
+    } else if (!kind) {
+      toast('Could not detect file type — please select the data type above.', { icon: '⚠️' });
     }
     goTo(2);
   };
@@ -8063,11 +8072,17 @@ function ImportWizard({ defaultKind = null, onDone = null }) {
     setImporting(true);
     try {
       await muts.bulkImport.mutateAsync({ kind, records: liveRows });
-      // Wait for Firestore to sync before proceeding
       await new Promise(r => setTimeout(r, 1500));
       setImported({ count: liveRows.length, kind });
       if (onDone) setTimeout(onDone, 2000);
       goTo(3);
+    } catch (err) {
+      const msg = err?.message || '';
+      if (msg.startsWith('PLAN_LIMIT:')) {
+        toast.error(msg.replace('PLAN_LIMIT:', ''), { duration: 8000 });
+      } else {
+        toast.error('Import failed: ' + (msg || 'Unknown error'));
+      }
     } finally { setImporting(false); }
   };
 
@@ -8280,6 +8295,8 @@ function ImportWizard({ defaultKind = null, onDone = null }) {
               <div className="mt-4 flex items-center gap-2 text-xs text-slate-700">
                 <span className="px-2 py-0.5 bg-slate-800 rounded font-mono">CSV</span>
                 <span className="px-2 py-0.5 bg-slate-800 rounded font-mono">TXT</span>
+                <span className="px-2 py-0.5 bg-slate-800 rounded font-mono">XLSX</span>
+                <span className="px-2 py-0.5 bg-slate-800 rounded font-mono">XLS</span>
               </div>
             </div>
 
