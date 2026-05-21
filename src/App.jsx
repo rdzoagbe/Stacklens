@@ -2314,7 +2314,7 @@ function SidebarFooter({ collapsed }) {
           </Button>
           <Button variant="ghost" className="w-full" onClick={() => { navigate('/settings'); setTimeout(() => { const el = document.querySelector('[data-tab="billing"]'); if(el) el.click(); }, 100); }}>
               <ExternalLink className="h-4 w-4" />
-              {(() => { const _p = JSON.parse(localStorage.getItem('accessguard_v1') || '{}')?.user?.plan || 'free'; return _p === 'free' || _p === 'trial' ? 'Trial' : (_p.charAt(0).toUpperCase() + _p.slice(1)); })()}
+              {(() => { const _p = JSON.parse(localStorage.getItem('accessguard_v1') || '{}')?.user?.plan || 'free'; return _p === 'free' || _p === 'trial' ? 'Trial' : (getPlanLimits(_p).label || (_p.charAt(0).toUpperCase() + _p.slice(1))); })()}
           </Button>
         </div>
       ) : null}
@@ -4648,7 +4648,7 @@ function PlanGate({ requires, children, feature = 'this feature' }) {
       <h2 className="text-2xl font-black text-white mb-2">{t("upgrade_to_access")} {feature}</h2>
       <p className="text-slate-400 mb-6 max-w-md">
         This feature requires the <span className="text-blue-400 font-semibold">{planNames[requires] || requires}</span> plan or higher.
-        You're currently on the <span className="text-slate-300 font-semibold capitalize">{plan}</span> plan.
+        You're currently on the <span className="text-slate-300 font-semibold">{getPlanLimits(plan).label || plan}</span> plan.
       </p>
       <button onClick={() => { navigate('/settings'); setTimeout(() => { const el = document.querySelector('[data-tab="billing"]'); if(el) el.click(); }, 100); }}
         className="px-4 md:px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-blue-500/20">
