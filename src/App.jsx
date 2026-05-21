@@ -4560,6 +4560,7 @@ function TourLaunchButton() {
 const PLAN_TIERS = {
   free: 0,
   trial: 4,       // Trial = FULL access to everything — expires after 7 days
+  demo:  4,       // Demo mode = same full access as trial (showcase the product)
   starter: 2,
   hr_finance: 2,  // HR & Finance Pack — Finance Board + People Board (same tier as Starter)
   pro: 3,
@@ -4572,6 +4573,7 @@ const PLAN_TIERS = {
 const PLAN_LIMITS = {
   free:       { tools: 10,    employees: 25,    teamMembers: 1,  label: 'Free' },
   trial:      { tools: 9999,  employees: 9999,  teamMembers: 5,  label: 'Trial (7 days)' },
+  demo:       { tools: 9999,  employees: 9999,  teamMembers: 5,  label: 'Demo' },
   starter:    { tools: 100,   employees: 250,   teamMembers: 5,  label: 'Starter' },
   hr_finance: { tools: 100,   employees: 250,   teamMembers: 5,  label: 'HR & Finance' },
   pro:        { tools: 500,   employees: 1500,  teamMembers: 15, label: 'Pro' },
@@ -4689,11 +4691,11 @@ function PlanGate({ requires, children, feature = 'this feature' }) {
 // Controls access to specific modules (Finance Board, People Board, etc.)
 // Checks user.modules array OR falls back to plan tier
 const MODULE_PLANS = {
-  finance:   ['hr_finance', 'pro', 'enterprise', 'scale', 'unlimited'],
-  people:    ['hr_finance', 'pro', 'enterprise', 'scale', 'unlimited'],
-  security:  ['pro', 'enterprise', 'scale', 'unlimited'],
-  ai:        ['pro', 'enterprise', 'scale', 'unlimited'],
-  analytics: ['pro', 'enterprise', 'scale', 'unlimited'],
+  finance:   ['hr_finance', 'pro', 'enterprise', 'scale', 'unlimited', 'growth'],
+  people:    ['hr_finance', 'pro', 'enterprise', 'scale', 'unlimited', 'growth'],
+  security:  ['pro', 'enterprise', 'scale', 'unlimited', 'growth'],
+  ai:        ['pro', 'enterprise', 'scale', 'unlimited', 'growth'],
+  analytics: ['pro', 'enterprise', 'scale', 'unlimited', 'growth'],
 };
 
 function ModuleGate({ module, children, feature = 'this module' }) {
