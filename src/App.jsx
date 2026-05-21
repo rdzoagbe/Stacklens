@@ -2397,21 +2397,28 @@ function TopBar({ title, right }) {
   const _db = JSON.parse(localStorage.getItem("accessguard_v1") || "{}");
   const userName = _db?.user?.displayName || _db?.user?.email?.split("@")[0] || "Stacklens";
   return (
-    <div className="flex items-center justify-between gap-4 border-b border-slate-800 bg-slate-950/30 p-5">
-      <div>
-
-        <div className="text-xl font-semibold text-slate-100">{title}</div>
-        <div className="mt-1 text-sm text-slate-500">{t('topbar_subtitle')}</div>
-      </div>
-      <div className="flex items-center gap-3">
-        <div className="hidden sm:flex items-center gap-2 text-sm text-slate-300">
+    <div className="border-b border-slate-800 bg-slate-950/30">
+      {/* Title row — always fits, user avatar pinned right */}
+      <div className="flex items-center justify-between gap-4 px-5 pt-4 pb-3">
+        <div>
+          <div className="text-xl font-semibold text-slate-100">{title}</div>
+          <div className="mt-0.5 text-sm text-slate-500">{t('topbar_subtitle')}</div>
+        </div>
+        <div className="hidden sm:flex items-center gap-2 text-sm text-slate-300 flex-shrink-0">
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600/20 text-blue-300 font-medium">
             {userName.charAt(0).toUpperCase()}
           </div>
-          <span>{userName}</span>
+          <span className="max-w-[120px] truncate">{userName}</span>
         </div>
-        {right ? <div className="flex items-center gap-2">{right}</div> : null}
       </div>
+      {/* Tab/action bar — scrollable on narrow screens */}
+      {right && (
+        <div className="overflow-x-auto px-5 pb-3 [&::-webkit-scrollbar]:h-0">
+          <div className="min-w-max">
+            {right}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -10278,7 +10285,7 @@ function SettingsPage() {
 
   return (
     <AppShell title={t('settings_title')} right={
-      <div className="flex items-center gap-1 p-1 bg-slate-900 rounded-xl border border-slate-800 overflow-x-auto max-w-full">
+      <div className="flex items-center gap-1 p-1 bg-slate-900 rounded-xl border border-slate-800">
         {coreTabs.map(tab => {
           const Icon = tab.icon;
           return (
@@ -12005,10 +12012,10 @@ function FinanceDashboard() {
   return (
     <PlanGate requires="growth" feature="Finance Dashboard"><AppShell title={t("finance_title") || "Finance"}
       right={
-        <div className="flex gap-1 p-1 bg-slate-900 rounded-xl border border-slate-800">
+        <div className="flex gap-1 p-1 bg-slate-900 rounded-xl border border-slate-800 overflow-x-auto [&::-webkit-scrollbar]:h-0">
           {TABS.map(tab => (
             <button key={tab.id} onClick={() => setFinTab(tab.id)}
-              className={"px-3 py-1.5 rounded-lg text-sm font-semibold transition-all " + (finTab === tab.id ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white')}>
+              className={"px-3 py-1.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap " + (finTab === tab.id ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white')}>
               {tab.label}
             </button>
           ))}
