@@ -4809,6 +4809,140 @@ function PlanLimitBanner({ resource = 'tools' }) {
   );
 }
 
+function GettingStartedChecklist({ db }) {
+  const navigate = useNavigate();
+  const { language } = useLang();
+  const isFr = language === 'fr';
+  const [dismissed, setDismissed] = useState(
+    localStorage.getItem('sg_checklist_dismissed') === 'true'
+  );
+  const [celebrating, setCelebrating] = useState(false);
+
+  const budgetCap = db?.user?.budget_cap || parseInt(localStorage.getItem('sg_budget_cap') || '0') || 0;
+  const teamMembers = (() => { try { return JSON.parse(localStorage.getItem('sg_team_members') || '[]'); } catch { return []; } })();
+
+  const steps = [
+    {
+      id: 'first_tool',
+      icon: '🛠️',
+      title: isFr ? 'Ajoutez votre premier outil SaaS' : 'Add your first SaaS tool',
+      desc: isFr ? 'Commencez à suivre ce que vous payez.' : 'Start tracking what you pay for.',
+      done: (db?.tools || []).filter(t => t.status !== 'archived').length > 0,
+      action: () => navigate('/tools'),
+      cta: isFr ? 'Ajouter un outil →' : 'Add a tool →',
+    },
+    {
+      id: 'add_employee',
+      icon: '👥',
+      title: isFr ? 'Importez votre équipe' : 'Import your team',
+      desc: isFr ? 'Attribuez des outils aux personnes pour suivre les accès.' : 'Assign tools to people to track access and risk.',
+      done: (db?.employees || []).length > 0,
+      action: () => navigate('/employees'),
+      cta: isFr ? 'Ajouter des employés →' : 'Add employees →',
+    },
+    {
+      id: 'budget_cap',
+      icon: '💰',
+      title: isFr ? 'Définissez un budget mensuel' : 'Set a monthly budget cap',
+      desc: isFr ? 'Soyez alerté quand les dépenses dépassent votre limite.' : 'Get alerted when spend exceeds your limit.',
+      done: budgetCap > 0,
+      action: () => navigate('/finance'),
+      cta: isFr ? 'Définir un budget →' : 'Set budget →',
+    },
+    {
+      id: 'invite_team',
+      icon: '✉️',
+      title: isFr ? 'Invitez un collègue' : 'Invite a colleague',
+      desc: isFr ? 'La collaboration vaut mieux que les tableurs.' : 'Better together than on a spreadsheet.',
+      done: teamMembers.length > 0,
+      action: () => { navigate('/settings'); setTimeout(() => { const el = document.querySelector('[data-tab="team"]'); if (el) el.click(); }, 100); },
+      cta: isFr ? 'Inviter →' : 'Invite →',
+    },
+  ];
+
+  const doneCount = steps.filter(s => s.done).length;
+  const allDone = doneCount === steps.length;
+
+  const dismiss = () => {
+    localStorage.setItem('sg_checklist_dismissed', 'true');
+    setDismissed(true);
+  };
+
+  // Auto-dismiss with brief celebration when all steps complete
+  React.useEffect(() => {
+    if (allDone && !dismissed) {
+      setCelebrating(true);
+      const t = setTimeout(() => dismiss(), 4000);
+      return () => clearTimeout(t);
+    }
+  }, [allDone]);
+
+  if (dismissed) return null;
+
+  const pct = Math.round((doneCount / steps.length) * 100);
+
+  return (
+    <div className="rounded-2xl border border-blue-500/20 bg-gradient-to-br from-slate-900 to-blue-950/20 p-5 lg:p-6 mb-6">
+      {celebrating ? (
+        <div className="text-center py-4">
+          <div className="text-3xl mb-2">🎉</div>
+          <div className="text-lg font-bold text-white mb-1">{isFr ? 'Tout est prêt !' : 'You\'re all set!'}</div>
+          <div className="text-sm text-slate-400">{isFr ? 'Stacklens est configuré et prêt.' : 'Stacklens is configured and ready to go.'}</div>
+        </div>
+      ) : (
+        <>
+          <div className="flex items-start justify-between gap-4 mb-4">
+            <div>
+              <div className="flex items-center gap-2 mb-0.5">
+                <span className="text-base font-bold text-white">{isFr ? 'Mise en route' : 'Getting started'}</span>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 font-semibold">{doneCount}/{steps.length}</span>
+              </div>
+              <div className="text-xs text-slate-500">{isFr ? 'Complétez ces étapes pour tirer le meilleur de Stacklens.' : 'Complete these steps to get the most out of Stacklens.'}</div>
+            </div>
+            <button onClick={dismiss} className="text-slate-600 hover:text-slate-400 transition-colors text-lg leading-none flex-shrink-0" title="Dismiss">✕</button>
+          </div>
+
+          {/* Progress bar */}
+          <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden mb-5">
+            <div className="h-full bg-gradient-to-r from-blue-500 to-emerald-500 rounded-full transition-all duration-500"
+              style={{ width: `${pct}%` }} />
+          </div>
+
+          {/* Steps */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {steps.map((step) => (
+              <div key={step.id} className={`relative flex flex-col gap-2 p-4 rounded-xl border transition-all ${
+                step.done
+                  ? 'border-emerald-500/30 bg-emerald-500/5'
+                  : 'border-slate-700 bg-slate-950/40 hover:border-slate-600'
+              }`}>
+                {step.done && (
+                  <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center">
+                    <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                )}
+                <div className="text-xl">{step.icon}</div>
+                <div className={`text-sm font-semibold ${step.done ? 'text-emerald-300 line-through decoration-emerald-500/50' : 'text-white'}`}>
+                  {step.title}
+                </div>
+                <div className="text-xs text-slate-500 flex-1">{step.desc}</div>
+                {!step.done && (
+                  <button onClick={step.action}
+                    className="mt-1 text-xs text-blue-400 hover:text-blue-300 font-semibold transition-colors text-left">
+                    {step.cta}
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function DashboardPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -4891,6 +5025,11 @@ function DashboardPage() {
       {/* Row 4: Spend + Shadow IT + Reviews (intelligence)     */}
       {/* Row 5: Quick Actions (take action)                    */}
       {/* ══════════════════════════════════════════════════════ */}
+
+      {/* ── GETTING STARTED — shown to new real users only ── */}
+      {db && !db.user?.is_demo && db.user?.is_authenticated && (
+        <GettingStartedChecklist db={db} />
+      )}
 
       {/* ── PRIORITY ACTION — the ONE thing to do first ── */}
       {derived.formerAccess > 0 && (
