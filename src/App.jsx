@@ -8,7 +8,7 @@ import {
   useLocation,
   useNavigate,
 } from "react-router-dom";
-import { signInWithGoogle, handleRedirectResult, signOutUser, onAuthChange, sendMagicLink, completeMagicLinkSignIn, callAI, loadUserData, saveUserData, syncUserProfile, getUserPlanFromFirestore, registerWithEmail, signInWithEmail, resetPassword, createBillingPortal, createCheckoutSession, logConsent, startTrial, logLegalAcceptance } from './firebase-config';
+import { signInWithGoogle, signInWithMicrosoft, handleRedirectResult, signOutUser, onAuthChange, sendMagicLink, completeMagicLinkSignIn, callAI, loadUserData, saveUserData, syncUserProfile, getUserPlanFromFirestore, registerWithEmail, signInWithEmail, resetPassword, createBillingPortal, createCheckoutSession, logConsent, startTrial, logLegalAcceptance } from './firebase-config';
 
 // ── Compatibility stubs (migrated to Firestore) ──────────────
 async function getUserProfile(uid) {
@@ -3383,7 +3383,7 @@ function TrialPage() {
   // SSO Providers - exact match to screenshot
   const ssoProviders = [
     { id: 'google', name: 'Google', subtitle: 'Sign in with Google account', live: true },
-    { id: 'microsoft', name: 'Microsoft', subtitle: 'Microsoft 365 / Azure AD', live: false },
+    { id: 'microsoft', name: 'Microsoft', subtitle: 'Microsoft 365 / Azure AD', live: true },
     { id: 'github', name: 'GitHub', subtitle: 'Sign in with GitHub', live: false },
     { id: 'okta', name: 'Okta', subtitle: 'Enterprise SSO via Okta', live: false },
     { id: 'saml', name: 'SAML SSO', subtitle: 'Custom SAML 2.0 provider', live: false },
@@ -3418,19 +3418,19 @@ function TrialPage() {
     
     try {
       if (provider.id === 'google') {
-        // Triggers redirect to Google — browser navigates away, result handled in main.jsx on return
         await login();
-        // Page will redirect — code below won't execute until user returns
+      } else if (provider.id === 'microsoft') {
+        const { user, error } = await signInWithMicrosoft();
+        if (error) {
+          toast.error('Microsoft sign-in failed: ' + error);
+          setLoading(false);
+        }
+        // onAuthChange handles the rest if sign-in succeeded
       } else if (provider.id === 'magic') {
         setShowEmailForm(true);
         setLoading(false);
       } else {
-        // Demo mode for other providers (Microsoft, GitHub, etc)
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        localStorage.setItem('sso_provider', provider.id);
-        setShowAuth(false);
-        startDemo();
-        navigate("/dashboard", { replace: true });
+        toast.info(`${provider.name} SSO coming soon.`);
         setLoading(false);
       }
     } catch (error) {
