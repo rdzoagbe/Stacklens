@@ -878,14 +878,29 @@ async function hydrateFromFirestore(uid) {
   try {
     const cloudData = await loadUserData(uid);
     const localData = loadDb();
-    // Never overwrite local data that has more tools than cloud
-    if (localData && (localData.tools?.length > 0 || localData.employees?.length > 0)) {
+
+    // If localStorage belongs to a different user, discard it — never bleed one
+    // user's data into another account (e.g. switching from Google to Microsoft).
+    const storedUid = localStorage.getItem('sg_auth_uid');
+    if (localData && storedUid && storedUid !== uid) {
+      localStorage.removeItem(LS_KEY);
+      localStorage.removeItem('sg_team_members');
+      localStorage.removeItem('sg_api_keys');
+      localStorage.removeItem('sg_notifications');
+      localStorage.removeItem('sg_budget_cap');
+    }
+    localStorage.setItem('sg_auth_uid', uid);
+
+    const freshLocal = loadDb(); // re-read after possible clear
+
+    // Never overwrite local data (belonging to this user) that has more tools than cloud
+    if (freshLocal && (freshLocal.tools?.length > 0 || freshLocal.employees?.length > 0)) {
       // Local has data - just preserve plan from cloud and return local
       if (cloudData?.user?.plan && cloudData.user.plan !== "free") {
-        localData.user = { ...localData.user, plan: cloudData.user.plan, subscription_plan: cloudData.user.plan };
-        saveDb(localData);
+        freshLocal.user = { ...freshLocal.user, plan: cloudData.user.plan, subscription_plan: cloudData.user.plan };
+        saveDb(freshLocal);
       }
-      return localData;
+      return freshLocal;
     }
     if (cloudData && cloudData.tools !== undefined) {
       // Cloud data exists — use it but preserve existing plan from users collection
@@ -900,10 +915,9 @@ async function hydrateFromFirestore(uid) {
       localStorage.setItem(LS_KEY, JSON.stringify(cloudData));
       return cloudData;
     }
-    // No cloud data yet — local data (if any) will be synced on next saveDb
+    // No cloud data yet — local data (if any, belonging to this user) will be synced on next saveDb
     const local = loadDb();
     if (local && !local.user?.is_demo) {
-      // Migrate existing local data to Firestore
       await saveUserData(uid, local);
     }
     return local;
@@ -1980,6 +1994,7 @@ function useAuth() {
 
   const logout = async () => {
     await signOutUser();
+    localStorage.removeItem('sg_auth_uid');
     const cur = seedDbIfEmpty();
     cur.user = { is_authenticated: false, is_demo: false };
     saveDb(cur);
@@ -2382,21 +2397,28 @@ function TopBar({ title, right }) {
   const _db = JSON.parse(localStorage.getItem("accessguard_v1") || "{}");
   const userName = _db?.user?.displayName || _db?.user?.email?.split("@")[0] || "Stacklens";
   return (
-    <div className="flex items-center justify-between gap-4 border-b border-slate-800 bg-slate-950/30 p-5">
-      <div>
-
-        <div className="text-xl font-semibold text-slate-100">{title}</div>
-        <div className="mt-1 text-sm text-slate-500">{t('topbar_subtitle')}</div>
-      </div>
-      <div className="flex items-center gap-3">
-        <div className="hidden sm:flex items-center gap-2 text-sm text-slate-300">
+    <div className="border-b border-slate-800 bg-slate-950/30">
+      {/* Title row — always fits, user avatar pinned right */}
+      <div className="flex items-center justify-between gap-4 px-5 pt-4 pb-3">
+        <div>
+          <div className="text-xl font-semibold text-slate-100">{title}</div>
+          <div className="mt-0.5 text-sm text-slate-500">{t('topbar_subtitle')}</div>
+        </div>
+        <div className="hidden sm:flex items-center gap-2 text-sm text-slate-300 flex-shrink-0">
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600/20 text-blue-300 font-medium">
             {userName.charAt(0).toUpperCase()}
           </div>
-          <span>{userName}</span>
+          <span className="max-w-[120px] truncate">{userName}</span>
         </div>
-        {right ? <div className="flex items-center gap-2">{right}</div> : null}
       </div>
+      {/* Tab/action bar — scrollable on narrow screens */}
+      {right && (
+        <div className="overflow-x-auto px-5 pb-3 [&::-webkit-scrollbar]:h-0">
+          <div className="min-w-max">
+            {right}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -10263,7 +10285,7 @@ function SettingsPage() {
 
   return (
     <AppShell title={t('settings_title')} right={
-      <div className="flex items-center gap-1 p-1 bg-slate-900 rounded-xl border border-slate-800 overflow-x-auto max-w-full">
+      <div className="flex items-center gap-1 p-1 bg-slate-900 rounded-xl border border-slate-800">
         {coreTabs.map(tab => {
           const Icon = tab.icon;
           return (
@@ -11990,10 +12012,10 @@ function FinanceDashboard() {
   return (
     <PlanGate requires="growth" feature="Finance Dashboard"><AppShell title={t("finance_title") || "Finance"}
       right={
-        <div className="flex gap-1 p-1 bg-slate-900 rounded-xl border border-slate-800">
+        <div className="flex gap-1 p-1 bg-slate-900 rounded-xl border border-slate-800 overflow-x-auto [&::-webkit-scrollbar]:h-0">
           {TABS.map(tab => (
             <button key={tab.id} onClick={() => setFinTab(tab.id)}
-              className={"px-3 py-1.5 rounded-lg text-sm font-semibold transition-all " + (finTab === tab.id ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white')}>
+              className={"px-3 py-1.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap " + (finTab === tab.id ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white')}>
               {tab.label}
             </button>
           ))}
