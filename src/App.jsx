@@ -10130,6 +10130,8 @@ function SettingsPage() {
   const t = useTranslation(language);
   const navigate = useNavigate();
   const { data: db } = useDbQuery();
+  const qc = useQueryClient();
+  const { isDemo, firebaseUser } = useAuth();
   const [activeTab, setActiveTab] = useState('general');
   const [saveMsg, setSaveMsg] = useState('');
 
@@ -10521,16 +10523,58 @@ function SettingsPage() {
                 <CardBody>
                   <div className="space-y-3">
                     {[
-                      { label: 'Delete all tool data', desc: 'Removes all tools from your account', btn: 'Delete Tools' },
-                      { label: 'Delete all employee data', desc: 'Removes all employee and access records', btn: 'Delete Employees' },
-                      { label: 'Delete account', desc: 'Permanently deletes your Stacklens account and all data', btn: 'Delete Account', danger: true },
+                      {
+                        label: 'Delete all tool data',
+                        desc: 'Removes all tools, employees and access records',
+                        btn: 'Delete Tools',
+                        onClick: () => {
+                          if (isDemo) { toast.error('Not available in demo mode.'); return; }
+                          if (!window.confirm('Delete ALL tools, employees and access records? This cannot be undone.')) return;
+                          const cur = loadDb() || seedDbIfEmpty();
+                          cur.tools = []; cur.employees = []; cur.access = [];
+                          saveDb(cur);
+                          if (firebaseUser?.uid) saveUserData(firebaseUser.uid, cur).catch(() => {});
+                          qc.invalidateQueries({ queryKey: ['db'] });
+                          toast.success('All tool data deleted');
+                        },
+                      },
+                      {
+                        label: 'Delete all employee data',
+                        desc: 'Removes all employee and access records',
+                        btn: 'Delete Employees',
+                        onClick: () => {
+                          if (isDemo) { toast.error('Not available in demo mode.'); return; }
+                          if (!window.confirm('Delete ALL employees and access records? This cannot be undone.')) return;
+                          const cur = loadDb() || seedDbIfEmpty();
+                          cur.employees = []; cur.access = [];
+                          saveDb(cur);
+                          if (firebaseUser?.uid) saveUserData(firebaseUser.uid, cur).catch(() => {});
+                          qc.invalidateQueries({ queryKey: ['db'] });
+                          toast.success('All employee data deleted');
+                        },
+                      },
+                      {
+                        label: 'Delete account',
+                        desc: 'Permanently deletes your Stacklens account and all data',
+                        btn: 'Delete Account',
+                        danger: true,
+                        onClick: () => {
+                          if (isDemo) { toast.error('Not available in demo mode.'); return; }
+                          window.location.href = 'mailto:hello@stacklens.fr?subject='
+                            + encodeURIComponent('Account Deletion Request')
+                            + '&body=' + encodeURIComponent(
+                                'Please delete my Stacklens account.\n\nEmail: '
+                                + (firebaseUser?.email || '')
+                              );
+                        },
+                      },
                     ].map(item => (
                       <div key={item.label} className="flex items-center justify-between py-3 border-b border-rose-500/10 last:border-0">
                         <div>
                           <div className="font-medium text-slate-200 text-sm">{item.label}</div>
                           <div className="text-xs text-slate-500">{item.desc}</div>
                         </div>
-                        <button onClick={() => toast.info('This action is disabled in demo mode.')}
+                        <button onClick={item.onClick}
                           className={"text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors " + (item.danger ? 'border-rose-500/40 text-rose-400 hover:bg-rose-500/10' : 'border-slate-700 text-slate-400 hover:text-white hover:border-slate-600')}>
                           {item.btn}
                         </button>
