@@ -305,3 +305,160 @@ exports.renewalAlerts = onSchedule({
   }
   console.log('Renewal alerts sent:', sent);
 });
+
+// ── Weekly Summary Email (every Monday 09:00 Europe/Paris) ───────────────
+exports.weeklySummary = onSchedule({
+  schedule: 'every monday 09:00',
+  timeZone: 'Europe/Paris',
+  region: 'us-central1',
+  secrets: [SENDGRID_API_KEY],
+}, async () => {
+  const sgMail = require('@sendgrid/mail');
+  sgMail.setApiKey(SENDGRID_API_KEY.value());
+  const db = admin.firestore();
+  const today = new Date();
+  const in30 = new Date(today); in30.setDate(today.getDate() + 30);
+  const todayStr = today.toISOString().slice(0, 10);
+  const in30Str  = in30.toISOString().slice(0, 10);
+
+  const snapshot = await db.collection('userdata').get();
+  let sent = 0;
+
+  for (const docSnap of snapshot.docs) {
+    const data  = docSnap.data();
+    const email = data?.user?.email;
+    if (!email) continue;
+    // Respect opt-out (default: send)
+    if (data?.user?.weekly_summary === false) continue;
+
+    const tools     = data?.tools     || [];
+    const employees = data?.employees || [];
+    const access    = data?.access    || [];
+
+    // ── Metrics ──────────────────────────────────────────────────────────
+    const activeTools   = tools.filter(t => t.status !== 'decommissioned');
+    const monthlySpend  = activeTools.reduce((s, t) => s + (Number(t.cost_per_month) || 0), 0);
+    const orphaned      = activeTools.filter(t => !t.owner_email).length;
+    const highRisk      = access.filter(a => a.derived_risk_flag === 'high' || a.access_level === 'admin').length;
+    const upcoming      = tools.filter(t => t.renewal_date >= todayStr && t.renewal_date <= in30Str);
+    const activeEmps    = employees.filter(e => e.status === 'active').length;
+
+    // Health score: same formula as the dashboard
+    const healthScore = Math.max(0, Math.round(100 - (highRisk * 10) - (orphaned * 3)));
+    const healthColor = healthScore >= 80 ? '#10b981' : healthScore >= 60 ? '#f59e0b' : '#ef4444';
+    const healthLabel = healthScore >= 80 ? 'Good' : healthScore >= 60 ? 'Fair' : 'Needs attention';
+
+    const fmt = (n) => n.toLocaleString('en-GB', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+
+    // ── Stat cards ────────────────────────────────────────────────────────
+    const statCard = (label, value, sub, color = '#94a3b8') =>
+      `<td style="width:25%;padding:0 6px;text-align:center">
+        <div style="background:#1e293b;border-radius:10px;padding:16px 8px">
+          <div style="font-size:24px;font-weight:800;color:${color}">${value}</div>
+          <div style="font-size:11px;font-weight:600;color:#cbd5e1;margin-top:4px">${label}</div>
+          ${sub ? `<div style="font-size:10px;color:#64748b;margin-top:2px">${sub}</div>` : ''}
+        </div>
+      </td>`;
+
+    // ── Upcoming renewals rows ────────────────────────────────────────────
+    const renewalRows = upcoming.slice(0, 5).map(t => {
+      const days = Math.floor((new Date(t.renewal_date) - today) / 86400000);
+      const c    = days <= 7 ? '#ef4444' : '#f59e0b';
+      const cost = t.cost_per_month ? `€${fmt(t.cost_per_month * 12)}/yr` : '—';
+      return `<tr>
+        <td style="padding:8px;color:#e2e8f0;border-bottom:1px solid #1e293b;font-size:13px">${t.name}</td>
+        <td style="padding:8px;color:#94a3b8;border-bottom:1px solid #1e293b;font-size:13px">${t.renewal_date}</td>
+        <td style="padding:8px;color:${c};border-bottom:1px solid #1e293b;font-size:13px;font-weight:700">${days}d</td>
+        <td style="padding:8px;color:#e2e8f0;border-bottom:1px solid #1e293b;font-size:13px">${cost}</td>
+      </tr>`;
+    }).join('');
+
+    const renewalSection = upcoming.length ? `
+      <h3 style="color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:1px;margin:24px 0 12px">
+        Renewals in the next 30 days
+      </h3>
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr>
+          <th style="padding:6px 8px;text-align:left;color:#3b82f6;font-size:10px;text-transform:uppercase">Tool</th>
+          <th style="padding:6px 8px;text-align:left;color:#3b82f6;font-size:10px;text-transform:uppercase">Date</th>
+          <th style="padding:6px 8px;text-align:left;color:#3b82f6;font-size:10px;text-transform:uppercase">Days</th>
+          <th style="padding:6px 8px;text-align:left;color:#3b82f6;font-size:10px;text-transform:uppercase">Cost</th>
+        </tr></thead>
+        <tbody>${renewalRows}</tbody>
+      </table>
+      ${upcoming.length > 5 ? `<p style="color:#64748b;font-size:12px;margin:8px 0 0">+${upcoming.length - 5} more renewal(s) — <a href="https://stacklens.fr" style="color:#3b82f6">view all</a></p>` : ''}
+    ` : '';
+
+    // ── Alerts section ────────────────────────────────────────────────────
+    const alerts = [];
+    if (orphaned > 0) alerts.push(`⚠️ <strong style="color:#f59e0b">${orphaned} orphaned tool${orphaned > 1 ? 's' : ''}</strong> with no assigned owner`);
+    if (highRisk  > 0) alerts.push(`🔴 <strong style="color:#ef4444">${highRisk} high-risk access record${highRisk > 1 ? 's' : ''}</strong> need review`);
+
+    const alertsSection = alerts.length ? `
+      <h3 style="color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:1px;margin:24px 0 12px">
+        Action needed
+      </h3>
+      <div style="space-y:8px">
+        ${alerts.map(a => `<div style="padding:10px 14px;background:#1e293b;border-left:3px solid #f59e0b;border-radius:6px;margin-bottom:8px;font-size:13px;color:#94a3b8">${a}</div>`).join('')}
+      </div>
+    ` : '';
+
+    const html = `
+<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:600px;margin:0 auto;background:#0f172a;border-radius:14px;overflow:hidden">
+  <!-- Header -->
+  <div style="padding:24px 28px;background:linear-gradient(135deg,#1e293b 0%,#0f172a 100%);border-bottom:1px solid #1e293b">
+    <h1 style="color:white;margin:0 0 2px;font-size:20px;font-weight:800">Stacklens</h1>
+    <p style="color:#64748b;margin:0;font-size:13px">Your weekly SaaS summary</p>
+  </div>
+
+  <!-- Body -->
+  <div style="padding:24px 28px">
+    <p style="color:#94a3b8;font-size:14px;margin:0 0 20px">
+      Here's what's happening across your <strong style="color:white">${activeTools.length} active tools</strong>
+      and <strong style="color:white">${activeEmps} employees</strong>.
+    </p>
+
+    <!-- Stat cards -->
+    <table style="width:100%;border-collapse:collapse;margin-bottom:4px">
+      <tr>
+        ${statCard('Monthly Spend', `€${fmt(monthlySpend)}`, `€${fmt(monthlySpend * 12)}/yr`, '#e2e8f0')}
+        ${statCard('Health Score', `${healthScore}`, healthLabel, healthColor)}
+        ${statCard('Renewals Soon', `${upcoming.length}`, 'next 30 days', upcoming.length > 0 ? '#f59e0b' : '#10b981')}
+        ${statCard('High-Risk Access', `${highRisk}`, 'records', highRisk > 0 ? '#ef4444' : '#10b981')}
+      </tr>
+    </table>
+
+    ${renewalSection}
+    ${alertsSection}
+
+    <!-- CTA -->
+    <div style="text-align:center;margin-top:28px">
+      <a href="https://stacklens.fr" style="display:inline-block;background:#3b82f6;color:white;padding:12px 32px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px">
+        Open Dashboard →
+      </a>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div style="padding:16px 28px;border-top:1px solid #1e293b;text-align:center">
+    <p style="color:#475569;font-size:12px;margin:0">
+      Stacklens &nbsp;·&nbsp;
+      <a href="https://stacklens.fr/settings?tab=notifications" style="color:#475569;text-decoration:underline">Manage notifications</a>
+    </p>
+  </div>
+</div>`;
+
+    try {
+      await sgMail.send({
+        to: email,
+        from: { email: 'hello@stacklens.fr', name: 'Stacklens' },
+        subject: `📊 Your weekly SaaS summary — €${fmt(monthlySpend)}/mo · Score ${healthScore}`,
+        html,
+      });
+      sent++;
+    } catch (err) {
+      console.error('weeklySummary send failed for', email, err?.message);
+    }
+  }
+  console.log('Weekly summaries sent:', sent);
+});
