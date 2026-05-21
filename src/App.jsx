@@ -10171,10 +10171,15 @@ function SettingsPage() {
       offboard: notifOffboard, newTool: notifNewTool, compliance: notifCompliance,
       weekly: notifWeekly, invoice: notifInvoice, budget: notifBudget, ...patch };
     localStorage.setItem('sg_notifications', JSON.stringify(next));
-    // renewal_alerts is the only one the Cloud Function actually reads — sync it to db.user
-    if ('renewal' in patch) {
+    // Sync backend-relevant prefs to db.user so Cloud Functions can read them
+    const backendChanged = 'renewal' in patch || 'weekly' in patch;
+    if (backendChanged) {
       const cur = loadDb() || seedDbIfEmpty();
-      cur.user = { ...cur.user, renewal_alerts: patch.renewal };
+      cur.user = {
+        ...cur.user,
+        ...('renewal' in patch ? { renewal_alerts: patch.renewal } : {}),
+        ...('weekly'  in patch ? { weekly_summary: patch.weekly  } : {}),
+      };
       saveDb(cur);
       if (firebaseUser?.uid) saveUserData(firebaseUser.uid, cur).catch(() => {});
       qc.invalidateQueries({ queryKey: ['db'] });
