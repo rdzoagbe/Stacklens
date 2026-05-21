@@ -1153,6 +1153,7 @@ async function resetDb() {
     // 4. Clear all caches
     localStorage.removeItem('accessguard_fx_rates');
     localStorage.removeItem('sg_general');
+    localStorage.removeItem('sg_team_members');
     localStorage.removeItem('ag_ai_recs_cache');
     localStorage.removeItem('ag_live_translations');
 
@@ -2314,7 +2315,7 @@ function SidebarFooter({ collapsed }) {
           </Button>
           <Button variant="ghost" className="w-full" onClick={() => { navigate('/settings'); setTimeout(() => { const el = document.querySelector('[data-tab="billing"]'); if(el) el.click(); }, 100); }}>
               <ExternalLink className="h-4 w-4" />
-              {(() => { const _p = JSON.parse(localStorage.getItem('accessguard_v1') || '{}')?.user?.plan || 'free'; return _p === 'free' || _p === 'trial' ? 'Trial' : (_p.charAt(0).toUpperCase() + _p.slice(1)); })()}
+              {(() => { const _p = JSON.parse(localStorage.getItem('accessguard_v1') || '{}')?.user?.plan || 'free'; return _p === 'free' || _p === 'trial' ? 'Trial' : (getPlanLimits(_p).label || (_p.charAt(0).toUpperCase() + _p.slice(1))); })()}
           </Button>
         </div>
       ) : null}
@@ -4550,6 +4551,7 @@ const PLAN_LIMITS = {
   free:       { tools: 10,    employees: 25,    teamMembers: 1,  label: 'Free' },
   trial:      { tools: 9999,  employees: 9999,  teamMembers: 5,  label: 'Trial (7 days)' },
   starter:    { tools: 100,   employees: 250,   teamMembers: 5,  label: 'Starter' },
+  hr_finance: { tools: 100,   employees: 250,   teamMembers: 5,  label: 'HR & Finance' },
   pro:        { tools: 500,   employees: 1500,  teamMembers: 15, label: 'Pro' },
   enterprise: { tools: 99999, employees: 99999, teamMembers: 999,label: 'Enterprise' },
   // Legacy plan support — map old plans to current limits
@@ -4647,7 +4649,7 @@ function PlanGate({ requires, children, feature = 'this feature' }) {
       <h2 className="text-2xl font-black text-white mb-2">{t("upgrade_to_access")} {feature}</h2>
       <p className="text-slate-400 mb-6 max-w-md">
         This feature requires the <span className="text-blue-400 font-semibold">{planNames[requires] || requires}</span> plan or higher.
-        You're currently on the <span className="text-slate-300 font-semibold capitalize">{plan}</span> plan.
+        You're currently on the <span className="text-slate-300 font-semibold">{getPlanLimits(plan).label || plan}</span> plan.
       </p>
       <button onClick={() => { navigate('/settings'); setTimeout(() => { const el = document.querySelector('[data-tab="billing"]'); if(el) el.click(); }, 100); }}
         className="px-4 md:px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-blue-500/20">
@@ -10128,6 +10130,9 @@ function SettingsPage() {
   const { language, setLanguage } = useLang();
   const t = useTranslation(language);
   const navigate = useNavigate();
+  const { data: db } = useDbQuery();
+  const qc = useQueryClient();
+  const { isDemo, firebaseUser } = useAuth();
   const [activeTab, setActiveTab] = useState('general');
   const [saveMsg, setSaveMsg] = useState('');
 
@@ -10143,29 +10148,63 @@ function SettingsPage() {
   const [ipRestrict, setIpRestrict] = useState(savedSec.ipRestrict ?? false);
   const [auditLog, setAuditLog] = useState(savedSec.auditLog ?? true);
 
-  const [apiKeys, setApiKeys] = useState([
-    { id: 'key_1', name: 'Production API', created: '2025-12-01', lastUsed: '2026-03-05', prefix: 'sg_live_••••••••••' },
-    { id: 'key_2', name: 'Dev / Testing', created: '2026-01-15', lastUsed: 'Never', prefix: 'sg_test_••••••••••' },
-  ]);
+  const _savedApiKeys = (() => { try { return JSON.parse(localStorage.getItem('sg_api_keys') || '[]'); } catch { return []; } })();
+  const [apiKeys, setApiKeys] = useState(_savedApiKeys);
   const [newKeyName, setNewKeyName] = useState('');
   const [showNewKey, setShowNewKey] = useState(null);
 
-  const _mdb = JSON.parse(localStorage.getItem('accessguard_v1') || '{}')?.user;
-  const [members, setMembers] = useState([
-    {
-      id: 1,
-      name: _mdb?.displayName || _mdb?.email?.split('@')[0] || 'Owner',
-      email: _mdb?.email || '',
-      role: 'Owner',
-      joined: new Date().toISOString().slice(0, 10),
-      avatar: (_mdb?.displayName || _mdb?.email || 'O')[0].toUpperCase(),
+  const saveApiKeys = (next) => { localStorage.setItem('sg_api_keys', JSON.stringify(next)); setApiKeys(next); };
+
+  const _savedNotifs = (() => { try { return JSON.parse(localStorage.getItem('sg_notifications') || '{}'); } catch { return {}; } })();
+  const [notifRenewal,    setNotifRenewal]    = useState(_savedNotifs.renewal    ?? true);
+  const [notifOrphaned,   setNotifOrphaned]   = useState(_savedNotifs.orphaned   ?? true);
+  const [notifHighRisk,   setNotifHighRisk]   = useState(_savedNotifs.highRisk   ?? true);
+  const [notifOffboard,   setNotifOffboard]   = useState(_savedNotifs.offboard   ?? true);
+  const [notifNewTool,    setNotifNewTool]    = useState(_savedNotifs.newTool    ?? true);
+  const [notifCompliance, setNotifCompliance] = useState(_savedNotifs.compliance ?? false);
+  const [notifWeekly,     setNotifWeekly]     = useState(_savedNotifs.weekly     ?? true);
+  const [notifInvoice,    setNotifInvoice]    = useState(_savedNotifs.invoice    ?? false);
+  const [notifBudget,     setNotifBudget]     = useState(_savedNotifs.budget     ?? true);
+
+  const saveNotifications = (patch) => {
+    const next = { renewal: notifRenewal, orphaned: notifOrphaned, highRisk: notifHighRisk,
+      offboard: notifOffboard, newTool: notifNewTool, compliance: notifCompliance,
+      weekly: notifWeekly, invoice: notifInvoice, budget: notifBudget, ...patch };
+    localStorage.setItem('sg_notifications', JSON.stringify(next));
+    // renewal_alerts is the only one the Cloud Function actually reads — sync it to db.user
+    if ('renewal' in patch) {
+      const cur = loadDb() || seedDbIfEmpty();
+      cur.user = { ...cur.user, renewal_alerts: patch.renewal };
+      saveDb(cur);
+      if (firebaseUser?.uid) saveUserData(firebaseUser.uid, cur).catch(() => {});
+      qc.invalidateQueries({ queryKey: ['db'] });
     }
-  ]);
+  };
+
+  const _mdb = JSON.parse(localStorage.getItem('accessguard_v1') || '{}')?.user;
+  const _ownerMember = {
+    id: 'owner',
+    name: _mdb?.displayName || _mdb?.email?.split('@')[0] || 'Owner',
+    email: _mdb?.email || '',
+    role: 'Owner',
+    joined: new Date().toISOString().slice(0, 10),
+    avatar: (_mdb?.displayName || _mdb?.email || 'O')[0].toUpperCase(),
+  };
+  const _savedMembers = (() => {
+    try { return JSON.parse(localStorage.getItem('sg_team_members') || '[]'); } catch { return []; }
+  })();
+  const [members, setMembers] = useState([_ownerMember, ..._savedMembers]);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('viewer');
   const [inviteSent, setInviteSent] = useState(false);
   const [showRoleInfo, setShowRoleInfo] = useState(false);
   const myRole = getUserRole();
+
+  const saveMembers = (next) => {
+    const withoutOwner = next.filter(m => m.id !== 'owner');
+    localStorage.setItem('sg_team_members', JSON.stringify(withoutOwner));
+    setMembers([_ownerMember, ...withoutOwner]);
+  };
 
   const save = (key, data) => {
     localStorage.setItem(key, JSON.stringify(data));
@@ -10175,9 +10214,9 @@ function SettingsPage() {
 
   const generateApiKey = () => {
     if (!newKeyName.trim()) return;
-    const key = 'sg_live_' + Math.random().toString(36).slice(2, 18);
+    const key = 'sg_live_' + Math.random().toString(36).slice(2, 18) + Math.random().toString(36).slice(2, 18);
     const newK = { id: 'key_' + Date.now(), name: newKeyName, created: new Date().toISOString().slice(0,10), lastUsed: 'Never', prefix: key.slice(0,16) + '••••' };
-    setApiKeys(prev => [...prev, newK]);
+    saveApiKeys([...apiKeys, newK]);
     setShowNewKey(key);
     setNewKeyName('');
   };
@@ -10266,7 +10305,7 @@ function SettingsPage() {
           {activeTab === 'team' && (
             <div className="space-y-4">
               <Card>
-                <CardHeader title={t('team_members')} subtitle={members.length + " members with access to Stacklens"} />
+                <CardHeader title={t('team_members')} subtitle={`${members.length} of ${getPlanLimits(resolvePlan(db?.user)).teamMembers} seats used`} />
                 <CardBody>
                   <div className="space-y-2">
                     {members.map(m => (
@@ -10279,7 +10318,7 @@ function SettingsPage() {
                         <span className={"text-xs font-semibold px-2.5 py-1 rounded-full " + (m.role === 'Owner' ? 'bg-violet-500/15 text-violet-400' : m.role === 'Admin' ? 'bg-blue-500/15 text-blue-400' : 'bg-slate-700 text-slate-400')}>{m.role}</span>
                         <div className="text-xs text-slate-600">Joined {m.joined}</div>
                         {m.role !== 'Owner' && can('invite') && (
-                          <button onClick={() => setMembers(prev => prev.filter(x => x.id !== m.id))} className="text-xs text-rose-500 hover:text-rose-400 transition-colors">{t('remove_member')}</button>
+                          <button onClick={() => saveMembers(members.filter(x => x.id !== m.id))} className="text-xs text-rose-500 hover:text-rose-400 transition-colors">{t('remove_member')}</button>
                         )}
                       </div>
                     ))}
@@ -10287,7 +10326,7 @@ function SettingsPage() {
                 </CardBody>
               </Card>
               <Card>
-                <CardHeader title={t("invite_team") || t("invite_team") || "Invite Team Member"} subtitle={t('invite_sub')} />
+                <CardHeader title={t("invite_team") || "Invite Team Member"} subtitle={t('invite_sub')} />
                 <CardBody>
                   {inviteSent ? (
                     <div className="text-center py-4">
@@ -10311,7 +10350,31 @@ function SettingsPage() {
                         <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-emerald-400 flex-shrink-0"></span><span><span className="text-emerald-400 font-semibold">Editor</span> — View & edit data, cannot delete</span></div>
                         <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-slate-400 flex-shrink-0"></span><span><span className="text-slate-300 font-semibold">Viewer</span> — Read-only, no edits</span></div>
                       </div>
-                      <button onClick={() => { if (inviteEmail) { window.open('mailto:' + inviteEmail + '?subject=Join%20Stacklens&body=You%27ve%20been%20invited%20to%20Stacklens.%20Sign%20in%20at%3A%20https%3A%2F%2Faccessguard-v2.web.app'); setInviteSent(true); } }}
+                      <button onClick={() => {
+                        if (!inviteEmail) return;
+                        const limit = getPlanLimits(resolvePlan(db?.user)).teamMembers;
+                        if (members.length >= limit) {
+                          toast.error(`Your ${getPlanLimits(resolvePlan(db?.user)).label} plan allows ${limit} team members. Upgrade to add more.`);
+                          return;
+                        }
+                        const newMember = {
+                          id: 'invite_' + Date.now(),
+                          name: inviteEmail.split('@')[0],
+                          email: inviteEmail,
+                          role: inviteRole.charAt(0).toUpperCase() + inviteRole.slice(1),
+                          joined: new Date().toISOString().slice(0, 10),
+                          avatar: inviteEmail[0].toUpperCase(),
+                        };
+                        saveMembers([...members, newMember]);
+                        window.open('mailto:' + inviteEmail
+                          + '?subject=' + encodeURIComponent('You\'ve been invited to Stacklens')
+                          + '&body=' + encodeURIComponent(
+                              'Hi,\n\nYou\'ve been invited to join Stacklens as ' + newMember.role + '.\n\n'
+                              + 'Sign in or create your account at: https://stacklens.fr\n\n'
+                              + 'Once signed in, you\'ll have access to the workspace.\n\nStacklens Team'
+                            ));
+                        setInviteSent(true);
+                      }}
                         className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-semibold text-sm transition-colors whitespace-nowrap">
                         Send Invite
                       </button>
@@ -10329,31 +10392,30 @@ function SettingsPage() {
               <CardBody>
                 <div className="space-y-1">
                   {[
-                    { label: 'New tool added to inventory', sub: 'When a tool is added via import or manually', defaultOn: true },
-                    { label: 'Orphaned tool detected', sub: 'Tools with no assigned owner', defaultOn: true },
-                    { label: 'High-risk access granted', sub: 'Admin access given to a new user', defaultOn: true },
-                    { label: 'Employee offboarding initiated', sub: 'When an offboarding task is started', defaultOn: true },
-                    { label: 'Renewal due in 30 days', sub: 'SaaS contract coming up for renewal', defaultOn: true },
-                    { label: 'Compliance report ready', sub: 'Weekly compliance digest', defaultOn: false },
-                    { label: 'Weekly summary email', sub: 'Overview of spend, risk and usage', defaultOn: true },
-                    { label: 'Invoice approval required', sub: 'New invoice needs sign-off', defaultOn: false },
-                    { label: t('budget_limit'), sub: 'Monthly spend passes your set limit', defaultOn: true },
+                    { label: 'Renewal due in 30 days',      sub: 'SaaS contract coming up for renewal — sent by email',  val: notifRenewal,    set: setNotifRenewal,    key: 'renewal',    live: true },
+                    { label: 'New tool added to inventory',  sub: 'When a tool is added via import or manually',           val: notifNewTool,    set: setNotifNewTool,    key: 'newTool' },
+                    { label: 'Orphaned tool detected',       sub: 'Tools with no assigned owner',                          val: notifOrphaned,   set: setNotifOrphaned,   key: 'orphaned' },
+                    { label: 'High-risk access granted',     sub: 'Admin access given to a new user',                      val: notifHighRisk,   set: setNotifHighRisk,   key: 'highRisk' },
+                    { label: 'Employee offboarding initiated', sub: 'When an offboarding task is started',                 val: notifOffboard,   set: setNotifOffboard,   key: 'offboard' },
+                    { label: 'Compliance report ready',      sub: 'Weekly compliance digest',                              val: notifCompliance, set: setNotifCompliance, key: 'compliance' },
+                    { label: 'Weekly summary email',         sub: 'Overview of spend, risk and usage',                     val: notifWeekly,     set: setNotifWeekly,     key: 'weekly' },
+                    { label: 'Invoice approval required',    sub: 'New invoice needs sign-off',                            val: notifInvoice,    set: setNotifInvoice,    key: 'invoice' },
+                    { label: t('budget_limit'),              sub: 'Monthly spend passes your set limit',                   val: notifBudget,     set: setNotifBudget,     key: 'budget' },
                   ].map(n => (
-                    <div key={n.label} className="flex items-center justify-between py-3.5 border-b border-slate-800 last:border-0">
+                    <div key={n.key} className="flex items-center justify-between py-3.5 border-b border-slate-800 last:border-0">
                       <div>
-                        <div className="text-sm font-medium text-slate-200">{n.label}</div>
+                        <div className="text-sm font-medium text-slate-200 flex items-center gap-2">
+                          {n.label}
+                          {n.live && <span className="text-xs font-semibold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400">Live</span>}
+                        </div>
                         <div className="text-xs text-slate-500 mt-0.5">{n.sub}</div>
                       </div>
-                      <label className="relative inline-flex items-center cursor-pointer flex-shrink-0 ml-4">
-                        <input type="checkbox" className="sr-only peer" defaultChecked={n.defaultOn} />
-                        <div className="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-emerald-600 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all" />
-                      </label>
+                      <Toggle checked={n.val} onChange={(v) => { n.set(v); saveNotifications({ [n.key]: v }); }} />
                     </div>
                   ))}
                 </div>
-              
-              <div className='mt-6'><SlackNotifications /></div>
-</CardBody>
+                <div className='mt-6'><SlackNotifications /></div>
+              </CardBody>
             </Card>
           )}
 
@@ -10434,7 +10496,7 @@ function SettingsPage() {
                           <div>Created {k.created}</div>
                           <div>Last used: {k.lastUsed}</div>
                         </div>
-                        <button onClick={() => setApiKeys(prev => prev.filter(x => x.id !== k.id))} className="text-xs text-rose-500 hover:text-rose-400 transition-colors flex-shrink-0">{t('revoke')}</button>
+                        <button onClick={() => { if (window.confirm(`Revoke key "${k.name}"? This cannot be undone.`)) saveApiKeys(apiKeys.filter(x => x.id !== k.id)); }} className="text-xs text-rose-500 hover:text-rose-400 transition-colors flex-shrink-0">{t('revoke')}</button>
                       </div>
                     ))}
                   </div>
@@ -10465,11 +10527,44 @@ function SettingsPage() {
                 <CardBody>
                   <div className="grid sm:grid-cols-3 gap-3">
                     {[
-                      { label: 'Tools & Licenses', desc: 'All tool records, costs, owners', icon: Boxes },
-                      { label: 'Employees & Access', desc: 'Employee directory and access map', icon: Users },
-                      { label: 'Audit Log', desc: 'Full history of all actions', icon: Download },
-                    ].map(({ label, desc, icon: Icon }) => (
-                      <button key={label} onClick={() => { const a=document.createElement('a');a.href='data:text/plain,Stacklens Export: '+label;a.download='stacklens-'+label.replace(/ /g,'-').toLowerCase()+'.csv';a.click(); }}
+                      {
+                        label: 'Tools & Licenses',
+                        desc: 'All tool records, costs, owners',
+                        icon: Boxes,
+                        onClick: () => {
+                          downloadText(`stacklens_tools_${todayISO()}.csv`, toCsv(db?.tools || [],
+                            ["name","category","owner_email","criticality","url","derived_status","last_used_date","cost_per_month","derived_risk","notes"]
+                          ));
+                          toast.success('Tools exported');
+                        },
+                      },
+                      {
+                        label: 'Employees & Access',
+                        desc: 'Employee directory and access map',
+                        icon: Users,
+                        onClick: () => {
+                          downloadText(`stacklens_employees_${todayISO()}.csv`, toCsv(db?.employees || [],
+                            ["full_name","email","department","role","status","start_date","end_date"]
+                          ));
+                          setTimeout(() => downloadText(`stacklens_access_${todayISO()}.csv`, toCsv(db?.access || [],
+                            ["tool_name","employee_name","employee_email","access_level","granted_date","last_accessed_date","last_reviewed_date","status","derived_risk_flag"]
+                          )), 300);
+                          toast.success('Employees & access exported');
+                        },
+                      },
+                      {
+                        label: 'Audit Log',
+                        desc: 'Full history of all actions',
+                        icon: Download,
+                        onClick: () => {
+                          downloadText(`stacklens_audit_${todayISO()}.csv`, toCsv(db?.audit_log || [],
+                            ["action","user","timestamp","details"]
+                          ));
+                          toast.success('Audit log exported');
+                        },
+                      },
+                    ].map(({ label, desc, icon: Icon, onClick }) => (
+                      <button key={label} onClick={onClick}
                         className="flex items-start gap-3 p-4 rounded-xl bg-slate-800/60 border border-slate-800 hover:border-emerald-500/30 hover:bg-slate-800 transition-all text-left">
                         <Icon className="h-5 w-5 text-emerald-400 flex-shrink-0 mt-0.5" />
                         <div>
@@ -10486,16 +10581,58 @@ function SettingsPage() {
                 <CardBody>
                   <div className="space-y-3">
                     {[
-                      { label: 'Delete all tool data', desc: 'Removes all tools from your account', btn: 'Delete Tools' },
-                      { label: 'Delete all employee data', desc: 'Removes all employee and access records', btn: 'Delete Employees' },
-                      { label: 'Delete account', desc: 'Permanently deletes your Stacklens account and all data', btn: 'Delete Account', danger: true },
+                      {
+                        label: 'Delete all tool data',
+                        desc: 'Removes all tools, employees and access records',
+                        btn: 'Delete Tools',
+                        onClick: () => {
+                          if (isDemo) { toast.error('Not available in demo mode.'); return; }
+                          if (!window.confirm('Delete ALL tools, employees and access records? This cannot be undone.')) return;
+                          const cur = loadDb() || seedDbIfEmpty();
+                          cur.tools = []; cur.employees = []; cur.access = [];
+                          saveDb(cur);
+                          if (firebaseUser?.uid) saveUserData(firebaseUser.uid, cur).catch(() => {});
+                          qc.invalidateQueries({ queryKey: ['db'] });
+                          toast.success('All tool data deleted');
+                        },
+                      },
+                      {
+                        label: 'Delete all employee data',
+                        desc: 'Removes all employee and access records',
+                        btn: 'Delete Employees',
+                        onClick: () => {
+                          if (isDemo) { toast.error('Not available in demo mode.'); return; }
+                          if (!window.confirm('Delete ALL employees and access records? This cannot be undone.')) return;
+                          const cur = loadDb() || seedDbIfEmpty();
+                          cur.employees = []; cur.access = [];
+                          saveDb(cur);
+                          if (firebaseUser?.uid) saveUserData(firebaseUser.uid, cur).catch(() => {});
+                          qc.invalidateQueries({ queryKey: ['db'] });
+                          toast.success('All employee data deleted');
+                        },
+                      },
+                      {
+                        label: 'Delete account',
+                        desc: 'Permanently deletes your Stacklens account and all data',
+                        btn: 'Delete Account',
+                        danger: true,
+                        onClick: () => {
+                          if (isDemo) { toast.error('Not available in demo mode.'); return; }
+                          window.location.href = 'mailto:hello@stacklens.fr?subject='
+                            + encodeURIComponent('Account Deletion Request')
+                            + '&body=' + encodeURIComponent(
+                                'Please delete my Stacklens account.\n\nEmail: '
+                                + (firebaseUser?.email || '')
+                              );
+                        },
+                      },
                     ].map(item => (
                       <div key={item.label} className="flex items-center justify-between py-3 border-b border-rose-500/10 last:border-0">
                         <div>
                           <div className="font-medium text-slate-200 text-sm">{item.label}</div>
                           <div className="text-xs text-slate-500">{item.desc}</div>
                         </div>
-                        <button onClick={() => toast.info('This action is disabled in demo mode.')}
+                        <button onClick={item.onClick}
                           className={"text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors " + (item.danger ? 'border-rose-500/40 text-rose-400 hover:bg-rose-500/10' : 'border-slate-700 text-slate-400 hover:text-white hover:border-slate-600')}>
                           {item.btn}
                         </button>
