@@ -5089,7 +5089,23 @@ function DashboardPage() {
           });
         });
 
-        // 4. Idle licenses (tools with cost but not used in 60+ days)
+        // 4. Budget cap exceeded
+        const _budgetCap = db?.user?.budget_cap || parseInt(localStorage.getItem('sg_budget_cap') || '0') || 0;
+        const _notifBudget = (() => { try { return JSON.parse(localStorage.getItem('sg_notifications') || '{}'); } catch { return {}; } })().budget ?? true;
+        if (_budgetCap > 0 && _notifBudget && (derived?.spend || 0) > _budgetCap) {
+          const pct = Math.round((derived.spend / _budgetCap) * 100);
+          actions.push({
+            id: 'budget-exceeded',
+            severity: 'high',
+            icon: '💰',
+            title: `Monthly spend is ${pct}% of your budget cap`,
+            reason: `You've set a ${getCurrency(language)}${convertCurrency(_budgetCap, language).toLocaleString()}/mo cap. Current spend is ${getCurrency(language)}${convertCurrency(derived.spend, language).toLocaleString()}.`,
+            action: 'View Finance',
+            link: '/finance',
+          });
+        }
+
+        // 5. Idle licenses (tools with cost but not used in 60+ days)
         const sixtyDaysAgo = Date.now() - (60 * 24 * 60 * 60 * 1000);
         const idleTools = (derived?.tools || []).filter(t => {
           if (!t.cost_per_month || t.cost_per_month <= 0) return false;
@@ -11870,6 +11886,62 @@ function SpendTrendChart({ monthlyTrend, byCategory }) {
   );
 }
 
+function BudgetModal({ current, totalSpend, language, onSave, onClear, onClose }) {
+  const [value, setValue] = useState(current > 0 ? String(current) : '');
+  const curr = getCurrency(language);
+  const num = Number(value) || 0;
+  const utilization = num > 0 ? Math.round(totalSpend / num * 100) : 0;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={onClose}>
+      <div className="w-full max-w-sm rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-5">
+          <div>
+            <h2 className="text-base font-bold text-white">Monthly Budget Cap</h2>
+            <p className="text-xs text-slate-500 mt-0.5">Alert when spend exceeds this limit</p>
+          </div>
+          <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors text-lg leading-none">✕</button>
+        </div>
+
+        <div className="mb-4">
+          <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Cap amount ({curr}/month)</label>
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-semibold text-sm">{curr}</span>
+            <input
+              type="number"
+              min="0"
+              step="100"
+              value={value}
+              onChange={e => setValue(e.target.value)}
+              placeholder="e.g. 5000"
+              className="w-full bg-slate-800 border border-slate-700 focus:border-blue-500 rounded-xl px-3 py-2.5 pl-8 text-white text-sm outline-none transition-colors"
+              autoFocus
+            />
+          </div>
+          {num > 0 && (
+            <p className={`text-xs mt-1.5 ${utilization > 100 ? 'text-red-400' : utilization > 75 ? 'text-amber-400' : 'text-emerald-400'}`}>
+              Current spend is {curr}{convertCurrency(totalSpend, language).toLocaleString()} — {utilization}% of this cap
+            </p>
+          )}
+        </div>
+
+        <div className="flex gap-2">
+          <button onClick={() => num > 0 && onSave(num)}
+            disabled={num <= 0}
+            className="flex-1 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold transition-colors">
+            Save cap
+          </button>
+          {current > 0 && (
+            <button onClick={onClear} className="px-4 py-2.5 rounded-xl border border-slate-700 hover:border-red-500/50 text-slate-400 hover:text-red-400 text-sm font-semibold transition-colors">
+              Remove
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function FinanceDashboard() {
   const navigate = useNavigate();
   const { language } = useLang();
@@ -11897,7 +11969,14 @@ function FinanceDashboard() {
   const _now = new Date();
   const _trend = Array.from({length:6},(_,i)=>{ const d=new Date(_now.getFullYear(),_now.getMonth()-5+i,1); return {month:_months[d.getMonth()],spend:_fReal?_totalSpend*(0.9+i*0.02):[42100,43800,45200,44600,46900,47850][i]}; });
   const _bills = _fReal ? _tools.filter(t=>t.renewal_date).sort((a,b)=>new Date(a.renewal_date)-new Date(b.renewal_date)).slice(0,5).map(t=>({app:t.name,amount:t.cost_per_month?t.cost_per_month*12:t.cost_monthly?t.cost_monthly*12:(t.cost||0),dueDate:t.renewal_date,status:'pending',category:t.category||'Other'})) : [{app:'Salesforce',amount:12400,dueDate:'2026-03-01',status:'pending',category:'CRM'},{app:'Adobe Creative Cloud',amount:5400,dueDate:'2026-03-20',status:'pending',category:'Design'}];
-  const _financialData = {totalMonthlySpend:_totalSpend,budgetLimit:Math.round(_totalSpend*1.2)||55000,lastMonthSpend:_totalSpend*0.95||45200,upcomingBills:_bills,byCategory:_byCategory,monthlyTrend:_trend,isReal:_fReal,toolCount:_tools.length};
+  // Budget cap — read from db (persisted to Firestore) with localStorage fallback
+  const _savedBudgetCap = db?.user?.budget_cap || parseInt(localStorage.getItem('sg_budget_cap') || '0') || 0;
+  const [budgetCap, setBudgetCap] = useState(_savedBudgetCap);
+  // Keep budgetCap in sync when db hydrates from Firestore
+  React.useEffect(() => {
+    if (db?.user?.budget_cap && db.user.budget_cap !== budgetCap) setBudgetCap(db.user.budget_cap);
+  }, [db?.user?.budget_cap]);
+  const _financialData = {totalMonthlySpend:_totalSpend,budgetLimit:budgetCap||0,lastMonthSpend:_totalSpend*0.95||45200,upcomingBills:_bills,byCategory:_byCategory,monthlyTrend:_trend,isReal:_fReal,toolCount:_tools.length};
 
   const TABS = [
     { id: 'overview',   label: t('fin_tab_overview') || 'Overview' },
@@ -11921,7 +12000,7 @@ function FinanceDashboard() {
         </div>
       }
     >
-      {finTab === 'overview' && <FinanceOverviewTab financialData={_financialData} showBudgetModal={showBudgetModal} setShowBudgetModal={setShowBudgetModal} selectedBill={selectedBill} setSelectedBill={setSelectedBill} showReclaimModal={showReclaimModal} setShowReclaimModal={setShowReclaimModal} categoryFilter={categoryFilter} setCategoryFilter={setCategoryFilter} setFinTab={setFinTab} />}
+      {finTab === 'overview' && <FinanceOverviewTab financialData={_financialData} showBudgetModal={showBudgetModal} setShowBudgetModal={setShowBudgetModal} budgetCap={budgetCap} setBudgetCap={setBudgetCap} selectedBill={selectedBill} setSelectedBill={setSelectedBill} showReclaimModal={showReclaimModal} setShowReclaimModal={setShowReclaimModal} categoryFilter={categoryFilter} setCategoryFilter={setCategoryFilter} setFinTab={setFinTab} />}
       {finTab === 'cost' && <CostTabContent setFinTab={setFinTab} />}
       {finTab === 'licenses' && <LicenseManagement />}
       {finTab === 'renewals' && <RenewalAlerts />}
@@ -11931,11 +12010,28 @@ function FinanceDashboard() {
   );
 }
 
-function FinanceOverviewTab({ financialData, showBudgetModal, setShowBudgetModal, selectedBill, setSelectedBill, showReclaimModal, setShowReclaimModal, categoryFilter, setCategoryFilter, setFinTab }) {
+function FinanceOverviewTab({ financialData, showBudgetModal, setShowBudgetModal, budgetCap, setBudgetCap, selectedBill, setSelectedBill, showReclaimModal, setShowReclaimModal, categoryFilter, setCategoryFilter, setFinTab }) {
   const { language } = useLang();
   const t = useTranslation(language);
   const navigate = useNavigate();
-  const budgetUtilization = financialData.budgetLimit > 0 ? (financialData.totalMonthlySpend / financialData.budgetLimit * 100) : 0;
+  const { user: firebaseUser } = useAuth();
+  const qc = useQueryClient();
+  const budgetSet = financialData.budgetLimit > 0;
+  const budgetUtilization = budgetSet ? (financialData.totalMonthlySpend / financialData.budgetLimit * 100) : 0;
+  const overBudget = budgetSet && financialData.totalMonthlySpend > financialData.budgetLimit;
+  const _savedNotifs = (() => { try { return JSON.parse(localStorage.getItem('sg_notifications') || '{}'); } catch { return {}; } })();
+  const notifBudget = _savedNotifs.budget ?? true;
+
+  const saveBudgetCap = (cap) => {
+    const numCap = Number(cap) || 0;
+    localStorage.setItem('sg_budget_cap', String(numCap));
+    setBudgetCap(numCap);
+    const cur = loadDb() || seedDbIfEmpty();
+    cur.user = { ...cur.user, budget_cap: numCap };
+    saveDb(cur);
+    if (firebaseUser?.uid) saveUserData(firebaseUser.uid, cur).catch(() => {});
+    qc.invalidateQueries({ queryKey: ['db'] });
+  };
   const savingsVsLastMonth = financialData.lastMonthSpend - financialData.totalMonthlySpend;
   const annualSpend = financialData.totalMonthlySpend * 12;
   const hasRealComparison = financialData.lastMonthSpend > 0 && financialData.totalMonthlySpend > 0;
@@ -11946,10 +12042,33 @@ function FinanceOverviewTab({ financialData, showBudgetModal, setShowBudgetModal
 
   return (
     <div className="space-y-6 w-full">
+      {/* Budget modal */}
+      {showBudgetModal && (
+        <BudgetModal
+          current={budgetCap}
+          totalSpend={financialData.totalMonthlySpend}
+          language={language}
+          onSave={(cap) => { saveBudgetCap(cap); setShowBudgetModal(false); toast.success('Budget cap saved'); }}
+          onClear={() => { saveBudgetCap(0); setShowBudgetModal(false); toast.success('Budget cap removed'); }}
+          onClose={() => setShowBudgetModal(false)}
+        />
+      )}
+
+      {/* Over-budget alert */}
+      {overBudget && notifBudget && (
+        <div className="flex items-center gap-3 px-5 py-3.5 rounded-2xl border border-red-500/40 bg-red-500/10">
+          <AlertTriangle className="h-5 w-5 text-red-400 flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <span className="text-sm font-semibold text-red-300">Monthly spend exceeds your budget cap — </span>
+            <span className="text-sm text-red-400">{getCurrency(language)}{convertCurrency(financialData.totalMonthlySpend, language).toLocaleString()} vs {getCurrency(language)}{convertCurrency(financialData.budgetLimit, language).toLocaleString()} limit ({(budgetUtilization - 100).toFixed(0)}% over)</span>
+          </div>
+          <button onClick={() => setShowBudgetModal(true)} className="text-xs text-red-300 hover:text-red-200 font-semibold flex-shrink-0 underline underline-offset-2">Adjust limit</button>
+        </div>
+      )}
 
       {/* ── Row 1: Hero Metric (Monthly Spend) + Budget Health ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-5">
-        
+
         {/* Hero — Total Monthly Spend */}
         <div className="lg:col-span-2 rounded-2xl border border-blue-500/20 bg-gradient-to-br from-slate-900 to-blue-950/20 p-6 lg:p-8">
           <div className="text-xs font-semibold uppercase tracking-wider text-blue-400 mb-2">{t("finance_monthly_spend")}</div>
@@ -11968,14 +12087,27 @@ function FinanceOverviewTab({ financialData, showBudgetModal, setShowBudgetModal
           {/* Budget bar */}
           <div className="mb-2 flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t("finance_budget_util")}</span>
-            <span className={`text-sm font-bold ${budgetUtilization > 90 ? 'text-red-400' : budgetUtilization > 75 ? 'text-amber-400' : 'text-emerald-400'}`}>
-              {budgetUtilization.toFixed(0)}% of {getCurrency(language)}{convertCurrency(financialData.budgetLimit, language).toLocaleString()}
-            </span>
+            {budgetSet ? (
+              <div className="flex items-center gap-2">
+                <span className={`text-sm font-bold ${budgetUtilization > 100 ? 'text-red-400' : budgetUtilization > 75 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                  {budgetUtilization.toFixed(0)}% of {getCurrency(language)}{convertCurrency(financialData.budgetLimit, language).toLocaleString()}
+                </span>
+                <button onClick={() => setShowBudgetModal(true)} className="text-xs text-slate-500 hover:text-blue-400 underline underline-offset-2 transition-colors">Edit</button>
+              </div>
+            ) : (
+              <button onClick={() => setShowBudgetModal(true)} className="text-xs text-blue-400 hover:text-blue-300 font-semibold transition-colors">+ Set budget cap</button>
+            )}
           </div>
-          <div className="h-3 bg-slate-800 rounded-full overflow-hidden">
-            <div className={`h-full rounded-full transition-all ${budgetUtilization > 90 ? 'bg-red-500' : budgetUtilization > 75 ? 'bg-amber-500' : 'bg-gradient-to-r from-blue-500 to-emerald-500'}`}
-              style={{width: `${Math.min(budgetUtilization, 100)}%`}} />
-          </div>
+          {budgetSet ? (
+            <div className="h-3 bg-slate-800 rounded-full overflow-hidden">
+              <div className={`h-full rounded-full transition-all ${budgetUtilization > 100 ? 'bg-red-500' : budgetUtilization > 75 ? 'bg-amber-500' : 'bg-gradient-to-r from-blue-500 to-emerald-500'}`}
+                style={{width: `${Math.min(budgetUtilization, 100)}%`}} />
+            </div>
+          ) : (
+            <div className="h-3 bg-slate-800 rounded-full overflow-hidden">
+              <div className="h-full w-0 rounded-full bg-slate-700" />
+            </div>
+          )}
         </div>
 
         {/* Side Card — Quick wins */}
