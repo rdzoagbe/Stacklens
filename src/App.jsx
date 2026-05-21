@@ -10148,12 +10148,38 @@ function SettingsPage() {
   const [ipRestrict, setIpRestrict] = useState(savedSec.ipRestrict ?? false);
   const [auditLog, setAuditLog] = useState(savedSec.auditLog ?? true);
 
-  const [apiKeys, setApiKeys] = useState([
-    { id: 'key_1', name: 'Production API', created: '2025-12-01', lastUsed: '2026-03-05', prefix: 'sg_live_••••••••••' },
-    { id: 'key_2', name: 'Dev / Testing', created: '2026-01-15', lastUsed: 'Never', prefix: 'sg_test_••••••••••' },
-  ]);
+  const _savedApiKeys = (() => { try { return JSON.parse(localStorage.getItem('sg_api_keys') || '[]'); } catch { return []; } })();
+  const [apiKeys, setApiKeys] = useState(_savedApiKeys);
   const [newKeyName, setNewKeyName] = useState('');
   const [showNewKey, setShowNewKey] = useState(null);
+
+  const saveApiKeys = (next) => { localStorage.setItem('sg_api_keys', JSON.stringify(next)); setApiKeys(next); };
+
+  const _savedNotifs = (() => { try { return JSON.parse(localStorage.getItem('sg_notifications') || '{}'); } catch { return {}; } })();
+  const [notifRenewal,    setNotifRenewal]    = useState(_savedNotifs.renewal    ?? true);
+  const [notifOrphaned,   setNotifOrphaned]   = useState(_savedNotifs.orphaned   ?? true);
+  const [notifHighRisk,   setNotifHighRisk]   = useState(_savedNotifs.highRisk   ?? true);
+  const [notifOffboard,   setNotifOffboard]   = useState(_savedNotifs.offboard   ?? true);
+  const [notifNewTool,    setNotifNewTool]    = useState(_savedNotifs.newTool    ?? true);
+  const [notifCompliance, setNotifCompliance] = useState(_savedNotifs.compliance ?? false);
+  const [notifWeekly,     setNotifWeekly]     = useState(_savedNotifs.weekly     ?? true);
+  const [notifInvoice,    setNotifInvoice]    = useState(_savedNotifs.invoice    ?? false);
+  const [notifBudget,     setNotifBudget]     = useState(_savedNotifs.budget     ?? true);
+
+  const saveNotifications = (patch) => {
+    const next = { renewal: notifRenewal, orphaned: notifOrphaned, highRisk: notifHighRisk,
+      offboard: notifOffboard, newTool: notifNewTool, compliance: notifCompliance,
+      weekly: notifWeekly, invoice: notifInvoice, budget: notifBudget, ...patch };
+    localStorage.setItem('sg_notifications', JSON.stringify(next));
+    // renewal_alerts is the only one the Cloud Function actually reads — sync it to db.user
+    if ('renewal' in patch) {
+      const cur = loadDb() || seedDbIfEmpty();
+      cur.user = { ...cur.user, renewal_alerts: patch.renewal };
+      saveDb(cur);
+      if (firebaseUser?.uid) saveUserData(firebaseUser.uid, cur).catch(() => {});
+      qc.invalidateQueries({ queryKey: ['db'] });
+    }
+  };
 
   const _mdb = JSON.parse(localStorage.getItem('accessguard_v1') || '{}')?.user;
   const _ownerMember = {
@@ -10188,9 +10214,9 @@ function SettingsPage() {
 
   const generateApiKey = () => {
     if (!newKeyName.trim()) return;
-    const key = 'sg_live_' + Math.random().toString(36).slice(2, 18);
+    const key = 'sg_live_' + Math.random().toString(36).slice(2, 18) + Math.random().toString(36).slice(2, 18);
     const newK = { id: 'key_' + Date.now(), name: newKeyName, created: new Date().toISOString().slice(0,10), lastUsed: 'Never', prefix: key.slice(0,16) + '••••' };
-    setApiKeys(prev => [...prev, newK]);
+    saveApiKeys([...apiKeys, newK]);
     setShowNewKey(key);
     setNewKeyName('');
   };
@@ -10366,31 +10392,30 @@ function SettingsPage() {
               <CardBody>
                 <div className="space-y-1">
                   {[
-                    { label: 'New tool added to inventory', sub: 'When a tool is added via import or manually', defaultOn: true },
-                    { label: 'Orphaned tool detected', sub: 'Tools with no assigned owner', defaultOn: true },
-                    { label: 'High-risk access granted', sub: 'Admin access given to a new user', defaultOn: true },
-                    { label: 'Employee offboarding initiated', sub: 'When an offboarding task is started', defaultOn: true },
-                    { label: 'Renewal due in 30 days', sub: 'SaaS contract coming up for renewal', defaultOn: true },
-                    { label: 'Compliance report ready', sub: 'Weekly compliance digest', defaultOn: false },
-                    { label: 'Weekly summary email', sub: 'Overview of spend, risk and usage', defaultOn: true },
-                    { label: 'Invoice approval required', sub: 'New invoice needs sign-off', defaultOn: false },
-                    { label: t('budget_limit'), sub: 'Monthly spend passes your set limit', defaultOn: true },
+                    { label: 'Renewal due in 30 days',      sub: 'SaaS contract coming up for renewal — sent by email',  val: notifRenewal,    set: setNotifRenewal,    key: 'renewal',    live: true },
+                    { label: 'New tool added to inventory',  sub: 'When a tool is added via import or manually',           val: notifNewTool,    set: setNotifNewTool,    key: 'newTool' },
+                    { label: 'Orphaned tool detected',       sub: 'Tools with no assigned owner',                          val: notifOrphaned,   set: setNotifOrphaned,   key: 'orphaned' },
+                    { label: 'High-risk access granted',     sub: 'Admin access given to a new user',                      val: notifHighRisk,   set: setNotifHighRisk,   key: 'highRisk' },
+                    { label: 'Employee offboarding initiated', sub: 'When an offboarding task is started',                 val: notifOffboard,   set: setNotifOffboard,   key: 'offboard' },
+                    { label: 'Compliance report ready',      sub: 'Weekly compliance digest',                              val: notifCompliance, set: setNotifCompliance, key: 'compliance' },
+                    { label: 'Weekly summary email',         sub: 'Overview of spend, risk and usage',                     val: notifWeekly,     set: setNotifWeekly,     key: 'weekly' },
+                    { label: 'Invoice approval required',    sub: 'New invoice needs sign-off',                            val: notifInvoice,    set: setNotifInvoice,    key: 'invoice' },
+                    { label: t('budget_limit'),              sub: 'Monthly spend passes your set limit',                   val: notifBudget,     set: setNotifBudget,     key: 'budget' },
                   ].map(n => (
-                    <div key={n.label} className="flex items-center justify-between py-3.5 border-b border-slate-800 last:border-0">
+                    <div key={n.key} className="flex items-center justify-between py-3.5 border-b border-slate-800 last:border-0">
                       <div>
-                        <div className="text-sm font-medium text-slate-200">{n.label}</div>
+                        <div className="text-sm font-medium text-slate-200 flex items-center gap-2">
+                          {n.label}
+                          {n.live && <span className="text-xs font-semibold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400">Live</span>}
+                        </div>
                         <div className="text-xs text-slate-500 mt-0.5">{n.sub}</div>
                       </div>
-                      <label className="relative inline-flex items-center cursor-pointer flex-shrink-0 ml-4">
-                        <input type="checkbox" className="sr-only peer" defaultChecked={n.defaultOn} />
-                        <div className="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-emerald-600 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all" />
-                      </label>
+                      <Toggle checked={n.val} onChange={(v) => { n.set(v); saveNotifications({ [n.key]: v }); }} />
                     </div>
                   ))}
                 </div>
-              
-              <div className='mt-6'><SlackNotifications /></div>
-</CardBody>
+                <div className='mt-6'><SlackNotifications /></div>
+              </CardBody>
             </Card>
           )}
 
@@ -10471,7 +10496,7 @@ function SettingsPage() {
                           <div>Created {k.created}</div>
                           <div>Last used: {k.lastUsed}</div>
                         </div>
-                        <button onClick={() => setApiKeys(prev => prev.filter(x => x.id !== k.id))} className="text-xs text-rose-500 hover:text-rose-400 transition-colors flex-shrink-0">{t('revoke')}</button>
+                        <button onClick={() => { if (window.confirm(`Revoke key "${k.name}"? This cannot be undone.`)) saveApiKeys(apiKeys.filter(x => x.id !== k.id)); }} className="text-xs text-rose-500 hover:text-rose-400 transition-colors flex-shrink-0">{t('revoke')}</button>
                       </div>
                     ))}
                   </div>
