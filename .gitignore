@@ -54,8 +54,6 @@ firebase-debug.log
 _archive/
 backups/
 *.sh
-env.example
-.env.example
 SECURITY_SETUP.md
 public/*
 !public/favicon.svg
