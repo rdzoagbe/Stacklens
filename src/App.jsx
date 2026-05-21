@@ -878,14 +878,29 @@ async function hydrateFromFirestore(uid) {
   try {
     const cloudData = await loadUserData(uid);
     const localData = loadDb();
-    // Never overwrite local data that has more tools than cloud
-    if (localData && (localData.tools?.length > 0 || localData.employees?.length > 0)) {
+
+    // If localStorage belongs to a different user, discard it — never bleed one
+    // user's data into another account (e.g. switching from Google to Microsoft).
+    const storedUid = localStorage.getItem('sg_auth_uid');
+    if (localData && storedUid && storedUid !== uid) {
+      localStorage.removeItem(LS_KEY);
+      localStorage.removeItem('sg_team_members');
+      localStorage.removeItem('sg_api_keys');
+      localStorage.removeItem('sg_notifications');
+      localStorage.removeItem('sg_budget_cap');
+    }
+    localStorage.setItem('sg_auth_uid', uid);
+
+    const freshLocal = loadDb(); // re-read after possible clear
+
+    // Never overwrite local data (belonging to this user) that has more tools than cloud
+    if (freshLocal && (freshLocal.tools?.length > 0 || freshLocal.employees?.length > 0)) {
       // Local has data - just preserve plan from cloud and return local
       if (cloudData?.user?.plan && cloudData.user.plan !== "free") {
-        localData.user = { ...localData.user, plan: cloudData.user.plan, subscription_plan: cloudData.user.plan };
-        saveDb(localData);
+        freshLocal.user = { ...freshLocal.user, plan: cloudData.user.plan, subscription_plan: cloudData.user.plan };
+        saveDb(freshLocal);
       }
-      return localData;
+      return freshLocal;
     }
     if (cloudData && cloudData.tools !== undefined) {
       // Cloud data exists — use it but preserve existing plan from users collection
@@ -900,10 +915,9 @@ async function hydrateFromFirestore(uid) {
       localStorage.setItem(LS_KEY, JSON.stringify(cloudData));
       return cloudData;
     }
-    // No cloud data yet — local data (if any) will be synced on next saveDb
+    // No cloud data yet — local data (if any, belonging to this user) will be synced on next saveDb
     const local = loadDb();
     if (local && !local.user?.is_demo) {
-      // Migrate existing local data to Firestore
       await saveUserData(uid, local);
     }
     return local;
@@ -1980,6 +1994,7 @@ function useAuth() {
 
   const logout = async () => {
     await signOutUser();
+    localStorage.removeItem('sg_auth_uid');
     const cur = seedDbIfEmpty();
     cur.user = { is_authenticated: false, is_demo: false };
     saveDb(cur);
