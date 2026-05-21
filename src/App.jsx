@@ -10379,7 +10379,6 @@ function SettingsPage() {
       offboard: notifOffboard, newTool: notifNewTool, compliance: notifCompliance,
       weekly: notifWeekly, invoice: notifInvoice, budget: notifBudget, ...patch };
     localStorage.setItem('sg_notifications', JSON.stringify(next));
-    // Sync backend-relevant prefs to db.user so Cloud Functions can read them
     const backendChanged = 'renewal' in patch || 'weekly' in patch;
     if (backendChanged) {
       const cur = loadDb() || seedDbIfEmpty();
