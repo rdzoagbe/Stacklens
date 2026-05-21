@@ -4550,6 +4550,7 @@ const PLAN_LIMITS = {
   free:       { tools: 10,    employees: 25,    teamMembers: 1,  label: 'Free' },
   trial:      { tools: 9999,  employees: 9999,  teamMembers: 5,  label: 'Trial (7 days)' },
   starter:    { tools: 100,   employees: 250,   teamMembers: 5,  label: 'Starter' },
+  hr_finance: { tools: 100,   employees: 250,   teamMembers: 5,  label: 'HR & Finance' },
   pro:        { tools: 500,   employees: 1500,  teamMembers: 15, label: 'Pro' },
   enterprise: { tools: 99999, employees: 99999, teamMembers: 999,label: 'Enterprise' },
   // Legacy plan support — map old plans to current limits
@@ -10128,6 +10129,7 @@ function SettingsPage() {
   const { language, setLanguage } = useLang();
   const t = useTranslation(language);
   const navigate = useNavigate();
+  const { data: db } = useDbQuery();
   const [activeTab, setActiveTab] = useState('general');
   const [saveMsg, setSaveMsg] = useState('');
 
@@ -10465,11 +10467,44 @@ function SettingsPage() {
                 <CardBody>
                   <div className="grid sm:grid-cols-3 gap-3">
                     {[
-                      { label: 'Tools & Licenses', desc: 'All tool records, costs, owners', icon: Boxes },
-                      { label: 'Employees & Access', desc: 'Employee directory and access map', icon: Users },
-                      { label: 'Audit Log', desc: 'Full history of all actions', icon: Download },
-                    ].map(({ label, desc, icon: Icon }) => (
-                      <button key={label} onClick={() => { const a=document.createElement('a');a.href='data:text/plain,Stacklens Export: '+label;a.download='stacklens-'+label.replace(/ /g,'-').toLowerCase()+'.csv';a.click(); }}
+                      {
+                        label: 'Tools & Licenses',
+                        desc: 'All tool records, costs, owners',
+                        icon: Boxes,
+                        onClick: () => {
+                          downloadText(`stacklens_tools_${todayISO()}.csv`, toCsv(db?.tools || [],
+                            ["name","category","owner_email","criticality","url","derived_status","last_used_date","cost_per_month","derived_risk","notes"]
+                          ));
+                          toast.success('Tools exported');
+                        },
+                      },
+                      {
+                        label: 'Employees & Access',
+                        desc: 'Employee directory and access map',
+                        icon: Users,
+                        onClick: () => {
+                          downloadText(`stacklens_employees_${todayISO()}.csv`, toCsv(db?.employees || [],
+                            ["full_name","email","department","role","status","start_date","end_date"]
+                          ));
+                          setTimeout(() => downloadText(`stacklens_access_${todayISO()}.csv`, toCsv(db?.access || [],
+                            ["tool_name","employee_name","employee_email","access_level","granted_date","last_accessed_date","last_reviewed_date","status","derived_risk_flag"]
+                          )), 300);
+                          toast.success('Employees & access exported');
+                        },
+                      },
+                      {
+                        label: 'Audit Log',
+                        desc: 'Full history of all actions',
+                        icon: Download,
+                        onClick: () => {
+                          downloadText(`stacklens_audit_${todayISO()}.csv`, toCsv(db?.audit_log || [],
+                            ["action","user","timestamp","details"]
+                          ));
+                          toast.success('Audit log exported');
+                        },
+                      },
+                    ].map(({ label, desc, icon: Icon, onClick }) => (
+                      <button key={label} onClick={onClick}
                         className="flex items-start gap-3 p-4 rounded-xl bg-slate-800/60 border border-slate-800 hover:border-emerald-500/30 hover:bg-slate-800 transition-all text-left">
                         <Icon className="h-5 w-5 text-emerald-400 flex-shrink-0 mt-0.5" />
                         <div>
