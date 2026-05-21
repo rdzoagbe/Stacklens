@@ -1153,6 +1153,7 @@ async function resetDb() {
     // 4. Clear all caches
     localStorage.removeItem('accessguard_fx_rates');
     localStorage.removeItem('sg_general');
+    localStorage.removeItem('sg_team_members');
     localStorage.removeItem('ag_ai_recs_cache');
     localStorage.removeItem('ag_live_translations');
 
@@ -10155,21 +10156,29 @@ function SettingsPage() {
   const [showNewKey, setShowNewKey] = useState(null);
 
   const _mdb = JSON.parse(localStorage.getItem('accessguard_v1') || '{}')?.user;
-  const [members, setMembers] = useState([
-    {
-      id: 1,
-      name: _mdb?.displayName || _mdb?.email?.split('@')[0] || 'Owner',
-      email: _mdb?.email || '',
-      role: 'Owner',
-      joined: new Date().toISOString().slice(0, 10),
-      avatar: (_mdb?.displayName || _mdb?.email || 'O')[0].toUpperCase(),
-    }
-  ]);
+  const _ownerMember = {
+    id: 'owner',
+    name: _mdb?.displayName || _mdb?.email?.split('@')[0] || 'Owner',
+    email: _mdb?.email || '',
+    role: 'Owner',
+    joined: new Date().toISOString().slice(0, 10),
+    avatar: (_mdb?.displayName || _mdb?.email || 'O')[0].toUpperCase(),
+  };
+  const _savedMembers = (() => {
+    try { return JSON.parse(localStorage.getItem('sg_team_members') || '[]'); } catch { return []; }
+  })();
+  const [members, setMembers] = useState([_ownerMember, ..._savedMembers]);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('viewer');
   const [inviteSent, setInviteSent] = useState(false);
   const [showRoleInfo, setShowRoleInfo] = useState(false);
   const myRole = getUserRole();
+
+  const saveMembers = (next) => {
+    const withoutOwner = next.filter(m => m.id !== 'owner');
+    localStorage.setItem('sg_team_members', JSON.stringify(withoutOwner));
+    setMembers([_ownerMember, ...withoutOwner]);
+  };
 
   const save = (key, data) => {
     localStorage.setItem(key, JSON.stringify(data));
@@ -10270,7 +10279,7 @@ function SettingsPage() {
           {activeTab === 'team' && (
             <div className="space-y-4">
               <Card>
-                <CardHeader title={t('team_members')} subtitle={members.length + " members with access to Stacklens"} />
+                <CardHeader title={t('team_members')} subtitle={`${members.length} of ${getPlanLimits(resolvePlan(db?.user)).teamMembers} seats used`} />
                 <CardBody>
                   <div className="space-y-2">
                     {members.map(m => (
@@ -10283,7 +10292,7 @@ function SettingsPage() {
                         <span className={"text-xs font-semibold px-2.5 py-1 rounded-full " + (m.role === 'Owner' ? 'bg-violet-500/15 text-violet-400' : m.role === 'Admin' ? 'bg-blue-500/15 text-blue-400' : 'bg-slate-700 text-slate-400')}>{m.role}</span>
                         <div className="text-xs text-slate-600">Joined {m.joined}</div>
                         {m.role !== 'Owner' && can('invite') && (
-                          <button onClick={() => setMembers(prev => prev.filter(x => x.id !== m.id))} className="text-xs text-rose-500 hover:text-rose-400 transition-colors">{t('remove_member')}</button>
+                          <button onClick={() => saveMembers(members.filter(x => x.id !== m.id))} className="text-xs text-rose-500 hover:text-rose-400 transition-colors">{t('remove_member')}</button>
                         )}
                       </div>
                     ))}
@@ -10291,7 +10300,7 @@ function SettingsPage() {
                 </CardBody>
               </Card>
               <Card>
-                <CardHeader title={t("invite_team") || t("invite_team") || "Invite Team Member"} subtitle={t('invite_sub')} />
+                <CardHeader title={t("invite_team") || "Invite Team Member"} subtitle={t('invite_sub')} />
                 <CardBody>
                   {inviteSent ? (
                     <div className="text-center py-4">
@@ -10315,7 +10324,31 @@ function SettingsPage() {
                         <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-emerald-400 flex-shrink-0"></span><span><span className="text-emerald-400 font-semibold">Editor</span> — View & edit data, cannot delete</span></div>
                         <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-slate-400 flex-shrink-0"></span><span><span className="text-slate-300 font-semibold">Viewer</span> — Read-only, no edits</span></div>
                       </div>
-                      <button onClick={() => { if (inviteEmail) { window.open('mailto:' + inviteEmail + '?subject=Join%20Stacklens&body=You%27ve%20been%20invited%20to%20Stacklens.%20Sign%20in%20at%3A%20https%3A%2F%2Faccessguard-v2.web.app'); setInviteSent(true); } }}
+                      <button onClick={() => {
+                        if (!inviteEmail) return;
+                        const limit = getPlanLimits(resolvePlan(db?.user)).teamMembers;
+                        if (members.length >= limit) {
+                          toast.error(`Your ${getPlanLimits(resolvePlan(db?.user)).label} plan allows ${limit} team members. Upgrade to add more.`);
+                          return;
+                        }
+                        const newMember = {
+                          id: 'invite_' + Date.now(),
+                          name: inviteEmail.split('@')[0],
+                          email: inviteEmail,
+                          role: inviteRole.charAt(0).toUpperCase() + inviteRole.slice(1),
+                          joined: new Date().toISOString().slice(0, 10),
+                          avatar: inviteEmail[0].toUpperCase(),
+                        };
+                        saveMembers([...members, newMember]);
+                        window.open('mailto:' + inviteEmail
+                          + '?subject=' + encodeURIComponent('You\'ve been invited to Stacklens')
+                          + '&body=' + encodeURIComponent(
+                              'Hi,\n\nYou\'ve been invited to join Stacklens as ' + newMember.role + '.\n\n'
+                              + 'Sign in or create your account at: https://stacklens.fr\n\n'
+                              + 'Once signed in, you\'ll have access to the workspace.\n\nStacklens Team'
+                            ));
+                        setInviteSent(true);
+                      }}
                         className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-semibold text-sm transition-colors whitespace-nowrap">
                         Send Invite
                       </button>
