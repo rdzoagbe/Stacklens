@@ -17,6 +17,7 @@ import {
   signInWithRedirect,
   getRedirectResult,
   GoogleAuthProvider,
+  OAuthProvider,
   signOut,
   onAuthStateChanged,
   sendSignInLinkToEmail,
@@ -76,7 +77,11 @@ try {
 
 const auth            = getAuth(app);
 const firestoreDb     = getFirestore(app);
-const googleProvider  = new GoogleAuthProvider();
+const googleProvider    = new GoogleAuthProvider();
+const microsoftProvider = new OAuthProvider('microsoft.com');
+microsoftProvider.addScope('email');
+microsoftProvider.addScope('profile');
+microsoftProvider.setCustomParameters({ prompt: 'select_account' });
 let   analytics       = null;
 
 isSupported().then(ok => {
@@ -209,6 +214,15 @@ export async function syncUserProfile(user) {
 export async function signInWithGoogle() {
   try {
     const result = await signInWithPopup(auth, googleProvider);
+    return { user: result.user, error: null };
+  } catch (error) {
+    return { user: null, error: error.message };
+  }
+}
+
+export async function signInWithMicrosoft() {
+  try {
+    const result = await signInWithPopup(auth, microsoftProvider);
     return { user: result.user, error: null };
   } catch (error) {
     return { user: null, error: error.message };
