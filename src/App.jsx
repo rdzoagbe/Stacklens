@@ -1426,6 +1426,7 @@ function useDbMutations() {
       });
     },
     onSuccess: invalidate,
+    onError: () => toast.error('Failed to update tool. Please try again.'),
   });
 
   const deleteTool = useMutation({
@@ -1437,6 +1438,7 @@ function useDbMutations() {
       });
     },
     onSuccess: invalidate,
+    onError: () => toast.error('Failed to delete tool. Please try again.'),
   });
 
   const createEmployee = useMutation({
@@ -1498,6 +1500,7 @@ function useDbMutations() {
       });
     },
     onSuccess: invalidate,
+    onError: () => toast.error('Failed to update employee. Please try again.'),
   });
 
   const deleteEmployee = useMutation({
@@ -1518,6 +1521,7 @@ function useDbMutations() {
       });
     },
     onSuccess: invalidate,
+    onError: () => toast.error('Failed to delete employee. Please try again.'),
   });
 
   const createAccess = useMutation({
@@ -1528,6 +1532,7 @@ function useDbMutations() {
       });
     },
     onSuccess: invalidate,
+    onError: () => toast.error('Failed to add access record. Please try again.'),
   });
 
   const updateAccess = useMutation({
@@ -1538,6 +1543,7 @@ function useDbMutations() {
       });
     },
     onSuccess: invalidate,
+    onError: () => toast.error('Failed to update access record. Please try again.'),
   });
 
   const deleteAccess = useMutation({
@@ -9760,6 +9766,24 @@ function SecurityTabContent() {
   const highAlerts = alerts.filter(a => a.severity === 'high');
   const mediumAlerts = alerts.filter(a => a.severity === 'medium');
 
+  const isFr = language === 'fr';
+  const isRealUser = db?.user?.is_authenticated && !db?.user?.is_demo;
+
+  if (isRealUser && tools.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-5">
+          <Shield className="h-8 w-8 text-emerald-400" />
+        </div>
+        <h2 className="text-xl font-bold text-white mb-2">{isFr ? 'Aucun outil à analyser' : 'No tools to analyse yet'}</h2>
+        <p className="text-sm text-slate-400 max-w-sm mb-6">{isFr ? 'Ajoutez vos outils SaaS pour voir votre score de sécurité, les accès à risque et les alertes de conformité.' : 'Add your SaaS tools to see your security score, risk access flags and compliance alerts.'}</p>
+        <Link to="/tools" className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl text-sm font-semibold text-white transition-colors">
+          {isFr ? 'Ajouter des outils →' : 'Add tools →'}
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
 
@@ -12140,7 +12164,7 @@ function FinanceDashboard() {
   React.useEffect(() => {
     if (db?.user?.budget_cap && db.user.budget_cap !== budgetCap) setBudgetCap(db.user.budget_cap);
   }, [db?.user?.budget_cap]);
-  const _financialData = {totalMonthlySpend:_totalSpend,budgetLimit:budgetCap||0,lastMonthSpend:_totalSpend*0.95||45200,upcomingBills:_bills,byCategory:_byCategory,monthlyTrend:_trend,isReal:_fReal,toolCount:_tools.length};
+  const _financialData = {totalMonthlySpend:_totalSpend,budgetLimit:budgetCap||0,lastMonthSpend:_totalSpend*0.95||45200,upcomingBills:_bills,byCategory:_byCategory,monthlyTrend:_trend,isReal:_fReal,toolCount:_tools.filter(t=>t.status!=='archived').length};
 
   const TABS = [
     { id: 'overview',   label: t('fin_tab_overview') || 'Overview' },
@@ -12203,6 +12227,24 @@ function FinanceOverviewTab({ financialData, showBudgetModal, setShowBudgetModal
   const upcomingTotal = financialData.upcomingBills.reduce((s, b) => s + b.amount, 0);
   const topCategory = financialData.byCategory.length > 0 ? [...financialData.byCategory].sort((a,b) => b.spend - a.spend)[0] : null;
   const potentialSavings = Math.round(financialData.totalMonthlySpend * 0.14);
+
+  const isFr = language === 'fr';
+
+  // Empty state for real users with no tools yet
+  if (financialData.isReal && financialData.toolCount === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center mb-5">
+          <DollarSign className="h-8 w-8 text-blue-400" />
+        </div>
+        <h2 className="text-xl font-bold text-white mb-2">{isFr ? 'Aucune donnée financière' : 'No financial data yet'}</h2>
+        <p className="text-sm text-slate-400 max-w-sm mb-6">{isFr ? 'Ajoutez vos outils SaaS avec leurs coûts pour voir vos dépenses, tendances et recommandations d\'optimisation.' : 'Add your SaaS tools with their costs to see spend, trends and savings recommendations.'}</p>
+        <Link to="/tools" className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-xl text-sm font-semibold text-white transition-colors">
+          {isFr ? 'Ajouter des outils →' : 'Add tools →'}
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 w-full">
