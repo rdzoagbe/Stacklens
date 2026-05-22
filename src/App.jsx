@@ -4226,16 +4226,18 @@ function TrialPage() {
 }
 
 function ExitIntentModal({ open, onClose, onContinue }) {
+  const { language } = useLang();
+  const t = useTranslation(language);
   return (
     <Modal
       open={open}
-      title="Wait — quick win before you go"
-      subtitle="See how teams save money fast"
+      title={t('exit_intent_title')}
+      subtitle={t('exit_intent_sub')}
       onClose={onClose}
       footer={
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>
-            Close
+            {t('close')}
           </Button>
           <Button
             onClick={() => {
@@ -4244,24 +4246,24 @@ function ExitIntentModal({ open, onClose, onContinue }) {
             }}
           >
             <Sparkles className="h-4 w-4" />
-            Continue
+            {t('exit_intent_continue')}
           </Button>
         </div>
       }
     >
       <div className="space-y-3 text-sm text-slate-300">
         <div className="rounded-2xl border border-slate-800 bg-slate-950/30 p-4">
-          <div className="text-sm font-semibold text-slate-100">Case study (example)</div>
-          <div className="mt-2 text-slate-400">“Company X saved $50K in 3 months by removing unused licenses and tightening admin reviews.”</div>
+          <div className="text-sm font-semibold text-slate-100">{t('exit_intent_case_study')}</div>
+          <div className="mt-2 text-slate-400">&ldquo;{t('exit_intent_quote')}&rdquo;</div>
           <div className="mt-3 flex flex-wrap gap-2">
             <Pill tone="amber" icon={AlertTriangle}>
-              Unused licenses
+              {t('exit_intent_pill1')}
             </Pill>
             <Pill tone="rose" icon={UserMinus}>
-              Former employee access
+              {t('exit_intent_pill2')}
             </Pill>
             <Pill tone="blue" icon={Download}>
-              Audit exports
+              {t('exit_intent_pill3')}
             </Pill>
           </div>
         </div>
@@ -4769,20 +4771,22 @@ function ModuleGate({ module, children, feature = 'this module' }) {
 function PlanLimitBanner({ resource = 'tools' }) {
   const { plan, limits, usage, pct } = usePlanLimits();
   const navigate = useNavigate();
+  const { language } = useLang();
+  const t = useTranslation(language);
   const isUnlimited = limits[resource] >= 99999;
   if (isUnlimited) return null;
-  
+
   const usageNum = usage[resource];
   const limitNum = limits[resource];
   const percent = pct[resource];
   const isFull = usageNum >= limitNum;
   const isNear = percent >= 80;
-  
+
   if (!isNear && !isFull) return null;
-  
+
   const tone = isFull ? 'red' : 'amber';
   const Icon = AlertTriangle;
-  
+
   return (
     <div className={"rounded-2xl border p-4 lg:p-5 flex items-center gap-4 " + (
       tone === 'red' ? 'border-red-500/30 bg-red-500/5' : 'border-amber-500/30 bg-amber-500/5'
@@ -4793,13 +4797,13 @@ function PlanLimitBanner({ resource = 'tools' }) {
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
           <span className={"text-sm font-semibold " + (tone === 'red' ? 'text-red-400' : 'text-amber-400')}>
-            {isFull ? `${resource} limit reached` : `Approaching ${resource} limit`}
+            {isFull ? `${resource} ${t('plan_limit_reached')}` : `${t('plan_limit_approaching')} ${resource} ${t('plan_limit_reached')}`}
           </span>
           <span className="text-xs text-slate-500">— {limits.label} plan</span>
         </div>
         <div className="text-xs text-slate-400 mb-2">
-          Using <span className="font-semibold text-white">{usageNum}</span> of <span className="font-semibold text-white">{limitNum}</span> {resource}
-          {isFull ? '. Upgrade to add more.' : `. ${limitNum - usageNum} remaining.`}
+          {t('plan_limit_using')} <span className="font-semibold text-white">{usageNum}</span> of <span className="font-semibold text-white">{limitNum}</span> {resource}
+          {isFull ? `. ${t('plan_limit_upgrade_msg')}` : `. ${limitNum - usageNum} ${t('plan_limit_remaining')}.`}
         </div>
         <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden max-w-md">
           <div className={"h-full transition-all " + (tone === 'red' ? 'bg-red-500' : 'bg-amber-500')} style={{width: `${percent}%`}} />
@@ -4809,7 +4813,7 @@ function PlanLimitBanner({ resource = 'tools' }) {
         className={"px-4 py-2 rounded-xl text-sm font-semibold transition-colors flex-shrink-0 " + (
           tone === 'red' ? 'bg-red-600 hover:bg-red-500 text-white' : 'bg-amber-600 hover:bg-amber-500 text-white'
         )}>
-        Upgrade →
+        {t('plan_limit_upgrade_btn')}
       </button>
     </div>
   );
@@ -4818,7 +4822,7 @@ function PlanLimitBanner({ resource = 'tools' }) {
 function GettingStartedChecklist({ db }) {
   const navigate = useNavigate();
   const { language } = useLang();
-  const isFr = language === 'fr';
+  const t = useTranslation(language);
   const [dismissed, setDismissed] = useState(
     localStorage.getItem('sg_checklist_dismissed') === 'true'
   );
@@ -4831,38 +4835,38 @@ function GettingStartedChecklist({ db }) {
     {
       id: 'first_tool',
       icon: '🛠️',
-      title: isFr ? 'Ajoutez votre premier outil SaaS' : 'Add your first SaaS tool',
-      desc: isFr ? 'Commencez à suivre ce que vous payez.' : 'Start tracking what you pay for.',
+      title: t('gs_step1_title'),
+      desc: t('gs_step1_desc'),
       done: (db?.tools || []).filter(t => t.status !== 'archived').length > 0,
       action: () => navigate('/tools'),
-      cta: isFr ? 'Ajouter un outil →' : 'Add a tool →',
+      cta: t('gs_step1_cta'),
     },
     {
       id: 'add_employee',
       icon: '👥',
-      title: isFr ? 'Importez votre équipe' : 'Import your team',
-      desc: isFr ? 'Attribuez des outils aux personnes pour suivre les accès.' : 'Assign tools to people to track access and risk.',
+      title: t('gs_step2_title'),
+      desc: t('gs_step2_desc'),
       done: (db?.employees || []).length > 0,
       action: () => navigate('/employees'),
-      cta: isFr ? 'Ajouter des employés →' : 'Add employees →',
+      cta: t('gs_step2_cta'),
     },
     {
       id: 'budget_cap',
       icon: '💰',
-      title: isFr ? 'Définissez un budget mensuel' : 'Set a monthly budget cap',
-      desc: isFr ? 'Soyez alerté quand les dépenses dépassent votre limite.' : 'Get alerted when spend exceeds your limit.',
+      title: t('gs_step3_title'),
+      desc: t('gs_step3_desc'),
       done: budgetCap > 0,
       action: () => navigate('/finance'),
-      cta: isFr ? 'Définir un budget →' : 'Set budget →',
+      cta: t('gs_step3_cta'),
     },
     {
       id: 'invite_team',
       icon: '✉️',
-      title: isFr ? 'Invitez un collègue' : 'Invite a colleague',
-      desc: isFr ? 'La collaboration vaut mieux que les tableurs.' : 'Better together than on a spreadsheet.',
+      title: t('gs_step4_title'),
+      desc: t('gs_step4_desc'),
       done: teamMembers.length > 0,
       action: () => { navigate('/settings'); setTimeout(() => { const el = document.querySelector('[data-tab="team"]'); if (el) el.click(); }, 100); },
-      cta: isFr ? 'Inviter →' : 'Invite →',
+      cta: t('gs_step4_cta'),
     },
   ];
 
@@ -4892,20 +4896,20 @@ function GettingStartedChecklist({ db }) {
       {celebrating ? (
         <div className="text-center py-4">
           <div className="text-3xl mb-2">🎉</div>
-          <div className="text-lg font-bold text-white mb-1">{isFr ? 'Tout est prêt !' : 'You\'re all set!'}</div>
-          <div className="text-sm text-slate-400">{isFr ? 'Stacklens est configuré et prêt.' : 'Stacklens is configured and ready to go.'}</div>
+          <div className="text-lg font-bold text-white mb-1">{t('gs_done_title')}</div>
+          <div className="text-sm text-slate-400">{t('gs_done_sub')}</div>
         </div>
       ) : (
         <>
           <div className="flex items-start justify-between gap-4 mb-4">
             <div>
               <div className="flex items-center gap-2 mb-0.5">
-                <span className="text-base font-bold text-white">{isFr ? 'Mise en route' : 'Getting started'}</span>
+                <span className="text-base font-bold text-white">{t('gs_title')}</span>
                 <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 font-semibold">{doneCount}/{steps.length}</span>
               </div>
-              <div className="text-xs text-slate-500">{isFr ? 'Complétez ces étapes pour tirer le meilleur de Stacklens.' : 'Complete these steps to get the most out of Stacklens.'}</div>
+              <div className="text-xs text-slate-500">{t('gs_sub')}</div>
             </div>
-            <button onClick={dismiss} className="text-slate-600 hover:text-slate-400 transition-colors text-lg leading-none flex-shrink-0" title="Dismiss">✕</button>
+            <button onClick={dismiss} className="text-slate-600 hover:text-slate-400 transition-colors text-lg leading-none flex-shrink-0" title={t('close')}>✕</button>
           </div>
 
           {/* Progress bar */}
@@ -7869,10 +7873,10 @@ function ImportWizard({ defaultKind = null, onDone = null }) {
   const goTo = (n) => { setAnimDir(n > step ? 'forward' : 'back'); setStep(n); };
 
   const KINDS = {
-    company:   { icon: '🏢', label: t('company_data_label'),    desc: 'Employees + Tools in one file — populates everything automatically', example: 'One upload fills all pages', color: 'blue' },
-    tools:     { icon: '🛠️', label: 'SaaS Tools',     desc: 'Name, cost, owner, category — your software inventory', example: 'Slack, Figma, GitHub, Notion…', color: 'emerald' },
-    employees: { icon: '👥', label: 'Employees',       desc: 'Full name, email, department, role, status', example: '230 staff across 8 departments',   color: 'blue' },
-    access:    { icon: '🔑', label: 'Access Records',  desc: 'Who has access to what tool at what level',  example: '1,200 tool-to-person mappings',     color: 'violet' },
+    company:   { icon: '🏢', label: t('company_data_label'),           desc: t('import_kinds_company_desc'),   example: t('import_kinds_company_example'),   color: 'blue' },
+    tools:     { icon: '🛠️', label: t('import_kinds_tools_label'),     desc: t('import_kinds_tools_desc'),     example: t('import_kinds_tools_example'),     color: 'emerald' },
+    employees: { icon: '👥', label: t('employees_import'),             desc: t('import_kinds_employees_desc'), example: t('import_kinds_employees_example'), color: 'blue' },
+    access:    { icon: '🔑', label: t('import_kinds_access_label'),    desc: t('import_kinds_access_desc'),    example: t('import_kinds_access_example'),    color: 'violet' },
   };
 
   const TEMPLATES = {
@@ -7940,7 +7944,7 @@ function ImportWizard({ defaultKind = null, onDone = null }) {
 
   const reset = () => { setStep(0); setKind(null); setText(''); setImported(null); };
 
-  const STEP_LABELS = ['Choose type', 'Get template', 'Upload & preview', 'Done'];
+  const STEP_LABELS = [t('import_step1'), t('import_step2') || 'Get template', t('import_step3'), t('import_step4') || t('done')];
 
   // Smart column detector — scores each kind against pasted headers
   const detectKind = (csvText) => {
@@ -8019,13 +8023,13 @@ function ImportWizard({ defaultKind = null, onDone = null }) {
               <span className="text-2xl mt-0.5">💡</span>
               <div>
                 <div className="font-bold text-white mb-1">{t("hc_fastest_way_to_get_started")}</div>
-                <p className="text-sm text-slate-400">Import your existing data in under 5 minutes. We provide CSV templates for each type — just fill them in, save, and upload. No special format required.</p>
+                <p className="text-sm text-slate-400">{t('import_wizard_info')}</p>
               </div>
             </div>
           </div>
           <div>
             <h2 className="text-xl font-bold text-white mb-1">{t('what_importing')}</h2>
-            <p className="text-slate-400 text-sm mb-4">Each type has its own template with the correct columns pre-configured.</p>
+            <p className="text-slate-400 text-sm mb-4">{t('import_each_type_info')}</p>
             <div className="grid gap-3">
               {Object.entries(KINDS).map(([id, meta]) => (
                 <button key={id} onClick={() => { setKind(id); goTo(1); }}
@@ -8047,11 +8051,11 @@ function ImportWizard({ defaultKind = null, onDone = null }) {
       {/* STEP 1 — Template */}
       {step === 1 && kind && (
         <div className="space-y-5">
-          <button onClick={() => goTo(0)} className="text-sm text-slate-500 hover:text-slate-300 flex items-center gap-1">← Back</button>
+          <button onClick={() => goTo(0)} className="text-sm text-slate-500 hover:text-slate-300 flex items-center gap-1">← {t('back')}</button>
           <div className="flex items-center gap-3">
             <span className="text-4xl">{KINDS[kind].icon}</span>
             <div>
-              <h2 className="text-xl font-bold text-white">Import {KINDS[kind].label}</h2>
+              <h2 className="text-xl font-bold text-white">{t('import_heading')} {KINDS[kind].label}</h2>
               <p className="text-slate-400 text-sm">{KINDS[kind].desc}</p>
             </div>
           </div>
@@ -8066,7 +8070,7 @@ function ImportWizard({ defaultKind = null, onDone = null }) {
                 </span>
               ))}
             </div>
-            <div className="text-xs text-slate-600">* = required. All other columns are optional but recommended.</div>
+            <div className="text-xs text-slate-600">{t('import_required_note')}</div>
           </Card>
 
           {/* Sample data preview */}
@@ -8100,15 +8104,15 @@ function ImportWizard({ defaultKind = null, onDone = null }) {
           <div className="grid sm:grid-cols-2 gap-3">
             <button onClick={() => downloadText(kind + '_template.csv', TEMPLATES[kind])}
               className="flex items-center justify-center gap-2 py-3.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-bold transition-all active:scale-[0.98]">
-              <Download className="h-4 w-4" /> Download CSV Template
+              <Download className="h-4 w-4" /> {t('download_template')}
             </button>
             <button onClick={() => { setText(TEMPLATES[kind]); goTo(2); }}
               className="flex items-center justify-center gap-2 py-3.5 bg-slate-800 hover:bg-slate-700 rounded-xl font-semibold transition-all text-slate-300">
-              Use sample data →
+              {t('import_use_sample')}
             </button>
           </div>
           <div className="text-center">
-            <button onClick={() => goTo(2)} className="text-sm text-emerald-400 hover:underline">I already have a file — skip to upload →</button>
+            <button onClick={() => goTo(2)} className="text-sm text-emerald-400 hover:underline">{t('skip_to_upload')}</button>
           </div>
         </div>
       )}
@@ -8116,20 +8120,20 @@ function ImportWizard({ defaultKind = null, onDone = null }) {
       {/* STEP 2 — Upload */}
       {step === 2 && (
         <div className="space-y-4">
-          <button onClick={() => goTo(kind ? 1 : 0)} className="text-sm text-slate-500 hover:text-slate-300 flex items-center gap-1">← Back</button>
+          <button onClick={() => goTo(kind ? 1 : 0)} className="text-sm text-slate-500 hover:text-slate-300 flex items-center gap-1">← {t('back')}</button>
 
           {/* Smart detection notice */}
           {kind && (
             <div className="flex items-center gap-2 text-xs text-slate-500 bg-slate-900/60 border border-slate-800 rounded-xl px-4 py-2.5">
               <span className="text-lg">{KINDS[kind].icon}</span>
-              <span>Importing as <span className="text-white font-semibold">{KINDS[kind].label}</span></span>
+              <span>{t('import_as_label')} <span className="text-white font-semibold">{KINDS[kind].label}</span></span>
               <button onClick={() => goTo(0)} className="ml-auto text-blue-400 hover:text-blue-300 font-semibold">{t('back')}</button>
             </div>
           )}
 
           <Card className="p-4 md:p-6">
             <h2 className="text-xl font-bold text-white mb-1">{t('upload')}</h2>
-            <p className="text-slate-400 text-sm mb-5">Drag & drop a CSV, or paste the contents below. Type is auto-detected from column headers.</p>
+            <p className="text-slate-400 text-sm mb-5">{t('import_drag_and_drop_desc')}</p>
 
             <div
               onDragOver={e => { e.preventDefault(); setDragOver(true); }}
@@ -8141,9 +8145,9 @@ function ImportWizard({ defaultKind = null, onDone = null }) {
               <input id="csv-import-input" type="file" accept=".csv,.txt,.xlsx,.xls" className="hidden" onChange={e => handleFileUpload(e.target.files[0])} />
               <div className={"text-2xl md:text-5xl mb-3 transition-all " + (dragOver ? 'scale-125' : '')}>{dragOver ? '📂' : '📁'}</div>
               <div className={"font-bold text-lg transition-colors " + (dragOver ? 'text-emerald-400' : 'text-slate-300')}>
-                {dragOver ? 'Release to upload' : 'Drop your CSV here'}
+                {dragOver ? t('import_drag_release') : t('import_drag_drop')}
               </div>
-              <div className="text-sm text-slate-500 mt-1">or click to browse your files</div>
+              <div className="text-sm text-slate-500 mt-1">{t('import_click_browse')}</div>
               <div className="mt-4 flex items-center gap-2 text-xs text-slate-700">
                 <span className="px-2 py-0.5 bg-slate-800 rounded font-mono">CSV</span>
                 <span className="px-2 py-0.5 bg-slate-800 rounded font-mono">TXT</span>
@@ -8152,26 +8156,26 @@ function ImportWizard({ defaultKind = null, onDone = null }) {
 
             <div className="relative">
               <div className="absolute inset-x-0 -top-2.5 flex justify-center">
-                <span className="text-xs text-slate-600 bg-slate-950 px-3">or paste CSV directly — type auto-detected ✨</span>
+                <span className="text-xs text-slate-600 bg-slate-950 px-3">{t('import_paste_or_csv')}</span>
               </div>
               <textarea rows={4}
                 className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 font-mono text-xs text-slate-300 outline-none focus:border-emerald-500 transition-colors resize-none"
                 value={text} onChange={e => handlePaste(e.target.value)}
-                placeholder={"Paste CSV here — column headers are auto-detected…"} />
+                placeholder={t('import_paste_placeholder')} />
             </div>
 
             {liveRows.length > 0 && (
               <div className="flex items-center gap-3 mt-3 text-sm flex-wrap">
-                <span className="text-slate-500">{liveRows.length} rows detected</span>
-                {validCount > 0 && <span className="text-emerald-400 font-semibold">✓ {validCount} valid</span>}
-                {invalidCount > 0 && <span className="text-rose-400 font-semibold">✗ {invalidCount} with errors</span>}
+                <span className="text-slate-500">{liveRows.length} {t('rows_detected')}</span>
+                {validCount > 0 && <span className="text-emerald-400 font-semibold">✓ {validCount} {t('valid')}</span>}
+                {invalidCount > 0 && <span className="text-rose-400 font-semibold">✗ {invalidCount} {t('import_errors_label')}</span>}
               </div>
             )}
           </Card>
 
           {liveRows.length > 0 && kind && (
             <Card>
-              <CardHeader title={t('preview_title')} subtitle={liveRows.length + " rows — review before importing"}
+              <CardHeader title={t('preview_title')} subtitle={liveRows.length + " " + t('import_review_before')}
                 right={<div className="flex gap-2">{validCount > 0 && <Pill tone="green">✓ {validCount} valid</Pill>}{invalidCount > 0 && <Pill tone="rose">✗ {invalidCount} errors</Pill>}</div>}
               />
               <CardBody>
@@ -8181,7 +8185,7 @@ function ImportWizard({ defaultKind = null, onDone = null }) {
                       <tr className="border-b border-slate-800 bg-slate-950/60">
                         <th className="px-3 py-2 text-left text-slate-500 font-semibold w-8">#</th>
                         {cols.map(c => <th key={c} className="px-3 py-2 text-left text-slate-400 font-semibold capitalize">{c.replace(/_/g,' ')}</th>)}
-                        <th className="px-3 py-2 text-left text-slate-500">Status</th>
+                        <th className="px-3 py-2 text-left text-slate-500">{t('status')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -8207,15 +8211,15 @@ function ImportWizard({ defaultKind = null, onDone = null }) {
                     </tbody>
                   </table>
                 </div>
-                  {liveRows.length > 10 && <div className="text-center text-xs text-slate-600 py-2">Showing 10 of {liveRows.length} rows</div>}
+                  {liveRows.length > 10 && <div className="text-center text-xs text-slate-600 py-2">{t('import_showing_of')} {liveRows.length} {t('rows')}</div>}
                 </div>
                 <div className="flex items-center justify-between mt-4">
-                  <div className="text-xs text-slate-500">Existing records will be updated, not duplicated</div>
+                  <div className="text-xs text-slate-500">{t('import_not_duplicated')}</div>
                   <button disabled={validCount === 0 || importing} onClick={handleImport}
                     className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 rounded-xl font-bold text-sm transition-all active:scale-[0.98]">
                     {importing
-                      ? <><RefreshCw className="h-4 w-4 animate-spin" /> Importing…</>
-                      : <><Upload className="h-4 w-4" /> Import {validCount} record{validCount !== 1 ? 's' : ''}</>
+                      ? <><RefreshCw className="h-4 w-4 animate-spin" /> {t('importing')}</>
+                      : <><Upload className="h-4 w-4" /> {t('import_heading')} {validCount} record{validCount !== 1 ? 's' : ''}</>
                     }
                   </button>
                 </div>
@@ -8231,16 +8235,16 @@ function ImportWizard({ defaultKind = null, onDone = null }) {
           <div className="text-3xl md:text-6xl mb-4 animate-bounce">🎉</div>
           <h2 className="text-2xl font-black text-white mb-2">{t("import_complete")}</h2>
           <p className="text-slate-400 mb-2">
-            <span className="text-emerald-400 font-bold">{imported.count} {KINDS[imported.kind]?.label}</span> records added to Stacklens.
+            <span className="text-emerald-400 font-bold">{imported.count} {KINDS[imported.kind]?.label}</span> {t('import_records_added')}
           </p>
-          <p className="text-sm text-slate-600 mb-8">Risk insights are being calculated now. Check the dashboard for updates.</p>
+          <p className="text-sm text-slate-600 mb-8">{t('import_risk_insights')}</p>
           <div className="grid sm:grid-cols-2 gap-3 max-w-sm mx-auto">
             <button onClick={reset} className="py-3 bg-slate-800 hover:bg-slate-700 rounded-xl font-semibold text-sm transition-all">
-              Import More
+              {t('import_more')}
             </button>
             <button onClick={() => window.location.href = '/' + (imported.kind === 'employees' ? 'employees' : imported.kind === 'access' ? 'access' : 'tools')}
               className="py-3 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-bold text-sm transition-all">
-              View {KINDS[imported.kind]?.label} →
+              {t('view')} {KINDS[imported.kind]?.label} →
             </button>
           </div>
         </Card>
@@ -9035,8 +9039,8 @@ function BillingPage({ noShell = false }) {
       plan_pro:'Pro', plan_pro_tag:'Pour les équipes qui ont besoin de visibilité totale',
       plan_enterprise:'Enterprise', plan_enterprise_tag:'Pour les grandes organisations',
       f_startup_1:"Jusqu'à 10 outils SaaS",f_startup_2:"Jusqu'à 10 employés",f_startup_3:"Alertes de risque basiques",f_startup_4:"Export CSV",f_startup_5:"1 membre d'équipe",f_startup_6:"Support communautaire",
-      f_growth_1:"Jusqu’à 50 outils SaaS",f_growth_2:"Jusqu’à 50 employés",f_growth_3:"Score de risque avancé",f_growth_4:"Tableau de bord Finance",f_growth_5:"Exports d’audit",f_growth_6:"Jusqu’à 5 membres",f_growth_7:"Support par email",
-      f_scale_1:"Outils SaaS illimités",f_scale_2:"Employés illimités",f_scale_3:"Analyse IA des contrats",f_scale_4:"Gestion des licences",f_scale_5:"Rapports d’audit complets",f_scale_6:"Jusqu’à 15 membres",f_scale_7:"Support prioritaire",f_scale_8:"Accès API",
+      f_growth_1:"Jusqu'à 50 outils SaaS",f_growth_2:"Jusqu'à 50 employés",f_growth_3:"Score de risque avancé",f_growth_4:"Tableau de bord Finance",f_growth_5:"Exports d'audit",f_growth_6:"Jusqu'à 5 membres",f_growth_7:"Support par email",
+      f_scale_1:"Outils SaaS illimités",f_scale_2:"Employés illimités",f_scale_3:"Analyse IA des contrats",f_scale_4:"Gestion des licences",f_scale_5:"Rapports d'audit complets",f_scale_6:"Jusqu'à 15 membres",f_scale_7:"Support prioritaire",f_scale_8:"Accès API",
       f_pro_1:"Jusqu'à 500 outils SaaS",f_pro_2:"Jusqu'à 1 500 employés",f_pro_3:"Analyse IA des contrats",f_pro_4:"Suite sécurité & audit complète",f_pro_5:"Analytics avancés",f_pro_6:"15 membres d'équipe",f_pro_7:"Support prioritaire",f_pro_8:"Export CSV & données",
       f_ent_1:"Outils & employés illimités",f_ent_2:"SSO / SAML",f_ent_3:"Provisionnement SCIM",f_ent_4:"Responsable de compte dédié",f_ent_5:"Support 24/7 téléphone & Slack",f_ent_6:"Contrats & facturation personnalisés",f_ent_7:"Option sur site / cloud privé",f_ent_8:"Audit de sécurité & garantie SLA",
     },
@@ -12075,6 +12079,7 @@ function SpendTrendChart({ monthlyTrend, byCategory }) {
 }
 
 function BudgetModal({ current, totalSpend, language, onSave, onClear, onClose }) {
+  const t = useTranslation(language);
   const [value, setValue] = useState(current > 0 ? String(current) : '');
   const curr = getCurrency(language);
   const num = Number(value) || 0;
@@ -12085,14 +12090,14 @@ function BudgetModal({ current, totalSpend, language, onSave, onClear, onClose }
       <div className="w-full max-w-sm rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h2 className="text-base font-bold text-white">Monthly Budget Cap</h2>
-            <p className="text-xs text-slate-500 mt-0.5">Alert when spend exceeds this limit</p>
+            <h2 className="text-base font-bold text-white">{t('budget_modal_title')}</h2>
+            <p className="text-xs text-slate-500 mt-0.5">{t('budget_modal_sub')}</p>
           </div>
           <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors text-lg leading-none">✕</button>
         </div>
 
         <div className="mb-4">
-          <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Cap amount ({curr}/month)</label>
+          <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">{t('budget_modal_cap_label')} ({curr}/month)</label>
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-semibold text-sm">{curr}</span>
             <input
@@ -12101,14 +12106,14 @@ function BudgetModal({ current, totalSpend, language, onSave, onClear, onClose }
               step="100"
               value={value}
               onChange={e => setValue(e.target.value)}
-              placeholder="e.g. 5000"
+              placeholder={t('budget_modal_placeholder')}
               className="w-full bg-slate-800 border border-slate-700 focus:border-blue-500 rounded-xl px-3 py-2.5 pl-8 text-white text-sm outline-none transition-colors"
               autoFocus
             />
           </div>
           {num > 0 && (
             <p className={`text-xs mt-1.5 ${utilization > 100 ? 'text-red-400' : utilization > 75 ? 'text-amber-400' : 'text-emerald-400'}`}>
-              Current spend is {curr}{convertCurrency(totalSpend, language).toLocaleString()} — {utilization}% of this cap
+              {t('budget_modal_current_spend')} {curr}{convertCurrency(totalSpend, language).toLocaleString()} — {utilization}% {t('budget_modal_of_cap')}
             </p>
           )}
         </div>
@@ -12117,11 +12122,11 @@ function BudgetModal({ current, totalSpend, language, onSave, onClear, onClose }
           <button onClick={() => num > 0 && onSave(num)}
             disabled={num <= 0}
             className="flex-1 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold transition-colors">
-            Save cap
+            {t('budget_modal_save')}
           </button>
           {current > 0 && (
             <button onClick={onClear} className="px-4 py-2.5 rounded-xl border border-slate-700 hover:border-red-500/50 text-slate-400 hover:text-red-400 text-sm font-semibold transition-colors">
-              Remove
+              {t('remove')}
             </button>
           )}
         </div>
