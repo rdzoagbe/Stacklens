@@ -7,8 +7,9 @@ import {
   Link,
   useLocation,
   useNavigate,
+  useSearchParams,
 } from "react-router-dom";
-import { signInWithGoogle, signInWithMicrosoft, handleRedirectResult, signOutUser, onAuthChange, sendMagicLink, completeMagicLinkSignIn, callAI, loadUserData, saveUserData, syncUserProfile, getUserPlanFromFirestore, registerWithEmail, signInWithEmail, resetPassword, createBillingPortal, createCheckoutSession, logConsent, startTrial, logLegalAcceptance } from './firebase-config';
+import { signInWithGoogle, handleRedirectResult, signOutUser, onAuthChange, sendMagicLink, completeMagicLinkSignIn, callAI, loadUserData, saveUserData, syncUserProfile, getUserPlanFromFirestore, registerWithEmail, signInWithEmail, resetPassword, resendEmailVerification, createBillingPortal, createCheckoutSession, logConsent, startTrial, logLegalAcceptance, syncClaimsFromServer, sendInviteEmail } from './firebase-config';
 
 // ── Compatibility stubs (migrated to Firestore) ──────────────
 async function getUserProfile(uid) {
@@ -2020,17 +2021,73 @@ function useAuth() {
   return { user, isAuthed, isDemo, login, logout, startDemo, endDemo, firebaseUser, loading };
 }
 
+function EmailVerificationWall({ email }) {
+  const { language } = useLang();
+  const t = useTranslation(language);
+  const { firebaseUser } = useAuth();
+  const [sent, setSent] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleResend = async () => {
+    const { error: err } = await resendEmailVerification();
+    if (err) { setError(err); } else { setSent(true); setError(''); }
+  };
+
+  const handleCheck = async () => {
+    setChecking(true);
+    try {
+      await firebaseUser.reload();
+      // If verified, the onAuthStateChanged will re-render with updated user
+      if (!firebaseUser.emailVerified) setError(t('email_not_verified_yet') || 'Email not verified yet. Please check your inbox.');
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6">
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 max-w-md w-full text-center space-y-5">
+        <div className="text-5xl">✉️</div>
+        <div>
+          <h2 className="text-xl font-bold text-white mb-2">{t('verify_email_title') || 'Verify your email'}</h2>
+          <p className="text-slate-400 text-sm">{t('verify_email_sub') || "We sent a verification link to"} <span className="text-white font-medium">{email}</span>. {t('verify_email_sub2') || "Click the link to activate your account."}</p>
+        </div>
+        {error && <p className="text-red-400 text-sm">{error}</p>}
+        {sent && <p className="text-green-400 text-sm">{t('verification_resent') || 'Verification email resent!'}</p>}
+        <div className="flex flex-col gap-3">
+          <button onClick={handleCheck} disabled={checking}
+            className="w-full px-4 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-xl font-semibold text-sm transition-colors">
+            {checking ? (t('checking') || 'Checking...') : (t('ive_verified') || "I've verified — continue")}
+          </button>
+          <button onClick={handleResend}
+            className="w-full px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-semibold text-sm transition-colors">
+            {t('resend_verification') || 'Resend verification email'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function RequireAuth({ children }) {
   const { language } = useLang();
   const t = useTranslation(language);
   const { isAuthed, isDemo, loading, firebaseUser } = useAuth();
   const location = useLocation();
 
-  // Wait for Firebase auth to fully resolve before deciding to redirect
   if (loading) return <div className="flex items-center justify-center h-screen bg-slate-950"><div className="text-white text-sm">{t('loading')}</div></div>;
 
-  // Accept: locally authed, demo mode, OR live Firebase session (handles post-redirect gap)
   if (!isAuthed && !isDemo && !firebaseUser) return <Navigate to="/" replace state={{ from: location }} />;
+
+  // Gate email/password users who haven't verified yet (Google/magic-link users are pre-verified)
+  const isPasswordProvider = firebaseUser?.providerData?.[0]?.providerId === 'password';
+  if (isPasswordProvider && firebaseUser?.emailVerified === false) {
+    return <EmailVerificationWall email={firebaseUser.email} />;
+  }
+
   return children;
 }
 
@@ -2595,6 +2652,32 @@ function CookieBanner() {
   );
 }
 
+function TrialExpiredBanner() {
+  const { user, isDemo } = useAuth();
+  const { language } = useLang();
+  const t = useTranslation(language);
+  const navigate = useNavigate();
+
+  if (isDemo) return null;
+  const plan = resolvePlan(user);
+  const { expired } = getTrialState(user);
+  if (!expired || (plan && plan !== 'free')) return null;
+
+  return (
+    <div className="bg-gradient-to-r from-amber-600 to-orange-600 text-white text-sm px-4 py-2.5 flex items-center justify-between">
+      <div className="flex items-center gap-2">
+        <span className="text-base">⏰</span>
+        <span className="font-semibold">{t('trial_expired_banner_title') || 'Your free trial has ended'}</span>
+        <span className="text-amber-100 hidden sm:inline">— {t('trial_expired_banner_sub') || 'Upgrade to keep your team\'s SaaS stack visible and actionable.'}</span>
+      </div>
+      <button onClick={() => navigate('/app/settings?tab=billing')}
+        className="bg-white text-amber-600 hover:bg-amber-50 px-3 py-1 rounded-lg text-xs font-bold transition-all flex-shrink-0">
+        {t('upgrade_now') || 'Upgrade now'} →
+      </button>
+    </div>
+  );
+}
+
 function DemoBanner() {
   const { isDemo } = useAuth();
   const navigate = useNavigate();
@@ -2655,6 +2738,7 @@ function AppShell({ subtitle, title, right, children }) {
     <div className="min-h-screen bg-slate-950 text-slate-100 overflow-x-hidden">
       <div className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.18),transparent_52%),radial-gradient(circle_at_bottom,rgba(99,102,241,0.10),transparent_55%)]" />
       <DemoBanner />
+      <TrialExpiredBanner />
       <div className="flex flex-col md:flex-row w-full overflow-x-hidden md:h-screen">
         <div className="hidden md:block flex-shrink-0">
           <Sidebar collapsed={collapsed} setCollapsed={setCollapsed} />
@@ -10341,8 +10425,36 @@ function SettingsPage() {
   const { data: db } = useDbQuery();
   const qc = useQueryClient();
   const { isDemo, firebaseUser } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState('general');
   const [saveMsg, setSaveMsg] = useState('');
+  const [stripeMsg, setStripeMsg] = useState('');
+
+  // Handle Stripe redirect-back: ?success=true or ?cancelled=true
+  useEffect(() => {
+    const success = searchParams.get('success');
+    const cancelled = searchParams.get('cancelled');
+    if (success === 'true') {
+      setActiveTab('billing');
+      setStripeMsg('success');
+      // Re-fetch plan from Firestore so billing tab reflects new plan
+      if (firebaseUser?.uid) {
+        getUserPlanFromFirestore(firebaseUser.uid).then((planData) => {
+          if (planData) {
+            const cur = loadDb() || seedDbIfEmpty();
+            cur.user = { ...cur.user, ...planData };
+            saveDb(cur);
+            qc.invalidateQueries({ queryKey: ['db'] });
+          }
+        });
+      }
+      setSearchParams({}, { replace: true });
+    } else if (cancelled === 'true') {
+      setActiveTab('billing');
+      setStripeMsg('cancelled');
+      setSearchParams({}, { replace: true });
+    }
+  }, []);  // eslint-disable-line react-hooks/exhaustive-deps
 
   const saved = JSON.parse(localStorage.getItem('sg_general') || '{}');
   const [orgName, setOrgName] = useState(saved.orgName || 'My Organisation');
@@ -10858,17 +10970,39 @@ function SettingsPage() {
 
           {/* ── BILLING ── */}
           {activeTab === 'billing' && (
-            <RoleGate requires="owner" fallback={
-              <Card><CardBody>
-                <div className="text-center py-8">
-                  <div className="text-3xl mb-3">🔒</div>
-                  <h3 className="text-lg font-semibold text-white mb-1">Owner Access Required</h3>
-                  <p className="text-slate-400 text-sm">Only the account owner can manage billing and subscriptions.</p>
+            <div className="space-y-4">
+              {stripeMsg === 'success' && (
+                <div className="flex items-start gap-3 rounded-xl border border-green-500/30 bg-green-500/10 px-4 py-3">
+                  <span className="text-lg mt-0.5">🎉</span>
+                  <div>
+                    <p className="text-sm font-semibold text-green-400">{t('stripe_success_title') || 'Subscription activated!'}</p>
+                    <p className="text-xs text-green-300/80 mt-0.5">{t('stripe_success_sub') || 'Your plan is now active. Welcome aboard — your full stack is unlocked.'}</p>
+                  </div>
+                  <button onClick={() => setStripeMsg('')} className="ml-auto text-green-400/60 hover:text-green-400 text-lg leading-none">×</button>
                 </div>
-              </CardBody></Card>
-            }>
-              <BillingPage noShell={true} />
-            </RoleGate>
+              )}
+              {stripeMsg === 'cancelled' && (
+                <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+                  <span className="text-lg mt-0.5">💡</span>
+                  <div>
+                    <p className="text-sm font-semibold text-amber-400">{t('stripe_cancelled_title') || 'Checkout cancelled'}</p>
+                    <p className="text-xs text-amber-300/80 mt-0.5">{t('stripe_cancelled_sub') || "No charge was made. Upgrade whenever you're ready."}</p>
+                  </div>
+                  <button onClick={() => setStripeMsg('')} className="ml-auto text-amber-400/60 hover:text-amber-400 text-lg leading-none">×</button>
+                </div>
+              )}
+              <RoleGate requires="owner" fallback={
+                <Card><CardBody>
+                  <div className="text-center py-8">
+                    <div className="text-3xl mb-3">🔒</div>
+                    <h3 className="text-lg font-semibold text-white mb-1">Owner Access Required</h3>
+                    <p className="text-slate-400 text-sm">Only the account owner can manage billing and subscriptions.</p>
+                  </div>
+                </CardBody></Card>
+              }>
+                <BillingPage noShell={true} />
+              </RoleGate>
+            </div>
           )}
 
           {/* ── INTEGRATIONS ── */}

@@ -336,6 +336,17 @@ export async function signInWithEmail(email, password) {
   }
 }
 
+// Resend email verification to current user
+export async function resendEmailVerification() {
+  try {
+    if (!auth.currentUser) return { error: 'Not signed in' };
+    await sendEmailVerification(auth.currentUser);
+    return { error: null };
+  } catch (error) {
+    return { error: error.message };
+  }
+}
+
 // Password Reset
 export async function resetPassword(email) {
   try {
