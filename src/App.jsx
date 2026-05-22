@@ -5459,7 +5459,7 @@ function DashboardPage() {
               </div>
             );
           })()}
-          <Button variant="secondary" className="w-full text-sm" onClick={()=>toast('Shadow IT report coming soon!', { icon: '🔜' })}>See what's behind this →</Button>
+          <Button variant="secondary" className="w-full text-sm" onClick={()=>toast(t('shadow_it_coming_soon') || (language === 'fr' ? 'Rapport Shadow IT bientôt disponible !' : 'Shadow IT report coming soon!'), { icon: '🔜' })}>See what's behind this →</Button>
         </div>
 
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 lg:p-6">
@@ -9346,7 +9346,8 @@ function BillingPage({ noShell = false }) {
 function IntegrationConnectors() {
   const { language } = useLang();
   const t = useTranslation(language);
-  const [connectedIntegrations, setConnectedIntegrations] = useState(['google-workspace', 'slack']);
+  const _savedConnected = (() => { try { return JSON.parse(localStorage.getItem('sg_connected_integrations') || '["google-workspace","slack"]'); } catch { return ['google-workspace','slack']; } })();
+  const [connectedIntegrations, setConnectedIntegrations] = useState(_savedConnected);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
@@ -9435,11 +9436,11 @@ function IntegrationConnectors() {
   ];
 
   const handleConnect = (integrationId) => {
-    if (connectedIntegrations.includes(integrationId)) {
-      setConnectedIntegrations(connectedIntegrations.filter(id => id !== integrationId));
-    } else {
-      setConnectedIntegrations([...connectedIntegrations, integrationId]);
-    }
+    const next = connectedIntegrations.includes(integrationId)
+      ? connectedIntegrations.filter(id => id !== integrationId)
+      : [...connectedIntegrations, integrationId];
+    setConnectedIntegrations(next);
+    localStorage.setItem('sg_connected_integrations', JSON.stringify(next));
   };
 
   const isConnected = (id) => connectedIntegrations.includes(id);
@@ -12116,10 +12117,10 @@ function FinanceDashboard() {
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [showReclaimModal, setShowReclaimModal] = useState(false);
   const [selectedBill, setSelectedBill] = useState(null);
-  // Compute real financial data from tools
-  const _fdb = JSON.parse(localStorage.getItem('accessguard_v1') || '{}');
-  const _fReal = _fdb?.user?.is_authenticated && !_fdb?.user?.is_demo;
-  const _tools = _fdb?.tools || [];
+  // Compute real financial data from tools — use reactive db (TanStack Query)
+  // to avoid showing demo data during Firestore hydration race
+  const _fReal = db?.user?.is_authenticated && !db?.user?.is_demo;
+  const _tools = db?.tools || [];
   const _totalSpend = _fReal ? _tools.reduce((s, t) => s + (t.cost_per_month || t.cost_monthly || t.cost || 0), 0) : 47850;
   const _byCategory = _fReal ? Object.values(_tools.reduce((acc, tool) => {
     const cat = tool.category || 'Other';
@@ -14080,7 +14081,7 @@ function InvoiceManager() {
     }, 1500);
   };
 
-  const _idb = JSON.parse(localStorage.getItem('accessguard_v1') || '{}');
+  const { data: _idb } = useDbQuery();
   const _iReal = _idb?.user?.is_authenticated && !_idb?.user?.is_demo;
   const uploaded = JSON.parse(localStorage.getItem('ag_uploaded_invoices') || '[]');
   const invoices = _iReal ? uploaded : [
