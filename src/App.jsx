@@ -11,6 +11,8 @@ import {
   useSearchParams,
 } from "react-router-dom";
 import { signInWithGoogle, signInWithGoogleWorkspace, handleRedirectResult, signOutUser, onAuthChange, sendMagicLink, completeMagicLinkSignIn, callAI, loadUserData, saveUserData, syncUserProfile, getUserPlanFromFirestore, registerWithEmail, signInWithEmail, resetPassword, createBillingPortal, createCheckoutSession, logConsent, startTrial, logLegalAcceptance, loadAllUsersAdmin, founderExtendTrial, founderSetPlan, signInWithMicrosoft, saveReport, getReport, deleteReport, resendEmailVerification, deleteAccount, syncClaimsFromServer, sendInviteEmail } from './firebase-config';
+import { PLAN_TIERS, PLAN_LIMITS, TRIAL_DAYS, TRIAL_MS, resolvePlan, getTrialState, getPlanLimits } from './lib/plan';
+import { LS_KEY, CATEGORIES, EMP_DEPARTMENTS, TOOL_STATUS, CRITICALITY, RISK_SCORE, ACCESS_LEVEL, ACCESS_STATUS, RISK_FLAG } from './lib/constants';
 
 // ── Compatibility stubs (migrated to Firestore) ──────────────
 async function getUserProfile(uid) {
