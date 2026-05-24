@@ -12,6 +12,8 @@ import {
 import { signInWithGoogle, handleRedirectResult, signOutUser, onAuthChange, sendMagicLink, completeMagicLinkSignIn, callAI, loadUserData, saveUserData, syncUserProfile, getUserPlanFromFirestore, registerWithEmail, signInWithEmail, resetPassword, resendEmailVerification, createBillingPortal, createCheckoutSession, logConsent, startTrial, logLegalAcceptance, syncClaimsFromServer, sendInviteEmail } from './firebase-config';
 import { PLAN_TIERS, PLAN_LIMITS, TRIAL_DAYS, TRIAL_MS, resolvePlan, getTrialState, getPlanLimits } from './lib/plan';
 import { LS_KEY, CATEGORIES, EMP_DEPARTMENTS, TOOL_STATUS, CRITICALITY, RISK_SCORE, ACCESS_LEVEL, ACCESS_STATUS, RISK_FLAG } from './lib/constants';
+import { LanguageContext, LanguageProvider, useLang } from './contexts/LangContext';
+import { CurrencyContext, CurrencyProvider, useCurrency, useCurrencyConverter } from './contexts/CurrencyContext';
 
 // ── Compatibility stubs (migrated to Firestore) ──────────────
 async function getUserProfile(uid) {
@@ -109,26 +111,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, L
 // ============================================================================
 // GLOBAL LANGUAGE CONTEXT — single source of truth for all pages
 // ============================================================================
-const LanguageContext = React.createContext({ language: 'en', setLanguage: () => {} });
-
-function LanguageProvider({ children }) {
-  const [language, setLanguage] = React.useState(
-    () => localStorage.getItem('language') || 'en'
-  );
-  const setAndPersist = React.useCallback((lang) => {
-    localStorage.setItem('language', lang);
-    setLanguage(lang);
-  }, []);
-  return (
-    <LanguageContext.Provider value={{ language, setLanguage: setAndPersist }}>
-      {children}
-    </LanguageContext.Provider>
-  );
-}
-
-function useLang() {
-  return React.useContext(LanguageContext);
-}
+// LanguageContext, LanguageProvider, useLang — imported from ./contexts/LangContext
 // ============================================================================
 
 
@@ -1873,7 +1856,7 @@ function useAuth() {
       setLoading(false);
 
       if (fbUser) {
-        // Fetch plan from Firestore so billing reflects real subscription
+        // Fetch plan: custom claims (server-signed, tamper-proof) take precedence over Firestore
         let plan = 'free';
         let stripeCustomerId = null;
         let subscriptionStatus = null;
@@ -1881,10 +1864,15 @@ function useAuth() {
         let trialStartedAt = null;
         let fsUserExists = false;
         try {
+          // Read ID token claims — set by Cloud Functions on billing events
+          const tokenResult = await fbUser.getIdTokenResult();
+          const claimedPlan = tokenResult.claims?.plan;
+
           const fsUser = await getUserPlanFromFirestore(fbUser.uid);
           if (fsUser) {
             fsUserExists = true;
-            plan = fsUser.plan || 'free';
+            // Custom claim wins over Firestore if present and is a paid plan
+            plan = (claimedPlan && claimedPlan !== 'free') ? claimedPlan : (fsUser.plan || 'free');
             stripeCustomerId = fsUser.stripe_customer_id || null;
             subscriptionStatus = fsUser.subscription_status || null;
             isFounder = fsUser.is_founder === true;
@@ -1893,6 +1881,8 @@ function useAuth() {
                   ? fsUser.trial_started_at
                   : (fsUser.trial_started_at?.seconds ? fsUser.trial_started_at.seconds * 1000 : Date.parse(fsUser.trial_started_at) || null))
               : null;
+          } else if (claimedPlan && claimedPlan !== 'free') {
+            plan = claimedPlan;
           }
         } catch (e) { /* ignore, default to free */ }
 
@@ -2876,69 +2866,7 @@ function convertCurrency(amountUSD, lang) {
 }
 
 
-// ── Real-time Currency Conversion ────────────────────────────────────────
-const CURRENCY_CACHE_KEY = 'accessguard_fx_rates';
-const CACHE_TTL = 3600000; // 1 hour
-
-async function fetchExchangeRates(base = 'USD') {
-  try {
-    const cached = JSON.parse(localStorage.getItem(CURRENCY_CACHE_KEY) || '{}');
-    if (cached.rates && cached.ts && Date.now() - cached.ts < CACHE_TTL) {
-      return cached.rates;
-    }
-    const res = await fetch(`https://open.er-api.com/v6/latest/${base}`);
-    const data = await res.json();
-    if (data.rates) {
-      localStorage.setItem(CURRENCY_CACHE_KEY, JSON.stringify({ rates: data.rates, ts: Date.now() }));
-      return data.rates;
-    }
-  } catch(e) {
-    console.warn('Exchange rate fetch failed:', e);
-  }
-  // Fallback rates
-  return { USD: 1, EUR: 0.92, GBP: 0.79, JPY: 149.5, CAD: 1.36 };
-}
-
-function useCurrencyConverter() {
-  const { language } = useLang();
-  const [rates, setRates] = React.useState({ USD: 1, EUR: 0.92, GBP: 0.79, JPY: 149.5 });
-  const [ready, setReady] = React.useState(false);
-
-  React.useEffect(() => {
-    fetchExchangeRates('USD').then(r => { setRates(r); setReady(true); });
-  }, []);
-
-  const getCurrencyForLang = (lang) => {
-    const settings = JSON.parse(localStorage.getItem('sg_general') || '{}');
-    if (settings.currency) {
-      if (settings.currency.includes('£')) return { code: 'GBP', symbol: '£' };
-      if (settings.currency.includes('€')) return { code: 'EUR', symbol: '€' };
-      if (settings.currency.includes('¥')) return { code: 'JPY', symbol: '¥' };
-    }
-    if (lang === 'fr') return { code: 'EUR', symbol: '€' };
-    return { code: 'USD', symbol: '$' };
-  };
-
-  const convert = React.useCallback((amountUSD, lang) => {
-    const activeLang = lang || language;
-    const { code, symbol } = getCurrencyForLang(activeLang);
-    const rate = rates[code] || 1;
-    const converted = Math.round(amountUSD * rate);
-    return symbol + converted.toLocaleString();
-  }, [rates, language]);
-
-  const symbol = React.useMemo(() => getCurrencyForLang(language).symbol, [language]);
-
-  return { convert, symbol, rates, ready };
-}
-
-// Global currency context
-const CurrencyContext = React.createContext({ convert: (n) => '$' + Math.round(n), symbol: '$', rates: {} });
-function CurrencyProvider({ children }) {
-  const converter = useCurrencyConverter();
-  return React.createElement(CurrencyContext.Provider, { value: converter }, children);
-}
-function useCurrency() { return React.useContext(CurrencyContext); }
+// CurrencyContext, CurrencyProvider, useCurrency, useCurrencyConverter — imported from ./contexts/CurrencyContext
 
 function downloadText(filename, text) {
   const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
