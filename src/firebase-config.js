@@ -288,6 +288,47 @@ export { auth, firestoreDb as db, analytics };
 // ============================================================================
 // STRIPE BILLING HELPERS
 // ============================================================================
+// Force-refresh the Firebase ID token so new custom claims (plan) take effect immediately.
+// Call this after a successful Stripe checkout.
+export async function refreshClaims() {
+  if (!auth.currentUser) return null;
+  // forceRefresh=true fetches a new token with up-to-date custom claims
+  const token = await auth.currentUser.getIdToken(true);
+  const result = await auth.currentUser.getIdTokenResult();
+  return result.claims;
+}
+
+// Tell the server to sync Firestore plan → custom claims (use after Stripe redirect).
+export async function syncClaimsFromServer() {
+  try {
+    const token = await getToken();
+    if (!token) return null;
+    const res = await fetch(`${FUNCTIONS_BASE}/refreshClaims`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    // Force local token refresh so getIdTokenResult picks up the new claim
+    await auth.currentUser?.getIdToken(true);
+    return data.plan;
+  } catch { return null; }
+}
+
+// Send a team invite email via SendGrid Cloud Function.
+export async function sendInviteEmail({ inviteeEmail, inviterName, orgName }) {
+  const token = await getToken();
+  if (!token) throw new Error('Not authenticated');
+  const res = await fetch(`${FUNCTIONS_BASE}/sendInvite`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    body: JSON.stringify({ inviteeEmail, inviterName, orgName }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Invite failed');
+  return data;
+}
+
 export async function createCheckoutSession(priceId) {
   const token = await getToken();
   if (!token) throw new Error('Not authenticated');

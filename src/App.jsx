@@ -10,6 +10,8 @@ import {
   useSearchParams,
 } from "react-router-dom";
 import { signInWithGoogle, handleRedirectResult, signOutUser, onAuthChange, sendMagicLink, completeMagicLinkSignIn, callAI, loadUserData, saveUserData, syncUserProfile, getUserPlanFromFirestore, registerWithEmail, signInWithEmail, resetPassword, resendEmailVerification, createBillingPortal, createCheckoutSession, logConsent, startTrial, logLegalAcceptance, syncClaimsFromServer, sendInviteEmail } from './firebase-config';
+import { PLAN_TIERS, PLAN_LIMITS, TRIAL_DAYS, TRIAL_MS, resolvePlan, getTrialState, getPlanLimits } from './lib/plan';
+import { LS_KEY, CATEGORIES, EMP_DEPARTMENTS, TOOL_STATUS, CRITICALITY, RISK_SCORE, ACCESS_LEVEL, ACCESS_STATUS, RISK_FLAG } from './lib/constants';
 
 // ── Compatibility stubs (migrated to Firestore) ──────────────
 async function getUserProfile(uid) {
@@ -450,37 +452,8 @@ function RoleBadge({ role }) {
 }
 
 
-const LS_KEY = "accessguard_v1";
-
-const CATEGORIES = [
-  "engineering",
-  "design",
-  "marketing",
-  "sales",
-  "finance",
-  "hr",
-  "operations",
-  "security",
-  "communication",
-  "other",
-];
-
-const EMP_DEPARTMENTS = [...CATEGORIES, "executive"];
-
-const TOOL_STATUS = ["active", "orphaned", "unused", "decommissioned"];
-const CRITICALITY = ["low", "medium", "high"];
-const RISK_SCORE = ["low", "medium", "high"];
-
-const ACCESS_LEVEL = ["admin", "editor", "viewer", "billing"];
-const ACCESS_STATUS = ["active", "revoked", "pending_revocation"];
-const RISK_FLAG = [
-  "none",
-  "orphaned",
-  "unused",
-  "former_employee",
-  "excessive_admin",
-  "needs_review",
-];
+// LS_KEY, CATEGORIES, EMP_DEPARTMENTS, TOOL_STATUS, CRITICALITY, RISK_SCORE,
+// ACCESS_LEVEL, ACCESS_STATUS, RISK_FLAG — imported from ./lib/constants
 
 function uid(prefix = "id") {
   return `${prefix}_${Math.random().toString(16).slice(2)}_${Date.now()}`;
@@ -866,8 +839,25 @@ function loadDb() {
   try { return JSON.parse(raw); } catch { return null; }
 }
 
+const LS_SIZE_WARN_BYTES = 3 * 1024 * 1024; // warn at 3 MB
+const LS_SIZE_MAX_BYTES  = 4.5 * 1024 * 1024; // hard cap at 4.5 MB (browser limit ~5 MB)
+
 function saveDb(db) {
-  localStorage.setItem(LS_KEY, JSON.stringify(db));
+  const serialized = JSON.stringify(db);
+  // Phase 5: guard against localStorage overflow silently corrupting data
+  if (serialized.length > LS_SIZE_MAX_BYTES) {
+    // Trim oldest 20% of tools and access rows to stay under the limit
+    const trimmed = { ...db };
+    if (trimmed.tools?.length > 50) trimmed.tools = trimmed.tools.slice(0, Math.floor(trimmed.tools.length * 0.8));
+    if (trimmed.access?.length > 200) trimmed.access = trimmed.access.slice(0, Math.floor(trimmed.access.length * 0.8));
+    localStorage.setItem(LS_KEY, JSON.stringify(trimmed));
+    console.warn('[Stacklens] localStorage approaching limit — oldest records trimmed. Enable cloud sync for large datasets.');
+  } else {
+    if (serialized.length > LS_SIZE_WARN_BYTES) {
+      console.warn('[Stacklens] localStorage usage high:', Math.round(serialized.length / 1024), 'KB');
+    }
+    localStorage.setItem(LS_KEY, serialized);
+  }
   // Sync to Firestore (fire and forget) - only for real authenticated users
   if (_firestoreUid && db?.user?.is_authenticated && !db?.user?.is_demo) {
     saveUserData(_firestoreUid, db).catch(() => {});
@@ -4647,83 +4637,8 @@ function TourLaunchButton() {
 }
 
 // Plan tier hierarchy
-// 4 tiers: free / starter / pro / enterprise
-// Legacy aliases (growth, scale, unlimited, professional, startup) mapped for back-compat
-const PLAN_TIERS = {
-  free: 0,
-  trial: 4,       // Trial = FULL access to everything — expires after 7 days
-  demo:  4,       // Demo mode = same full access as trial (showcase the product)
-  starter: 2,
-  hr_finance: 2,  // HR & Finance Pack — Finance Board + People Board (same tier as Starter)
-  pro: 3,
-  enterprise: 4,
-  // Legacy aliases
-  growth: 3, scale: 4, unlimited: 4, professional: 4, startup: 0,
-};
-
-// Hard limits per plan — these are enforced on data creation
-const PLAN_LIMITS = {
-  free:       { tools: 10,    employees: 25,    teamMembers: 1,  label: 'Free' },
-  trial:      { tools: 9999,  employees: 9999,  teamMembers: 5,  label: 'Trial (7 days)' },
-  demo:       { tools: 9999,  employees: 9999,  teamMembers: 5,  label: 'Demo' },
-  starter:    { tools: 100,   employees: 250,   teamMembers: 5,  label: 'Starter' },
-  hr_finance: { tools: 100,   employees: 250,   teamMembers: 5,  label: 'HR & Finance' },
-  pro:        { tools: 500,   employees: 1500,  teamMembers: 15, label: 'Pro' },
-  enterprise: { tools: 99999, employees: 99999, teamMembers: 999,label: 'Enterprise' },
-  // Legacy plan support — map old plans to current limits
-  growth:     { tools: 500,   employees: 1500,  teamMembers: 15, label: 'Pro' },
-  scale:      { tools: 99999, employees: 99999, teamMembers: 999,label: 'Enterprise' },
-  unlimited:  { tools: 99999, employees: 99999, teamMembers: 999,label: 'Enterprise' },
-  professional: { tools: 99999, employees: 99999, teamMembers: 999, label: 'Enterprise' },
-  startup:    { tools: 10,    employees: 25,    teamMembers: 1,  label: 'Free' },
-};
-
-// Trial system — 7 days of full Pro access from signup
-const TRIAL_DAYS = 7;
-const TRIAL_MS = TRIAL_DAYS * 24 * 60 * 60 * 1000;
-
-// Resolve the effective plan, taking into account trial expiry and founder mode.
-// Source of truth for "what plan is this user actually on right now?"
-// Inputs: a `user` object with possible fields { is_founder, plan, subscription_plan, trial_started_at }
-// Returns: a plan string ('free' | 'trial' | 'starter' | 'pro' | 'enterprise' | etc.)
-function resolvePlan(user) {
-  if (!user) return 'free';
-  // Founder override always wins
-  if (user.is_founder === true) return 'scale';
-  // If user has a paid plan from Stripe, use it
-  const stored = user.plan || user.subscription_plan;
-  if (stored && stored !== 'trial' && stored !== 'free') return stored;
-  // If user is on trial, check expiry
-  if (stored === 'trial' && user.trial_started_at) {
-    const startedAt = typeof user.trial_started_at === 'number'
-      ? user.trial_started_at
-      : Date.parse(user.trial_started_at) || 0;
-    if (startedAt > 0 && (Date.now() - startedAt) < TRIAL_MS) {
-      return 'trial';   // still active
-    }
-    return 'free';      // expired
-  }
-  return stored || 'free';
-}
-
-// Returns trial state info: { isTrial, daysLeft, expired }
-function getTrialState(user) {
-  if (!user || !user.trial_started_at) return { isTrial: false, daysLeft: 0, expired: false };
-  const startedAt = typeof user.trial_started_at === 'number'
-    ? user.trial_started_at
-    : Date.parse(user.trial_started_at) || 0;
-  if (startedAt === 0) return { isTrial: false, daysLeft: 0, expired: false };
-  const elapsed = Date.now() - startedAt;
-  const daysLeft = Math.max(0, Math.ceil((TRIAL_MS - elapsed) / (24 * 60 * 60 * 1000)));
-  const expired = elapsed >= TRIAL_MS;
-  const isTrial = (user.plan === 'trial' || user.subscription_plan === 'trial') && !expired;
-  return { isTrial, daysLeft, expired };
-}
-
-
-function getPlanLimits(plan) {
-  return PLAN_LIMITS[plan] || PLAN_LIMITS.free;
-}
+// PLAN_TIERS, PLAN_LIMITS, TRIAL_DAYS, TRIAL_MS, resolvePlan, getTrialState, getPlanLimits
+// — imported from ./lib/plan
 
 // Hook: returns current usage and limits for the user's plan
 function usePlanLimits() {
@@ -10437,16 +10352,18 @@ function SettingsPage() {
     if (success === 'true') {
       setActiveTab('billing');
       setStripeMsg('success');
-      // Re-fetch plan from Firestore so billing tab reflects new plan
+      // Sync plan: refresh custom claims from server, then pull Firestore plan into localStorage
       if (firebaseUser?.uid) {
-        getUserPlanFromFirestore(firebaseUser.uid).then((planData) => {
+        syncClaimsFromServer().then(() =>
+          getUserPlanFromFirestore(firebaseUser.uid)
+        ).then((planData) => {
           if (planData) {
             const cur = loadDb() || seedDbIfEmpty();
             cur.user = { ...cur.user, ...planData };
             saveDb(cur);
             qc.invalidateQueries({ queryKey: ['db'] });
           }
-        });
+        }).catch(() => {});
       }
       setSearchParams({}, { replace: true });
     } else if (cancelled === 'true') {
@@ -10521,6 +10438,7 @@ function SettingsPage() {
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('viewer');
   const [inviteSent, setInviteSent] = useState(false);
+  const [inviteSending, setInviteSending] = useState(false);
   const [showRoleInfo, setShowRoleInfo] = useState(false);
   const myRole = getUserRole();
 
@@ -10674,8 +10592,8 @@ function SettingsPage() {
                         <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-emerald-400 flex-shrink-0"></span><span><span className="text-emerald-400 font-semibold">Editor</span> — View & edit data, cannot delete</span></div>
                         <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-slate-400 flex-shrink-0"></span><span><span className="text-slate-300 font-semibold">Viewer</span> — Read-only, no edits</span></div>
                       </div>
-                      <button onClick={() => {
-                        if (!inviteEmail) return;
+                      <button onClick={async () => {
+                        if (!inviteEmail || inviteSending) return;
                         const limit = getPlanLimits(resolvePlan(db?.user)).teamMembers;
                         if (members.length >= limit) {
                           toast.error(`Your ${getPlanLimits(resolvePlan(db?.user)).label} plan allows ${limit} team members. Upgrade to add more.`);
@@ -10690,17 +10608,27 @@ function SettingsPage() {
                           avatar: inviteEmail[0].toUpperCase(),
                         };
                         saveMembers([...members, newMember]);
-                        window.open('mailto:' + inviteEmail
-                          + '?subject=' + encodeURIComponent('You\'ve been invited to Stacklens')
-                          + '&body=' + encodeURIComponent(
-                              'Hi,\n\nYou\'ve been invited to join Stacklens as ' + newMember.role + '.\n\n'
-                              + 'Sign in or create your account at: https://stacklens.fr\n\n'
-                              + 'Once signed in, you\'ll have access to the workspace.\n\nStacklens Team'
-                            ));
+                        setInviteSending(true);
+                        try {
+                          await sendInviteEmail({
+                            inviteeEmail: inviteEmail,
+                            inviterName: firebaseUser?.displayName || db?.user?.email?.split('@')[0],
+                            orgName: localStorage.getItem('sg_general') ? JSON.parse(localStorage.getItem('sg_general') || '{}').orgName : 'Stacklens',
+                          });
+                          toast.success('Invite sent!');
+                        } catch {
+                          // Fallback: open mailto if Cloud Function is unavailable
+                          window.open('mailto:' + inviteEmail
+                            + '?subject=' + encodeURIComponent('You\'ve been invited to Stacklens')
+                            + '&body=' + encodeURIComponent('Hi,\n\nYou\'ve been invited to join Stacklens.\n\nSign in at: https://stacklens.fr\n\nStacklens Team'));
+                        } finally {
+                          setInviteSending(false);
+                        }
                         setInviteSent(true);
                       }}
-                        className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-semibold text-sm transition-colors whitespace-nowrap">
-                        Send Invite
+                        disabled={inviteSending}
+                        className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 rounded-xl font-semibold text-sm transition-colors whitespace-nowrap">
+                        {inviteSending ? 'Sending...' : 'Send Invite'}
                       </button>
                     </div>
                   )}
