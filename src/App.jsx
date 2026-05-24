@@ -3506,24 +3506,24 @@ function TrialPage() {
               <div className="text-xl font-bold text-white">Stacklens</div>
             </div>
             <div className="hidden md:flex items-center gap-8">
-              <a href="#pricing" className="text-sm text-slate-400 hover:text-white transition-colors">Pricing</a>
-              <a href="#faq" className="text-sm text-slate-400 hover:text-white transition-colors">FAQ</a>
+              <a href="#pricing" className="text-sm text-slate-400 hover:text-white transition-colors">{t('lp_nav_pricing')}</a>
+              <a href="#faq" className="text-sm text-slate-400 hover:text-white transition-colors">{t('lp_nav_faq')}</a>
               <LangSelectorCompact />
               <button
                 onClick={() => setShowAuth(true)}
                 className="text-sm text-slate-400 hover:text-white transition-colors">
-                Sign in
+                {t('lp_nav_sign_in')}
               </button>
               <button
                 onClick={() => { trackEvent('cta_click', { location: 'nav' }); setShowAuth(true); }}
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-semibold text-white transition-colors">
-                Start free
+                {t('lp_nav_start_free')}
               </button>
             </div>
             <button
               onClick={() => setShowAuth(true)}
               className="md:hidden px-4 py-2 bg-blue-600 rounded-lg text-sm font-semibold">
-              Start free
+              {t('lp_nav_start_free')}
             </button>
           </div>
         </div>
@@ -3533,29 +3533,29 @@ function TrialPage() {
       <section className="relative z-10 pt-20 pb-24 px-6">
         <div className="max-w-4xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-slate-800 bg-slate-900/60 mb-8">
-            <span className="text-xs font-medium text-slate-400">🇪🇺 EU-hosted · GDPR-native · Built for European SMBs</span>
+            <span className="text-xs font-medium text-slate-400">{t('lp_hero_badge')}</span>
           </div>
           <h1 className="text-5xl md:text-6xl lg:text-7xl font-black tracking-tight text-white mb-6 leading-[1.05]">
-            Stop SaaS drift
+            {t('lp_hero_h1_line1')}
             <br />
-            <span className="bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400 bg-clip-text text-transparent">before it costs you.</span>
+            <span className="bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400 bg-clip-text text-transparent">{t('lp_hero_h1_line2')}</span>
           </h1>
           <p className="text-lg md:text-xl text-slate-400 max-w-2xl mx-auto mb-10 leading-relaxed">
-            You're the one person chasing invoices, renewals, and zombie accounts across 80+ tools. Stacklens gives you the visibility to find what's wasted, who still has access, and what's about to auto-renew — in 5 minutes, not 5 days.
+            {t('lp_hero_body')}
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-6">
             <button
               onClick={() => { trackEvent('cta_click', { location: 'hero_primary' }); setShowAuth(true); }}
               className="px-8 py-4 bg-blue-600 hover:bg-blue-500 rounded-xl text-base font-semibold text-white transition-all hover:scale-[1.02] shadow-lg shadow-blue-900/40">
-              Start free — no credit card
+              {t('lp_cta_start')}
             </button>
             <button
               onClick={() => { trackEvent('cta_click', { location: 'hero_demo' }); startDemo(); navigate('/dashboard'); }}
               className="px-8 py-4 border border-slate-700 hover:border-slate-600 hover:bg-slate-900/60 rounded-xl text-base font-semibold text-slate-300 transition-all">
-              Try the live demo →
+              {t('lp_cta_demo')}
             </button>
           </div>
-          <p className="text-xs text-slate-500">Free forever · 10 tools, 25 employees · No credit card · Cancel anytime</p>
+          <p className="text-xs text-slate-500">{t('lp_hero_fine_print')}</p>
         </div>
       </section>
 
@@ -3563,34 +3563,34 @@ function TrialPage() {
       <section className="relative z-10 py-20 px-6 border-t border-slate-900">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-14">
-            <h2 className="text-3xl md:text-4xl font-bold text-white mb-3">5 minutes from signup to insight</h2>
+            <h2 className="text-3xl md:text-4xl font-bold text-white mb-3">{t('lp_hiw_title')}</h2>
             <p className="text-slate-500">{t('hero_no_integrations')}</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
               {
                 step: '01',
-                title: 'Import your data',
-                desc: 'Upload a CSV or Excel file with your tools and employees. Stacklens maps everything automatically.',
-                detail: '5-minute setup',
+                title: t('lp_step1_title'),
+                desc: t('lp_step1_desc'),
+                detail: t('lp_step1_detail'),
                 color: 'from-blue-500/20 to-blue-600/10',
                 border: 'border-blue-500/30',
                 icon: '📤',
               },
               {
                 step: '02',
-                title: 'See what\'s wrong',
-                desc: 'Instantly find idle licenses, ex-employees with active access, tools without owners, and upcoming renewals.',
-                detail: 'Example: "8 Notion seats unused — €192/mo wasted"',
+                title: t('lp_step2_title'),
+                desc: t('lp_step2_desc'),
+                detail: t('lp_step2_detail'),
                 color: 'from-amber-500/20 to-amber-600/10',
                 border: 'border-amber-500/30',
                 icon: '🔍',
               },
               {
                 step: '03',
-                title: 'Take action',
-                desc: 'Revoke access, reassign licenses, set renewal alerts. One click per action, not a 3-week project.',
-                detail: 'Example: "3 ex-employees still have Slack access — revoke now"',
+                title: t('lp_step3_title'),
+                desc: t('lp_step3_desc'),
+                detail: t('lp_step3_detail'),
                 color: 'from-emerald-500/20 to-emerald-600/10',
                 border: 'border-emerald-500/30',
                 icon: '✅',
@@ -3598,7 +3598,7 @@ function TrialPage() {
             ].map((s, i) => (
               <div key={i} className={`rounded-2xl border ${s.border} bg-gradient-to-br ${s.color} p-6`}>
                 <div className="text-3xl mb-4">{s.icon}</div>
-                <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Step {s.step}</div>
+                <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">{t('lp_step_label')} {s.step}</div>
                 <h3 className="text-xl font-bold text-white mb-2">{s.title}</h3>
                 <p className="text-sm text-slate-400 mb-4 leading-relaxed">{s.desc}</p>
                 <p className="text-xs text-slate-500 italic">{s.detail}</p>
@@ -3613,61 +3613,61 @@ function TrialPage() {
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-16">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-blue-500/20 bg-blue-500/5 mb-4">
-              <span className="text-xs font-semibold uppercase tracking-wider text-blue-400">{t('what_stacklens_finds')}</span>
+              <span className="text-xs font-semibold uppercase tracking-wider text-blue-400">{t('lp_problems_section_label')}</span>
             </div>
             <h2 className="text-3xl md:text-5xl font-bold text-white leading-tight max-w-3xl mx-auto">
-              The problems hiding in <span className="text-blue-400">your SaaS stack</span>
+              {t('lp_problems_title')} <span className="text-blue-400">{t('lp_problems_title2')}</span>
             </h2>
-            <p className="text-slate-500 mt-4 max-w-xl mx-auto">These are real examples of what Stacklens surfaces in the first 5 minutes after import.</p>
+            <p className="text-slate-500 mt-4 max-w-xl mx-auto">{t('lp_problems_sub')}</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {[
               {
                 icon: '💸',
-                title: '8 Notion seats unused',
-                sub: '€192/month wasted on licenses nobody logs into',
-                action: 'Cancel or reassign →',
+                title: t('lp_p1_title'),
+                sub: t('lp_p1_sub'),
+                action: t('lp_p1_action'),
                 color: 'border-amber-500/30',
                 bg: 'bg-amber-500/5',
               },
               {
                 icon: '🔴',
-                title: '3 ex-employees still have Slack access',
-                sub: 'Left the company 4 months ago, admin access still active',
-                action: 'Revoke access →',
+                title: t('lp_p2_title'),
+                sub: t('lp_p2_sub'),
+                action: t('lp_p2_action'),
                 color: 'border-red-500/30',
                 bg: 'bg-red-500/5',
               },
               {
                 icon: '📅',
-                title: 'Salesforce auto-renews in 30 days',
-                sub: '€14,400/year contract — last chance to renegotiate',
-                action: 'Set reminder →',
+                title: t('lp_p3_title'),
+                sub: t('lp_p3_sub'),
+                action: t('lp_p3_action'),
                 color: 'border-blue-500/30',
                 bg: 'bg-blue-500/5',
               },
               {
                 icon: '👻',
-                title: 'Shadow IT: 14 employees using ChatGPT Plus',
-                sub: 'Unapproved tool adopted by engineering — no security review',
-                action: 'Review tool →',
+                title: t('lp_p4_title'),
+                sub: t('lp_p4_sub'),
+                action: t('lp_p4_action'),
                 color: 'border-purple-500/30',
                 bg: 'bg-purple-500/5',
               },
               {
                 icon: '🔓',
-                title: 'GitHub has no MFA enforced',
-                sub: 'High-risk tool with source code access — MFA not required',
-                action: 'Enable MFA →',
+                title: t('lp_p5_title'),
+                sub: t('lp_p5_sub'),
+                action: t('lp_p5_action'),
                 color: 'border-red-500/30',
                 bg: 'bg-red-500/5',
               },
               {
                 icon: '🏚️',
-                title: 'Figma has no assigned owner',
-                sub: 'Nobody is responsible for this €480/month tool',
-                action: 'Assign owner →',
+                title: t('lp_p6_title'),
+                sub: t('lp_p6_sub'),
+                action: t('lp_p6_action'),
                 color: 'border-amber-500/30',
                 bg: 'bg-amber-500/5',
               },
@@ -3689,7 +3689,7 @@ function TrialPage() {
             <button
               onClick={() => { trackEvent('cta_click', { location: 'outcomes' }); setShowAuth(true); }}
               className="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl text-sm font-semibold text-white transition-all">
-              Find what's hiding in your stack →
+              {t('lp_find_hiding')}
             </button>
           </div>
         </div>
@@ -3700,13 +3700,13 @@ function TrialPage() {
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">{t('accidental_saas_owner')}</h2>
           <p className="text-slate-400 max-w-2xl mx-auto mb-10">
-            You didn't sign up to manage 80+ SaaS tools. But someone has to chase the renewals, clean up the zombie accounts, and answer "how much are we spending on software?" — and that someone is you.
+            {t('lp_who_body')}
           </p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
-              { role: 'IT Manager', pain: 'Tracking access across 80+ tools with a spreadsheet that was last updated 3 months ago.' },
-              { role: 'Finance / Ops', pain: 'Chasing invoices from 40 different vendors with no central view of what you\'re actually paying.' },
-              { role: 'Founder / CEO', pain: 'Knowing you\'re overspending on SaaS but having no idea where the waste is.' },
+              { role: t('lp_persona1_role'), pain: t('lp_persona1_pain') },
+              { role: t('lp_persona2_role'), pain: t('lp_persona2_pain') },
+              { role: t('lp_persona3_role'), pain: t('lp_persona3_pain') },
             ].map((p, i) => (
               <div key={i} className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6 text-left">
                 <div className="text-sm font-bold text-blue-400 mb-2">{p.role}</div>
@@ -3741,7 +3741,7 @@ function TrialPage() {
                 )}>
                 {p.highlight && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-blue-500 text-[10px] font-bold text-white uppercase tracking-wider">
-                    Most popular
+                    {t('lp_pricing_badge_popular')}
                   </div>
                 )}
                 {p.badge && !p.highlight && (
@@ -3782,7 +3782,7 @@ function TrialPage() {
             ))}
           </div>
           <p className="text-center text-xs text-slate-500 mt-8">
-            Free plan available now. Paid plans include EU data hosting, GDPR compliance, and unlimited contract analyses.
+            {t('lp_pricing_fine_print')}
           </p>
         </div>
       </section>
@@ -3796,30 +3796,12 @@ function TrialPage() {
           </div>
           <div className="space-y-3">
             {[
-              {
-                q: 'How is this different from Zylo, Torii, or Lumos?',
-                a: 'Those are excellent products built for enterprises with €30-50K budgets and dedicated procurement teams. Stacklens does the core 80% — visibility, waste detection, renewal alerts — at 1/20th the price. We do not do SCIM or PAM. If you need those, talk to them. If you just need to see what you are paying for, talk to us.',
-              },
-              {
-                q: 'Where is my data stored?',
-                a: 'Google Cloud, europe-west1 (Belgium). Your data never leaves the EU. Each customer gets isolated Firestore databases — no shared infrastructure. GDPR-native, not GDPR-bolted-on.',
-              },
-              {
-                q: 'Do I need to give you admin access to my Google Workspace?',
-                a: 'No. CSV import works for everything. The OAuth-based admin sync is optional and coming Q2 2026. For now you can paste a list of tools manually or upload a CSV from your accounting system.',
-              },
-              {
-                q: 'Do I need a credit card to try it?',
-                a: 'No. The free tier requires no credit card and lasts forever for small teams. Paid tiers offer 7-day trials with no credit card upfront.',
-              },
-              {
-                q: 'How long does setup take?',
-                a: 'About 5 minutes. Sign up, upload a CSV (or add a few tools manually), invite your team. Most customers see their first savings opportunity within 10 minutes.',
-              },
-              {
-                q: 'What if I want to cancel?',
-                a: 'Click "Cancel subscription" in Settings. No retention emails. No "are you sure?" dialogs. Your data stays accessible for 30 days, then is deleted.',
-              },
+              { q: t('lp_faq2_q'), a: t('lp_faq2_a') },
+              { q: t('lp_faq3_q'), a: t('lp_faq3_a') },
+              { q: t('lp_faq4_q'), a: t('lp_faq4_a') },
+              { q: t('lp_faq5_q'), a: t('lp_faq5_a') },
+              { q: t('lp_faq6_q'), a: t('lp_faq6_a') },
+              { q: t('lp_faq7_q'), a: t('lp_faq7_a') },
             ].map((f, i) => (
               <details
                 key={i}
@@ -3840,14 +3822,14 @@ function TrialPage() {
         <div className="max-w-2xl mx-auto text-center">
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">{t('get_started_in_minutes')}</h2>
           <p className="text-slate-400 mb-8">
-            Free forever for up to 10 tools. No credit card. No demo call. Just sign up and start.
+            {t('lp_final_cta_body')}
           </p>
           <button
             onClick={() => { trackEvent('cta_click', { location: 'final' }); setShowAuth(true); }}
             className="px-10 py-4 bg-blue-600 hover:bg-blue-500 rounded-xl text-base font-semibold text-white transition-all hover:scale-[1.02] shadow-lg shadow-blue-900/40">
-            Create my free account
+            {t('lp_final_cta_btn')}
           </button>
-          <p className="mt-4 text-xs text-slate-500">7-day trial of Pro features included. Downgrade anytime.</p>
+          <p className="mt-4 text-xs text-slate-500">{t('lp_final_cta_note')}</p>
         </div>
       </section>
 
@@ -3863,44 +3845,44 @@ function TrialPage() {
                 <div className="text-base font-bold text-white">Stacklens</div>
               </div>
               <p className="text-sm text-slate-400 leading-relaxed mb-4">
-                Complete SaaS management platform for European SMBs.
+                {t('lp_footer_tagline')}
               </p>
               <div className="text-xs text-slate-500">🇪🇺 Built in France · Hosted in EU</div>
             </div>
 
             {/* Product */}
             <div>
-              <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">Product</div>
+              <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">{t('lp_footer_product')}</div>
               <ul className="space-y-3 text-sm">
-                <li><a href="#pricing" onClick={(e) => { e.preventDefault(); document.getElementById('pricing')?.scrollIntoView({behavior:'smooth'}); }} className="text-slate-300 hover:text-white transition-colors">Pricing</a></li>
-                <li><a href="#faq" onClick={(e) => { e.preventDefault(); document.getElementById('faq')?.scrollIntoView({behavior:'smooth'}); }} className="text-slate-300 hover:text-white transition-colors">FAQ</a></li>
-                <li><button onClick={() => { startDemo(); navigate('/dashboard'); }} className="text-slate-300 hover:text-white transition-colors text-left">Live demo</button></li>
-                <li><button onClick={() => setShowAuth(true)} className="text-slate-300 hover:text-white transition-colors text-left">Sign in</button></li>
+                <li><a href="#pricing" onClick={(e) => { e.preventDefault(); document.getElementById('pricing')?.scrollIntoView({behavior:'smooth'}); }} className="text-slate-300 hover:text-white transition-colors">{t('lp_nav_pricing')}</a></li>
+                <li><a href="#faq" onClick={(e) => { e.preventDefault(); document.getElementById('faq')?.scrollIntoView({behavior:'smooth'}); }} className="text-slate-300 hover:text-white transition-colors">{t('lp_nav_faq')}</a></li>
+                <li><button onClick={() => { startDemo(); navigate('/dashboard'); }} className="text-slate-300 hover:text-white transition-colors text-left">{t('lp_live_demo')}</button></li>
+                <li><button onClick={() => setShowAuth(true)} className="text-slate-300 hover:text-white transition-colors text-left">{t('lp_nav_sign_in')}</button></li>
               </ul>
             </div>
 
             {/* Company */}
             <div>
-              <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">Company</div>
+              <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">{t('lp_footer_company')}</div>
               <ul className="space-y-3 text-sm">
-                <li><Link to="/about" className="text-slate-300 hover:text-white transition-colors">About</Link></li>
+                <li><Link to="/about" className="text-slate-300 hover:text-white transition-colors">{t('lp_footer_about')}</Link></li>
                 <li><Link to="/contact" className="text-slate-300 hover:text-white transition-colors">Contact</Link></li>
                 <li><a href="mailto:hello@stacklens.fr" className="text-slate-300 hover:text-white transition-colors">Contact</a></li>
-                <li><Link to="/contact?subject=sales" className="text-slate-300 hover:text-white transition-colors">Sales</Link></li>
+                <li><Link to="/contact?subject=sales" className="text-slate-300 hover:text-white transition-colors">{t('lp_footer_sales')}</Link></li>
                 <li><a href="mailto:hello@stacklens.fr" className="text-slate-300 hover:text-white transition-colors">Support</a></li>
               </ul>
             </div>
 
             {/* Legal */}
             <div>
-              <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">Legal</div>
+              <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">{t('lp_footer_legal')}</div>
               <ul className="space-y-3 text-sm">
                 <li><Link to="/privacy" className="text-slate-300 hover:text-white transition-colors">{t('footer_privacy_policy')}</Link></li>
                 <li><Link to="/terms" className="text-slate-300 hover:text-white transition-colors">{t('footer_terms_of_service')}</Link></li>
                 <li><Link to="/legal" className="text-slate-300 hover:text-white transition-colors">{t('footer_legal_mentions')}</Link></li>
-                <li><Link to="/dpa" className="text-slate-300 hover:text-white transition-colors">{language === 'fr' ? 'DPA (RGPD)' : 'DPA (GDPR)'}</Link></li>
-                <li><Link to="/sub-processors" className="text-slate-300 hover:text-white transition-colors">{language === 'fr' ? 'Sous-traitants' : 'Sub-processors'}</Link></li>
-                <li><Link to="/security-info" className="text-slate-300 hover:text-white transition-colors">Security</Link></li>
+                <li><Link to="/dpa" className="text-slate-300 hover:text-white transition-colors">{t('lp_dpa_link')}</Link></li>
+                <li><Link to="/sub-processors" className="text-slate-300 hover:text-white transition-colors">{t('lp_sub_processors_link')}</Link></li>
+                <li><Link to="/security-info" className="text-slate-300 hover:text-white transition-colors">{t('lp_footer_security')}</Link></li>
                 <li><Link to="/about" className="text-slate-300 hover:text-white transition-colors">GDPR</Link></li>
                 <li>
                   <button
@@ -3908,7 +3890,7 @@ function TrialPage() {
                     onClick={() => { if (_openCookieBanner) _openCookieBanner(); }}
                     className="text-slate-300 hover:text-white transition-colors text-sm text-left"
                   >
-                    Manage cookies
+                    {t('lp_footer_cookies')}
                   </button>
                 </li>
               </ul>
@@ -3918,10 +3900,10 @@ function TrialPage() {
           {/* Bottom bar */}
           <div className="pt-8 border-t border-slate-800/60 flex flex-col md:flex-row items-center justify-between gap-4 md:pr-20">
             <div className="text-xs text-slate-500">
-              © 2026 Stacklens. All rights reserved.
+              {t('lp_footer_copyright')}
             </div>
             <div className="flex items-center gap-4 text-xs text-slate-500">
-              <span>🇫🇷 Made in Paris</span>
+              <span>{t('lp_footer_made_in')}</span>
               <span className="text-slate-700">·</span>
               <a href="mailto:hello@stacklens.fr" className="hover:text-white transition-colors">hello@stacklens.fr</a>
             </div>
@@ -3962,9 +3944,9 @@ function TrialPage() {
               {/* Tab switcher */}
               <div className="flex gap-1 p-1 bg-slate-800/80 rounded-2xl border border-slate-700/50 mb-6">
                 {[
-                  { id: 'signin',  label: 'Sign In' },
-                  { id: 'create',  label: 'Create Account' },
-                  { id: 'sso',     label: 'SSO' },
+                  { id: 'signin',  label: t('lp_auth_signin_tab') },
+                  { id: 'create',  label: t('lp_auth_create_tab') },
+                  { id: 'sso',     label: t('lp_auth_sso_tab') },
                 ].map(tab => (
                   <button key={tab.id} onClick={() => { setAuthTab(tab.id); setAuthError(''); setMagicSent(false); }}
                     className={"flex-1 py-2 rounded-xl text-sm font-semibold transition-all duration-200 " +
@@ -3992,14 +3974,14 @@ function TrialPage() {
                           className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" />
                       </div>
                       <div>
-                        <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">Password</label>
+                        <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">{t('lp_password_label')}</label>
                         <div className="relative">
                           <input type={showPassword ? 'text' : 'password'} value={authPassword} onChange={e => setAuthPassword(e.target.value)}
                             placeholder="••••••••"
                             className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all pr-12" />
                           <button type="button" onClick={() => setShowPassword(v => !v)}
                             className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 text-xs">
-                            {showPassword ? 'Hide' : 'Show'}
+                            {showPassword ? t('lp_hide_password') : t('lp_show_password')}
                           </button>
                         </div>
                       </div>
@@ -4007,8 +3989,8 @@ function TrialPage() {
                       <button onClick={async () => {
                           setLoading(true); setAuthError('');
                           // Email/password sign-in via Google (same account) or magic link fallback
-                          if (!authEmail) { setAuthError('Enter your email.'); setLoading(false); return; }
-                          if (!authPassword) { setAuthError('Enter your password.'); setLoading(false); return; }
+                          if (!authEmail) { setAuthError(t('lp_enter_email')); setLoading(false); return; }
+                          if (!authPassword) { setAuthError(t('lp_enter_password')); setLoading(false); return; }
                           const { user, error } = await signInWithEmail(authEmail, authPassword);
                           if (error) {
                             setAuthError(error.replace('Firebase: ','').replace('(auth/wrong-password).','— wrong password').replace('(auth/user-not-found).','— no account found').replace('(auth/invalid-credential).','— invalid email or password'));
@@ -4024,9 +4006,9 @@ function TrialPage() {
                         }}
                         disabled={loading || !authEmail || !authPassword}
                         className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl text-white font-bold text-sm transition-all shadow-lg shadow-blue-500/20">
-                        {loading ? 'Signing in…' : 'Sign In'}
+                        {loading ? t('lp_signing_in') : t('lp_sign_in_btn')}
                       </button>
-                      <button onClick={async()=>{if(!authEmail){setAuthError('Enter email first.');return;}const{error}=await resetPassword(authEmail);if(!error)toast.success(t('password_reset_sent'));else setAuthError(error);}} className="w-full text-xs text-slate-500 hover:text-slate-300 transition-colors mt-1 text-center block">{t('forgot_password')}</button>
+                      <button onClick={async()=>{if(!authEmail){setAuthError(t('lp_enter_email_first'));return;}const{error}=await resetPassword(authEmail);if(!error)toast.success(t('password_reset_sent'));else setAuthError(error);}} className="w-full text-xs text-slate-500 hover:text-slate-300 transition-colors mt-1 text-center block">{t('forgot_password')}</button>
 
                       {/* Divider */}
                       <div className="flex items-center gap-3 my-1">
@@ -4037,7 +4019,7 @@ function TrialPage() {
 
                       {/* Magic link */}
                       <button onClick={async () => {
-                          if (!authEmail) { setAuthError('Enter your email above first.'); return; }
+                          if (!authEmail) { setAuthError(t('lp_enter_email_first')); return; }
                           setLoading(true); setAuthError('');
                           const { error } = await sendMagicLink(authEmail);
                           if (!error) { setMagicSent(true); }
@@ -4047,7 +4029,7 @@ function TrialPage() {
                         disabled={loading}
                         className="w-full py-3 bg-slate-800 hover:bg-slate-700 border border-slate-600 hover:border-blue-500/50 rounded-xl text-slate-300 hover:text-white font-semibold text-sm transition-all flex items-center justify-center gap-2">
                         <Mail className="w-4 h-4" />
-                        Send Magic Link to this Email
+                        {t('lp_magic_link_btn')}
                       </button>
 
                       {/* Google */}
@@ -4055,7 +4037,7 @@ function TrialPage() {
                         disabled={loading}
                         className="w-full py-3 bg-white hover:bg-slate-100 rounded-xl text-slate-900 font-bold text-sm transition-all flex items-center justify-center gap-3 shadow-sm">
                         <svg className="w-4 h-4" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-                        Continue with Google
+                        {t('lp_continue_google')}
                       </button>
                     </>
                   ) : (
@@ -4069,9 +4051,9 @@ function TrialPage() {
                         <div className="text-slate-400 text-sm">{t("hc_we_sent_a_magic_link_to")}</div>
                         <div className="text-blue-400 font-semibold text-sm mt-1">{authEmail}</div>
                       </div>
-                      <div className="text-slate-500 text-xs">Click the link in the email to sign in instantly — no password needed.</div>
+                      <div className="text-slate-500 text-xs">{t('lp_magic_link_note')}</div>
                       <button onClick={() => setMagicSent(false)} className="text-sm text-slate-400 hover:text-white transition-colors underline underline-offset-2">
-                        ← Use a different email
+                        {t('lp_use_different_email')}
                       </button>
                     </div>
                   )}
@@ -4100,9 +4082,9 @@ function TrialPage() {
 
                       {/* Password field for registration */}
                       <div>
-                        <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">Password</label>
+                        <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">{t('lp_password_label')}</label>
                         <input type="password" value={authPassword} onChange={e => setAuthPassword(e.target.value)}
-                          placeholder="Min. 8 characters"
+                          placeholder={t('lp_min_chars')}
                           className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" />
                       </div>
                       {/* Terms acceptance — required at signup, proof of consent (LCEN + RGPD) */}
@@ -4118,9 +4100,9 @@ function TrialPage() {
                         </span>
                       </label>
                       <button id="signup-btn" onClick={async () => {
-                          if (!authName) { setAuthError('Please enter your name.'); return; }
-                          if (!authEmail) { setAuthError('Please enter your email.'); return; }
-                          if (!authPassword || authPassword.length < 8) { setAuthError('Password must be at least 8 characters.'); return; }
+                          if (!authName) { setAuthError(t('lp_enter_name')); return; }
+                          if (!authEmail) { setAuthError(t('lp_enter_email')); return; }
+                          if (!authPassword || authPassword.length < 8) { setAuthError(t('lp_password_min')); return; }
                           setLoading(true); setAuthError('');
                           const { user, error } = await registerWithEmail(authEmail, authPassword, authName);
                           if (error) {
@@ -4138,12 +4120,12 @@ function TrialPage() {
                         }}
                         disabled={loading || !authEmail || !authName || !authPassword}
                         className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl text-white font-bold text-sm transition-all shadow-lg flex items-center justify-center gap-2">
-                        {loading ? 'Creating account…' : 'Create Account'}
+                        {loading ? t('lp_creating_account') : t('lp_create_account_btn')}
                       </button>
 
                       <div className="flex items-center gap-3 my-1">
                         <div className="flex-1 h-px bg-slate-700" />
-                        <span className="text-xs text-slate-500">or sign up with</span>
+                        <span className="text-xs text-slate-500">{t('lp_or_sign_up_with')}</span>
                         <div className="flex-1 h-px bg-slate-700" />
                       </div>
 
@@ -4151,13 +4133,13 @@ function TrialPage() {
                         disabled={loading}
                         className="w-full py-3 bg-white hover:bg-slate-100 rounded-xl text-slate-900 font-bold text-sm transition-all flex items-center justify-center gap-3 shadow-sm">
                         <svg className="w-4 h-4" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-                        Sign Up with Google
+                        {t('lp_sign_up_google')}
                       </button>
 
                       <p className="text-center text-[11px] text-slate-600 leading-relaxed">
-                        By creating an account you agree to our{' '}
+                        {t('lp_terms_fine_print')}{' '}
                         <Link to="/terms" className="text-slate-400 hover:text-white underline" onClick={() => setShowAuth(false)}>Terms</Link>
-                        {' '}and{' '}
+                        {' '}{t('lp_terms_and')}{' '}
                         <Link to="/privacy" className="text-slate-400 hover:text-white underline" onClick={() => setShowAuth(false)}>{t("hc_privacy_policy")}</Link>
                       </p>
                     </>
@@ -4173,7 +4155,7 @@ function TrialPage() {
                       </div>
                       <div className="text-slate-500 text-xs px-4">{t('click_link_activate')}</div>
                       <button onClick={() => { setMagicSent(false); setAuthName(''); setAuthEmail(''); }} className="text-sm text-slate-400 hover:text-white transition-colors underline underline-offset-2">
-                        ← Start over
+                        {t('lp_start_over')}
                       </button>
                     </div>
                   )}
@@ -4183,7 +4165,7 @@ function TrialPage() {
               {/* ── SSO TAB ── */}
               {authTab === 'sso' && (
                 <div className="space-y-3">
-                  <p className="text-xs text-slate-500 mb-4">Enterprise SSO — sign in with your company identity provider.</p>
+                  <p className="text-xs text-slate-500 mb-4">{t('lp_sso_desc')}</p>
                   {[
                     { id: 'google',    name: 'Google Workspace', sub: 'G Suite / Google Cloud Identity', live: true,  logo: <svg className="w-5 h-5" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg> },
                     { id: 'microsoft', name: 'Microsoft 365',    sub: 'Azure AD / Entra ID',            live: false, logo: <div className="w-5 h-5 grid grid-cols-2 gap-0.5"><div className="bg-[#F25022] rounded-sm"/><div className="bg-[#7FBA00] rounded-sm"/><div className="bg-[#00A4EF] rounded-sm"/><div className="bg-[#FFB900] rounded-sm"/></div> },
@@ -4203,7 +4185,7 @@ function TrialPage() {
                       </div>
                       {p.live
                         ? <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-blue-400 transition-colors" />
-                        : <span className="text-[9px] font-bold text-slate-600 bg-slate-900 border border-slate-700 px-2 py-0.5 rounded-full uppercase tracking-widest">Soon</span>}
+                        : <span className="text-[9px] font-bold text-slate-600 bg-slate-900 border border-slate-700 px-2 py-0.5 rounded-full uppercase tracking-widest">{t('lp_sso_soon')}</span>}
                     </button>
                   ))}
                 </div>
@@ -4214,7 +4196,7 @@ function TrialPage() {
                 <button onClick={() => { setShowAuth(false); startDemo(); navigate('/dashboard'); }}
                   className="w-full py-2.5 rounded-xl border border-emerald-600/30 bg-emerald-600/5 hover:bg-emerald-600/10 text-emerald-400 hover:text-emerald-300 text-sm font-semibold transition-all flex items-center justify-center gap-2">
                   <Play className="w-3.5 h-3.5" />
-                  Try Live Demo — No Account Needed
+                  {t('lp_try_live_demo')}
                 </button>
               </div>
 
