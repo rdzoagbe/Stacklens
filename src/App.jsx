@@ -3899,7 +3899,7 @@ function TrialPage() {
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-16">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-blue-500/20 bg-blue-500/5 mb-4">
-              <span className="text-xs font-semibold uppercase tracking-wider text-blue-400">{t('what_stacklens_finds')}</span>
+              <span className="text-xs font-semibold uppercase tracking-wider text-blue-400">{t('lp_problems_section_label')}</span>
             </div>
             <h2 className="text-3xl md:text-5xl font-bold text-white leading-tight max-w-3xl mx-auto">
               {t('lp_finds_heading_1')} <span className="text-blue-400">{t('lp_finds_heading_2')}</span>
