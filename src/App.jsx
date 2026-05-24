@@ -1414,6 +1414,8 @@ function appendAuditEntry(db, action, details) {
 
 function useDbMutations() {
   const qc = useQueryClient();
+  const { language } = useLang();
+  const t = useTranslation(language);
 
   const clone = (obj) => {
     if (typeof structuredClone === "function") return structuredClone(obj);
@@ -1465,7 +1467,7 @@ function useDbMutations() {
       });
     },
     onSuccess: invalidate,
-    onError: () => toast.error('Failed to update tool. Please try again.'),
+    onError: () => toast.error(t('err_update_tool')),
   });
 
   const deleteTool = useMutation({
@@ -1479,7 +1481,7 @@ function useDbMutations() {
       });
     },
     onSuccess: invalidate,
-    onError: () => toast.error('Failed to delete tool. Please try again.'),
+    onError: () => toast.error(t('err_delete_tool')),
   });
 
   const createEmployee = useMutation({
@@ -1542,7 +1544,7 @@ function useDbMutations() {
       });
     },
     onSuccess: invalidate,
-    onError: () => toast.error('Failed to update employee. Please try again.'),
+    onError: () => toast.error(t('err_update_employee')),
   });
 
   const deleteEmployee = useMutation({
@@ -1564,7 +1566,7 @@ function useDbMutations() {
       });
     },
     onSuccess: invalidate,
-    onError: () => toast.error('Failed to delete employee. Please try again.'),
+    onError: () => toast.error(t('err_delete_employee')),
   });
 
   const createAccess = useMutation({
@@ -1575,7 +1577,7 @@ function useDbMutations() {
       });
     },
     onSuccess: invalidate,
-    onError: () => toast.error('Failed to add access record. Please try again.'),
+    onError: () => toast.error(t('err_add_access')),
   });
 
   const updateAccess = useMutation({
@@ -1592,7 +1594,7 @@ function useDbMutations() {
       });
     },
     onSuccess: invalidate,
-    onError: () => toast.error('Failed to update access record. Please try again.'),
+    onError: () => toast.error(t('err_update_access')),
   });
 
   const deleteAccess = useMutation({
@@ -5188,7 +5190,7 @@ const MODULE_PLANS = {
 
 function ModuleGate({ module, children, feature = 'this module' }) {
   const { language } = useLang();
-  const isFr = language === 'fr';
+  const t = useTranslation(language);
   const { user } = useAuth();
   const navigate = useNavigate();
   const plan = resolvePlan(user);
@@ -5199,24 +5201,14 @@ function ModuleGate({ module, children, feature = 'this module' }) {
 
   if (hasAccess) return children;
 
-  // Module-specific upgrade message
   const moduleNames = {
-    finance:   isFr ? 'Finance Board' : 'Finance Board',
-    people:    isFr ? 'Tableau RH' : 'People Board',
-    security:  isFr ? 'Sécurité' : 'Security',
-    ai:        isFr ? 'Analyse IA' : 'AI Analysis',
-    analytics: isFr ? 'Analytics' : 'Analytics',
+    finance: t('module_finance'), people: t('module_people'),
+    security: t('module_security'), ai: t('module_ai'), analytics: t('module_analytics'),
   };
-
   const moduleDesc = {
-    finance:   isFr ? 'Suivi des coûts, budgets et renouvellements SaaS' : 'SaaS cost tracking, budgets and renewal management',
-    people:    isFr ? 'Gestion des employés, accès et offboarding' : 'Employee management, access control and offboarding',
-    security:  isFr ? 'Audit de sécurité, scoring des risques et exports conformité' : 'Security audit, risk scoring and compliance exports',
-    ai:        isFr ? 'Analyse de contrats par Claude AI' : 'Contract analysis powered by Claude AI',
-    analytics: isFr ? 'Tableaux de bord exécutifs et rapports' : 'Executive dashboards and reports',
+    finance: t('module_desc_finance'), people: t('module_desc_people'),
+    security: t('module_desc_security'), ai: t('module_desc_ai'), analytics: t('module_desc_analytics'),
   };
-
-  // Which plan to recommend
   const isHrFinanceModule = ['finance', 'people'].includes(module);
   const recommendedPlan = isHrFinanceModule ? 'HR & Finance Pack' : 'Pro';
   const recommendedPrice = isHrFinanceModule ? '€49/mo' : '€79/mo';
@@ -5225,21 +5217,20 @@ function ModuleGate({ module, children, feature = 'this module' }) {
     <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-6">
       <div className="text-5xl mb-4">🔒</div>
       <h2 className="text-2xl font-black text-white mb-2">
-        {isFr ? `${moduleNames[module]} — module non inclus` : `${moduleNames[module]} — module not included`}
+        {moduleNames[module]} — {t('module_not_included')}
       </h2>
       <p className="text-slate-400 mb-2 max-w-md">{moduleDesc[module]}</p>
       <p className="text-slate-400 mb-6 max-w-md">
-        {isFr ? 'Disponible à partir du' : 'Available from the'}{' '}
+        {t('module_available_from')}{' '}
         <span className="text-blue-400 font-semibold">{recommendedPlan}</span>
         {' '}({recommendedPrice})
       </p>
-      <button
-        onClick={() => navigate('/app/settings?tab=billing')}
+      <button onClick={() => navigate('/app/settings?tab=billing')}
         className="px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-blue-500/20">
-        {isFr ? 'Voir les offres' : 'View Plans & Upgrade'}
+        {t('view_plans_upgrade')}
       </button>
       <button onClick={() => navigate(-1)} className="mt-3 text-sm text-slate-500 hover:text-slate-300 transition-colors">
-        ← {isFr ? 'Retour' : 'Go back'}
+        ← {t('go_back')}
       </button>
     </div>
   );
@@ -10082,7 +10073,7 @@ function PricingTiers({ currentPlan = 'free' }) {
                   if (plan.id === 'enterprise') { setShowContactModal(true); return; }
                   // Legal agreement check — required before checkout
                   if (!legalAccepted) {
-                    toast.error(isFr ? 'Veuillez accepter les conditions avant de continuer.' : 'Please accept the terms before proceeding.');
+                    toast.error(t('billing_accept_terms_error'));
                     return;
                   }
                   try {
@@ -11008,7 +10999,6 @@ function SecurityTabContent() {
   const highAlerts = alerts.filter(a => a.severity === 'high');
   const mediumAlerts = alerts.filter(a => a.severity === 'medium');
 
-  const isFr = language === 'fr';
   const isRealUser = db?.user?.is_authenticated && !db?.user?.is_demo;
 
   if (isRealUser && tools.length === 0) {
@@ -11017,10 +11007,10 @@ function SecurityTabContent() {
         <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-5">
           <Shield className="h-8 w-8 text-emerald-400" />
         </div>
-        <h2 className="text-xl font-bold text-white mb-2">{isFr ? 'Aucun outil à analyser' : 'No tools to analyse yet'}</h2>
-        <p className="text-sm text-slate-400 max-w-sm mb-6">{isFr ? 'Ajoutez vos outils SaaS pour voir votre score de sécurité, les accès à risque et les alertes de conformité.' : 'Add your SaaS tools to see your security score, risk access flags and compliance alerts.'}</p>
+        <h2 className="text-xl font-bold text-white mb-2">{t('security_no_tools_title')}</h2>
+        <p className="text-sm text-slate-400 max-w-sm mb-6">{t('security_no_tools_body')}</p>
         <Link to="/tools" className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl text-sm font-semibold text-white transition-colors">
-          {isFr ? 'Ajouter des outils →' : 'Add tools →'}
+          {t('security_add_tools')}
         </Link>
       </div>
     );
@@ -11872,7 +11862,7 @@ function SettingsPage() {
                       }}
                         disabled={inviteSending}
                         className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 rounded-xl font-semibold text-sm transition-colors whitespace-nowrap">
-                        {inviteSending ? 'Sending...' : 'Send Invite'}
+                        {inviteSending ? t('sending') : t('send_invite')}
                       </button>
                     </div>
                   )}
@@ -12774,9 +12764,9 @@ const queryClient = new QueryClient({
 // ── Contact Page ──────────────────────────────────────────────
 function ContactPage() {
   const { language } = useLang();
+  const t = useTranslation(language);
   const navigate = useNavigate();
   const location = useLocation();
-  const isFr = language === 'fr';
   const params = new URLSearchParams(location.search);
   const initialSubject = params.get('subject') || 'general';
   const [form, setForm] = useState({ name: '', email: '', subject: initialSubject, message: '' });
@@ -12784,12 +12774,12 @@ function ContactPage() {
   const [sent, setSent] = useState(false);
 
   const subjects = [
-    { value: 'general', label: isFr ? 'Question générale' : 'General question' },
-    { value: 'sales', label: isFr ? 'Demande commerciale' : 'Sales inquiry' },
-    { value: 'support', label: isFr ? 'Support technique' : 'Technical support' },
-    { value: 'feedback', label: isFr ? 'Feedback produit' : 'Product feedback' },
-    { value: 'partnership', label: isFr ? 'Partenariat' : 'Partnership' },
-    { value: 'enterprise', label: isFr ? 'Plan Entreprise' : 'Enterprise plan' },
+    { value: 'general', label: t('contact_subject_general') },
+    { value: 'sales', label: t('contact_subject_sales') },
+    { value: 'support', label: t('contact_subject_support') },
+    { value: 'feedback', label: t('contact_subject_feedback') },
+    { value: 'partnership', label: t('contact_subject_partnership') },
+    { value: 'enterprise', label: t('contact_subject_enterprise') },
   ];
 
   const handleSubmit = async (e) => {
@@ -12829,10 +12819,10 @@ function ContactPage() {
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white flex items-center justify-center px-6">
         <div className="max-w-md text-center">
           <div className="text-5xl mb-6">✉️</div>
-          <h1 className="text-3xl font-bold mb-4">{isFr ? 'Message envoyé !' : 'Message sent!'}</h1>
-          <p className="text-slate-400 mb-8">{isFr ? 'Merci pour votre message. Nous vous répondrons dans les 24 heures.' : 'Thank you for your message. We\'ll get back to you within 24 hours.'}</p>
+          <h1 className="text-3xl font-bold mb-4">{t('contact_sent_title')}</h1>
+          <p className="text-slate-400 mb-8">{t('contact_sent_body')}</p>
           <button onClick={() => navigate('/')} className="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl text-sm font-semibold text-white transition-all">
-            {isFr ? 'Retour à l\'accueil' : 'Back to home'}
+            {t('contact_back_home')}
           </button>
         </div>
       </div>
@@ -12844,7 +12834,7 @@ function ContactPage() {
       <div className="max-w-5xl mx-auto px-6 py-16">
         <div className="flex items-center justify-between mb-8">
           <button onClick={() => navigate(-1)} className="text-sm text-slate-400 hover:text-white flex items-center gap-1">
-            ← {isFr ? 'Retour' : 'Back'}
+            ← {t('back')}
           </button>
           <LangSelectorCompact />
         </div>
@@ -12852,31 +12842,31 @@ function ContactPage() {
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-12">
           {/* Left — form */}
           <div className="lg:col-span-3">
-            <h1 className="text-3xl font-bold mb-2">{isFr ? 'Contactez-nous' : 'Contact us'}</h1>
-            <p className="text-slate-400 mb-8">{isFr ? 'Une question, une suggestion, ou une demande commerciale ? On vous répond sous 24h.' : 'Question, suggestion, or sales inquiry? We respond within 24 hours.'}</p>
+            <h1 className="text-3xl font-bold mb-2">{t('contact_title')}</h1>
+            <p className="text-slate-400 mb-8">{t('contact_subtitle')}</p>
 
             <div className="space-y-5">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-1.5">{isFr ? 'Nom complet' : 'Full name'} *</label>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1.5">{t('contact_full_name')} *</label>
                   <input
                     type="text" required value={form.name} onChange={e => setForm(f => ({...f, name: e.target.value}))}
-                    placeholder={isFr ? 'Votre nom' : 'Your name'}
+                    placeholder={t('contact_your_name')}
                     className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-1.5">{isFr ? 'Email professionnel' : 'Work email'} *</label>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1.5">{t('contact_work_email')} *</label>
                   <input
                     type="email" required value={form.email} onChange={e => setForm(f => ({...f, email: e.target.value}))}
-                    placeholder={isFr ? 'vous@entreprise.com' : 'you@company.com'}
+                    placeholder={t('contact_your_email')}
                     className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-400 mb-1.5">{isFr ? 'Sujet' : 'Subject'}</label>
+                <label className="block text-xs font-semibold text-slate-400 mb-1.5">{t('contact_subject')}</label>
                 <select
                   value={form.subject} onChange={e => setForm(f => ({...f, subject: e.target.value}))}
                   className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
@@ -12886,10 +12876,10 @@ function ContactPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-400 mb-1.5">{isFr ? 'Message' : 'Message'} *</label>
+                <label className="block text-xs font-semibold text-slate-400 mb-1.5">{t('contact_message')} *</label>
                 <textarea
                   required rows={6} value={form.message} onChange={e => setForm(f => ({...f, message: e.target.value}))}
-                  placeholder={isFr ? 'Comment pouvons-nous vous aider ?' : 'How can we help you?'}
+                  placeholder={t('contact_how_help')}
                   className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all resize-none"
                 />
               </div>
@@ -12899,7 +12889,7 @@ function ContactPage() {
                 disabled={sending || !form.name || !form.email || !form.message}
                 className="w-full py-3 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:cursor-not-allowed rounded-xl text-sm font-semibold text-white transition-all"
               >
-                {sending ? (isFr ? 'Envoi...' : 'Sending...') : (isFr ? 'Envoyer le message' : 'Send message')}
+                {sending ? t('contact_sending') : t('contact_send')}
               </button>
             </div>
           </div>
@@ -12907,10 +12897,10 @@ function ContactPage() {
           {/* Right — info */}
           <div className="lg:col-span-2 space-y-6">
             <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6">
-              <h3 className="text-sm font-bold text-white mb-4">{isFr ? 'Autres moyens de nous contacter' : 'Other ways to reach us'}</h3>
+              <h3 className="text-sm font-bold text-white mb-4">{t('contact_other_ways')}</h3>
               <div className="space-y-4 text-sm">
                 <div>
-                  <div className="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-1">{isFr ? 'Email général' : 'General'}</div>
+                  <div className="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-1">{t('contact_general')}</div>
                   <a href="mailto:hello@stacklens.fr" className="text-blue-400 hover:text-blue-300">hello@stacklens.fr</a>
                 </div>
                 <div>
@@ -12918,25 +12908,25 @@ function ContactPage() {
                   <a href="mailto:hello@stacklens.fr" className="text-blue-400 hover:text-blue-300">hello@stacklens.fr</a>
                 </div>
                 <div>
-                  <div className="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-1">{isFr ? 'Ventes & Entreprise' : 'Sales & Enterprise'}</div>
+                  <div className="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-1">{t('contact_sales_enterprise')}</div>
                   <a href="mailto:sales@stacklens.fr" className="text-blue-400 hover:text-blue-300">sales@stacklens.fr</a>
                 </div>
               </div>
             </div>
 
             <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6">
-              <h3 className="text-sm font-bold text-white mb-3">{isFr ? 'Temps de réponse' : 'Response time'}</h3>
+              <h3 className="text-sm font-bold text-white mb-3">{t('contact_response_time')}</h3>
               <div className="space-y-2 text-sm text-slate-400">
-                <div className="flex justify-between"><span>{isFr ? 'Questions générales' : 'General questions'}</span><span className="text-slate-300">{'< 24h'}</span></div>
+                <div className="flex justify-between"><span>{t('contact_general_q')}</span><span className="text-slate-300">{'< 24h'}</span></div>
                 <div className="flex justify-between"><span>Support</span><span className="text-slate-300">{'< 12h'}</span></div>
-                <div className="flex justify-between"><span>{isFr ? 'Ventes' : 'Sales'}</span><span className="text-slate-300">{'< 4h'}</span></div>
+                <div className="flex justify-between"><span>{t('contact_sales_label')}</span><span className="text-slate-300">{'< 4h'}</span></div>
               </div>
             </div>
 
             <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6">
-              <h3 className="text-sm font-bold text-white mb-3">{isFr ? 'Basé à' : 'Based in'}</h3>
+              <h3 className="text-sm font-bold text-white mb-3">{t('contact_based_in')}</h3>
               <p className="text-sm text-slate-400">Paris, France 🇫🇷</p>
-              <p className="text-xs text-slate-500 mt-2">{isFr ? 'Fuseau horaire : CET (UTC+1)' : 'Timezone: CET (UTC+1)'}</p>
+              <p className="text-xs text-slate-500 mt-2">{t('contact_timezone')}</p>
             </div>
           </div>
         </div>
