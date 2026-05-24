@@ -9965,58 +9965,47 @@ function AuditExportPage() {
 function PricingTiers({ currentPlan = 'free' }) {
   const { language } = useLang();
   const t = useTranslation(language);
-  const isFr = language === 'fr';
   const [billingCycle, setBillingCycle] = useState('monthly');
 
   // IMPORTANT: These prices must match the landing page (TrialPage) exactly.
   // Landing page: Free €0 / Starter €29 / Pro €79 / Enterprise €299
   const plans = [
     {
-      id: 'free', name: isFr ? 'Gratuit' : 'Free',
-      tagline: isFr ? 'Pour les petites équipes' : 'For small teams getting started',
+      id: 'free', name: t('plan_free_name'),
+      tagline: t('plan_free_tagline'),
       price: { monthly: 0, annual: 0 },
-      features: isFr
-        ? ['10 outils SaaS', '25 employés', 'Tableau de bord basique', '1 membre d\'équipe', 'Support email']
-        : ['10 SaaS tools', '25 employees', 'Basic dashboard', '1 team member', 'Email support'],
+      features: t('plan_free_features').split('|'),
       popular: false,
     },
     {
       id: 'starter', name: 'Starter',
-      tagline: isFr ? 'Pour les petites équipes' : 'For small teams getting started',
+      tagline: t('plan_starter_tagline'),
       price: { monthly: 29, annual: 278 },
-      features: isFr
-        ? ['100 outils SaaS', '250 employés', 'Alertes de renouvellement', '5 membres d\'équipe', 'Export CSV']
-        : ['100 SaaS tools', '250 employees', 'Renewal alerts', '5 team members', 'CSV export'],
+      features: t('plan_starter_features').split('|'),
       popular: false,
     },
     {
-      id: 'hr_finance', name: isFr ? 'RH & Finance' : 'HR & Finance',
-      tagline: isFr ? 'Pour les DRH et directeurs financiers' : 'For HR & Finance directors',
+      id: 'hr_finance', name: t('plan_hrfinance_name'),
+      tagline: t('plan_hrfinance_tagline'),
       price: { monthly: 49, annual: 470 },
-      badge: isFr ? 'NOUVEAU' : 'NEW',
-      features: isFr
-        ? ['Finance Board complet', 'Tableau RH & employés', 'Suivi des accès', "File d'offboarding", '10 membres d\'équipe', 'Export CSV']
-        : ['Full Finance Board', 'People & HR board', 'Access tracking', 'Offboarding queue', '10 team members', 'CSV export'],
+      badge: t('plan_hrfinance_badge'),
+      features: t('plan_hrfinance_features').split('|'),
       popular: false,
       monthlyPriceId: 'price_1TWxAB1yFs6IziIVjxw3CG2V',   // ← fill after creating Stripe product
       annualPriceId:  'price_1TWxFd1yFs6IziIVjPZnA8XT',    // ← fill after creating Stripe product
     },
     {
       id: 'pro', name: 'Pro',
-      tagline: isFr ? 'Pour les équipes avancées' : 'For advanced teams',
+      tagline: t('plan_pro_tagline'),
       price: { monthly: 79, annual: 758 },
-      features: isFr
-        ? ['500 outils SaaS', '1 500 employés', 'Recommandations IA', 'Suite sécurité complète', '15 membres d\'équipe', 'Support prioritaire']
-        : ['500 SaaS tools', '1,500 employees', 'AI recommendations', 'Full security suite', '15 team members', 'Priority support'],
+      features: t('plan_pro_features').split('|'),
       popular: true,
     },
     {
       id: 'enterprise', name: 'Enterprise',
-      tagline: isFr ? 'Pour les grandes organisations' : 'For large organizations',
+      tagline: t('plan_enterprise_tagline'),
       price: { monthly: 299, annual: 2870 },
-      features: isFr
-        ? ['Outils illimités', 'Employés illimités', 'SSO & SAML', 'Manager dédié', 'Support 24/7', 'Accès API', 'Garantie SLA']
-        : ['Unlimited tools', 'Unlimited employees', 'SSO & SAML', 'Dedicated manager', '24/7 support', 'API access', 'SLA guarantee'],
+      features: t('plan_enterprise_features').split('|'),
       popular: false,
     },
   ];
@@ -10035,13 +10024,13 @@ function PricingTiers({ currentPlan = 'free' }) {
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-center gap-4">
-        <span className={`text-sm font-medium ${billingCycle === 'monthly' ? 'text-white' : 'text-slate-400'}`}>Monthly</span>
+        <span className={`text-sm font-medium ${billingCycle === 'monthly' ? 'text-white' : 'text-slate-400'}`}>{t('plan_billing_monthly')}</span>
         <button onClick={() => setBillingCycle(c => c === 'monthly' ? 'annual' : 'monthly')}
           className="relative w-14 h-7 bg-slate-700 rounded-full hover:bg-slate-600 transition-colors">
           <div className={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full transition-transform ${billingCycle === 'annual' ? 'translate-x-7' : ''}`} />
         </button>
-        <span className={`text-sm font-medium ${billingCycle === 'annual' ? 'text-white' : 'text-slate-400'}`}>Annual</span>
-        {billingCycle === 'annual' && <span className="px-2 py-1 bg-emerald-500/20 text-emerald-400 text-xs font-semibold rounded-full">Save 20%</span>}
+        <span className={`text-sm font-medium ${billingCycle === 'annual' ? 'text-white' : 'text-slate-400'}`}>{t('plan_billing_annual')}</span>
+        {billingCycle === 'annual' && <span className="px-2 py-1 bg-emerald-500/20 text-emerald-400 text-xs font-semibold rounded-full">{t('plan_billing_save20')}</span>}
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {plans.map((plan) => {
@@ -12942,163 +12931,133 @@ function ContactPage() {
 // ============================================================================
 function DpaPage() {
   const { language } = useLang();
+  const t = useTranslation(language);
   const navigate = useNavigate();
-  const isFr = language === 'fr';
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white">
       <div className="max-w-3xl mx-auto px-6 py-16">
         <div className="flex items-center justify-between mb-8">
-          <button onClick={() => navigate(-1)} className="text-sm text-slate-400 hover:text-white flex items-center gap-1">← {isFr ? 'Retour' : 'Back'}</button>
+          <button onClick={() => navigate(-1)} className="text-sm text-slate-400 hover:text-white flex items-center gap-1">← {t('back')}</button>
           <LangSelectorCompact />
         </div>
-        <h1 className="text-3xl font-bold mb-2">{isFr ? 'Accord de traitement des données' : 'Data Processing Agreement'}</h1>
-        <p className="text-slate-400 text-sm mb-2">{isFr ? 'Conforme RGPD Article 28' : 'GDPR Article 28 compliant'} · {isFr ? 'Version' : 'Version'} 1.0 · {isFr ? 'En vigueur à partir du' : 'Effective from'} May 2026</p>
-        <p className="text-slate-400 text-sm mb-10">{isFr ? 'Cet accord est automatiquement accepté lors de la souscription à tout plan payant Stacklens.' : 'This agreement is automatically accepted upon subscription to any paid Stacklens plan.'}</p>
+        <h1 className="text-3xl font-bold mb-2">{t('dpa_title')}</h1>
+        <p className="text-slate-400 text-sm mb-2">{t('dpa_subtitle')} · {t('dpa_version')} 1.0 · {t('dpa_effective')} May 2026</p>
+        <p className="text-slate-400 text-sm mb-10">{t('dpa_auto_accepted')}</p>
 
         <div className="space-y-8 text-sm text-slate-300 leading-relaxed">
           <section>
-            <h2 className="text-lg font-semibold text-white mb-3">{isFr ? '1. Parties' : '1. Parties'}</h2>
-            <p>{isFr
-              ? 'Le présent accord est conclu entre Stacklens (Roland Dzoagbe, micro-entrepreneur, Paris, France — « Sous-traitant ») et le client souscrivant à un abonnement Stacklens (« Responsable du traitement »).'
-              : 'This agreement is entered into between Stacklens (Roland Dzoagbe, sole proprietor, Paris, France — "Processor") and the customer subscribing to a Stacklens plan ("Controller").'
-            }</p>
+            <h2 className="text-lg font-semibold text-white mb-3">{t('dpa_s1_title')}</h2>
+            <p>{t('dpa_s1_body')}</p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-white mb-3">{isFr ? '2. Objet et durée du traitement' : '2. Subject matter and duration'}</h2>
-            <p>{isFr
-              ? 'Stacklens traite les données personnelles pour le compte du Responsable du traitement afin de fournir les services de gestion SaaS décrits dans les Conditions générales d\'utilisation. Le traitement dure pendant toute la durée de l\'abonnement et se termine au plus tard 30 jours après la résiliation.'
-              : 'Stacklens processes personal data on behalf of the Controller to provide the SaaS management services described in the Terms of Service. Processing lasts for the duration of the subscription and ends no later than 30 days after termination.'
-            }</p>
+            <h2 className="text-lg font-semibold text-white mb-3">{t('dpa_s2_title')}</h2>
+            <p>{t('dpa_s2_body')}</p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-white mb-3">{isFr ? '3. Nature et finalité du traitement' : '3. Nature and purpose of processing'}</h2>
-            <p>{isFr ? 'Le traitement comprend :' : 'Processing includes:'}</p>
+            <h2 className="text-lg font-semibold text-white mb-3">{t('dpa_s3_title')}</h2>
+            <p>{t('dpa_s3_intro')}</p>
             <ul className="list-disc pl-5 mt-2 space-y-1 text-slate-400">
-              <li>{isFr ? 'Stockage et organisation des données d\'outils SaaS, d\'employés et d\'accès importées par le Responsable du traitement' : 'Storage and organisation of SaaS tool, employee and access data imported by the Controller'}</li>
-              <li>{isFr ? 'Authentification et gestion des comptes utilisateurs' : 'Authentication and user account management'}</li>
-              <li>{isFr ? 'Analyse contractuelle assistée par IA (sur demande explicite)' : 'AI-assisted contract analysis (on explicit request)'}</li>
-              <li>{isFr ? 'Génération de rapports et exports CSV' : 'Report generation and CSV exports'}</li>
-              <li>{isFr ? 'Traitement des paiements via Stripe (opéré par Stripe, pas par Stacklens)' : 'Payment processing via Stripe (operated by Stripe, not Stacklens)'}</li>
+              <li>{t('dpa_s3_item1')}</li>
+              <li>{t('dpa_s3_item2')}</li>
+              <li>{t('dpa_s3_item3')}</li>
+              <li>{t('dpa_s3_item4')}</li>
+              <li>{t('dpa_s3_item5')}</li>
             </ul>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-white mb-3">{isFr ? '4. Types de données personnelles' : '4. Types of personal data'}</h2>
+            <h2 className="text-lg font-semibold text-white mb-3">{t('dpa_s4_title')}</h2>
             <ul className="list-disc pl-5 space-y-1 text-slate-400">
-              <li>{isFr ? 'Données de compte : nom, email, rôle' : 'Account data: name, email, role'}</li>
-              <li>{isFr ? 'Données employés importées : nom, email, département, rôle, statut' : 'Imported employee data: name, email, department, role, status'}</li>
-              <li>{isFr ? 'Données d\'outils : noms, coûts, propriétaires, dates de renouvellement' : 'Tool data: names, costs, owners, renewal dates'}</li>
-              <li>{isFr ? 'Données d\'accès : enregistrements des droits d\'accès par outil et par employé' : 'Access data: records of access rights per tool and employee'}</li>
-              <li>{isFr ? 'Données de contrats (si fonctionnalité IA utilisée) : texte de contrat soumis pour analyse — non conservé après analyse' : 'Contract data (if AI feature used): contract text submitted for analysis — not retained after analysis'}</li>
+              <li>{t('dpa_s4_item1')}</li>
+              <li>{t('dpa_s4_item2')}</li>
+              <li>{t('dpa_s4_item3')}</li>
+              <li>{t('dpa_s4_item4')}</li>
+              <li>{t('dpa_s4_item5')}</li>
             </ul>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-white mb-3">{isFr ? '5. Catégories de personnes concernées' : '5. Categories of data subjects'}</h2>
-            <p>{isFr
-              ? 'Employés, prestataires et collaborateurs du Responsable du traitement dont les données sont importées dans Stacklens.'
-              : 'Employees, contractors and collaborators of the Controller whose data is imported into Stacklens.'
-            }</p>
+            <h2 className="text-lg font-semibold text-white mb-3">{t('dpa_s5_title')}</h2>
+            <p>{t('dpa_s5_body')}</p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-white mb-3">{isFr ? '6. Obligations de Stacklens (Sous-traitant)' : '6. Stacklens obligations (Processor)'}</h2>
-            <p className="mb-2">{isFr ? 'Stacklens s\'engage à :' : 'Stacklens undertakes to:'}</p>
+            <h2 className="text-lg font-semibold text-white mb-3">{t('dpa_s6_title')}</h2>
+            <p className="mb-2">{t('dpa_s6_intro')}</p>
             <ul className="list-disc pl-5 space-y-1 text-slate-400">
-              <li>{isFr ? 'Traiter les données uniquement sur instruction documentée du Responsable du traitement' : 'Process data only on documented instructions from the Controller'}</li>
-              <li>{isFr ? 'Garantir la confidentialité des personnes autorisées à traiter les données' : 'Ensure confidentiality of authorised persons processing the data'}</li>
-              <li>{isFr ? 'Mettre en œuvre des mesures de sécurité techniques et organisationnelles appropriées (voir page Sécurité)' : 'Implement appropriate technical and organisational security measures (see Security page)'}</li>
-              <li>{isFr ? 'Assister le Responsable du traitement dans le respect des droits des personnes concernées' : 'Assist the Controller in complying with data subject rights'}</li>
-              <li>{isFr ? 'Notifier toute violation de données dans les 72 heures à hello@stacklens.fr' : 'Notify any data breach within 72 hours to hello@stacklens.fr'}</li>
-              <li>{isFr ? 'Supprimer ou restituer toutes les données à la fin du contrat' : 'Delete or return all data at the end of the contract'}</li>
-              <li>{isFr ? 'Tenir à disposition toutes les informations nécessaires pour démontrer la conformité' : 'Make available all information necessary to demonstrate compliance'}</li>
+              <li>{t('dpa_s6_item1')}</li>
+              <li>{t('dpa_s6_item2')}</li>
+              <li>{t('dpa_s6_item3')}</li>
+              <li>{t('dpa_s6_item4')}</li>
+              <li>{t('dpa_s6_item5')}</li>
+              <li>{t('dpa_s6_item6')}</li>
+              <li>{t('dpa_s6_item7')}</li>
             </ul>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-white mb-3">{isFr ? '7. Sous-traitants ultérieurs' : '7. Sub-processors'}</h2>
-            <p>{isFr
-              ? 'Stacklens fait appel aux sous-traitants listés sur notre page Sous-traitants (/sub-processors). Le Responsable du traitement autorise le recours à ces sous-traitants. Stacklens informera le Responsable du traitement de tout changement de sous-traitant avec un préavis de 30 jours.'
-              : 'Stacklens uses the sub-processors listed on our Sub-processors page (/sub-processors). The Controller authorises use of these sub-processors. Stacklens will inform the Controller of any change in sub-processors with 30 days notice.'
-            }</p>
-            <p className="mt-2"><Link to="/sub-processors" className="text-blue-400 hover:text-blue-300">{isFr ? 'Voir la liste complète des sous-traitants →' : 'See full sub-processor list →'}</Link></p>
+            <h2 className="text-lg font-semibold text-white mb-3">{t('dpa_s7_title')}</h2>
+            <p>{t('dpa_s7_body')}</p>
+            <p className="mt-2"><Link to="/sub-processors" className="text-blue-400 hover:text-blue-300">{t('dpa_s7_link')}</Link></p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-white mb-3">{isFr ? '8. Transferts hors UE' : '8. International transfers'}</h2>
-            <p>{isFr
-              ? 'Certains sous-traitants (notamment Anthropic pour l\'analyse IA) sont établis aux États-Unis. Ces transferts sont encadrés par les Clauses contractuelles types (CCT) approuvées par la Commission européenne. Le traitement IA est optionnel et activé uniquement sur demande explicite de l\'utilisateur.'
-              : 'Some sub-processors (notably Anthropic for AI analysis) are based in the United States. These transfers are governed by Standard Contractual Clauses (SCCs) approved by the European Commission. AI processing is optional and activated only on explicit user request.'
-            }</p>
+            <h2 className="text-lg font-semibold text-white mb-3">{t('dpa_s8_title')}</h2>
+            <p>{t('dpa_s8_body')}</p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-white mb-3">{isFr ? '9. Sécurité des données' : '9. Data security'}</h2>
-            <p>{isFr
-              ? 'Stacklens met en œuvre les mesures de sécurité suivantes : chiffrement TLS en transit, chiffrement au repos via Firebase (AES-256), authentification forte (Google SSO + magic links), App Check Firebase anti-bot, règles de sécurité Firestore restrictives, clés API restreintes aux domaines autorisés.'
-              : 'Stacklens implements the following security measures: TLS encryption in transit, at-rest encryption via Firebase (AES-256), strong authentication (Google SSO + magic links), Firebase App Check anti-bot, restrictive Firestore security rules, API keys restricted to authorised domains.'
-            }</p>
+            <h2 className="text-lg font-semibold text-white mb-3">{t('dpa_s9_title')}</h2>
+            <p>{t('dpa_s9_body')}</p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-white mb-3">{isFr ? '10. Droits des personnes concernées' : '10. Data subject rights'}</h2>
-            <p>{isFr
-              ? 'Le Responsable du traitement reste responsable de répondre aux demandes d\'exercice de droits (accès, rectification, suppression, portabilité) de ses employés. Stacklens fournit les outils d\'export et de suppression pour y répondre dans les délais légaux. Pour toute demande : hello@stacklens.fr.'
-              : 'The Controller remains responsible for responding to data subject rights requests (access, rectification, deletion, portability) from its employees. Stacklens provides export and deletion tools to respond within legal deadlines. For any request: hello@stacklens.fr.'
-            }</p>
+            <h2 className="text-lg font-semibold text-white mb-3">{t('dpa_s10_title')}</h2>
+            <p>{t('dpa_s10_body')}</p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-white mb-3">{isFr ? '11. Conservation et suppression' : '11. Retention and deletion'}</h2>
+            <h2 className="text-lg font-semibold text-white mb-3">{t('dpa_s11_title')}</h2>
             <ul className="list-disc pl-5 space-y-1 text-slate-400">
-              <li>{isFr ? 'Données actives : conservées pendant toute la durée de l\'abonnement' : 'Active data: retained for the duration of the subscription'}</li>
-              <li>{isFr ? 'Après résiliation : suppression dans les 30 jours' : 'After termination: deleted within 30 days'}</li>
-              <li>{isFr ? 'Logs de consentement cookies : 3 ans (obligation CNIL)' : 'Cookie consent logs: 3 years (CNIL obligation)'}</li>
+              <li>{t('dpa_s11_item1')}</li>
+              <li>{t('dpa_s11_item2')}</li>
+              <li>{t('dpa_s11_item3')}</li>
               <li>{isFr ? 'Acceptations légales (CGU/CGV/DPA) : 5 ans (preuve contractuelle)' : 'Legal acceptances (ToS/DPA): 5 years (contractual proof)'}</li>
-              <li>{isFr ? 'Données de paiement (Stripe) : selon politique de conservation de Stripe' : 'Payment data (Stripe): per Stripe retention policy'}</li>
-              <li>{isFr ? 'Textes de contrats analysés par IA : non conservés après analyse' : 'Contract texts analysed by AI: not retained after analysis'}</li>
+              <li>{t('dpa_s11_item4')}</li>
+              <li>{t('dpa_s11_item5')}</li>
             </ul>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-white mb-3">{isFr ? '12. Responsabilité et limitation' : '12. Liability and limitation'}</h2>
-            <p>{isFr
-              ? 'La responsabilité de Stacklens au titre du présent accord est limitée au montant payé par le Responsable du traitement au cours des 12 mois précédant le sinistre. Cette limitation ne s\'applique pas en cas de violation intentionnelle ou de négligence grave.'
-              : 'Stacklens liability under this agreement is limited to the amount paid by the Controller in the 12 months preceding the incident. This limitation does not apply in cases of intentional misconduct or gross negligence.'
-            }</p>
+            <h2 className="text-lg font-semibold text-white mb-3">{t('dpa_s12_title')}</h2>
+            <p>{t('dpa_s12_body')}</p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-white mb-3">{isFr ? '13. Droit applicable' : '13. Governing law'}</h2>
-            <p>{isFr
-              ? 'Le présent accord est régi par le droit français et le RGPD. Tout litige relève de la compétence exclusive des tribunaux de Paris.'
-              : 'This agreement is governed by French law and the GDPR. Any dispute falls under the exclusive jurisdiction of the courts of Paris.'
-            }</p>
+            <h2 className="text-lg font-semibold text-white mb-3">{t('dpa_s13_title')}</h2>
+            <p>{t('dpa_s13_body')}</p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-white mb-3">{isFr ? '14. Acceptation' : '14. Acceptance'}</h2>
-            <p>{isFr
-              ? 'Le présent accord est accepté électroniquement lors de la souscription à tout plan payant Stacklens. La date et l\'heure d\'acceptation sont enregistrées dans nos systèmes. Pour les entreprises nécessitant une signature manuscrite ou électronique qualifiée (eIDAS), contactez hello@stacklens.fr.'
-              : 'This agreement is accepted electronically upon subscription to any paid Stacklens plan. The date and time of acceptance are recorded in our systems. For companies requiring a handwritten or qualified electronic signature (eIDAS), contact hello@stacklens.fr.'
-            }</p>
+            <h2 className="text-lg font-semibold text-white mb-3">{t('dpa_s14_title')}</h2>
+            <p>{t('dpa_s14_body')}</p>
           </section>
 
           <section className="bg-slate-900/60 border border-slate-700 rounded-xl p-5">
-            <h2 className="text-base font-semibold text-white mb-2">{isFr ? 'Contact DPO / Données personnelles' : 'DPO / Data contact'}</h2>
-            <p className="text-slate-400">{isFr ? 'Pour toute question relative à ce DPA ou à vos données :' : 'For any question relating to this DPA or your data:'}</p>
+            <h2 className="text-base font-semibold text-white mb-2">{t('dpa_contact_title')}</h2>
+            <p className="text-slate-400">{t('dpa_contact_body')}</p>
             <p className="mt-2"><a href="mailto:hello@stacklens.fr" className="text-blue-400 hover:text-blue-300">hello@stacklens.fr</a></p>
-            <p className="mt-1 text-xs text-slate-500">{isFr ? 'Réponse sous 72h ouvrables' : 'Response within 72 business hours'}</p>
+            <p className="mt-1 text-xs text-slate-500">{t('dpa_response_time')}</p>
           </section>
 
           <div className="pt-8 border-t border-slate-800 text-xs text-slate-500 flex flex-wrap gap-4">
-            <Link to="/privacy" className="text-blue-400 hover:text-blue-300">{isFr ? 'Politique de confidentialité' : 'Privacy Policy'}</Link>
-            <Link to="/sub-processors" className="text-blue-400 hover:text-blue-300">{isFr ? 'Sous-traitants' : 'Sub-processors'}</Link>
-            <Link to="/legal" className="text-blue-400 hover:text-blue-300">{isFr ? 'Mentions légales' : 'Legal Notice'}</Link>
-            <Link to="/terms" className="text-blue-400 hover:text-blue-300">{isFr ? 'CGU/CGV' : 'Terms of Service'}</Link>
-            <span className="ml-auto">{isFr ? 'Dernière mise à jour' : 'Last updated'}: May 2026</span>
+            <Link to="/privacy" className="text-blue-400 hover:text-blue-300">{t('dpa_footer_privacy')}</Link>
+            <Link to="/sub-processors" className="text-blue-400 hover:text-blue-300">{t('dpa_footer_subproc')}</Link>
+            <Link to="/legal" className="text-blue-400 hover:text-blue-300">{t('dpa_footer_legal')}</Link>
+            <Link to="/terms" className="text-blue-400 hover:text-blue-300">{t('dpa_footer_terms')}</Link>
+            <span className="ml-auto">{t('dpa_footer_updated')}: May 2026</span>
           </div>
         </div>
       </div>
@@ -13111,16 +13070,17 @@ function DpaPage() {
 // ============================================================================
 function SubProcessorsPage() {
   const { language } = useLang();
-  const navigate = useNavigate();
+  const t = useTranslation(language);
   const isFr = language === 'fr';
+  const navigate = useNavigate();
 
   const processors = [
-    { name: 'Google Firebase', purpose: isFr ? 'Hébergement, authentification, base de données temps réel, analytics' : 'Hosting, authentication, real-time database, analytics', location: 'EU (Belgique / Belgium)', link: 'https://firebase.google.com/support/privacy', transfer: isFr ? 'EU — aucun transfert hors UE' : 'EU — no transfer outside EU' },
-    { name: 'Google Cloud Platform', purpose: isFr ? 'Infrastructure cloud, Cloud Functions (traitement serverless)' : 'Cloud infrastructure, Cloud Functions (serverless processing)', location: 'EU', link: 'https://cloud.google.com/privacy', transfer: isFr ? 'EU — aucun transfert hors UE' : 'EU — no transfer outside EU' },
-    { name: 'Stripe', purpose: isFr ? 'Traitement des paiements, gestion des abonnements, portail client de facturation' : 'Payment processing, subscription management, customer billing portal', location: 'EU (Irlande / Ireland)', link: 'https://stripe.com/privacy', transfer: isFr ? 'Transfert possible vers USA — SCCs en place' : 'Transfer possible to USA — SCCs in place' },
-    { name: 'Anthropic (Claude AI)', purpose: isFr ? 'Analyse de contrats assistée par IA — uniquement lorsque la fonctionnalité est utilisée explicitement. Les textes soumis ne sont pas conservés par Anthropic pour l\'entraînement.' : 'AI-assisted contract analysis — only when feature is explicitly used. Submitted texts are not retained by Anthropic for training.', location: 'USA', link: 'https://www.anthropic.com/privacy', transfer: isFr ? 'Transfert vers USA — SCCs + politique de non-conservation des données' : 'Transfer to USA — SCCs + data non-retention policy' },
-    { name: 'OVHcloud', purpose: isFr ? 'Registrar du nom de domaine stacklens.fr, messagerie hello@stacklens.fr' : 'Domain registrar for stacklens.fr, hello@stacklens.fr email', location: 'EU (France)', link: 'https://www.ovhcloud.com/fr/personal-data-protection/', transfer: isFr ? 'EU — aucun transfert hors UE' : 'EU — no transfer outside EU' },
-    { name: 'Google Analytics', purpose: isFr ? 'Mesure d\'audience anonymisée — uniquement avec consentement explicite via le bandeau CNIL' : 'Anonymised audience measurement — only with explicit consent via CNIL cookie banner', location: 'EU', link: 'https://support.google.com/analytics/answer/6004245', transfer: isFr ? 'Données anonymisées uniquement, stockage EU' : 'Anonymised data only, EU storage' },
+    { name: 'Google Firebase', purpose: t('subproc_firebase_purpose'), location: 'EU (Belgique / Belgium)', link: 'https://firebase.google.com/support/privacy', transfer: t('subproc_firebase_transfer') },
+    { name: 'Google Cloud Platform', purpose: t('subproc_gcp_purpose'), location: 'EU', link: 'https://cloud.google.com/privacy', transfer: t('subproc_gcp_transfer') },
+    { name: 'Stripe', purpose: t('subproc_stripe_purpose'), location: 'EU (Irlande / Ireland)', link: 'https://stripe.com/privacy', transfer: t('subproc_stripe_transfer') },
+    { name: 'Anthropic (Claude AI)', purpose: t('subproc_anthropic_purpose'), location: 'USA', link: 'https://www.anthropic.com/privacy', transfer: t('subproc_anthropic_transfer') },
+    { name: 'OVHcloud', purpose: t('subproc_ovh_purpose'), location: 'EU (France)', link: 'https://www.ovhcloud.com/fr/personal-data-protection/', transfer: t('subproc_ovh_transfer') },
+    { name: 'Google Analytics', purpose: t('subproc_ga_purpose'), location: 'EU', link: 'https://support.google.com/analytics/answer/6004245', transfer: t('subproc_ga_transfer') },
     { name: 'SendGrid (Twilio)', purpose: isFr ? 'Envoi d\'emails transactionnels (alertes de renouvellement)' : 'Transactional email delivery (renewal alerts)', location: 'USA', link: 'https://www.twilio.com/en-us/legal/privacy', transfer: isFr ? 'Transfert vers USA — SCCs en place' : 'Transfer to USA — SCCs in place' },
     { name: 'Web3Forms', purpose: isFr ? 'Traitement des soumissions du formulaire de contact' : 'Contact form submission processing', location: 'USA', link: 'https://web3forms.com/privacy', transfer: isFr ? 'Email de contact uniquement, aucune donnée conservée' : 'Contact email only, no data retained' },
   ];
@@ -13129,15 +13089,12 @@ function SubProcessorsPage() {
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white">
       <div className="max-w-4xl mx-auto px-6 py-16">
         <div className="flex items-center justify-between mb-8">
-          <button onClick={() => navigate(-1)} className="text-sm text-slate-400 hover:text-white flex items-center gap-1">← {isFr ? 'Retour' : 'Back'}</button>
+          <button onClick={() => navigate(-1)} className="text-sm text-slate-400 hover:text-white flex items-center gap-1">← {t('back')}</button>
           <LangSelectorCompact />
         </div>
-        <h1 className="text-3xl font-bold mb-2">{isFr ? 'Sous-traitants (RGPD Article 28)' : 'Sub-processors (GDPR Article 28)'}</h1>
-        <p className="text-slate-400 text-sm mb-2">{isFr ? 'Dernière mise à jour' : 'Last updated'}: May 2026</p>
-        <p className="text-slate-400 text-sm mb-10">{isFr
-          ? 'Conformément au RGPD et à notre DPA, nous publions la liste complète des sous-traitants qui traitent des données pour notre compte. Nous vous informerons de tout changement avec un préavis de 30 jours.'
-          : 'In accordance with GDPR and our DPA, we publish the complete list of sub-processors that process data on our behalf. We will notify you of any changes with 30 days notice.'
-        }</p>
+        <h1 className="text-3xl font-bold mb-2">{t('subproc_title')}</h1>
+        <p className="text-slate-400 text-sm mb-2">{t('subproc_last_updated')}: May 2026</p>
+        <p className="text-slate-400 text-sm mb-10">{t('subproc_intro')}</p>
 
         <div className="space-y-4">
           {processors.map((p, i) => (
@@ -13154,7 +13111,7 @@ function SubProcessorsPage() {
               </div>
               <div className="mt-3">
                 <a href={p.link} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:text-blue-300">
-                  {isFr ? 'Politique de confidentialité →' : 'Privacy policy →'}
+                  {t('subproc_privacy_policy_link')}
                 </a>
               </div>
             </div>
@@ -13162,18 +13119,15 @@ function SubProcessorsPage() {
         </div>
 
         <div className="mt-10 bg-blue-500/10 border border-blue-500/30 rounded-xl p-5">
-          <h2 className="font-semibold text-white mb-2">{isFr ? 'Notification des changements' : 'Change notification'}</h2>
-          <p className="text-slate-400 text-sm">{isFr
-            ? 'Si nous ajoutons ou remplaçons un sous-traitant, nous vous informerons par email à l\'adresse associée à votre compte avec un préavis de 30 jours. Vous aurez la possibilité de vous opposer à ce changement. Si aucune opposition n\'est reçue dans ce délai, le changement sera considéré comme accepté.'
-            : 'If we add or replace a sub-processor, we will inform you by email to your account address with 30 days notice. You will have the opportunity to object to the change. If no objection is received within this period, the change will be deemed accepted.'
-          }</p>
-          <p className="text-sm mt-3">{isFr ? 'Questions :' : 'Questions:'} <a href="mailto:hello@stacklens.fr" className="text-blue-400 hover:text-blue-300">hello@stacklens.fr</a></p>
+          <h2 className="font-semibold text-white mb-2">{t('subproc_change_notif_title')}</h2>
+          <p className="text-slate-400 text-sm">{t('subproc_change_notif_body')}</p>
+          <p className="text-sm mt-3">{t('subproc_questions')} <a href="mailto:hello@stacklens.fr" className="text-blue-400 hover:text-blue-300">hello@stacklens.fr</a></p>
         </div>
 
         <div className="mt-8 pt-8 border-t border-slate-800 text-xs text-slate-500 flex flex-wrap gap-4">
-          <Link to="/dpa" className="text-blue-400 hover:text-blue-300">{isFr ? 'Accord DPA' : 'DPA Agreement'}</Link>
-          <Link to="/privacy" className="text-blue-400 hover:text-blue-300">{isFr ? 'Politique de confidentialité' : 'Privacy Policy'}</Link>
-          <Link to="/legal" className="text-blue-400 hover:text-blue-300">{isFr ? 'Mentions légales' : 'Legal Notice'}</Link>
+          <Link to="/dpa" className="text-blue-400 hover:text-blue-300">{t('subproc_dpa_link')}</Link>
+          <Link to="/privacy" className="text-blue-400 hover:text-blue-300">{t('subproc_privacy_link')}</Link>
+          <Link to="/legal" className="text-blue-400 hover:text-blue-300">{t('subproc_legal_link')}</Link>
         </div>
       </div>
     </div>
@@ -13182,53 +13136,53 @@ function SubProcessorsPage() {
 
 function LegalMentionsPage() {
   const { language } = useLang();
+  const t = useTranslation(language);
   const navigate = useNavigate();
-  const isFr = language === 'fr';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white">
       <div className="max-w-3xl mx-auto px-6 py-16">
         <div className="flex items-center justify-between mb-8">
           <button onClick={() => navigate(-1)} className="text-sm text-slate-400 hover:text-white flex items-center gap-1">
-            ← {isFr ? 'Retour' : 'Back'}
+            ← {t('back')}
           </button>
           <LangSelectorCompact />
         </div>
-        <h1 className="text-3xl font-bold mb-8">{isFr ? 'Mentions légales' : 'Legal Notice'}</h1>
+        <h1 className="text-3xl font-bold mb-8">{t('legal_title')}</h1>
 
         <div className="space-y-8 text-sm text-slate-300 leading-relaxed">
           {/* SECTION 1 — Éditeur (LCEN Art. 6 III — REQUIRED) */}
           <section>
-            <h2 className="text-lg font-semibold text-white mb-3">{isFr ? 'Éditeur du site' : 'Website Publisher'}</h2>
+            <h2 className="text-lg font-semibold text-white mb-3">{t('legal_publisher_title')}</h2>
             <p><strong>Stacklens</strong></p>
-            <p>{isFr ? 'Édité par' : 'Published by'}: Roland Dzoagbe</p>
-            <p>{isFr ? 'Statut' : 'Status'}: {isFr ? 'Micro-entrepreneur / Entrepreneur individuel' : 'Sole proprietor (micro-entrepreneur, France)'}</p>
+            <p>{t('legal_published_by')}: Roland Dzoagbe</p>
+            <p>{t('legal_status')}: {t('legal_status_value')}</p>
             <p>SIRET : 10483872700014</p>
             <p>Email : <a href="mailto:hello@stacklens.fr" className="text-blue-400 hover:text-blue-300">hello@stacklens.fr</a></p>
-            <p>{isFr ? 'Téléphone' : 'Phone'}: 09 53 26 97 91</p>
-            <p>{isFr ? 'Adresse' : 'Address'}: Paris, France</p>
+            <p>{t('legal_phone')}: 09 53 26 97 91</p>
+            <p>{t('legal_address')}: Paris, France</p>
           </section>
 
           {/* SECTION 2 — Directeur de publication */}
           <section>
-            <h2 className="text-lg font-semibold text-white mb-3">{isFr ? 'Directeur de la publication' : 'Publication Director'}</h2>
+            <h2 className="text-lg font-semibold text-white mb-3">{t('legal_publication_director_title')}</h2>
             <p>Roland Dzoagbe</p>
             <p>Email : <a href="mailto:hello@stacklens.fr" className="text-blue-400 hover:text-blue-300">hello@stacklens.fr</a></p>
           </section>
 
           {/* SECTION 3 — Hébergement */}
           <section>
-            <h2 className="text-lg font-semibold text-white mb-3">{isFr ? 'Hébergement' : 'Hosting'}</h2>
+            <h2 className="text-lg font-semibold text-white mb-3">{t('legal_hosting_title')}</h2>
             <p><strong>Google Firebase / Google Cloud Platform</strong></p>
             <p>Google Ireland Limited</p>
             <p>Gordon House, Barrow Street, Dublin 4, Ireland</p>
             <p>Tél. : +353 1 543 1000</p>
-            <p>{isFr ? 'Site web' : 'Website'}: <a href="https://firebase.google.com" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300">firebase.google.com</a></p>
+            <p>{t('legal_website')}: <a href="https://firebase.google.com" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300">firebase.google.com</a></p>
           </section>
 
           {/* SECTION 4 — Domaine */}
           <section>
-            <h2 className="text-lg font-semibold text-white mb-3">{isFr ? 'Nom de domaine' : 'Domain Name'}</h2>
+            <h2 className="text-lg font-semibold text-white mb-3">{t('legal_domain_title')}</h2>
             <p><strong>stacklens.fr</strong></p>
             <p>Registrar : OVHcloud</p>
             <p>OVH SAS, 2 rue Kellermann, 59100 Roubaix, France</p>
@@ -13237,67 +13191,49 @@ function LegalMentionsPage() {
 
           {/* SECTION 5 — Paiements */}
           <section>
-            <h2 className="text-lg font-semibold text-white mb-3">{isFr ? 'Traitement des paiements' : 'Payment Processing'}</h2>
+            <h2 className="text-lg font-semibold text-white mb-3">{t('legal_payment_title')}</h2>
             <p><strong>Stripe</strong></p>
             <p>Stripe Payments Europe, Limited</p>
             <p>1 Grand Canal Street Lower, Grand Canal Dock, Dublin, D02 H210, Ireland</p>
-            <p>{isFr ? 'Site web' : 'Website'}: <a href="https://stripe.com" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300">stripe.com</a></p>
+            <p>{t('legal_website')}: <a href="https://stripe.com" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300">stripe.com</a></p>
           </section>
 
           {/* SECTION 6 — IA (EU AI Act transparency) */}
           <section>
-            <h2 className="text-lg font-semibold text-white mb-3">{isFr ? 'Intelligence artificielle (EU AI Act)' : 'Artificial Intelligence (EU AI Act)'}</h2>
-            <p>{isFr
-              ? 'Stacklens utilise des services d\'intelligence artificielle fournis par Anthropic (Claude AI) pour l\'analyse de contrats. Conformément au Règlement européen sur l\'IA (EU AI Act), nous vous informons que : (1) certaines fonctionnalités utilisent des systèmes d\'IA ; (2) les résultats générés sont indicatifs et ne constituent pas un avis juridique ; (3) vous pouvez désactiver l\'analyse IA sans impact sur les autres fonctionnalités.'
-              : 'Stacklens uses artificial intelligence services provided by Anthropic (Claude AI) for contract analysis. In accordance with the EU AI Act, we inform you that: (1) certain features use AI systems; (2) generated results are indicative and do not constitute legal advice; (3) you can disable AI analysis without affecting other features.'
-            }</p>
-            <p className="mt-2">{isFr ? 'Fournisseur IA' : 'AI Provider'}: Anthropic, PBC — 548 Market St, San Francisco, CA 94104, USA</p>
+            <h2 className="text-lg font-semibold text-white mb-3">{t('legal_ai_title')}</h2>
+            <p>{t('legal_ai_body')}</p>
+            <p className="mt-2">{t('legal_ai_provider')}: Anthropic, PBC — 548 Market St, San Francisco, CA 94104, USA</p>
           </section>
 
           {/* SECTION 7 — Propriété intellectuelle */}
           <section>
-            <h2 className="text-lg font-semibold text-white mb-3">{isFr ? 'Propriété intellectuelle' : 'Intellectual Property'}</h2>
-            <p>{isFr
-              ? 'L\'ensemble du contenu de ce site (textes, images, logos, logiciels) est protégé par le droit d\'auteur et les lois sur la propriété intellectuelle. Toute reproduction sans autorisation préalable est interdite.'
-              : 'All content on this website (text, images, logos, software) is protected by copyright and intellectual property laws. Any reproduction without prior authorisation is prohibited.'
-            }</p>
+            <h2 className="text-lg font-semibold text-white mb-3">{t('legal_ip_title')}</h2>
+            <p>{t('legal_ip_body')}</p>
           </section>
 
           {/* SECTION 8 — RGPD / CNIL */}
           <section>
-            <h2 className="text-lg font-semibold text-white mb-3">{isFr ? 'Protection des données personnelles (RGPD)' : 'Personal Data Protection (GDPR)'}</h2>
-            <p>{isFr
-              ? 'Conformément au Règlement Général sur la Protection des Données (RGPD) et à la loi Informatique et Libertés, vous disposez des droits suivants sur vos données : accès, rectification, suppression, portabilité, limitation, opposition.'
-              : 'In accordance with the General Data Protection Regulation (GDPR) and French data protection law, you have the following rights regarding your data: access, rectification, deletion, portability, restriction, objection.'
-            }</p>
-            <p className="mt-2">{isFr ? 'Pour exercer vos droits' : 'To exercise your rights'}: <a href="mailto:hello@stacklens.fr" className="text-blue-400 hover:text-blue-300">hello@stacklens.fr</a></p>
-            <p className="mt-1">{isFr
-              ? 'Vous pouvez également introduire une réclamation auprès de la CNIL (www.cnil.fr).'
-              : 'You may also lodge a complaint with the CNIL (www.cnil.fr).'
-            }</p>
-            <p className="mt-1">{isFr ? 'Voir notre' : 'See our'} <Link to="/privacy" className="text-blue-400 hover:text-blue-300">{isFr ? 'Politique de confidentialité' : 'Privacy Policy'}</Link> {isFr ? 'et notre' : 'and our'} <Link to="/dpa" className="text-blue-400 hover:text-blue-300">{isFr ? 'Accord de traitement des données (DPA)' : 'Data Processing Agreement (DPA)'}</Link></p>
+            <h2 className="text-lg font-semibold text-white mb-3">{t('legal_gdpr_title')}</h2>
+            <p>{t('legal_gdpr_body')}</p>
+            <p className="mt-2">{t('legal_exercise_rights')}: <a href="mailto:hello@stacklens.fr" className="text-blue-400 hover:text-blue-300">hello@stacklens.fr</a></p>
+            <p className="mt-1">{t('legal_cnil_complaint')}</p>
+            <p className="mt-1">{t('legal_see_our')} <Link to="/privacy" className="text-blue-400 hover:text-blue-300">{t('legal_privacy_link')}</Link> {t('legal_and_our')} <Link to="/dpa" className="text-blue-400 hover:text-blue-300">{t('legal_dpa_link')}</Link></p>
           </section>
 
           {/* SECTION 9 — Cookies */}
           <section>
-            <h2 className="text-lg font-semibold text-white mb-3">{isFr ? 'Cookies et traceurs' : 'Cookies & Trackers'}</h2>
-            <p>{isFr
-              ? 'Ce site utilise des cookies analytiques (Google Analytics) uniquement avec votre consentement explicite, conformément aux recommandations de la CNIL. Vous pouvez modifier ou retirer votre consentement à tout moment via le lien "Gérer les cookies" en bas de page.'
-              : 'This website uses analytics cookies (Google Analytics) only with your explicit consent, in accordance with CNIL guidelines. You can modify or withdraw your consent at any time via the "Manage cookies" link at the bottom of the page.'
-            }</p>
+            <h2 className="text-lg font-semibold text-white mb-3">{t('legal_cookies_title')}</h2>
+            <p>{t('legal_cookies_body')}</p>
           </section>
 
           {/* SECTION 10 — Droit applicable */}
           <section>
-            <h2 className="text-lg font-semibold text-white mb-3">{isFr ? 'Droit applicable' : 'Applicable Law'}</h2>
-            <p>{isFr
-              ? 'Les présentes mentions légales sont régies par le droit français. Tout litige relève de la compétence exclusive des tribunaux de Paris.'
-              : 'These legal notices are governed by French law. Any dispute falls under the exclusive jurisdiction of the courts of Paris.'
-            }</p>
+            <h2 className="text-lg font-semibold text-white mb-3">{t('legal_law_title')}</h2>
+            <p>{t('legal_law_body')}</p>
           </section>
 
           <div className="pt-8 border-t border-slate-800 text-xs text-slate-500">
-            <p>{isFr ? 'Dernière mise à jour' : 'Last updated'}: May 2026</p>
+            <p>{t('legal_last_updated')}: May 2026</p>
           </div>
         </div>
       </div>
@@ -13412,7 +13348,6 @@ function PrivacyPage() {
   const navigate = useNavigate();
   const { language } = useLang();
   const t = useTranslation(language);
-  const isFr = language === 'fr';
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white">
       <nav className="border-b border-white/5 bg-slate-950/50 backdrop-blur-2xl sticky top-0 z-50">
@@ -13423,146 +13358,125 @@ function PrivacyPage() {
           </div>
           <div className="flex items-center gap-4">
             <LangSelectorCompact />
-            <button onClick={() => navigate(-1)} className="text-slate-300 hover:text-white transition-colors">← {isFr ? 'Retour' : 'Back'}</button>
+            <button onClick={() => navigate(-1)} className="text-slate-300 hover:text-white transition-colors">← {t('back')}</button>
           </div>
         </div>
       </nav>
 
       <div className="max-w-4xl mx-auto px-6 py-20">
-        <h1 className="text-3xl md:text-5xl font-black mb-4 text-white">{isFr ? 'Politique de confidentialité' : 'Privacy Policy'}</h1>
-        <p className="text-slate-400 mb-12">{isFr ? 'Dernière mise à jour' : 'Last updated'}: May 17, 2026</p>
+        <h1 className="text-3xl md:text-5xl font-black mb-4 text-white">{t('privacy_title')}</h1>
+        <p className="text-slate-400 mb-12">{t('privacy_last_updated')}: May 17, 2026</p>
 
         <div className="space-y-10 text-sm text-slate-300 leading-relaxed">
           <section>
-            <h2 className="text-xl font-bold mb-3 text-white">{isFr ? '1. Responsable du traitement' : '1. Data Controller'}</h2>
-            <p>{isFr ? 'Le responsable du traitement de vos données personnelles est :' : 'The data controller for your personal data is:'}</p>
+            <h2 className="text-xl font-bold mb-3 text-white">{t('privacy_s1_title')}</h2>
+            <p>{t('privacy_s1_body')}</p>
             <p className="mt-2"><strong>Stacklens</strong> — Roland Dzoagbe<br/>Paris, Île-de-France, France<br/>Email: <a href="mailto:hello@stacklens.fr" className="text-blue-400 hover:text-blue-300">hello@stacklens.fr</a></p>
           </section>
 
           <section>
-            <h2 className="text-xl font-bold mb-3 text-white">{isFr ? '2. Données que nous collectons' : '2. Data We Collect'}</h2>
-            <p className="mb-3">{isFr ? 'Nous collectons les données suivantes :' : 'We collect the following data:'}</p>
+            <h2 className="text-xl font-bold mb-3 text-white">{t('privacy_s2_title')}</h2>
+            <p className="mb-3">{t('privacy_s2_intro')}</p>
             <div className="space-y-3">
               <div className="p-3 rounded-lg bg-slate-900/60 border border-slate-800">
-                <div className="font-semibold text-white mb-1">{isFr ? 'Données de compte' : 'Account data'}</div>
-                <p>{isFr ? 'Nom, email, mot de passe (hashé), nom de l\'entreprise, taille de l\'équipe.' : 'Name, email, password (hashed), company name, team size.'}</p>
-                <p className="text-xs text-slate-500 mt-1">{isFr ? 'Base légale : Exécution du contrat (Art. 6.1.b RGPD)' : 'Legal basis: Contract performance (Art. 6.1.b GDPR)'}</p>
+                <div className="font-semibold text-white mb-1">{t('privacy_s2_account_title')}</div>
+                <p>{t('privacy_s2_account_body')}</p>
+                <p className="text-xs text-slate-500 mt-1">{t('privacy_s2_account_legal')}</p>
               </div>
               <div className="p-3 rounded-lg bg-slate-900/60 border border-slate-800">
-                <div className="font-semibold text-white mb-1">{isFr ? 'Données SaaS importées' : 'Imported SaaS data'}</div>
-                <p>{isFr ? 'Noms d\'outils, coûts, propriétaires, noms d\'employés, emails, départements, enregistrements d\'accès — uniquement les données que vous importez via CSV/Excel.' : 'Tool names, costs, owners, employee names, emails, departments, access records — only data you import via CSV/Excel.'}</p>
-                <p className="text-xs text-slate-500 mt-1">{isFr ? 'Base légale : Exécution du contrat (Art. 6.1.b RGPD)' : 'Legal basis: Contract performance (Art. 6.1.b GDPR)'}</p>
+                <div className="font-semibold text-white mb-1">{t('privacy_s2_saas_title')}</div>
+                <p>{t('privacy_s2_saas_body')}</p>
+                <p className="text-xs text-slate-500 mt-1">{t('privacy_s2_saas_legal')}</p>
               </div>
               <div className="p-3 rounded-lg bg-slate-900/60 border border-slate-800">
-                <div className="font-semibold text-white mb-1">{isFr ? 'Données de paiement' : 'Payment data'}</div>
-                <p>{isFr ? 'Traitées par Stripe. Nous ne stockons jamais les numéros de carte. Nous conservons uniquement l\'ID client Stripe et le statut de l\'abonnement.' : 'Processed by Stripe. We never store card numbers. We only retain the Stripe customer ID and subscription status.'}</p>
-                <p className="text-xs text-slate-500 mt-1">{isFr ? 'Base légale : Exécution du contrat (Art. 6.1.b RGPD)' : 'Legal basis: Contract performance (Art. 6.1.b GDPR)'}</p>
+                <div className="font-semibold text-white mb-1">{t('privacy_s2_payment_title')}</div>
+                <p>{t('privacy_s2_payment_body')}</p>
+                <p className="text-xs text-slate-500 mt-1">{t('privacy_s2_payment_legal')}</p>
               </div>
               <div className="p-3 rounded-lg bg-slate-900/60 border border-slate-800">
-                <div className="font-semibold text-white mb-1">{isFr ? 'Données de synchronisation d\'annuaire' : 'Directory sync data'}</div>
-                <p>{isFr
-                  ? 'Si vous activez la synchronisation avec Google Workspace, Microsoft 365 ou Okta, Stacklens accède, via OAuth, aux données d\'annuaire suivantes : noms complets des employés, adresses email professionnelles, département, statut du compte (actif / suspendu), rôle d\'administrateur. Ces données sont importées dans votre espace Stacklens et stockées dans Firestore. Nous ne demandons que les permissions de lecture strictement nécessaires (admin.directory.user.readonly pour Google, User.Read.All pour Microsoft 365). Aucune donnée n\'est partagée avec des tiers. Vous pouvez révoquer l\'accès à tout moment depuis votre tableau de bord d\'annuaire.'
-                  : 'If you enable directory sync with Google Workspace, Microsoft 365, or Okta, Stacklens accesses the following directory data via OAuth: employee full names, work email addresses, department, account status (active / suspended), admin role. This data is imported into your Stacklens workspace and stored in Firestore. We only request the minimum read-only permissions required (admin.directory.user.readonly for Google, User.Read.All for Microsoft 365). No data is shared with third parties. You can revoke access at any time from your directory dashboard.'
-                }</p>
-                <p className="text-xs text-slate-500 mt-1">{isFr ? 'Base légale : Exécution du contrat (Art. 6.1.b RGPD) — fonctionnalité optionnelle, activée uniquement si vous connectez un annuaire' : 'Legal basis: Contract performance (Art. 6.1.b GDPR) — optional feature, only active if you connect a directory'}</p>
+                <div className="font-semibold text-white mb-1">{t('privacy_s2_dirsync_title')}</div>
+                <p>{t('privacy_s2_dirsync_body')}</p>
+                <p className="text-xs text-slate-500 mt-1">{t('privacy_s2_dirsync_legal')}</p>
               </div>
               <div className="p-3 rounded-lg bg-slate-900/60 border border-slate-800">
-                <div className="font-semibold text-white mb-1">{isFr ? 'Données analytiques' : 'Analytics data'}</div>
-                <p>{isFr ? 'Google Analytics (uniquement avec votre consentement via notre bandeau cookies). Données anonymisées : pages visitées, durée de session, type d\'appareil.' : 'Google Analytics (only with your consent via our cookie banner). Anonymised data: pages visited, session duration, device type.'}</p>
-                <p className="text-xs text-slate-500 mt-1">{isFr ? 'Base légale : Consentement (Art. 6.1.a RGPD)' : 'Legal basis: Consent (Art. 6.1.a GDPR)'}</p>
+                <div className="font-semibold text-white mb-1">{t('privacy_s2_analytics_title')}</div>
+                <p>{t('privacy_s2_analytics_body')}</p>
+                <p className="text-xs text-slate-500 mt-1">{t('privacy_s2_analytics_legal')}</p>
               </div>
             </div>
           </section>
 
           <section>
-            <h2 className="text-xl font-bold mb-3 text-white">{isFr ? '3. Sous-traitants' : '3. Sub-processors'}</h2>
-            <p className="mb-3">{isFr ? 'Vos données sont traitées par les services tiers suivants :' : 'Your data is processed by the following third-party services:'}</p>
+            <h2 className="text-xl font-bold mb-3 text-white">{t('privacy_s3_title')}</h2>
+            <p className="mb-3">{t('privacy_s3_intro')}</p>
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead><tr className="border-b border-slate-700 text-slate-400">
-                  <th className="text-left py-2 pr-4">{isFr ? 'Service' : 'Service'}</th>
-                  <th className="text-left py-2 pr-4">{isFr ? 'Usage' : 'Purpose'}</th>
-                  <th className="text-left py-2">{isFr ? 'Localisation' : 'Location'}</th>
+                  <th className="text-left py-2 pr-4">{t('privacy_s3_col_service')}</th>
+                  <th className="text-left py-2 pr-4">{t('privacy_s3_col_purpose')}</th>
+                  <th className="text-left py-2">{t('privacy_s3_col_location')}</th>
                 </tr></thead>
                 <tbody className="text-slate-300">
-                  <tr className="border-b border-slate-800"><td className="py-2 pr-4">Firebase (Google)</td><td className="py-2 pr-4">{isFr ? 'Hébergement, authentification, base de données' : 'Hosting, authentication, database'}</td><td className="py-2">EU (Belgium)</td></tr>
-                  <tr className="border-b border-slate-800"><td className="py-2 pr-4">Stripe</td><td className="py-2 pr-4">{isFr ? 'Traitement des paiements' : 'Payment processing'}</td><td className="py-2">EU (Ireland)</td></tr>
-                  <tr className="border-b border-slate-800"><td className="py-2 pr-4">Anthropic (Claude AI)</td><td className="py-2 pr-4">{isFr ? 'Analyse de contrats IA' : 'AI contract analysis'}</td><td className="py-2">USA</td></tr>
-                  <tr className="border-b border-slate-800"><td className="py-2 pr-4">Google Analytics</td><td className="py-2 pr-4">{isFr ? 'Analytiques (avec consentement)' : 'Analytics (with consent)'}</td><td className="py-2">EU</td></tr>
-                  <tr className="border-b border-slate-800"><td className="py-2 pr-4">OVHcloud</td><td className="py-2 pr-4">{isFr ? 'Domaine et emails' : 'Domain and email'}</td><td className="py-2">EU (France)</td></tr>
-                  <tr className="border-b border-slate-800"><td className="py-2 pr-4">SendGrid (Twilio)</td><td className="py-2 pr-4">{isFr ? 'Emails transactionnels (alertes renouvellement)' : 'Transactional emails (renewal alerts)'}</td><td className="py-2">USA</td></tr>
-                  <tr className="border-b border-slate-800"><td className="py-2 pr-4">Web3Forms</td><td className="py-2 pr-4">{isFr ? 'Formulaire de contact' : 'Contact form'}</td><td className="py-2">USA</td></tr>
-                  <tr className="border-b border-slate-800"><td className="py-2 pr-4">Google Workspace Admin API</td><td className="py-2 pr-4">{isFr ? 'Synchronisation d\'annuaire (optionnel, lecture seule)' : 'Directory sync (optional, read-only)'}</td><td className="py-2">USA/EU</td></tr>
-                  <tr className="border-b border-slate-800"><td className="py-2 pr-4">Microsoft Graph API</td><td className="py-2 pr-4">{isFr ? 'Synchronisation d\'annuaire Microsoft 365 (optionnel, lecture seule)' : 'Microsoft 365 directory sync (optional, read-only)'}</td><td className="py-2">EU</td></tr>
-                  <tr><td className="py-2 pr-4">Okta</td><td className="py-2 pr-4">{isFr ? 'Synchronisation d\'annuaire Okta (optionnel, lecture seule)' : 'Okta directory sync (optional, read-only)'}</td><td className="py-2">{isFr ? 'Varie selon le domaine' : 'Varies by domain'}</td></tr>
+                  <tr className="border-b border-slate-800"><td className="py-2 pr-4">Firebase (Google)</td><td className="py-2 pr-4">{t('privacy_s3_firebase_purpose')}</td><td className="py-2">EU (Belgium)</td></tr>
+                  <tr className="border-b border-slate-800"><td className="py-2 pr-4">Stripe</td><td className="py-2 pr-4">{t('privacy_s3_stripe_purpose')}</td><td className="py-2">EU (Ireland)</td></tr>
+                  <tr className="border-b border-slate-800"><td className="py-2 pr-4">Anthropic (Claude AI)</td><td className="py-2 pr-4">{t('privacy_s3_anthropic_purpose')}</td><td className="py-2">USA</td></tr>
+                  <tr className="border-b border-slate-800"><td className="py-2 pr-4">Google Analytics</td><td className="py-2 pr-4">{t('privacy_s3_ga_purpose')}</td><td className="py-2">EU</td></tr>
+                  <tr className="border-b border-slate-800"><td className="py-2 pr-4">OVHcloud</td><td className="py-2 pr-4">{t('privacy_s3_ovh_purpose')}</td><td className="py-2">EU (France)</td></tr>
+                  <tr className="border-b border-slate-800"><td className="py-2 pr-4">SendGrid (Twilio)</td><td className="py-2 pr-4">{t('privacy_s3_sendgrid_purpose')}</td><td className="py-2">USA</td></tr>
+                  <tr className="border-b border-slate-800"><td className="py-2 pr-4">Web3Forms</td><td className="py-2 pr-4">{t('privacy_s3_web3forms_purpose')}</td><td className="py-2">USA</td></tr>
+                  <tr className="border-b border-slate-800"><td className="py-2 pr-4">Google Workspace Admin API</td><td className="py-2 pr-4">{t('privacy_s3_gworkspace_purpose')}</td><td className="py-2">USA/EU</td></tr>
+                  <tr className="border-b border-slate-800"><td className="py-2 pr-4">Microsoft Graph API</td><td className="py-2 pr-4">{t('privacy_s3_msgraph_purpose')}</td><td className="py-2">EU</td></tr>
+                  <tr><td className="py-2 pr-4">Okta</td><td className="py-2 pr-4">{t('privacy_s3_okta_purpose')}</td><td className="py-2">{t('privacy_s3_okta_location')}</td></tr>
                 </tbody>
               </table>
             </div>
           </section>
 
           <section>
-            <h2 className="text-xl font-bold mb-3 text-white">{isFr ? '4. Utilisation de l\'IA' : '4. AI Usage Disclosure'}</h2>
-            <p>{isFr
-              ? 'Stacklens utilise Claude AI (Anthropic) pour l\'analyse de contrats. Lorsque vous utilisez la fonctionnalité de comparaison de contrats, le texte que vous fournissez est envoyé à l\'API d\'Anthropic pour analyse. Anthropic ne conserve pas vos données pour l\'entraînement de ses modèles. Les résultats de l\'IA sont indicatifs et ne constituent pas un avis juridique.'
-              : 'Stacklens uses Claude AI (Anthropic) for contract analysis. When you use the contract comparison feature, the text you provide is sent to Anthropic\'s API for analysis. Anthropic does not retain your data for model training. AI results are informational and do not constitute legal advice.'
-            }</p>
+            <h2 className="text-xl font-bold mb-3 text-white">{t('privacy_s4_title')}</h2>
+            <p>{t('privacy_s4_body')}</p>
           </section>
 
           <section>
-            <h2 className="text-xl font-bold mb-3 text-white">{isFr ? '5. Conservation des données' : '5. Data Retention'}</h2>
-            <p>{isFr
-              ? 'Vos données sont conservées tant que votre compte est actif. Après suppression de votre compte, toutes vos données sont effacées dans un délai de 30 jours. Les données de facturation sont conservées 10 ans conformément à la législation fiscale française. Les acceptations légales (CGU/DPA) sont conservées 5 ans à titre de preuve contractuelle. Les logs de consentement cookies sont conservés 3 ans (obligation CNIL).'
-              : 'Your data is retained as long as your account is active. After account deletion, all your data is erased within 30 days. Billing data is retained for 10 years as required by French tax law. Legal acceptances (ToS/DPA) are retained for 5 years as contractual proof. Cookie consent logs are retained for 3 years (CNIL obligation).'
-            }</p>
+            <h2 className="text-xl font-bold mb-3 text-white">{t('privacy_s5_title')}</h2>
+            <p>{t('privacy_s5_body')}</p>
           </section>
 
           <section>
-            <h2 className="text-xl font-bold mb-3 text-white">{isFr ? '6. Vos droits (RGPD)' : '6. Your Rights (GDPR)'}</h2>
-            <p className="mb-3">{isFr ? 'Conformément au RGPD, vous disposez des droits suivants :' : 'Under the GDPR, you have the following rights:'}</p>
+            <h2 className="text-xl font-bold mb-3 text-white">{t('privacy_s6_title')}</h2>
+            <p className="mb-3">{t('privacy_s6_intro')}</p>
             <ul className="list-disc list-inside space-y-1 ml-2">
-              <li>{isFr ? 'Droit d\'accès à vos données personnelles' : 'Right to access your personal data'}</li>
-              <li>{isFr ? 'Droit de rectification des données inexactes' : 'Right to rectify inaccurate data'}</li>
-              <li>{isFr ? 'Droit à l\'effacement (« droit à l\'oubli »)' : 'Right to erasure ("right to be forgotten")'}</li>
-              <li>{isFr ? 'Droit à la portabilité de vos données' : 'Right to data portability'}</li>
-              <li>{isFr ? 'Droit d\'opposition au traitement' : 'Right to object to processing'}</li>
-              <li>{isFr ? 'Droit de retirer votre consentement à tout moment' : 'Right to withdraw consent at any time'}</li>
+              <li>{t('privacy_s6_right1')}</li>
+              <li>{t('privacy_s6_right2')}</li>
+              <li>{t('privacy_s6_right3')}</li>
+              <li>{t('privacy_s6_right4')}</li>
+              <li>{t('privacy_s6_right5')}</li>
+              <li>{t('privacy_s6_right6')}</li>
             </ul>
-            <p className="mt-3">{isFr ? 'Pour exercer vos droits :' : 'To exercise your rights:'} <a href="mailto:hello@stacklens.fr" className="text-blue-400 hover:text-blue-300">hello@stacklens.fr</a></p>
-            <p className="mt-2">{isFr
-              ? 'Vous avez également le droit d\'introduire une réclamation auprès de la CNIL (Commission Nationale de l\'Informatique et des Libertés) : www.cnil.fr'
-              : 'You also have the right to lodge a complaint with the CNIL (French data protection authority): www.cnil.fr'
-            }</p>
+            <p className="mt-3">{t('privacy_s6_exercise')} <a href="mailto:hello@stacklens.fr" className="text-blue-400 hover:text-blue-300">hello@stacklens.fr</a></p>
+            <p className="mt-2">{t('privacy_s6_cnil')}</p>
           </section>
 
           <section>
-            <h2 className="text-xl font-bold mb-3 text-white">{isFr ? '7. Sécurité' : '7. Security'}</h2>
-            <p>{isFr
-              ? 'Vos données sont chiffrées en transit (TLS) et au repos. L\'authentification utilise Firebase Auth avec support Google OAuth et liens magiques. L\'accès aux données est isolé par utilisateur (multi-tenant). Nous ne sommes pas certifiés SOC 2 à ce stade — nous sommes une jeune entreprise qui s\'engage à atteindre ces certifications à mesure que nous grandissons.'
-              : 'Your data is encrypted in transit (TLS) and at rest. Authentication uses Firebase Auth with Google OAuth and magic links support. Data access is isolated per user (multi-tenant). We are not SOC 2 certified at this stage — we are an early-stage company committed to achieving these certifications as we grow.'
-            }</p>
+            <h2 className="text-xl font-bold mb-3 text-white">{t('privacy_s7_title')}</h2>
+            <p>{t('privacy_s7_body')}</p>
           </section>
 
           <section>
-            <h2 className="text-xl font-bold mb-3 text-white">{isFr ? '8. Cookies' : '8. Cookies'}</h2>
-            <p>{isFr
-              ? 'Stacklens utilise uniquement des cookies essentiels (authentification, préférences de langue) et des cookies analytiques (Google Analytics, uniquement avec votre consentement explicite). Vous pouvez modifier vos préférences à tout moment via le bandeau cookies.'
-              : 'Stacklens uses only essential cookies (authentication, language preferences) and analytics cookies (Google Analytics, only with your explicit consent). You can change your preferences at any time via the cookie banner.'
-            }</p>
+            <h2 className="text-xl font-bold mb-3 text-white">{t('privacy_s8_title')}</h2>
+            <p>{t('privacy_s8_body')}</p>
           </section>
 
           <section>
-            <h2 className="text-xl font-bold mb-3 text-white">{isFr ? '9. Modifications' : '9. Changes'}</h2>
-            <p>{isFr
-              ? 'Nous pouvons modifier cette politique de confidentialité. Les changements significatifs seront notifiés par email ou via l\'application. La date de dernière mise à jour est indiquée en haut de cette page.'
-              : 'We may update this privacy policy. Significant changes will be notified by email or through the application. The last update date is shown at the top of this page.'
-            }</p>
+            <h2 className="text-xl font-bold mb-3 text-white">{t('privacy_s9_title')}</h2>
+            <p>{t('privacy_s9_body')}</p>
           </section>
 
           <section>
-            <h2 className="text-xl font-bold mb-3 text-white">{isFr ? '10. Contact' : '10. Contact'}</h2>
-            <p>{isFr ? 'Pour toute question relative à la protection de vos données :' : 'For any data protection questions:'}</p>
+            <h2 className="text-xl font-bold mb-3 text-white">{t('privacy_s10_title')}</h2>
+            <p>{t('privacy_s10_body')}</p>
             <p className="mt-2"><a href="mailto:hello@stacklens.fr" className="text-blue-400 hover:text-blue-300">hello@stacklens.fr</a></p>
-            <p className="mt-1"><Link to="/contact" className="text-blue-400 hover:text-blue-300">{isFr ? 'Formulaire de contact' : 'Contact form'}</Link></p>
+            <p className="mt-1"><Link to="/contact" className="text-blue-400 hover:text-blue-300">{t('privacy_contact_form')}</Link></p>
           </section>
         </div>
       </div>
@@ -13574,7 +13488,6 @@ function TermsPage() {
   const navigate = useNavigate();
   const { language } = useLang();
   const t = useTranslation(language);
-  const isFr = language === 'fr';
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white">
       <nav className="border-b border-white/5 bg-slate-950/50 backdrop-blur-2xl sticky top-0 z-50">
@@ -13585,185 +13498,121 @@ function TermsPage() {
           </div>
           <div className="flex items-center gap-4">
             <LangSelectorCompact />
-            <button onClick={() => navigate(-1)} className="text-slate-300 hover:text-white transition-colors">← {isFr ? 'Retour' : 'Back'}</button>
+            <button onClick={() => navigate(-1)} className="text-slate-300 hover:text-white transition-colors">← {t('back')}</button>
           </div>
         </div>
       </nav>
 
       <div className="max-w-4xl mx-auto px-6 py-20">
-        <h1 className="text-3xl md:text-5xl font-black mb-4 text-white">{isFr ? 'Conditions générales d\'utilisation' : 'Terms of Service'}</h1>
-        <p className="text-slate-400 mb-12">{isFr ? 'Dernière mise à jour' : 'Last updated'}: May 17, 2026</p>
+        <h1 className="text-3xl md:text-5xl font-black mb-4 text-white">{t('terms_title')}</h1>
+        <p className="text-slate-400 mb-12">{t('terms_last_updated')}: May 17, 2026</p>
 
         <div className="space-y-10 text-sm text-slate-300 leading-relaxed">
           <section>
-            <h2 className="text-xl font-bold mb-3 text-white">{isFr ? '1. Acceptation des conditions' : '1. Acceptance of Terms'}</h2>
-            <p>{isFr
-              ? 'En accédant ou en utilisant Stacklens (« le Service »), exploité par Roland Dzoagbe (« l\'Éditeur »), vous acceptez d\'être lié par les présentes Conditions Générales d\'Utilisation. Si vous n\'acceptez pas ces conditions, veuillez ne pas utiliser notre Service.'
-              : 'By accessing or using Stacklens ("the Service"), operated by Roland Dzoagbe ("the Publisher"), you agree to be bound by these Terms of Service. If you do not agree to these terms, please do not use our Service.'
-            }</p>
+            <h2 className="text-xl font-bold mb-3 text-white">{t('terms_s1_title')}</h2>
+            <p>{t('terms_s1_body')}</p>
           </section>
 
           <section>
-            <h2 className="text-xl font-bold mb-3 text-white">{isFr ? '2. Description du service' : '2. Service Description'}</h2>
-            <p className="mb-3">{isFr ? 'Stacklens fournit des outils de gestion SaaS comprenant :' : 'Stacklens provides SaaS management tools including:'}</p>
+            <h2 className="text-xl font-bold mb-3 text-white">{t('terms_s2_title')}</h2>
+            <p className="mb-3">{t('terms_s2_intro')}</p>
             <ul className="list-disc list-inside space-y-1 ml-2">
-              <li>{isFr ? 'Suivi et gestion des outils SaaS et licences' : 'SaaS tool and license tracking'}</li>
-              <li>{isFr ? 'Détection des licences inutilisées et du Shadow IT' : 'Idle license detection and Shadow IT discovery'}</li>
-              <li>{isFr ? 'Alertes de renouvellement de contrats' : 'Contract renewal alerts'}</li>
-              <li>{isFr ? 'Détection des accès orphelins (anciens employés)' : 'Orphaned access detection (former employees)'}</li>
-              <li>{isFr ? 'Comparaison de contrats par IA (Claude AI)' : 'AI-powered contract comparison (Claude AI)'}</li>
+              <li>{t('terms_s2_item1')}</li>
+              <li>{t('terms_s2_item2')}</li>
+              <li>{t('terms_s2_item3')}</li>
+              <li>{t('terms_s2_item4')}</li>
+              <li>{t('terms_s2_item5')}</li>
             </ul>
-            <p className="mt-3">{isFr
-              ? 'Nous nous réservons le droit de modifier ou d\'interrompre des fonctionnalités avec un préavis raisonnable de 30 jours.'
-              : 'We reserve the right to modify or discontinue features with 30 days reasonable notice.'
-            }</p>
+            <p className="mt-3">{t('terms_s2_reserve')}</p>
           </section>
 
           <section>
-            <h2 className="text-xl font-bold mb-3 text-white">{isFr ? '3. Comptes utilisateurs' : '3. User Accounts'}</h2>
-            <p>{isFr ? 'Vous vous engagez à :' : 'You agree to:'}</p>
+            <h2 className="text-xl font-bold mb-3 text-white">{t('terms_s3_title')}</h2>
+            <p>{t('terms_s3_intro')}</p>
             <ul className="list-disc list-inside space-y-1 ml-2 mt-2">
-              <li>{isFr ? 'Fournir des informations d\'inscription exactes et complètes' : 'Provide accurate and complete registration information'}</li>
-              <li>{isFr ? 'Maintenir la sécurité de vos identifiants de connexion' : 'Maintain the security of your account credentials'}</li>
-              <li>{isFr ? 'Nous notifier immédiatement en cas d\'accès non autorisé' : 'Notify us immediately of any unauthorised access'}</li>
-              <li>{isFr ? 'Utiliser le Service conformément aux lois applicables' : 'Use the Service in compliance with all applicable laws'}</li>
+              <li>{t('terms_s3_item1')}</li>
+              <li>{t('terms_s3_item2')}</li>
+              <li>{t('terms_s3_item3')}</li>
+              <li>{t('terms_s3_item4')}</li>
             </ul>
           </section>
 
           <section>
-            <h2 className="text-xl font-bold mb-3 text-white">{isFr ? '4. Plans et tarification' : '4. Plans & Pricing'}</h2>
-            <p className="mb-3">{isFr ? 'Stacklens propose les plans suivants :' : 'Stacklens offers the following plans:'}</p>
+            <h2 className="text-xl font-bold mb-3 text-white">{t('terms_s4_title')}</h2>
+            <p className="mb-3">{t('terms_s4_intro')}</p>
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead><tr className="border-b border-slate-700 text-slate-400">
                   <th className="text-left py-2 pr-4">Plan</th>
-                  <th className="text-left py-2 pr-4">{isFr ? 'Prix' : 'Price'}</th>
-                  <th className="text-left py-2">{isFr ? 'Limites' : 'Limits'}</th>
+                  <th className="text-left py-2 pr-4">{t('terms_s4_col_price')}</th>
+                  <th className="text-left py-2">{t('terms_s4_col_limits')}</th>
                 </tr></thead>
                 <tbody className="text-slate-300">
-                  <tr className="border-b border-slate-800"><td className="py-2 pr-4">Free</td><td className="py-2 pr-4">€0</td><td className="py-2">10 {isFr ? 'outils' : 'tools'}, 25 {isFr ? 'employés' : 'employees'}</td></tr>
-                  <tr className="border-b border-slate-800"><td className="py-2 pr-4">Starter</td><td className="py-2 pr-4">€29/{isFr ? 'mois' : 'month'}</td><td className="py-2">100 {isFr ? 'outils' : 'tools'}, 250 {isFr ? 'employés' : 'employees'}</td></tr>
-                  <tr className="border-b border-slate-800"><td className="py-2 pr-4">Pro</td><td className="py-2 pr-4">€79/{isFr ? 'mois' : 'month'}</td><td className="py-2">500 {isFr ? 'outils' : 'tools'}, 1500 {isFr ? 'employés' : 'employees'}</td></tr>
-                  <tr><td className="py-2 pr-4">Enterprise</td><td className="py-2 pr-4">€299/{isFr ? 'mois' : 'month'}</td><td className="py-2">{isFr ? 'Illimité' : 'Unlimited'}</td></tr>
+                  <tr className="border-b border-slate-800"><td className="py-2 pr-4">Free</td><td className="py-2 pr-4">€0</td><td className="py-2">10 {t('terms_s4_tools')}, 25 {t('terms_s4_employees')}</td></tr>
+                  <tr className="border-b border-slate-800"><td className="py-2 pr-4">Starter</td><td className="py-2 pr-4">€29/{t('terms_s4_month')}</td><td className="py-2">100 {t('terms_s4_tools')}, 250 {t('terms_s4_employees')}</td></tr>
+                  <tr className="border-b border-slate-800"><td className="py-2 pr-4">Pro</td><td className="py-2 pr-4">€79/{t('terms_s4_month')}</td><td className="py-2">500 {t('terms_s4_tools')}, 1500 {t('terms_s4_employees')}</td></tr>
+                  <tr><td className="py-2 pr-4">Enterprise</td><td className="py-2 pr-4">€299/{t('terms_s4_month')}</td><td className="py-2">{t('terms_s4_unlimited')}</td></tr>
                 </tbody>
               </table>
             </div>
-            <p className="mt-3">{isFr
-              ? 'Les prix sont indiqués en euros (€), toutes taxes comprises pour les clients français. Nous nous réservons le droit de modifier les prix avec un préavis de 30 jours.'
-              : 'Prices are in euros (€), inclusive of taxes for French customers. We reserve the right to change pricing with 30 days notice.'
-            }</p>
+            <p className="mt-3">{t('terms_s4_pricing_note')}</p>
           </section>
 
           <section>
-            <h2 className="text-xl font-bold mb-3 text-white">{isFr ? '5. Abonnement et facturation' : '5. Subscription & Billing'}</h2>
-            <p className="mb-2">{isFr
-              ? 'Les abonnements payants sont facturés mensuellement ou annuellement à l\'avance via Stripe. Votre abonnement se renouvelle automatiquement à la fin de chaque période de facturation.'
-              : 'Paid subscriptions are billed monthly or annually in advance via Stripe. Your subscription automatically renews at the end of each billing period.'
-            }</p>
-            <p className="mb-2 font-semibold text-white">{isFr
-              ? '⚠️ Renouvellement automatique : Votre abonnement sera automatiquement renouvelé au tarif en vigueur à la date de renouvellement, sauf annulation de votre part avant la fin de la période en cours.'
-              : '⚠️ Auto-renewal: Your subscription will automatically renew at the current rate on the renewal date, unless cancelled by you before the end of the current period.'
-            }</p>
-            <p className="mb-4">{isFr
-              ? 'Vous pouvez annuler votre abonnement à tout moment depuis votre tableau de bord. L\'annulation prend effet à la fin de la période de facturation en cours.'
-              : 'You can cancel your subscription at any time from your dashboard. Cancellation takes effect at the end of the current billing period.'
-            }</p>
+            <h2 className="text-xl font-bold mb-3 text-white">{t('terms_s5_title')}</h2>
+            <p className="mb-2">{t('terms_s5_billing')}</p>
+            <p className="mb-2 font-semibold text-white">{t('terms_s5_autorenew')}</p>
+            <p className="mb-4">{t('terms_s5_cancel')}</p>
             {/* One-click cancellation — mandatory from June 19, 2026 (ordonnance n° 2026-2) */}
             <div className="bg-slate-900/80 border border-amber-500/30 rounded-xl p-5">
-              <p className="text-sm font-semibold text-white mb-1">{isFr ? 'Résilier votre contrat' : 'Cancel your subscription'}</p>
-              <p className="text-xs text-slate-400 mb-3">{isFr
-                ? 'Conformément à l\'ordonnance n° 2026-2 du 5 janvier 2026, vous pouvez résilier votre abonnement directement en ligne. La résiliation prend effet à la fin de la période de facturation en cours. Vos données restent accessibles jusqu\'à cette date.'
-                : 'In accordance with French law (ordonnance n° 2026-2 of 5 January 2026), you can cancel your subscription directly online. Cancellation takes effect at the end of the current billing period. Your data remains accessible until that date.'
-              }</p>
+              <p className="text-sm font-semibold text-white mb-1">{t('terms_s5_cancel_title')}</p>
+              <p className="text-xs text-slate-400 mb-3">{t('terms_s5_cancel_law')}</p>
               <Link to="/app/settings?tab=billing" className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-400 text-sm font-medium rounded-lg transition-colors">
-                🔴 {isFr ? 'Résilier votre contrat' : 'Cancel your contract'}
+                🔴 {t('terms_s5_cancel_btn')}
               </Link>
             </div>
           </section>
 
           <section>
-            <h2 className="text-xl font-bold mb-3 text-white">{isFr ? '6. Droit de rétractation' : '6. Right of Withdrawal'}</h2>
-            <p>{isFr
-              ? 'Conformément à l\'article L221-28 du Code de la consommation, vous disposez d\'un délai de 14 jours à compter de la souscription pour exercer votre droit de rétractation et obtenir un remboursement intégral, à condition de ne pas avoir substantiellement utilisé le Service. Pour exercer ce droit, contactez-nous à hello@stacklens.fr.'
-              : 'In accordance with French consumer law (Article L221-28), you have 14 days from the date of subscription to exercise your right of withdrawal and obtain a full refund, provided you have not substantially used the Service. To exercise this right, contact us at hello@stacklens.fr.'
-            }</p>
+            <h2 className="text-xl font-bold mb-3 text-white">{t('terms_s6_title')}</h2>
+            <p>{t('terms_s6_body')}</p>
           </section>
 
           <section>
-            <h2 className="text-xl font-bold mb-3 text-white">{isFr ? '7. Données et propriété' : '7. Data & Ownership'}</h2>
-            <p>{isFr
-              ? 'Vous conservez la propriété de toutes les données que vous importez dans Stacklens. Nous ne revendiquons aucun droit de propriété sur vos données. Vous pouvez exporter ou supprimer vos données à tout moment. En cas de résiliation, vos données seront supprimées sous 30 jours.'
-              : 'You retain ownership of all data you import into Stacklens. We do not claim any ownership rights to your data. You can export or delete your data at any time. Upon termination, your data will be deleted within 30 days.'
-            }</p>
+            <h2 className="text-xl font-bold mb-3 text-white">{t('terms_s7_title')}</h2>
+            <p>{t('terms_s7_body')}</p>
           </section>
 
           <section>
-            <h2 className="text-xl font-bold mb-3 text-white">{isFr ? '8. Intelligence artificielle' : '8. Artificial Intelligence'}</h2>
-            <p>{isFr
-              ? 'Certaines fonctionnalités utilisent l\'IA (Claude AI par Anthropic) pour l\'analyse de contrats. Les résultats de l\'IA sont fournis à titre informatif et ne constituent pas un avis juridique ou financier. Vous restez responsable de toute décision prise sur la base de ces résultats.'
-              : 'Some features use AI (Claude AI by Anthropic) for contract analysis. AI-generated results are provided for informational purposes only and do not constitute legal or financial advice. You remain responsible for any decisions made based on these results.'
-            }</p>
+            <h2 className="text-xl font-bold mb-3 text-white">{t('terms_s8_title')}</h2>
+            <p>{t('terms_s8_body')}</p>
           </section>
 
           <section>
-            <h2 className="text-xl font-bold mb-3 text-white">{isFr ? '9. Intégrations d\'annuaire (Google Workspace, Microsoft 365, Okta)' : '9. Directory Integrations (Google Workspace, Microsoft 365, Okta)'}</h2>
-            <p className="mb-3">{isFr
-              ? 'Stacklens propose des intégrations optionnelles avec des fournisseurs d\'annuaires d\'entreprise. En activant ces intégrations, vous acceptez les conditions suivantes :'
-              : 'Stacklens offers optional integrations with enterprise directory providers. By enabling these integrations, you agree to the following:'
-            }</p>
-            <ul className="list-disc list-inside space-y-2 ml-2">
-              <li>{isFr
-                ? 'Vous êtes autorisé par votre organisation à connecter le fournisseur d\'annuaire et à accorder les permissions OAuth demandées.'
-                : 'You are authorised by your organisation to connect the directory provider and grant the requested OAuth permissions.'
-              }</li>
-              <li>{isFr
-                ? 'Stacklens ne demande que des permissions de lecture (admin.directory.user.readonly pour Google Workspace ; User.Read.All pour Microsoft 365). Aucun donnée n\'est modifiée dans votre annuaire.'
-                : 'Stacklens only requests read-only permissions (admin.directory.user.readonly for Google Workspace; User.Read.All for Microsoft 365). No data is modified in your directory.'
-              }</li>
-              <li>{isFr
-                ? 'Les données importées (noms, emails professionnels, département, statut de compte) sont stockées dans votre espace Stacklens et couvertes par notre Politique de confidentialité.'
-                : 'Imported data (names, work emails, department, account status) is stored in your Stacklens workspace and covered by our Privacy Policy.'
-              }</li>
-              <li>{isFr
-                ? 'Vous pouvez révoquer l\'accès à tout moment depuis les paramètres de votre fournisseur d\'annuaire. La révocation n\'efface pas les données déjà importées — vous devez les supprimer manuellement depuis votre tableau de bord.'
-                : 'You can revoke access at any time from your directory provider\'s settings. Revocation does not erase already-imported data — you must delete it manually from your dashboard.'
-              }</li>
-              <li>{isFr
-                ? 'Stacklens n\'est pas responsable de l\'exactitude des données fournies par votre annuaire. En cas d\'écart entre les données de l\'annuaire et la réalité de votre organisation, vous êtes responsable de la réconciliation.'
-                : 'Stacklens is not responsible for the accuracy of data provided by your directory. If data differs from your organisation\'s reality, you are responsible for reconciliation.'
-              }</li>
-            </ul>
+            <h2 className="text-xl font-bold mb-3 text-white">{t('terms_s9_title')}</h2>
+            <p>{t('terms_s9_body')}</p>
           </section>
 
           <section>
-            <h2 className="text-xl font-bold mb-3 text-white">{isFr ? '10. Limitation de responsabilité' : '10. Limitation of Liability'}</h2>
-            <p>{isFr
-              ? 'Le Service est fourni « en l\'état ». Dans les limites permises par la loi, nous ne sommes pas responsables des dommages indirects, accessoires ou consécutifs résultant de votre utilisation du Service. Notre responsabilité totale est limitée au montant que vous avez payé pour le Service au cours des 12 derniers mois.'
-              : 'The Service is provided "as is". To the extent permitted by law, we are not liable for indirect, incidental, or consequential damages arising from your use of the Service. Our total liability is limited to the amount you have paid for the Service in the preceding 12 months.'
-            }</p>
+            <h2 className="text-xl font-bold mb-3 text-white">{t('terms_s10_title')}</h2>
+            <p>{t('terms_s10_body')}</p>
           </section>
 
           <section>
-            <h2 className="text-xl font-bold mb-3 text-white">{isFr ? '11. Résiliation' : '11. Termination'}</h2>
-            <p>{isFr
-              ? 'Chaque partie peut résilier le contrat à tout moment. En cas de résiliation, votre accès au Service cessera à la fin de la période de facturation en cours. Nous supprimerons vos données conformément à notre politique de conservation.'
-              : 'Either party may terminate the agreement at any time. Upon termination, your access to the Service will cease at the end of the current billing period. We will delete your data according to our retention policy.'
-            }</p>
+            <h2 className="text-xl font-bold mb-3 text-white">{t('terms_s11_title')}</h2>
+            <p>{t('terms_s11_body')}</p>
           </section>
 
           <section>
-            <h2 className="text-xl font-bold mb-3 text-white">{isFr ? '12. Droit applicable' : '12. Applicable Law'}</h2>
-            <p>{isFr
-              ? 'Les présentes conditions sont régies par le droit français. Tout litige relève de la compétence exclusive des tribunaux de Paris, France.'
-              : 'These terms are governed by French law. Any dispute falls under the exclusive jurisdiction of the courts of Paris, France.'
-            }</p>
+            <h2 className="text-xl font-bold mb-3 text-white">{t('terms_s12_title')}</h2>
+            <p>{t('terms_s12_body')}</p>
           </section>
 
           <section>
-            <h2 className="text-xl font-bold mb-3 text-white">{isFr ? '13. Contact' : '13. Contact'}</h2>
-            <p>{isFr ? 'Pour toute question concernant ces conditions :' : 'For questions about these Terms:'}</p>
+            <h2 className="text-xl font-bold mb-3 text-white">{t('terms_s13_title')}</h2>
+            <p>{t('terms_s13_body')}</p>
             <p className="mt-2"><a href="mailto:hello@stacklens.fr" className="text-blue-400 hover:text-blue-300">hello@stacklens.fr</a></p>
-            <p className="mt-1"><Link to="/contact" className="text-blue-400 hover:text-blue-300">{isFr ? 'Formulaire de contact' : 'Contact form'}</Link></p>
+            <p className="mt-1"><Link to="/contact" className="text-blue-400 hover:text-blue-300">{t('terms_contact_form')}</Link></p>
           </section>
         </div>
       </div>
@@ -14131,8 +13980,6 @@ function FinanceOverviewTab({ financialData, showBudgetModal, setShowBudgetModal
   const topCategory = financialData.byCategory.length > 0 ? [...financialData.byCategory].sort((a,b) => b.spend - a.spend)[0] : null;
   const potentialSavings = Math.round(financialData.totalMonthlySpend * 0.14);
 
-  const isFr = language === 'fr';
-
   // Empty state for real users with no tools yet
   if (financialData.isReal && financialData.toolCount === 0) {
     return (
@@ -14140,10 +13987,10 @@ function FinanceOverviewTab({ financialData, showBudgetModal, setShowBudgetModal
         <div className="w-16 h-16 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center mb-5">
           <DollarSign className="h-8 w-8 text-blue-400" />
         </div>
-        <h2 className="text-xl font-bold text-white mb-2">{isFr ? 'Aucune donnée financière' : 'No financial data yet'}</h2>
-        <p className="text-sm text-slate-400 max-w-sm mb-6">{isFr ? 'Ajoutez vos outils SaaS avec leurs coûts pour voir vos dépenses, tendances et recommandations d\'optimisation.' : 'Add your SaaS tools with their costs to see spend, trends and savings recommendations.'}</p>
+        <h2 className="text-xl font-bold text-white mb-2">{t('finance_no_data_title')}</h2>
+        <p className="text-sm text-slate-400 max-w-sm mb-6">{t('finance_no_data_body')}</p>
         <Link to="/tools" className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-xl text-sm font-semibold text-white transition-colors">
-          {isFr ? 'Ajouter des outils →' : 'Add tools →'}
+          {t('finance_add_tools')}
         </Link>
       </div>
     );
