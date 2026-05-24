@@ -208,8 +208,10 @@ exports.stripeWebhook = onRequest({ secrets: [STRIPE_SECRET_KEY, STRIPE_WEBHOOK_
         }
         if (uid && session.subscription) {
           const sub = await stripe.subscriptions.retrieve(session.subscription);
-          await db.collection('users').doc(uid).set({ plan: getPlanFromSubscription(sub), stripe_subscription_id: sub.id, stripe_customer_id: session.customer, subscription_status: sub.status, plan_updated_at: Date.now() }, { merge: true });
-          console.log(`Plan updated for uid=${uid} to ${getPlanFromSubscription(sub)}`);
+          const plan = getPlanFromSubscription(sub);
+          await db.collection('users').doc(uid).set({ plan, stripe_subscription_id: sub.id, stripe_customer_id: session.customer, subscription_status: sub.status, plan_updated_at: Date.now() }, { merge: true });
+          await admin.auth().setCustomUserClaims(uid, { plan });
+          console.log(`Plan updated for uid=${uid} to ${plan}`);
         } else {
           console.warn('checkout.session.completed: could not find uid for customer', session.customer);
         }
@@ -222,7 +224,11 @@ exports.stripeWebhook = onRequest({ secrets: [STRIPE_SECRET_KEY, STRIPE_WEBHOOK_
           const snap = await db.collection('users').where('stripe_customer_id', '==', sub.customer).limit(1).get();
           if (!snap.empty) uid = snap.docs[0].id;
         }
-        if (uid) await db.collection('users').doc(uid).set({ plan: getPlanFromSubscription(sub), subscription_status: sub.status, plan_updated_at: Date.now() }, { merge: true });
+        if (uid) {
+          const plan = getPlanFromSubscription(sub);
+          await db.collection('users').doc(uid).set({ plan, subscription_status: sub.status, plan_updated_at: Date.now() }, { merge: true });
+          await admin.auth().setCustomUserClaims(uid, { plan });
+        }
         break;
       }
       case 'customer.subscription.deleted': {
@@ -232,7 +238,10 @@ exports.stripeWebhook = onRequest({ secrets: [STRIPE_SECRET_KEY, STRIPE_WEBHOOK_
           const snap = await db.collection('users').where('stripe_customer_id', '==', sub.customer).limit(1).get();
           if (!snap.empty) uid = snap.docs[0].id;
         }
-        if (uid) await db.collection('users').doc(uid).set({ plan: 'free', subscription_status: 'cancelled', stripe_subscription_id: null, plan_updated_at: Date.now() }, { merge: true });
+        if (uid) {
+          await db.collection('users').doc(uid).set({ plan: 'free', subscription_status: 'cancelled', stripe_subscription_id: null, plan_updated_at: Date.now() }, { merge: true });
+          await admin.auth().setCustomUserClaims(uid, { plan: 'free' });
+        }
         break;
       }
     }
@@ -261,9 +270,75 @@ exports.syncuser = onRequest({ cors: true }, async (req, res) => {
   });
 });
 
+// ── /refreshClaims — force-refresh custom claims on client token ──────────
+exports.refreshClaims = onRequest({ cors: true }, async (req, res) => {
+  cors(req, res, async () => {
+    if (req.method === 'OPTIONS') return res.status(204).send('');
+    if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
+    const decoded = await verifyAuth(req, res); if (!decoded) return;
+    // Read current Firestore plan and sync it to claims
+    const snap = await admin.firestore().collection('users').doc(decoded.uid).get();
+    const plan = snap.exists ? (snap.data().plan || 'free') : 'free';
+    await admin.auth().setCustomUserClaims(decoded.uid, { plan });
+    return res.json({ plan });
+  });
+});
+
+// ── /sendInvite — email a team invite link via SendGrid ───────────────────
+const SENDGRID_API_KEY = defineSecret('SENDGRID_API_KEY');
+
+exports.sendInvite = onRequest({ cors: true, secrets: [SENDGRID_API_KEY] }, async (req, res) => {
+  cors(req, res, async () => {
+    if (req.method === 'OPTIONS') return res.status(204).send('');
+    if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
+    const decoded = await verifyAuth(req, res); if (!decoded) return;
+
+    const { inviteeEmail, inviterName, orgName } = req.body;
+    if (!inviteeEmail || !inviteeEmail.includes('@')) {
+      return res.status(400).json({ error: 'Invalid email' });
+    }
+
+    // Rate limit: 20 invites per hour
+    const limited = await checkRateLimit(decoded.uid, res, { maxCalls: 20, windowMs: 60 * 60 * 1000 }, 'invite');
+    if (!limited) return;
+
+    try {
+      const sgMail = require('@sendgrid/mail');
+      sgMail.setApiKey(SENDGRID_API_KEY.value());
+
+      const signupUrl = 'https://stacklens.fr/?signup=true';
+      const from = inviterName || decoded.name || 'Your team';
+      const org  = orgName || 'Stacklens';
+
+      await sgMail.send({
+        to: inviteeEmail,
+        from: { email: 'hello@stacklens.fr', name: 'Stacklens' },
+        subject: `${from} invited you to join ${org} on Stacklens`,
+        html: `<div style="font-family:sans-serif;max-width:560px;margin:0 auto;background:#0f172a;border-radius:12px;overflow:hidden">
+          <div style="padding:24px;background:#1e293b">
+            <h1 style="color:white;margin:0 0 4px;font-size:22px">Stacklens</h1>
+            <p style="color:#94a3b8;margin:0">SaaS Stack Intelligence</p>
+          </div>
+          <div style="padding:28px">
+            <h2 style="color:white;margin:0 0 12px">${from} invited you to ${org}</h2>
+            <p style="color:#94a3b8;margin:0 0 24px">You've been invited to join your team on Stacklens — the platform that gives your team full visibility into your SaaS stack, costs, and access rights.</p>
+            <div style="text-align:center;margin-bottom:24px">
+              <a href="${signupUrl}" style="background:#3b82f6;color:white;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block;font-size:16px">Accept Invitation →</a>
+            </div>
+            <p style="color:#475569;font-size:12px;margin:0">If you weren't expecting this invitation, you can ignore this email.</p>
+          </div>
+        </div>`,
+      });
+      return res.json({ sent: true });
+    } catch (err) {
+      console.error('sendInvite error:', err);
+      return res.status(500).json({ error: 'Failed to send invite' });
+    }
+  });
+});
+
 // ── Renewal Alert Emails (SendGrid) ──────────────────────────────────────
 const { onSchedule } = require('firebase-functions/v2/scheduler');
-const SENDGRID_API_KEY = defineSecret('SENDGRID_API_KEY');
 
 exports.renewalAlerts = onSchedule({
   schedule: 'every 24 hours',
