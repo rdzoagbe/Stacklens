@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, createContext, useContext, useRef, useCallback } from "react";
+import React, { useEffect, useMemo, useState, createContext, useContext, useRef, useCallback, Suspense } from "react";
 import {
   BrowserRouter,
   Navigate,
@@ -23,24 +23,38 @@ import { CurrencyContext, CurrencyProvider, useCurrency, useCurrencyConverter } 
 import { RDLogo, ScrollToTop, Card, CardHeader, CardBody, Divider, Button, Input, Select, Textarea, Pill, Modal, SkeletonRow, EmptyState, DataTable, LiveStat, MiniStat, ProgressRow, CategoryIcon, StatusBadge, RiskBadge, AccessLevelBadge, RiskFlagBadge } from './components/ui';
 import { ROLES, getUserRole, can, RoleGate, RoleBadge, usePlanLimits, PlanGate, MODULE_PLANS, ModuleGate, PlanLimitBanner, TourEmptyState, TourLaunchButton } from './components/gates';
 import { AppShell, LangSelectorCompact, useRenewalAlerts, CookieBanner, DemoBanner, TrialExpiredBanner, ErrorBoundary } from './components/AppShell';
-import { ToolsPage } from './pages/ToolsPage';
-import { EmployeesPage } from './pages/EmployeesPage';
-import { AccessPage } from './pages/AccessPage';
-import { OffboardingPage } from './pages/OffboardingPage';
-import { AuditTabContent, AuditExportPage } from './pages/AuditPage';
-import { NotFound, ContactPage, DpaPage, SubProcessorsPage, LegalMentionsPage, AboutPage, PrivacyPage, TermsPage, SecurityPage } from './pages/LegalPages';
-import { SecurityCompliancePage } from './pages/SecurityCompliancePage';
-import { CostManagementPage, AnalyticsReportsPage } from './pages/AnalyticsPage';
 import { FloatingChatbotGated } from './components/FloatingChatbot';
-import { FinishSignUpPage } from './pages/FinishSignUpPage';
-import { ContractComparisonPage } from './pages/ContractComparisonPage';
-import { OnboardingPage } from './pages/OnboardingPage';
-import { TrialPage } from './pages/TrialPage';
-import { DashboardPage } from './pages/DashboardPage';
-import { SlackNotifications } from './pages/DashboardPage';
-import { ImportWizard } from './pages/DashboardPage';
-import { BillingPage, IntegrationConnectors, IntegrationsPage, SettingsPage } from './pages/SettingsPage';
-import { FinanceDashboard, ExecutivePageWrapper } from './pages/FinancePage';
+
+// ── Route-level code splitting ────────────────────────────────────────────────
+// Factory functions keep import() calls un-evaluated until first render (true lazy).
+const TrialPage            = React.lazy(() => import('./pages/TrialPage').then(m => ({ default: m.TrialPage })));
+const OnboardingPage       = React.lazy(() => import('./pages/OnboardingPage').then(m => ({ default: m.OnboardingPage })));
+const FinishSignUpPage     = React.lazy(() => import('./pages/FinishSignUpPage').then(m => ({ default: m.FinishSignUpPage })));
+const DashboardPage        = React.lazy(() => import('./pages/DashboardPage').then(m => ({ default: m.DashboardPage })));
+const ToolsPage            = React.lazy(() => import('./pages/ToolsPage').then(m => ({ default: m.ToolsPage })));
+const EmployeesPage        = React.lazy(() => import('./pages/EmployeesPage').then(m => ({ default: m.EmployeesPage })));
+const AccessPage           = React.lazy(() => import('./pages/AccessPage').then(m => ({ default: m.AccessPage })));
+const OffboardingPage      = React.lazy(() => import('./pages/OffboardingPage').then(m => ({ default: m.OffboardingPage })));
+const SecurityCompliancePage = React.lazy(() => import('./pages/SecurityCompliancePage').then(m => ({ default: m.SecurityCompliancePage })));
+const SettingsPage         = React.lazy(() => import('./pages/SettingsPage').then(m => ({ default: m.SettingsPage })));
+const FinanceDashboard     = React.lazy(() => import('./pages/FinancePage').then(m => ({ default: m.FinanceDashboard })));
+const ContractComparisonPage = React.lazy(() => import('./pages/ContractComparisonPage').then(m => ({ default: m.ContractComparisonPage })));
+
+// Legal pages share one chunk (all resolved from the same dynamic import)
+const NotFound          = React.lazy(() => import('./pages/LegalPages').then(m => ({ default: m.NotFound })));
+const AboutPage         = React.lazy(() => import('./pages/LegalPages').then(m => ({ default: m.AboutPage })));
+const ContactPage       = React.lazy(() => import('./pages/LegalPages').then(m => ({ default: m.ContactPage })));
+const PrivacyPage       = React.lazy(() => import('./pages/LegalPages').then(m => ({ default: m.PrivacyPage })));
+const TermsPage         = React.lazy(() => import('./pages/LegalPages').then(m => ({ default: m.TermsPage })));
+const DpaPage           = React.lazy(() => import('./pages/LegalPages').then(m => ({ default: m.DpaPage })));
+const SubProcessorsPage = React.lazy(() => import('./pages/LegalPages').then(m => ({ default: m.SubProcessorsPage })));
+const LegalMentionsPage = React.lazy(() => import('./pages/LegalPages').then(m => ({ default: m.LegalMentionsPage })));
+const SecurityPage      = React.lazy(() => import('./pages/LegalPages').then(m => ({ default: m.SecurityPage })));
+
+// Sub-components used inside SetupConnectionsHub — lazy so they don't pull their
+// parent page chunks into the main bundle
+const LazyIntegrationConnectors = React.lazy(() => import('./pages/SettingsPage').then(m => ({ default: m.IntegrationConnectors })));
+const LazyImportWizard          = React.lazy(() => import('./pages/DashboardPage').then(m => ({ default: m.ImportWizard })));
 
 
 import {
@@ -368,6 +382,14 @@ function ExitIntentModal({ open, onClose, onContinue }) {
 }
 
 
+function PageLoader() {
+  return (
+    <div className="flex items-center justify-center h-screen bg-slate-950">
+      <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+}
+
 function SetupConnectionsHub() {
   const { language } = useLang();
   const t = useTranslation(language);
@@ -397,10 +419,10 @@ function SetupConnectionsHub() {
             <h2 className="text-2xl font-black text-white mb-1">🔌 Integrations</h2>
             <p className="text-slate-400">Connect Stacklens to your tools for automatic discovery and user sync</p>
           </div>
-          <IntegrationConnectors />
+          <Suspense fallback={<PageLoader />}><LazyIntegrationConnectors /></Suspense>
         </div>
       )}
-      {setupTab === 'import' && <ImportWizard />}
+      {setupTab === 'import' && <Suspense fallback={<PageLoader />}><LazyImportWizard /></Suspense>}
     </AppShell>
   );
 }
@@ -430,6 +452,7 @@ export default function App() {
         <ErrorBoundary><BrowserRouter>
         <CookieBanner />
           <TourProvider>
+          <Suspense fallback={<PageLoader />}>
           <Routes>
           <Route path="/" element={<TrialPage />} />
           <Route path="/about" element={<AboutPage />} />
@@ -503,6 +526,7 @@ export default function App() {
           <Route path="/contracts" element={<Navigate to="/finance" replace />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
+          </Suspense>
         <FloatingChatbotGated />
         </TourProvider>
         </BrowserRouter></ErrorBoundary>
