@@ -1,19 +1,16 @@
 import React, { useEffect, useState, Suspense } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { resendEmailVerification } from './firebase-config';
-import { getCurrency } from './lib/dataUtils';
 import { useAuth } from './hooks/useAuth';
 import { TourProvider } from './contexts/TourContext';
 import { LanguageProvider, useLang } from './contexts/LangContext';
 import { CurrencyProvider } from './contexts/CurrencyContext';
-import { Button, Modal, Pill } from './components/ui';
 import { ModuleGate } from './components/gates';
 import { AppShell, CookieBanner, ErrorBoundary } from './components/AppShell';
 import { FloatingChatbotGated } from './components/FloatingChatbot';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useTranslation } from './translations';
 import { Toaster } from 'react-hot-toast';
-import { Sparkles, AlertTriangle, UserMinus, Download } from "lucide-react";
 
 // ── Route-level code splitting ────────────────────────────────────────────────
 // Factory functions keep import() calls un-evaluated until first render (true lazy).
@@ -115,167 +112,6 @@ function RequireAuth({ children }) {
 
   return children;
 }
-
-function ROICalculator() {
-  const { language } = useLang();
-  const t = useTranslation(language);
-  const [tools, setTools] = useState(50);
-  const [costPerTool, setCostPerTool] = useState(100);
-  const [employees, setEmployees] = useState(200);
-  
-  // Calculate savings
-  const totalSpend = tools * costPerTool * 12;
-  const wastePercentage = 30;
-  const potentialSavings = Math.round(totalSpend * (wastePercentage / 100));
-  const unusedLicenses = Math.round(employees * 0.15); // 15% waste average
-  const licenseSavings = unusedLicenses * 50 * 12; // $50/license/month average
-  
-  return (
-    <div className="space-y-8">
-      {/* Input Sliders */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <div>
-          <label className="block text-sm font-semibold text-slate-300 mb-3">
-            Number of SaaS Tools
-          </label>
-          <input
-            type="range"
-            min="10"
-            max="200"
-            value={tools}
-            onChange={(e) => setTools(parseInt(e.target.value))}
-            className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-          />
-          <div className="mt-2 text-center text-xl md:text-3xl font-bold text-white">{tools}</div>
-        </div>
-        
-        <div>
-          <label className="block text-sm font-semibold text-slate-300 mb-3">
-            Avg Cost Per Tool/Month
-          </label>
-          <input
-            type="range"
-            min="20"
-            max="500"
-            step="10"
-            value={costPerTool}
-            onChange={(e) => setCostPerTool(parseInt(e.target.value))}
-            className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-          />
-          <div className="mt-2 text-center text-xl md:text-3xl font-bold text-white">{getCurrency(language)}{costPerTool}</div>
-        </div>
-        
-        <div>
-          <label className="block text-sm font-semibold text-slate-300 mb-3">
-            Number of Employees
-          </label>
-          <input
-            type="range"
-            min="10"
-            max="1000"
-            step="10"
-            value={employees}
-            onChange={(e) => setEmployees(parseInt(e.target.value))}
-            className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-          />
-          <div className="mt-2 text-center text-xl md:text-3xl font-bold text-white">{employees}</div>
-        </div>
-      </div>
-      
-      {/* Results */}
-      <div className="rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/20 to-blue-500/20 p-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <div className="text-sm font-semibold text-emerald-400 uppercase tracking-wider mb-2">
-              Your {t("annual_saas_spend")}
-            </div>
-            <div className="text-2xl md:text-4xl font-black text-white mb-4">
-              {getCurrency(language)}{totalSpend.toLocaleString()}
-            </div>
-          </div>
-          
-          <div>
-            <div className="text-sm font-semibold text-emerald-400 uppercase tracking-wider mb-2">
-              Potential Savings with Stacklens
-            </div>
-            <div className="text-2xl md:text-5xl font-black text-emerald-400 mb-2">
-              {getCurrency(language)}{potentialSavings.toLocaleString()}/year
-            </div>
-            <div className="text-sm text-slate-400">
-              ≈ {unusedLicenses} unused licenses • {wastePercentage}% waste reduction
-            </div>
-          </div>
-        </div>
-        
-        <div className="mt-8 pt-6 border-t border-white/10">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="text-slate-300">
-              💰 <span className="font-semibold">ROI in first 90 days</span> with our average customer
-            </div>
-            <button 
-              onClick={() => {
-                const trialBtn = document.querySelector('[data-start-trial]');
-                if (trialBtn) trialBtn.click();
-              }}
-              className="px-4 md:px-8 py-4 bg-gradient-to-r from-emerald-600 to-blue-600 hover:from-emerald-500 hover:to-blue-500 rounded-xl font-bold text-lg transition-all hover:scale-105"
-            >
-              Start Free Trial →
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-
-function ExitIntentModal({ open, onClose, onContinue }) {
-  const { language } = useLang();
-  const t = useTranslation(language);
-  return (
-    <Modal
-      open={open}
-      title={t('exit_intent_title')}
-      subtitle={t('exit_intent_sub')}
-      onClose={onClose}
-      footer={
-        <div className="flex justify-end gap-2">
-          <Button variant="ghost" onClick={onClose}>
-            {t('close')}
-          </Button>
-          <Button
-            onClick={() => {
-              onClose();
-              onContinue();
-            }}
-          >
-            <Sparkles className="h-4 w-4" />
-            {t('exit_intent_continue')}
-          </Button>
-        </div>
-      }
-    >
-      <div className="space-y-3 text-sm text-slate-300">
-        <div className="rounded-2xl border border-slate-800 bg-slate-950/30 p-4">
-          <div className="text-sm font-semibold text-slate-100">{t('exit_intent_case_study')}</div>
-          <div className="mt-2 text-slate-400">&ldquo;{t('exit_intent_quote')}&rdquo;</div>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <Pill tone="amber" icon={AlertTriangle}>
-              {t('exit_intent_pill1')}
-            </Pill>
-            <Pill tone="rose" icon={UserMinus}>
-              {t('exit_intent_pill2')}
-            </Pill>
-            <Pill tone="blue" icon={Download}>
-              {t('exit_intent_pill3')}
-            </Pill>
-          </div>
-        </div>
-      </div>
-    </Modal>
-  );
-}
-
 
 function PageLoader() {
   return (
