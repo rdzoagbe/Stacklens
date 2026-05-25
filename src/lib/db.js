@@ -39,7 +39,7 @@ const LS_SIZE_WARN_BYTES = 3 * 1024 * 1024;
 const LS_SIZE_MAX_BYTES  = 4.5 * 1024 * 1024;
 
 export function saveDb(db) {
-  const serialized = JSON.stringify(db);
+  const serialized = JSON.stringify({ ...db, _saved_at: Date.now() });
   if (serialized.length > LS_SIZE_MAX_BYTES) {
     const trimmed = { ...db };
     if (trimmed.tools?.length > 50) trimmed.tools = trimmed.tools.slice(0, Math.floor(trimmed.tools.length * 0.8));
@@ -74,31 +74,44 @@ export async function hydrateFromFirestore(uid) {
     localStorage.setItem('sg_auth_uid', uid);
 
     const freshLocal = loadDb();
+    const localTs = freshLocal?._saved_at || 0;
+    const cloudTs = cloudData?._saved_at  || 0;
 
-    if (freshLocal && (freshLocal.tools?.length > 0 || freshLocal.employees?.length > 0)) {
-      if (cloudData?.user?.plan && cloudData.user.plan !== 'free') {
-        freshLocal.user = { ...freshLocal.user, plan: cloudData.user.plan, subscription_plan: cloudData.user.plan };
-        saveDb(freshLocal);
+    // Billing fields always come from Firestore (only the webhook can set them)
+    const mergeBilling = (target, cloud) => {
+      if (!cloud?.user) return target;
+      if (!target.user) target.user = {};
+      if (cloud.user.plan && cloud.user.plan !== 'free') {
+        target.user.plan = cloud.user.plan;
+        target.user.subscription_plan = cloud.user.plan;
       }
-      return freshLocal;
+      target.user.stripe_customer_id  = cloud.user.stripe_customer_id  || target.user.stripe_customer_id;
+      target.user.subscription_status = cloud.user.subscription_status || target.user.subscription_status;
+      return target;
+    };
+
+    // No local data at all → use cloud
+    if (!freshLocal || (!freshLocal.tools?.length && !freshLocal.employees?.length)) {
+      if (cloudData && cloudData.tools !== undefined) {
+        localStorage.setItem(LS_KEY, JSON.stringify(cloudData));
+        return cloudData;
+      }
+      // New user — nothing in cloud either, push local stub up
+      const local = loadDb();
+      if (local && !local.user?.is_demo) await saveUserData(uid, local).catch(() => {});
+      return local;
     }
-    if (cloudData && cloudData.tools !== undefined) {
-      const existing = loadDb();
-      if (existing?.user?.plan && existing.user.plan !== 'free') {
-        if (!cloudData.user) cloudData.user = {};
-        cloudData.user.plan = existing.user.plan;
-        cloudData.user.subscription_plan = existing.user.plan;
-        cloudData.user.stripe_customer_id = existing.user.stripe_customer_id || cloudData.user.stripe_customer_id;
-        cloudData.user.subscription_status = existing.user.subscription_status || cloudData.user.subscription_status;
-      }
+
+    // Both exist — use the newer copy, always trust cloud for billing
+    if (cloudData && cloudData.tools !== undefined && cloudTs > localTs) {
       localStorage.setItem(LS_KEY, JSON.stringify(cloudData));
       return cloudData;
     }
-    const local = loadDb();
-    if (local && !local.user?.is_demo) {
-      await saveUserData(uid, local);
-    }
-    return local;
+
+    // Local is newer (or cloud missing) — merge billing from cloud and return local
+    const merged = mergeBilling(freshLocal, cloudData);
+    if (merged !== freshLocal) saveDb(merged);
+    return merged;
   } catch (err) {
     console.warn('Firestore hydration failed, using local cache:', err);
     return loadDb();
