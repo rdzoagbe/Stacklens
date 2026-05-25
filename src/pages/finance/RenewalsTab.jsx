@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import {
   AlertTriangle, ArrowDown, ArrowUp, BarChart3, Boxes, Calendar,
   CalendarClock, Check, CheckCircle, CreditCard, DollarSign, Download,
-  Filter, Mail, Search, Sparkles, Target, TrendingDown, TrendingUp,
-  Upload, Users, X,
+  Filter, Loader, Mail, Search, Send, Sparkles, Target, TrendingDown,
+  TrendingUp, Upload, Users, X,
 } from 'lucide-react';
 import {
   buildRiskAlerts, computeToolDerivedRisk, convertCurrency,
@@ -233,6 +234,78 @@ export function RenewalAlerts() {
     URL.revokeObjectURL(url);
   };
 
+  // Slack renewal digest
+  const [slackSending, setSlackSending] = useState(false);
+  const [slackSent, setSlackSent] = useState(false);
+  const slackToken   = localStorage.getItem('sg_slack_token');
+  const slackChannel = localStorage.getItem('sg_slack_channel') || '#renewals';
+
+  const sendSlackAlert = async () => {
+    if (!slackToken) return;
+    setSlackSending(true);
+    setSlackSent(false);
+    try {
+      const alertItems = [...overdue, ...critical, ...urgent, ...upcoming]
+        .sort((a, b) => a.daysUntil - b.daysUntil)
+        .slice(0, 10);
+
+      const statusEmoji = (r) => {
+        if (r.status === 'overdue')  return '🔴';
+        if (r.status === 'critical') return '🟠';
+        if (r.status === 'urgent')   return '🟡';
+        return '🟢';
+      };
+      const curr = getCurrency(language);
+
+      const blocks = [
+        { type: 'header', text: { type: 'plain_text', text: '🔔 Renewal Digest — Stacklens', emoji: true } },
+        {
+          type: 'section',
+          text: {
+            type: 'mrkdwn',
+            text: `*${alertItems.length} tool${alertItems.length !== 1 ? 's' : ''} renewing in the next 90 days* — ${curr}${convertCurrency(Math.round(totalAtRisk), language).toLocaleString()} at risk`,
+          },
+        },
+        { type: 'divider' },
+        ...alertItems.map(r => {
+          const dateStr = new Date(r.renewalDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+          const daysStr = r.daysUntil < 0 ? `*${Math.abs(r.daysUntil)}d overdue*` : r.daysUntil === 0 ? '*today*' : `in ${r.daysUntil}d`;
+          return {
+            type: 'section',
+            text: {
+              type: 'mrkdwn',
+              text: `${statusEmoji(r)} *${r.app}* — ${curr}${convertCurrency(Math.round(r.annualCost), language).toLocaleString()}/yr — ${dateStr} (${daysStr})${r.autoRenew ? ' · _auto-renews_' : ''}`,
+            },
+          };
+        }),
+        { type: 'divider' },
+        {
+          type: 'context',
+          elements: [{ type: 'mrkdwn', text: `Sent from Stacklens · ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}` }],
+        },
+      ];
+
+      const res = await fetch('https://slack.com/api/chat.postMessage', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${slackToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channel: slackChannel, blocks, text: `Renewal Digest — ${alertItems.length} tools renewing in 90 days (${curr}${convertCurrency(Math.round(totalAtRisk), language).toLocaleString()} at risk)` }),
+      });
+      const data = await res.json();
+      if (!data.ok) {
+        if (data.error === 'channel_not_found') throw new Error(`Channel "${slackChannel}" not found — make sure the bot is invited: /invite @Stacklens`);
+        if (data.error === 'not_in_channel') throw new Error(`Bot is not in ${slackChannel}. Invite it first: /invite @Stacklens`);
+        if (data.error === 'missing_scope') throw new Error('Bot token needs chat:write scope. Add it in your Slack app → OAuth & Permissions.');
+        throw new Error(data.error || 'Slack API error');
+      }
+      setSlackSent(true);
+      setTimeout(() => setSlackSent(false), 4000);
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setSlackSending(false);
+    }
+  };
+
   // Status helpers
   const getStatusColor = (status) => {
     if (status === 'overdue') return 'bg-red-500/20 text-red-400 border-red-500/30';
@@ -251,6 +324,33 @@ export function RenewalAlerts() {
 
   return (
     <div className="space-y-6 w-full">
+
+      {/* ── Slack alert action ── */}
+      {slackToken && next90Days.length > 0 && (
+        <div className="flex items-center justify-between gap-4 bg-slate-900/60 border border-slate-800 rounded-xl px-4 py-3">
+          <div className="flex items-center gap-2 text-sm text-slate-400 min-w-0">
+            <span className="text-base">💬</span>
+            <span className="truncate">Send renewal digest to <span className="text-purple-400 font-semibold">{slackChannel}</span></span>
+          </div>
+          <button
+            onClick={sendSlackAlert}
+            disabled={slackSending || slackSent}
+            className={`flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors disabled:opacity-70 ${
+              slackSent
+                ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30'
+                : 'bg-purple-600 hover:bg-purple-500 text-white'
+            }`}
+          >
+            {slackSending ? (
+              <><Loader className="h-4 w-4 animate-spin" /> Sending…</>
+            ) : slackSent ? (
+              <><CheckCircle className="h-4 w-4" /> Sent!</>
+            ) : (
+              <><Send className="h-4 w-4" /> Send now</>
+            )}
+          </button>
+        </div>
+      )}
 
       {/* ── Row 1: KPI Strip ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
