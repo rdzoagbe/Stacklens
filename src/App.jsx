@@ -1,29 +1,19 @@
-import React, { useEffect, useMemo, useState, createContext, useContext, useRef, useCallback, Suspense } from "react";
-import {
-  BrowserRouter,
-  Navigate,
-  Route,
-  Routes,
-  Link,
-  useLocation,
-  useNavigate,
-  useSearchParams,
-} from "react-router-dom";
-import { signInWithGoogle, handleRedirectResult, signOutUser, onAuthChange, sendMagicLink, completeMagicLinkSignIn, callAI, loadUserData, saveUserData, syncUserProfile, getUserPlanFromFirestore, registerWithEmail, signInWithEmail, resetPassword, resendEmailVerification, createBillingPortal, createCheckoutSession, logConsent, startTrial, logLegalAcceptance, syncClaimsFromServer, sendInviteEmail } from './firebase-config';
-import { PLAN_TIERS, PLAN_LIMITS, TRIAL_DAYS, TRIAL_MS, resolvePlan, getTrialState, getPlanLimits } from './lib/plan';
-import { LS_KEY, CATEGORIES, EMP_DEPARTMENTS, TOOL_STATUS, CRITICALITY, RISK_SCORE, ACCESS_LEVEL, ACCESS_STATUS, RISK_FLAG } from './lib/constants';
-import { uid, todayISO, safeParseISO, setFirestoreUid, loadDb, saveDb, hydrateFromFirestore, seedDbIfEmpty, resetDb } from './lib/db';
-import { cx } from './lib/utils';
-import { computeToolDerivedStatus, computeToolDerivedRisk, getRiskEvidence, computeAccessDerivedRiskFlag, buildRiskAlerts, riskSeverityCounts, validateEmail, validateRequired, formatMoney, getCurrency, convertCurrency, downloadText, toCsv, parseCsv, splitCsvLine } from './lib/dataUtils';
-import { useDbQuery, useDbMutations } from './hooks/useDbQuery';
+import React, { useEffect, useState, Suspense } from "react";
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { resendEmailVerification } from './firebase-config';
+import { getCurrency } from './lib/dataUtils';
 import { useAuth } from './hooks/useAuth';
-import { TourContext, TourProvider, useTour, ProductTourOverlay, TOUR_STEPS, TOUR_LS_KEY } from './contexts/TourContext';
-import { LanguageContext, LanguageProvider, useLang } from './contexts/LangContext';
-import { CurrencyContext, CurrencyProvider, useCurrency, useCurrencyConverter } from './contexts/CurrencyContext';
-import { RDLogo, ScrollToTop, Card, CardHeader, CardBody, Divider, Button, Input, Select, Textarea, Pill, Modal, SkeletonRow, EmptyState, DataTable, LiveStat, MiniStat, ProgressRow, CategoryIcon, StatusBadge, RiskBadge, AccessLevelBadge, RiskFlagBadge } from './components/ui';
-import { ROLES, getUserRole, can, RoleGate, RoleBadge, usePlanLimits, PlanGate, MODULE_PLANS, ModuleGate, PlanLimitBanner, TourEmptyState, TourLaunchButton } from './components/gates';
-import { AppShell, LangSelectorCompact, useRenewalAlerts, CookieBanner, DemoBanner, TrialExpiredBanner, ErrorBoundary } from './components/AppShell';
+import { TourProvider } from './contexts/TourContext';
+import { LanguageProvider, useLang } from './contexts/LangContext';
+import { CurrencyProvider } from './contexts/CurrencyContext';
+import { Button, Modal, Pill } from './components/ui';
+import { ModuleGate } from './components/gates';
+import { AppShell, CookieBanner, ErrorBoundary } from './components/AppShell';
 import { FloatingChatbotGated } from './components/FloatingChatbot';
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useTranslation } from './translations';
+import { Toaster } from 'react-hot-toast';
+import { Sparkles, AlertTriangle, UserMinus, Download } from "lucide-react";
 
 // ── Route-level code splitting ────────────────────────────────────────────────
 // Factory functions keep import() calls un-evaluated until first render (true lazy).
@@ -55,97 +45,6 @@ const SecurityPage      = React.lazy(() => import('./pages/LegalPages').then(m =
 // parent page chunks into the main bundle
 const LazyIntegrationConnectors = React.lazy(() => import('./pages/SettingsPage').then(m => ({ default: m.IntegrationConnectors })));
 const LazyImportWizard          = React.lazy(() => import('./pages/DashboardPage').then(m => ({ default: m.ImportWizard })));
-
-
-import {
-  QueryClient,
-  QueryClientProvider,
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
-import { useTranslation } from './translations';
-import toast, { Toaster } from 'react-hot-toast';
-import { differenceInDays, format } from "date-fns";
-import { AnimatePresence, motion } from "framer-motion"; // eslint-disable-line no-unused-vars
-// ExecutiveDashboard and AIInsights inlined below
-import {
-  Shield,
-  LayoutDashboard,
-  Boxes,
-  Users,
-  GitMerge,
-  Plug,
-  Upload,
-  UserMinus,
-  Download,
-  CreditCard,
-  Search,
-  Filter,
-  Plus,
-  Pencil,
-  Trash2,
-  AlertTriangle,
-  BadgeCheck,
-  BadgeX,
-  RefreshCw,
-  ExternalLink,
-  Lock,
-  Building2,
-  Briefcase,
-  Wrench,
-  Activity,
-  Calendar,
-  CalendarClock,
-  Sparkles,
-  Check,
-  X,
-  Info,
-  ChevronLeft,
-  ChevronRight,
-  ChevronUp,
-  ChevronDown,
-  Crown,
-  Play,
-  FileText,
-  Star,
-  Zap,
-  BarChart3,
-  TrendingUp,
-  CheckCircle,
-  Award,
-  Menu,
-  MessageCircle,
-  GitCompare,
-  FileDiff,
-  ArrowLeftRight,
-  TrendingDown,
-  BarChart2,
-  Settings,
-  Target,
-  PieChart,
-  Bell,
-  ArrowUp,
-  ArrowDown,
-  DollarSign,
-  Mail,
-  Eye,
-} from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, CartesianGrid, PieChart as RPieChart, Pie, Cell } from 'recharts';
-
-// ============================================================================
-// GLOBAL LANGUAGE CONTEXT — single source of truth for all pages
-// ============================================================================
-// LanguageContext, LanguageProvider, useLang — imported from ./contexts/LangContext
-// ============================================================================
-
-
-
-// TourContext, TourProvider, useTour, ProductTourOverlay, TOUR_STEPS, TOUR_LS_KEY
-// — imported from ./contexts/TourContext
-
-// useDbQuery, useDbMutations — imported from ./hooks/useDbQuery
-// useAuth — imported from ./hooks/useAuth
 
 function EmailVerificationWall({ email }) {
   const { language } = useLang();
@@ -217,10 +116,6 @@ function RequireAuth({ children }) {
   return children;
 }
 
-// NAV uses translation keys — labels resolved in Sidebar/AppShell with t()
-// ============================================================================
-// ROI CALCULATOR COMPONENT
-// ============================================================================
 function ROICalculator() {
   const { language } = useLang();
   const t = useTranslation(language);
