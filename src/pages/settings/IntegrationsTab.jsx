@@ -71,8 +71,9 @@ function mapGoogleUser(u) {
 
 // ── Slack Bot Token + users.list ─────────────────────────────────────────
 const SLACK_API = 'https://slack.com/api';
-const SLACK_TOKEN_KEY = 'sg_slack_token';
-const SLACK_SYNC_KEY  = 'sg_slack_last_sync';
+const SLACK_TOKEN_KEY   = 'sg_slack_token';
+const SLACK_CHANNEL_KEY = 'sg_slack_channel';
+const SLACK_SYNC_KEY    = 'sg_slack_last_sync';
 
 async function fetchAllSlackUsers(token) {
   const members = [];
@@ -112,14 +113,16 @@ function mapSlackUser(u) {
 // ── Slack token input modal ───────────────────────────────────────────────
 function SlackTokenModal({ onSubmit, onClose, loading }) {
   const [token, setToken] = useState('');
+  const [channel, setChannel] = useState(localStorage.getItem(SLACK_CHANNEL_KEY) || '#renewals');
   const [showToken, setShowToken] = useState(false);
 
   const steps = [
     { n: 1, text: 'Go to api.slack.com/apps → Create New App → From scratch' },
     { n: 2, text: 'Name the app (e.g. "Stacklens") and choose your workspace' },
-    { n: 3, text: 'Go to OAuth & Permissions → Bot Token Scopes → Add: users:read and users:read.email' },
+    { n: 3, text: 'Go to OAuth & Permissions → Bot Token Scopes → Add: users:read, users:read.email, and chat:write' },
     { n: 4, text: 'Click "Install to Workspace" and approve the permissions' },
-    { n: 5, text: 'Copy the Bot User OAuth Token (starts with xoxb-)' },
+    { n: 5, text: 'Invite the bot to your alerts channel: /invite @Stacklens' },
+    { n: 6, text: 'Copy the Bot User OAuth Token (starts with xoxb-)' },
   ];
 
   return (
@@ -160,13 +163,24 @@ function SlackTokenModal({ onSubmit, onClose, loading }) {
           </div>
           <p className="text-xs text-slate-500 mt-1.5">Stored locally in your browser. Never sent to Stacklens servers.</p>
         </div>
+        <div className="mb-6">
+          <label className="block text-sm font-semibold text-slate-300 mb-2">Alerts channel</label>
+          <input
+            type="text"
+            value={channel}
+            onChange={e => setChannel(e.target.value)}
+            placeholder="#renewals"
+            className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 text-sm"
+          />
+          <p className="text-xs text-slate-500 mt-1.5">Renewal alerts will be sent here. The bot must be invited to the channel first.</p>
+        </div>
         <div className="flex gap-3">
           <button onClick={onClose}
             className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-sm font-semibold text-slate-300 transition-colors">
             Cancel
           </button>
           <button
-            onClick={() => onSubmit(token.trim())}
+            onClick={() => onSubmit(token.trim(), channel.trim() || '#renewals')}
             disabled={!token.trim() || loading}
             className="flex-1 py-2.5 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 rounded-xl text-sm font-semibold text-white transition-colors flex items-center justify-center gap-2">
             {loading ? <><Loader className="h-4 w-4 animate-spin" /> Syncing…</> : 'Connect & Sync'}
@@ -453,7 +467,7 @@ export function IntegrationConnectors() {
     }
   }, [db?.employees, connectedIntegrations, muts]);
 
-  const handleSlackTokenSubmit = useCallback(async (token) => {
+  const handleSlackTokenSubmit = useCallback(async (token, channel = '#renewals') => {
     if (!token) return;
     setSlackSyncing(true);
     setSyncResult(null);
@@ -491,8 +505,9 @@ export function IntegrationConnectors() {
         await muts.updateEmployee.mutateAsync({ id, patch });
       }
 
-      // Persist token and connected state
+      // Persist token, channel, and connected state
       localStorage.setItem(SLACK_TOKEN_KEY, token);
+      localStorage.setItem(SLACK_CHANNEL_KEY, channel);
       localStorage.setItem(SLACK_SYNC_KEY, new Date().toISOString());
       const next = connectedIntegrations.includes('slack')
         ? connectedIntegrations
@@ -532,6 +547,7 @@ export function IntegrationConnectors() {
     }
     if (integrationId === 'slack') {
       localStorage.removeItem(SLACK_TOKEN_KEY);
+      localStorage.removeItem(SLACK_CHANNEL_KEY);
       localStorage.removeItem(SLACK_SYNC_KEY);
       setSyncResult(null);
     }
@@ -716,9 +732,14 @@ export function IntegrationConnectors() {
                   </div>
                 )}
                 {connected && integration.id === 'slack' && lastSlackSync && (
-                  <div className="flex items-center gap-1.5 text-xs text-slate-500 mb-3">
+                  <div className="flex items-center gap-1.5 text-xs text-slate-500 mb-1">
                     <RefreshCw className="h-3 w-3" />
                     Last synced {new Date(lastSlackSync).toLocaleString()}
+                  </div>
+                )}
+                {connected && integration.id === 'slack' && localStorage.getItem(SLACK_CHANNEL_KEY) && (
+                  <div className="flex items-center gap-1.5 text-xs text-purple-400 mb-3">
+                    <span className="font-mono">🔔 alerts → {localStorage.getItem(SLACK_CHANNEL_KEY)}</span>
                   </div>
                 )}
                 {connected && (integration.id === 'google-workspace' || integration.id === 'slack') && db?.employees?.length > 0 && (
