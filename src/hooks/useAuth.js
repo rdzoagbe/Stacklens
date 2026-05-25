@@ -96,7 +96,24 @@ export function useAuth() {
           trial_started_at: trialStartedAt,
         });
 
-        const cur = loadDb() || seedDbIfEmpty();
+        // Enable Firestore saves immediately — _firestoreUid was never set for
+        // non-redirect sign-ins, so saveDb() silently skipped cloud sync.
+        setFirestoreUid(fbUser.uid);
+
+        // Hydrate from Firestore when localStorage is empty (cleared, new device)
+        // or on the very first auth event of this browser session.
+        // sessionStorage key prevents redundant reads on subsequent navigations.
+        const hydratedKey = 'sg_hydrated_' + fbUser.uid;
+        const localData = loadDb();
+        let cur;
+        if (!sessionStorage.getItem(hydratedKey) || !localData) {
+          sessionStorage.setItem(hydratedKey, '1');
+          const cloudDb = await hydrateFromFirestore(fbUser.uid);
+          cur = cloudDb || localData || { user: {}, tools: [], employees: [], access: [], contracts: [], invoices: [], licenses: [] };
+        } else {
+          cur = localData;
+        }
+
         cur.user = {
           ...cur.user,
           is_authenticated:   true,
