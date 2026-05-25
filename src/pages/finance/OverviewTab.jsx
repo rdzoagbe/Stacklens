@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
   AlertTriangle, ArrowDown, ArrowUp, BarChart3, Boxes, Calendar,
@@ -18,9 +18,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../hooks/useAuth';
 import { useLang } from '../../contexts/LangContext';
 import { useTranslation } from '../../translations';
-import { Card, Modal, Pill, Select } from '../../components/ui';
-import { PlanGate } from '../../components/gates';
-import { AppShell } from '../../components/AppShell';
+import { Card } from '../../components/ui';
 
 function SpendTrendChart({ monthlyTrend, byCategory }) {
   const { language } = useLang();

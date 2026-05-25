@@ -1,25 +1,19 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
-import toast from 'react-hot-toast';
+import { useNavigate } from 'react-router-dom';
 import {
   AlertTriangle, ArrowDown, ArrowUp, BarChart3, Boxes, Calendar,
   CalendarClock, Check, CheckCircle, CreditCard, DollarSign, Download,
   Filter, Mail, Search, Sparkles, Target, TrendingDown, TrendingUp,
   Upload, Users, X,
 } from 'lucide-react';
-import { saveUserData } from '../../firebase-config';
-import { loadDb, saveDb } from '../../lib/db';
 import {
   buildRiskAlerts, computeToolDerivedRisk, convertCurrency,
   formatMoney, getCurrency,
 } from '../../lib/dataUtils';
 import { useDbQuery } from '../../hooks/useDbQuery';
-import { useQueryClient } from '@tanstack/react-query';
-import { useAuth } from '../../hooks/useAuth';
 import { useLang } from '../../contexts/LangContext';
 import { useTranslation } from '../../translations';
 import { Card, Modal, Pill, Select } from '../../components/ui';
-import { PlanGate } from '../../components/gates';
 import { AppShell } from '../../components/AppShell';
 import { ContractComparisonPage } from '../ContractComparisonPage';
 
