@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import toast from 'react-hot-toast';
-import { Check, CheckCircle, Loader, Plug, RefreshCw, Search, Users, X } from 'lucide-react';
+import { Check, CheckCircle, Eye, EyeOff, Loader, Plug, RefreshCw, Search, Users, X } from 'lucide-react';
 import { useLang } from '../../contexts/LangContext';
 import { useTranslation } from '../../translations';
 import { useDbQuery, useDbMutations } from '../../hooks/useDbQuery';
@@ -69,6 +69,114 @@ function mapGoogleUser(u) {
   };
 }
 
+// ── Slack Bot Token + users.list ─────────────────────────────────────────
+const SLACK_API = 'https://slack.com/api';
+const SLACK_TOKEN_KEY = 'sg_slack_token';
+const SLACK_SYNC_KEY  = 'sg_slack_last_sync';
+
+async function fetchAllSlackUsers(token) {
+  const members = [];
+  let cursor = '';
+  do {
+    const params = new URLSearchParams({ limit: '200', include_locale: 'false' });
+    if (cursor) params.set('cursor', cursor);
+    const res = await fetch(`${SLACK_API}/users.list?${params}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await res.json();
+    if (!data.ok) {
+      if (data.error === 'missing_scope') throw new Error('Bot token needs users:read and users:read.email scopes. Re-create the token with both scopes enabled.');
+      if (data.error === 'invalid_auth' || data.error === 'not_authed') throw new Error('Invalid Bot Token. Check that you copied the full xoxb-… token.');
+      throw new Error(data.error || 'Slack API error');
+    }
+    const real = (data.members || []).filter(m => !m.is_bot && !m.deleted && m.id !== 'USLACKBOT');
+    members.push(...real);
+    cursor = data.response_metadata?.next_cursor || '';
+  } while (cursor);
+  return members;
+}
+
+function mapSlackUser(u) {
+  const p = u.profile || {};
+  return {
+    full_name:  p.real_name || p.display_name || u.name || '',
+    email:      p.email || '',
+    department: p.fields?.['Xf...']?.value || '',
+    role:       p.title || '',
+    status:     u.deleted ? 'inactive' : 'active',
+    start_date: '',
+    end_date:   '',
+  };
+}
+
+// ── Slack token input modal ───────────────────────────────────────────────
+function SlackTokenModal({ onSubmit, onClose, loading }) {
+  const [token, setToken] = useState('');
+  const [showToken, setShowToken] = useState(false);
+
+  const steps = [
+    { n: 1, text: 'Go to api.slack.com/apps → Create New App → From scratch' },
+    { n: 2, text: 'Name the app (e.g. "Stacklens") and choose your workspace' },
+    { n: 3, text: 'Go to OAuth & Permissions → Bot Token Scopes → Add: users:read and users:read.email' },
+    { n: 4, text: 'Click "Install to Workspace" and approve the permissions' },
+    { n: 5, text: 'Copy the Bot User OAuth Token (starts with xoxb-)' },
+  ];
+
+  return (
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-6">
+      <div className="bg-slate-900 rounded-3xl border border-slate-700 p-8 max-w-lg w-full">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <span className="text-3xl">💬</span>
+            <div>
+              <h3 className="text-xl font-bold text-white">Connect Slack</h3>
+              <p className="text-sm text-slate-400">One-time configuration required</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors"><X className="h-5 w-5" /></button>
+        </div>
+        <ol className="space-y-3 mb-6">
+          {steps.map(item => (
+            <li key={item.n} className="flex gap-3">
+              <span className="flex-shrink-0 w-6 h-6 rounded-full bg-purple-600 text-white text-xs font-bold flex items-center justify-center mt-0.5">{item.n}</span>
+              <span className="text-sm text-slate-300">{item.text}</span>
+            </li>
+          ))}
+        </ol>
+        <div className="mb-6">
+          <label className="block text-sm font-semibold text-slate-300 mb-2">Bot User OAuth Token</label>
+          <div className="relative">
+            <input
+              type={showToken ? 'text' : 'password'}
+              value={token}
+              onChange={e => setToken(e.target.value)}
+              placeholder="xoxb-…"
+              className="w-full pr-10 pl-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 font-mono text-sm"
+            />
+            <button type="button" onClick={() => setShowToken(v => !v)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors">
+              {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+          <p className="text-xs text-slate-500 mt-1.5">Stored locally in your browser. Never sent to Stacklens servers.</p>
+        </div>
+        <div className="flex gap-3">
+          <button onClick={onClose}
+            className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-sm font-semibold text-slate-300 transition-colors">
+            Cancel
+          </button>
+          <button
+            onClick={() => onSubmit(token.trim())}
+            disabled={!token.trim() || loading}
+            className="flex-1 py-2.5 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 rounded-xl text-sm font-semibold text-white transition-colors flex items-center justify-center gap-2">
+            {loading ? <><Loader className="h-4 w-4 animate-spin" /> Syncing…</> : 'Connect & Sync'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Setup instructions modal ──────────────────────────────────────────────
 function SetupModal({ integration, onClose }) {
   const steps = {
@@ -132,7 +240,7 @@ function SyncResult({ result, onDismiss }) {
           : (
             <>
               <p className="text-sm font-semibold text-emerald-400">
-                Google Workspace sync complete
+                {result.source === 'slack' ? 'Slack' : 'Google Workspace'} sync complete
               </p>
               <p className="text-xs text-emerald-300/80 mt-0.5">
                 {result.added} new · {result.updated} updated · {result.skipped} unchanged — {result.total} users total
@@ -153,8 +261,8 @@ export function IntegrationConnectors() {
   const muts = useDbMutations();
 
   const _savedConnected = (() => {
-    try { return JSON.parse(localStorage.getItem('sg_connected_integrations') || '["google-workspace","slack"]'); }
-    catch { return ['google-workspace', 'slack']; }
+    try { return JSON.parse(localStorage.getItem('sg_connected_integrations') || '[]'); }
+    catch { return []; }
   })();
   const [connectedIntegrations, setConnectedIntegrations] = useState(_savedConnected);
   const [searchQuery, setSearchQuery] = useState('');
@@ -163,6 +271,8 @@ export function IntegrationConnectors() {
   const [connecting, setConnecting] = useState(null);
   const [setupModal, setSetupModal] = useState(null);
   const [syncResult, setSyncResult] = useState(null);
+  const [slackTokenModal, setSlackTokenModal] = useState(false);
+  const [slackSyncing, setSlackSyncing] = useState(false);
 
   // Preload GIS so the popup fires synchronously on click
   useEffect(() => {
@@ -184,12 +294,12 @@ export function IntegrationConnectors() {
     {
       id: 'slack',
       name: 'Slack',
-      description: 'Send alerts, track usage, manage members',
+      description: 'Import workspace members into your employee directory — name, email, and job title synced automatically.',
       icon: '💬',
       category: 'Communication',
-      features: ['User Sync', 'Usage Analytics', 'Alert Notifications'],
-      status: 'coming-soon',
-      setupTime: '3 min',
+      features: ['User Sync', 'Email & name import', 'Active member filtering'],
+      status: 'available',
+      setupTime: '5 min',
     },
     {
       id: 'microsoft-365',
@@ -343,12 +453,86 @@ export function IntegrationConnectors() {
     }
   }, [db?.employees, connectedIntegrations, muts]);
 
+  const handleSlackTokenSubmit = useCallback(async (token) => {
+    if (!token) return;
+    setSlackSyncing(true);
+    setSyncResult(null);
+    try {
+      const slackUsers = await fetchAllSlackUsers(token);
+      const incoming = slackUsers.map(mapSlackUser).filter(u => u.email);
+
+      const existingByEmail = Object.fromEntries(
+        (db?.employees || []).map(e => [(e.email || '').toLowerCase(), e])
+      );
+
+      const toAdd = [];
+      const toUpdate = [];
+      let skipped = 0;
+
+      for (const u of incoming) {
+        const key = u.email.toLowerCase();
+        const existing = existingByEmail[key];
+        if (!existing) {
+          toAdd.push(u);
+        } else {
+          const patch = {};
+          if (u.full_name && u.full_name !== existing.full_name) patch.full_name = u.full_name;
+          if (u.role && !existing.role) patch.role = u.role;
+          if (u.status !== existing.status) patch.status = u.status;
+          if (Object.keys(patch).length > 0) toUpdate.push({ id: existing.id, patch });
+          else skipped++;
+        }
+      }
+
+      if (toAdd.length > 0) {
+        await muts.bulkImport.mutateAsync({ kind: 'employees', records: toAdd });
+      }
+      for (const { id, patch } of toUpdate) {
+        await muts.updateEmployee.mutateAsync({ id, patch });
+      }
+
+      // Persist token and connected state
+      localStorage.setItem(SLACK_TOKEN_KEY, token);
+      localStorage.setItem(SLACK_SYNC_KEY, new Date().toISOString());
+      const next = connectedIntegrations.includes('slack')
+        ? connectedIntegrations
+        : [...connectedIntegrations, 'slack'];
+      setConnectedIntegrations(next);
+      localStorage.setItem('sg_connected_integrations', JSON.stringify(next));
+
+      setSlackTokenModal(false);
+      setSyncResult({
+        source: 'slack',
+        total: incoming.length,
+        added: toAdd.length,
+        updated: toUpdate.length,
+        skipped,
+      });
+    } catch (err) {
+      setSyncResult({ source: 'slack', error: err.message });
+      toast.error('Slack sync failed');
+    } finally {
+      setSlackSyncing(false);
+    }
+  }, [db?.employees, connectedIntegrations, muts]);
+
+  const handleSlackResync = useCallback(async () => {
+    const token = localStorage.getItem(SLACK_TOKEN_KEY);
+    if (!token) { setSlackTokenModal(true); return; }
+    await handleSlackTokenSubmit(token);
+  }, [handleSlackTokenSubmit]);
+
   const handleDisconnect = (integrationId) => {
     const next = connectedIntegrations.filter(id => id !== integrationId);
     setConnectedIntegrations(next);
     localStorage.setItem('sg_connected_integrations', JSON.stringify(next));
     if (integrationId === 'google-workspace') {
       localStorage.removeItem('sg_gws_last_sync');
+      setSyncResult(null);
+    }
+    if (integrationId === 'slack') {
+      localStorage.removeItem(SLACK_TOKEN_KEY);
+      localStorage.removeItem(SLACK_SYNC_KEY);
       setSyncResult(null);
     }
   };
@@ -362,11 +546,16 @@ export function IntegrationConnectors() {
       handleGoogleWorkspaceConnect();
       return;
     }
-    // Others not yet implemented — show coming soon
+    if (integration.id === 'slack') {
+      setSlackTokenModal(true);
+      return;
+    }
+    // Others not yet implemented
   };
 
   const isConnected = (id) => connectedIntegrations.includes(id);
-  const lastSync = localStorage.getItem('sg_gws_last_sync');
+  const lastGWSSync   = localStorage.getItem('sg_gws_last_sync');
+  const lastSlackSync = localStorage.getItem(SLACK_SYNC_KEY);
 
   const filteredIntegrations = useMemo(() => {
     return integrations.filter(integration => {
@@ -394,6 +583,15 @@ export function IntegrationConnectors() {
       {/* Setup modal */}
       {setupModal && <SetupModal integration={setupModal} onClose={() => setSetupModal(null)} />}
 
+      {/* Slack token modal */}
+      {slackTokenModal && (
+        <SlackTokenModal
+          loading={slackSyncing}
+          onSubmit={handleSlackTokenSubmit}
+          onClose={() => setSlackTokenModal(false)}
+        />
+      )}
+
       {/* Stats header */}
       <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded-2xl p-6">
         <div className="flex items-center gap-4 mb-6">
@@ -404,15 +602,26 @@ export function IntegrationConnectors() {
             <h2 className="text-2xl font-black text-white">{t("integration_marketplace")}</h2>
             <p className="text-slate-400">Connect your tools to automate SaaS management</p>
           </div>
-          {isConnected('google-workspace') && lastSync && (
-            <button onClick={handleGoogleWorkspaceConnect} disabled={connecting === 'google-workspace'}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-xs font-semibold text-slate-300 transition-colors disabled:opacity-50">
-              {connecting === 'google-workspace'
-                ? <Loader className="h-3.5 w-3.5 animate-spin" />
-                : <RefreshCw className="h-3.5 w-3.5" />}
-              Re-sync Workspace
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {isConnected('google-workspace') && lastGWSSync && (
+              <button onClick={handleGoogleWorkspaceConnect} disabled={connecting === 'google-workspace'}
+                className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-xs font-semibold text-slate-300 transition-colors disabled:opacity-50">
+                {connecting === 'google-workspace'
+                  ? <Loader className="h-3.5 w-3.5 animate-spin" />
+                  : <RefreshCw className="h-3.5 w-3.5" />}
+                Re-sync Google
+              </button>
+            )}
+            {isConnected('slack') && lastSlackSync && (
+              <button onClick={handleSlackResync} disabled={slackSyncing}
+                className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-xs font-semibold text-slate-300 transition-colors disabled:opacity-50">
+                {slackSyncing
+                  ? <Loader className="h-3.5 w-3.5 animate-spin" />
+                  : <RefreshCw className="h-3.5 w-3.5" />}
+                Re-sync Slack
+              </button>
+            )}
+          </div>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="bg-slate-900/50 rounded-xl p-4 text-center border border-slate-800">
@@ -500,13 +709,19 @@ export function IntegrationConnectors() {
                 <p className="text-sm text-slate-400 mb-4">{integration.description}</p>
 
                 {/* Last sync info */}
-                {connected && integration.id === 'google-workspace' && lastSync && (
+                {connected && integration.id === 'google-workspace' && lastGWSSync && (
                   <div className="flex items-center gap-1.5 text-xs text-slate-500 mb-3">
                     <RefreshCw className="h-3 w-3" />
-                    Last synced {new Date(lastSync).toLocaleString()}
+                    Last synced {new Date(lastGWSSync).toLocaleString()}
                   </div>
                 )}
-                {connected && integration.id === 'google-workspace' && db?.employees?.length > 0 && (
+                {connected && integration.id === 'slack' && lastSlackSync && (
+                  <div className="flex items-center gap-1.5 text-xs text-slate-500 mb-3">
+                    <RefreshCw className="h-3 w-3" />
+                    Last synced {new Date(lastSlackSync).toLocaleString()}
+                  </div>
+                )}
+                {connected && (integration.id === 'google-workspace' || integration.id === 'slack') && db?.employees?.length > 0 && (
                   <div className="flex items-center gap-1.5 text-xs text-emerald-400 mb-3">
                     <Users className="h-3 w-3" />
                     {db.employees.length} employees in directory
@@ -534,6 +749,12 @@ export function IntegrationConnectors() {
                       <button onClick={() => handleConnect(integration)} disabled={isConnecting}
                         className="w-full py-2.5 rounded-xl font-bold bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm transition-colors flex items-center justify-center gap-2">
                         {isConnecting ? <><Loader className="h-4 w-4 animate-spin" /> Syncing…</> : <><RefreshCw className="h-4 w-4" /> Sync now</>}
+                      </button>
+                    )}
+                    {integration.id === 'slack' && (
+                      <button onClick={handleSlackResync} disabled={slackSyncing}
+                        className="w-full py-2.5 rounded-xl font-bold bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white text-sm transition-colors flex items-center justify-center gap-2">
+                        {slackSyncing ? <><Loader className="h-4 w-4 animate-spin" /> Syncing…</> : <><RefreshCw className="h-4 w-4" /> Sync now</>}
                       </button>
                     )}
                     <button onClick={() => handleDisconnect(integration.id)}
