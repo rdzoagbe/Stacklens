@@ -40,7 +40,7 @@ const SecurityPage      = React.lazy(() => import('./pages/LegalPages').then(m =
 
 // Sub-components used inside SetupConnectionsHub — lazy so they don't pull their
 // parent page chunks into the main bundle
-const LazyIntegrationConnectors = React.lazy(() => import('./pages/SettingsPage').then(m => ({ default: m.IntegrationConnectors })));
+const LazyIntegrationConnectors = React.lazy(() => import('./pages/settings/IntegrationsTab').then(m => ({ default: m.IntegrationConnectors })));
 const LazyImportWizard          = React.lazy(() => import('./pages/DashboardPage').then(m => ({ default: m.ImportWizard })));
 
 function EmailVerificationWall({ email }) {
