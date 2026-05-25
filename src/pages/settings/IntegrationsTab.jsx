@@ -110,6 +110,73 @@ function mapSlackUser(u) {
   };
 }
 
+// ── Microsoft 365 / Azure AD via MSAL ────────────────────────────────────
+const M365_CLIENT_ID  = import.meta.env.VITE_AZURE_CLIENT_ID;
+const GRAPH_SCOPES    = ['https://graph.microsoft.com/User.Read.All'];
+const GRAPH_USERS_API = 'https://graph.microsoft.com/v1.0/users';
+const M365_SYNC_KEY   = 'sg_m365_last_sync';
+
+let _msalApp = null;
+
+async function getMSALApp() {
+  if (_msalApp) return _msalApp;
+  const { PublicClientApplication } = await import('@azure/msal-browser');
+  const app = new PublicClientApplication({
+    auth: {
+      clientId: M365_CLIENT_ID,
+      authority: 'https://login.microsoftonline.com/organizations',
+      redirectUri: window.location.origin,
+    },
+    cache: { cacheLocation: 'sessionStorage', storeAuthStateInCookie: false },
+    system: { loggerOptions: { loggerCallback: () => {}, logLevel: 3 } },
+  });
+  await app.initialize();
+  _msalApp = app;
+  return app;
+}
+
+async function acquireMSToken() {
+  const app = await getMSALApp();
+  const accounts = app.getAllAccounts();
+  if (accounts.length) {
+    try {
+      const r = await app.acquireTokenSilent({ scopes: GRAPH_SCOPES, account: accounts[0] });
+      return r.accessToken;
+    } catch { /* fall through to popup */ }
+  }
+  const r = await app.loginPopup({ scopes: GRAPH_SCOPES });
+  return r.accessToken;
+}
+
+async function fetchAllGraphUsers(accessToken) {
+  const users = [];
+  let url = `${GRAPH_USERS_API}?$select=displayName,mail,userPrincipalName,department,jobTitle,accountEnabled&$top=999`;
+  while (url) {
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      if (res.status === 403) throw new Error('Permission denied. The signing-in user must be a Global Administrator and the app needs User.Read.All admin consent.');
+      throw new Error(body.error?.message || `HTTP ${res.status}`);
+    }
+    const data = await res.json();
+    if (data.value) users.push(...data.value.filter(u => u.mail || u.userPrincipalName));
+    url = data['@odata.nextLink'] || null;
+  }
+  return users;
+}
+
+function mapMicrosoftUser(u) {
+  return {
+    full_name:  u.displayName || (u.mail || u.userPrincipalName).split('@')[0],
+    email:      u.mail || u.userPrincipalName,
+    department: u.department || '',
+    role:       u.jobTitle || '',
+    status:     u.accountEnabled !== false ? 'active' : 'inactive',
+    start_date: '',
+    end_date:   '',
+  };
+}
+
 // ── Slack token input modal ───────────────────────────────────────────────
 function SlackTokenModal({ onSubmit, onClose, loading }) {
   const [token, setToken] = useState('');
@@ -203,8 +270,31 @@ function SetupModal({ integration, onClose }) {
       { n: 6, text: 'On the OAuth consent screen add scope: admin.directory.user.readonly' },
       { n: 7, text: 'The user who authorises must be a Google Workspace admin' },
     ],
+    'microsoft-365': [
+      { n: 1, text: 'Go to portal.azure.com → Azure Active Directory → App registrations → New registration' },
+      { n: 2, text: 'Name: "Stacklens", Supported account types: "Accounts in this organizational directory only"' },
+      { n: 3, text: 'Redirect URI: choose "Single-page application (SPA)" and add your app domain' },
+      { n: 4, text: 'Go to API permissions → Add a permission → Microsoft Graph → Delegated → User.Read.All' },
+      { n: 5, text: 'Click "Grant admin consent for [your org]" (requires Global Administrator role)' },
+      { n: 6, text: 'Copy the Application (client) ID and add it as VITE_AZURE_CLIENT_ID in your .env file' },
+    ],
+  };
+  const notes = {
+    'google-workspace': (
+      <p className="text-xs text-amber-300">
+        <strong>Note:</strong> <code className="bg-black/30 px-1 rounded">admin.directory.user.readonly</code> is a restricted Google scope.
+        For internal use it works immediately. For a public app, Google requires an OAuth app verification review.
+      </p>
+    ),
+    'microsoft-365': (
+      <p className="text-xs text-amber-300">
+        <strong>Note:</strong> <code className="bg-black/30 px-1 rounded">User.Read.All</code> requires tenant admin consent.
+        The first user to connect must be a Global Administrator — they'll see a consent screen covering all users in the org.
+      </p>
+    ),
   };
   const items = steps[integration?.id] || [];
+  const note  = notes[integration?.id] || null;
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-6">
       <div className="bg-slate-900 rounded-3xl border border-slate-700 p-8 max-w-lg w-full">
@@ -226,12 +316,9 @@ function SetupModal({ integration, onClose }) {
             </li>
           ))}
         </ol>
-        <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 mb-6">
-          <p className="text-xs text-amber-300">
-            <strong>Note:</strong> <code className="bg-black/30 px-1 rounded">admin.directory.user.readonly</code> is a restricted Google scope.
-            For internal use it works immediately. For a public app, Google requires an OAuth app verification review.
-          </p>
-        </div>
+        {note && (
+          <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 mb-6">{note}</div>
+        )}
         <button onClick={onClose} className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-sm font-semibold text-slate-300 transition-colors">
           Close — I'll set it up
         </button>
@@ -254,7 +341,7 @@ function SyncResult({ result, onDismiss }) {
           : (
             <>
               <p className="text-sm font-semibold text-emerald-400">
-                {result.source === 'slack' ? 'Slack' : 'Google Workspace'} sync complete
+                {{ 'slack': 'Slack', 'microsoft-365': 'Microsoft 365' }[result.source] || 'Google Workspace'} sync complete
               </p>
               <p className="text-xs text-emerald-300/80 mt-0.5">
                 {result.added} new · {result.updated} updated · {result.skipped} unchanged — {result.total} users total
@@ -288,9 +375,10 @@ export function IntegrationConnectors() {
   const [slackTokenModal, setSlackTokenModal] = useState(false);
   const [slackSyncing, setSlackSyncing] = useState(false);
 
-  // Preload GIS so the popup fires synchronously on click
+  // Preload GIS and MSAL so popups fire synchronously on click
   useEffect(() => {
     if (GWS_CLIENT_ID) loadGIS().catch(() => {});
+    if (M365_CLIENT_ID) getMSALApp().catch(() => {});
   }, []);
 
   const integrations = [
@@ -318,12 +406,13 @@ export function IntegrationConnectors() {
     {
       id: 'microsoft-365',
       name: 'Microsoft 365',
-      description: 'Azure AD sync, license tracking, usage monitoring',
+      description: 'Import users from Azure Active Directory — display name, email, department, job title, and account status synced automatically.',
       icon: '🟦',
       category: 'Identity & Directory',
-      features: ['Azure AD Sync', 'License Management', 'Usage Reports'],
-      status: 'coming-soon',
-      setupTime: '5 min',
+      features: ['Azure AD User Sync', 'Department & job title import', 'Enabled/disabled status'],
+      status: 'available',
+      setupTime: '10 min',
+      requiresSetup: !M365_CLIENT_ID,
     },
     {
       id: 'github',
@@ -537,6 +626,59 @@ export function IntegrationConnectors() {
     await handleSlackTokenSubmit(token);
   }, [handleSlackTokenSubmit]);
 
+  const handleMicrosoftConnect = useCallback(async () => {
+    if (!M365_CLIENT_ID) {
+      setSetupModal(integrations.find(i => i.id === 'microsoft-365'));
+      return;
+    }
+    setConnecting('microsoft-365');
+    setSyncResult(null);
+    try {
+      const accessToken = await acquireMSToken();
+      const msUsers = await fetchAllGraphUsers(accessToken);
+      const incoming = msUsers.map(mapMicrosoftUser);
+
+      const existingByEmail = Object.fromEntries(
+        (db?.employees || []).map(e => [(e.email || '').toLowerCase(), e])
+      );
+      const toAdd = [], toUpdate = [];
+      let skipped = 0;
+      for (const u of incoming) {
+        const key = u.email.toLowerCase();
+        const existing = existingByEmail[key];
+        if (!existing) {
+          toAdd.push(u);
+        } else {
+          const patch = {};
+          if (u.full_name && u.full_name !== existing.full_name) patch.full_name = u.full_name;
+          if (u.department && !existing.department) patch.department = u.department;
+          if (u.role && !existing.role) patch.role = u.role;
+          if (u.status !== existing.status) patch.status = u.status;
+          if (Object.keys(patch).length > 0) toUpdate.push({ id: existing.id, patch });
+          else skipped++;
+        }
+      }
+
+      if (toAdd.length > 0) await muts.bulkImport.mutateAsync({ kind: 'employees', records: toAdd });
+      for (const { id, patch } of toUpdate) await muts.updateEmployee.mutateAsync({ id, patch });
+
+      const next = connectedIntegrations.includes('microsoft-365')
+        ? connectedIntegrations
+        : [...connectedIntegrations, 'microsoft-365'];
+      setConnectedIntegrations(next);
+      localStorage.setItem('sg_connected_integrations', JSON.stringify(next));
+      localStorage.setItem(M365_SYNC_KEY, new Date().toISOString());
+
+      setSyncResult({ source: 'microsoft-365', total: incoming.length, added: toAdd.length, updated: toUpdate.length, skipped });
+    } catch (err) {
+      if (err.errorCode === 'user_cancelled' || err.message?.includes('user_cancelled') || err.message?.includes('popup_closed')) return;
+      setSyncResult({ source: 'microsoft-365', error: err.message });
+      toast.error('Microsoft 365 sync failed');
+    } finally {
+      setConnecting(null);
+    }
+  }, [db?.employees, connectedIntegrations, muts]);
+
   const handleDisconnect = (integrationId) => {
     const next = connectedIntegrations.filter(id => id !== integrationId);
     setConnectedIntegrations(next);
@@ -551,6 +693,11 @@ export function IntegrationConnectors() {
       localStorage.removeItem(SLACK_SYNC_KEY);
       setSyncResult(null);
     }
+    if (integrationId === 'microsoft-365') {
+      localStorage.removeItem(M365_SYNC_KEY);
+      _msalApp = null; // reset MSAL instance so next connect starts fresh
+      setSyncResult(null);
+    }
   };
 
   const handleConnect = (integration) => {
@@ -558,20 +705,16 @@ export function IntegrationConnectors() {
       handleDisconnect(integration.id);
       return;
     }
-    if (integration.id === 'google-workspace') {
-      handleGoogleWorkspaceConnect();
-      return;
-    }
-    if (integration.id === 'slack') {
-      setSlackTokenModal(true);
-      return;
-    }
+    if (integration.id === 'google-workspace') { handleGoogleWorkspaceConnect(); return; }
+    if (integration.id === 'slack')            { setSlackTokenModal(true); return; }
+    if (integration.id === 'microsoft-365')    { handleMicrosoftConnect(); return; }
     // Others not yet implemented
   };
 
   const isConnected = (id) => connectedIntegrations.includes(id);
   const lastGWSSync   = localStorage.getItem('sg_gws_last_sync');
   const lastSlackSync = localStorage.getItem(SLACK_SYNC_KEY);
+  const lastM365Sync  = localStorage.getItem(M365_SYNC_KEY);
 
   const filteredIntegrations = useMemo(() => {
     return integrations.filter(integration => {
@@ -635,6 +778,15 @@ export function IntegrationConnectors() {
                   ? <Loader className="h-3.5 w-3.5 animate-spin" />
                   : <RefreshCw className="h-3.5 w-3.5" />}
                 Re-sync Slack
+              </button>
+            )}
+            {isConnected('microsoft-365') && lastM365Sync && (
+              <button onClick={handleMicrosoftConnect} disabled={connecting === 'microsoft-365'}
+                className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-xs font-semibold text-slate-300 transition-colors disabled:opacity-50">
+                {connecting === 'microsoft-365'
+                  ? <Loader className="h-3.5 w-3.5 animate-spin" />
+                  : <RefreshCw className="h-3.5 w-3.5" />}
+                Re-sync M365
               </button>
             )}
           </div>
@@ -742,7 +894,13 @@ export function IntegrationConnectors() {
                     <span className="font-mono">🔔 alerts → {localStorage.getItem(SLACK_CHANNEL_KEY)}</span>
                   </div>
                 )}
-                {connected && (integration.id === 'google-workspace' || integration.id === 'slack') && db?.employees?.length > 0 && (
+                {connected && integration.id === 'microsoft-365' && lastM365Sync && (
+                  <div className="flex items-center gap-1.5 text-xs text-slate-500 mb-3">
+                    <RefreshCw className="h-3 w-3" />
+                    Last synced {new Date(lastM365Sync).toLocaleString()}
+                  </div>
+                )}
+                {connected && ['google-workspace', 'slack', 'microsoft-365'].includes(integration.id) && db?.employees?.length > 0 && (
                   <div className="flex items-center gap-1.5 text-xs text-emerald-400 mb-3">
                     <Users className="h-3 w-3" />
                     {db.employees.length} employees in directory
@@ -776,6 +934,12 @@ export function IntegrationConnectors() {
                       <button onClick={handleSlackResync} disabled={slackSyncing}
                         className="w-full py-2.5 rounded-xl font-bold bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white text-sm transition-colors flex items-center justify-center gap-2">
                         {slackSyncing ? <><Loader className="h-4 w-4 animate-spin" /> Syncing…</> : <><RefreshCw className="h-4 w-4" /> Sync now</>}
+                      </button>
+                    )}
+                    {integration.id === 'microsoft-365' && (
+                      <button onClick={handleMicrosoftConnect} disabled={isConnecting}
+                        className="w-full py-2.5 rounded-xl font-bold bg-blue-700 hover:bg-blue-600 disabled:opacity-50 text-white text-sm transition-colors flex items-center justify-center gap-2">
+                        {isConnecting ? <><Loader className="h-4 w-4 animate-spin" /> Syncing…</> : <><RefreshCw className="h-4 w-4" /> Sync now</>}
                       </button>
                     )}
                     <button onClick={() => handleDisconnect(integration.id)}
