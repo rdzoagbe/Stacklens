@@ -329,7 +329,7 @@ export function TopBar({ title, right }) {
 const CONSENT_STORAGE_KEY = 'cookie_consent_v2';
 const CONSENT_VERSION = 'v2-2026-04';
 
-let _openCookieBanner = null;
+export let _openCookieBanner = null;
 
 function readStoredConsent() {
   try {
