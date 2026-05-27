@@ -7,8 +7,9 @@ import {
   Link,
   useLocation,
   useNavigate,
+  useParams,
 } from "react-router-dom";
-import { signInWithGoogle, signInWithGoogleWorkspace, handleRedirectResult, signOutUser, onAuthChange, sendMagicLink, completeMagicLinkSignIn, callAI, loadUserData, saveUserData, syncUserProfile, getUserPlanFromFirestore, registerWithEmail, signInWithEmail, resetPassword, createBillingPortal, createCheckoutSession, logConsent, startTrial, logLegalAcceptance, loadAllUsersAdmin, founderExtendTrial, founderSetPlan, signInWithMicrosoft } from './firebase-config';
+import { signInWithGoogle, signInWithGoogleWorkspace, handleRedirectResult, signOutUser, onAuthChange, sendMagicLink, completeMagicLinkSignIn, callAI, loadUserData, saveUserData, syncUserProfile, getUserPlanFromFirestore, registerWithEmail, signInWithEmail, resetPassword, createBillingPortal, createCheckoutSession, logConsent, startTrial, logLegalAcceptance, loadAllUsersAdmin, founderExtendTrial, founderSetPlan, signInWithMicrosoft, saveReport, getReport, deleteReport } from './firebase-config';
 
 // ── Compatibility stubs (migrated to Firestore) ──────────────
 async function getUserProfile(uid) {
@@ -100,6 +101,7 @@ import {
   DollarSign,
   Mail,
   Eye,
+  Share2,
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, CartesianGrid, PieChart as RPieChart, Pie, Cell } from 'recharts';
 
@@ -5162,6 +5164,7 @@ function DashboardPage() {
   const [showImport, setShowImport] = useState(false);
   const [importKind, setImportKind] = useState(null);
   const [showImportMenu, setShowImportMenu] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
 
   
   // ADD THESE LINES:
@@ -5218,6 +5221,9 @@ function DashboardPage() {
               <Upload className="h-3.5 w-3.5" />Import Data
             </Button>
           </RoleGate>
+          <Button variant="secondary" size="sm" onClick={() => setShowShareModal(true)} title="Share a read-only report">
+            <Share2 className="h-3.5 w-3.5" />Share Report
+          </Button>
           <RoleGate requires="admin">
             <Button variant="secondary" size="sm" onClick={() => { if(window.confirm('This will clear ALL your data (tools, employees, access). Are you sure?')) { resetDb(); } }} title="Reset all data">
               <RefreshCw className="h-3.5 w-3.5" /> Reset Data
@@ -5797,6 +5803,10 @@ function DashboardPage() {
           )}
         </div>
       </Modal>
+
+      {showShareModal && (
+        <ShareReportModal onClose={() => setShowShareModal(false)} db={db} user={user} />
+      )}
 
     </AppShell>
   );
@@ -11180,6 +11190,339 @@ function FounderAdminPage() {
   );
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// SHAREABLE REPORT
+// ─────────────────────────────────────────────────────────────────────────────
+
+function ShareReportModal({ onClose, db, user }) {
+  const [step, setStep] = useState('idle'); // idle | generating | done | error
+  const [token, setToken] = useState(null);
+  const [copied, setCopied] = useState(false);
+  const [expiry, setExpiry] = useState('7');
+
+  const reportUrl = token ? `${window.location.origin}/report/${token}` : '';
+
+  const generate = async () => {
+    setStep('generating');
+    try {
+      const tok = crypto.randomUUID().replace(/-/g, '').slice(0, 20);
+      const tools = (db?.tools || []).map(t => ({
+        name: t.name,
+        category: t.category || 'other',
+        cost: Number(t.cost_per_month || 0),
+        status: t.status || 'active',
+        risk: t.derived_risk || t.risk_score || 'low',
+        criticality: t.criticality || 'medium',
+      }));
+      const topTools = [...tools].sort((a, b) => b.cost - a.cost).slice(0, 8);
+      const spend = tools.reduce((s, t) => s + t.cost, 0);
+      const riskCounts = tools.reduce((acc, t) => { acc[t.risk] = (acc[t.risk] || 0) + 1; return acc; }, {});
+      const access = db?.access || [];
+      const formerAccess = access.filter(a => a.derived_risk_flag === 'former_employee' || a.risk_flag === 'former_employee').length;
+      const highRiskTools = tools.filter(t => t.risk === 'high').length;
+      const expiresAt = Date.now() + parseInt(expiry) * 24 * 60 * 60 * 1000;
+
+      const payload = {
+        owner_uid: user?.uid || '',
+        created_at: Date.now(),
+        expires_at: expiresAt,
+        snapshot: {
+          tools: topTools,
+          spend,
+          employeeCount: (db?.employees || []).length,
+          riskCounts,
+          topTools,
+          formerAccess,
+          highRiskTools,
+          companyName: user?.displayName?.split(' ')[0] + "'s company" || 'Your company',
+          generatedAt: Date.now(),
+        },
+      };
+      await saveReport(tok, payload);
+      setToken(tok);
+      setStep('done');
+    } catch (err) {
+      console.error(err);
+      setStep('error');
+    }
+  };
+
+  const copy = () => {
+    navigator.clipboard.writeText(reportUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const revoke = async () => {
+    if (!token) return;
+    try { await deleteReport(token); } catch (e) {}
+    setToken(null);
+    setStep('idle');
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{background:'rgba(2,6,23,0.85)', backdropFilter:'blur(12px)'}}>
+      <div className="relative w-full max-w-md bg-slate-900 border border-slate-700/60 rounded-3xl shadow-2xl overflow-hidden">
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-emerald-500/60 to-transparent" />
+        <button onClick={onClose} className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-all z-10">✕</button>
+
+        <div className="p-6 md:p-8">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-xl">🔗</div>
+            <div>
+              <div className="font-bold text-white text-lg">Share Report</div>
+              <div className="text-xs text-slate-500">Read-only link — no sign-in required</div>
+            </div>
+          </div>
+
+          {step === 'idle' && (
+            <div className="space-y-5">
+              <div className="rounded-xl bg-slate-800/60 border border-slate-700/50 p-4 space-y-2 text-sm text-slate-400">
+                <div className="flex items-center gap-2"><span>💸</span> Monthly SaaS spend summary</div>
+                <div className="flex items-center gap-2"><span>⚠️</span> Risk overview & top alerts</div>
+                <div className="flex items-center gap-2"><span>🛠️</span> Top tools by cost</div>
+                <div className="flex items-center gap-2"><span>🔒</span> Employee emails hidden for privacy</div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wide">Link expires after</label>
+                <div className="flex gap-2">
+                  {[['7','7 days'],['30','30 days'],['365','1 year']].map(([val, label]) => (
+                    <button key={val} onClick={() => setExpiry(val)}
+                      className={"flex-1 py-2 rounded-xl text-sm font-semibold border transition-all " +
+                        (expiry === val ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white')}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <button onClick={generate}
+                className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 rounded-xl text-white font-bold text-sm transition-all shadow-lg">
+                Generate shareable link →
+              </button>
+            </div>
+          )}
+
+          {step === 'generating' && (
+            <div className="py-12 text-center">
+              <div className="w-10 h-10 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+              <div className="text-slate-400 text-sm">Generating your report…</div>
+            </div>
+          )}
+
+          {step === 'done' && (
+            <div className="space-y-4">
+              <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-4">
+                <div className="text-xs font-semibold text-emerald-400 mb-2 uppercase tracking-wide">Your report link</div>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 bg-slate-800 rounded-lg px-3 py-2 text-xs text-slate-300 font-mono truncate">{reportUrl}</div>
+                  <button onClick={copy}
+                    className={"px-3 py-2 rounded-lg text-xs font-bold transition-all flex-shrink-0 " + (copied ? 'bg-emerald-500 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-300')}>
+                    {copied ? '✓ Copied' : 'Copy'}
+                  </button>
+                </div>
+              </div>
+              <div className="text-xs text-slate-500 text-center">Expires in {expiry} day{expiry !== '1' ? 's' : ''} · Anyone with this link can view</div>
+              <div className="flex gap-2">
+                <button onClick={copy}
+                  className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl text-white font-bold text-sm transition-all">
+                  {copied ? '✓ Copied!' : '📋 Copy link'}
+                </button>
+                <button onClick={revoke}
+                  className="px-4 py-2.5 bg-slate-800 hover:bg-rose-500/20 hover:text-rose-400 border border-slate-700 hover:border-rose-500/30 rounded-xl text-slate-400 text-sm font-semibold transition-all">
+                  Revoke
+                </button>
+              </div>
+            </div>
+          )}
+
+          {step === 'error' && (
+            <div className="py-8 text-center space-y-3">
+              <div className="text-3xl">⚠️</div>
+              <div className="text-white font-semibold">Could not generate report</div>
+              <div className="text-slate-400 text-sm">Make sure you're signed in and try again.</div>
+              <button onClick={() => setStep('idle')} className="text-sm text-blue-400 hover:text-blue-300 underline">Try again</button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ReportPage() {
+  const { token } = useParams();
+  const [report, setReport] = useState(null);
+  const [status, setStatus] = useState('loading'); // loading | found | expired | notfound
+
+  useEffect(() => {
+    if (!token) { setStatus('notfound'); return; }
+    getReport(token).then(data => {
+      if (!data) { setStatus('notfound'); return; }
+      if (data.expires_at && Date.now() > data.expires_at) { setStatus('expired'); return; }
+      setReport(data);
+      setStatus('found');
+    });
+  }, [token]);
+
+  if (status === 'loading') return (
+    <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+      <div className="w-10 h-10 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+
+  if (status === 'expired') return (
+    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6">
+      <div className="text-center space-y-3">
+        <div className="text-5xl">⏰</div>
+        <div className="text-white font-bold text-xl">This report has expired</div>
+        <div className="text-slate-400 text-sm">Ask the owner to generate a new link.</div>
+        <a href="/" className="inline-block mt-4 text-blue-400 hover:text-blue-300 text-sm underline">Go to Stacklens →</a>
+      </div>
+    </div>
+  );
+
+  if (status === 'notfound') return (
+    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6">
+      <div className="text-center space-y-3">
+        <div className="text-5xl">🔍</div>
+        <div className="text-white font-bold text-xl">Report not found</div>
+        <div className="text-slate-400 text-sm">This link may have been revoked or never existed.</div>
+        <a href="/" className="inline-block mt-4 text-blue-400 hover:text-blue-300 text-sm underline">Go to Stacklens →</a>
+      </div>
+    </div>
+  );
+
+  const s = report.snapshot;
+  const fmt = (n) => new Intl.NumberFormat('en', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
+  const riskColor = { high: 'text-rose-400', medium: 'text-amber-400', low: 'text-emerald-400' };
+  const riskBg = { high: 'bg-rose-500/10 border-rose-500/20', medium: 'bg-amber-500/10 border-amber-500/20', low: 'bg-emerald-500/10 border-emerald-500/20' };
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-white">
+      {/* Header */}
+      <div className="border-b border-slate-800 bg-slate-900/80 backdrop-blur-sm sticky top-0 z-10">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+              <Shield className="w-4 h-4 text-white" />
+            </div>
+            <div>
+              <div className="font-black text-white text-sm">Stacklens</div>
+              <div className="text-[10px] text-slate-500 uppercase tracking-widest">Read-only report</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-slate-500">Generated {new Date(s.generatedAt).toLocaleDateString()}</span>
+            <a href="/" className="text-xs px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold transition-colors">Try Stacklens free →</a>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+        {/* Title */}
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1">SaaS Stack Report</h1>
+          <p className="text-slate-400 text-sm">{s.companyName} · Shared via Stacklens</p>
+        </div>
+
+        {/* KPI row */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            { label: 'Monthly SaaS Spend', value: fmt(s.spend), icon: '💸', color: 'blue' },
+            { label: 'Tools Tracked', value: s.tools?.length || 0, icon: '🛠️', color: 'indigo' },
+            { label: 'Employees', value: s.employeeCount || 0, icon: '👥', color: 'violet' },
+            { label: 'Former Access Risks', value: s.formerAccess || 0, icon: '⚠️', color: s.formerAccess > 0 ? 'rose' : 'emerald' },
+          ].map(({ label, value, icon, color }) => (
+            <div key={label} className={`rounded-2xl border bg-slate-900/60 p-4 border-${color}-500/20`}>
+              <div className="text-xl mb-1">{icon}</div>
+              <div className="text-2xl font-bold text-white">{value}</div>
+              <div className="text-xs text-slate-500 mt-0.5">{label}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Risk breakdown */}
+        {s.riskCounts && Object.keys(s.riskCounts).length > 0 && (
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
+            <div className="text-sm font-bold text-white mb-4">Risk Breakdown</div>
+            <div className="flex gap-3 flex-wrap">
+              {Object.entries(s.riskCounts).sort((a,b) => ['high','medium','low'].indexOf(a[0]) - ['high','medium','low'].indexOf(b[0])).map(([risk, count]) => (
+                <div key={risk} className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border ${riskBg[risk] || 'bg-slate-800 border-slate-700'}`}>
+                  <span className={`text-lg font-bold ${riskColor[risk] || 'text-slate-300'}`}>{count}</span>
+                  <span className="text-xs text-slate-400 capitalize">{risk} risk</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Top tools table */}
+        {s.topTools?.length > 0 && (
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-800">
+              <div className="font-bold text-white text-sm">Top Tools by Monthly Cost</div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-800 bg-slate-950/50">
+                    <th className="text-left py-3 px-5 text-xs font-semibold text-slate-500 uppercase tracking-wider">Tool</th>
+                    <th className="text-left py-3 px-5 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden sm:table-cell">Category</th>
+                    <th className="text-left py-3 px-5 text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
+                    <th className="text-left py-3 px-5 text-xs font-semibold text-slate-500 uppercase tracking-wider">Risk</th>
+                    <th className="text-right py-3 px-5 text-xs font-semibold text-slate-500 uppercase tracking-wider">Monthly cost</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {s.topTools.map((tool, i) => (
+                    <tr key={i} className="border-b border-slate-800/60 hover:bg-slate-800/30 transition-colors">
+                      <td className="py-3 px-5 font-semibold text-white">{tool.name}</td>
+                      <td className="py-3 px-5 text-slate-400 capitalize hidden sm:table-cell">{tool.category}</td>
+                      <td className="py-3 px-5">
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-semibold capitalize ${
+                          tool.status === 'active' ? 'bg-emerald-500/15 text-emerald-400' :
+                          tool.status === 'orphaned' ? 'bg-amber-500/15 text-amber-400' :
+                          tool.status === 'unused' ? 'bg-rose-500/15 text-rose-400' :
+                          'bg-slate-700 text-slate-400'}`}>
+                          {tool.status}
+                        </span>
+                      </td>
+                      <td className="py-3 px-5">
+                        <span className={`text-xs font-semibold capitalize ${riskColor[tool.risk] || 'text-slate-400'}`}>{tool.risk}</span>
+                      </td>
+                      <td className="py-3 px-5 text-right font-semibold text-white">{fmt(tool.cost)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t border-slate-700 bg-slate-950/40">
+                    <td colSpan={3} className="py-3 px-5 text-xs text-slate-500">Total shown</td>
+                    <td />
+                    <td className="py-3 px-5 text-right font-bold text-white">{fmt(s.spend)}/mo</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* CTA */}
+        <div className="rounded-2xl border border-blue-500/20 bg-gradient-to-r from-blue-500/10 to-indigo-500/5 p-6 text-center">
+          <div className="text-white font-bold text-lg mb-2">Want this for your own SaaS stack?</div>
+          <p className="text-slate-400 text-sm mb-4 max-w-sm mx-auto">Stacklens gives you this dashboard in under 5 minutes. Free plan available — no credit card needed.</p>
+          <a href="/" className="inline-block px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 rounded-xl text-white font-bold text-sm transition-all shadow-lg">
+            Try Stacklens free →
+          </a>
+        </div>
+
+        <div className="text-center text-xs text-slate-700 pb-4">
+          Powered by <a href="/" className="text-slate-500 hover:text-slate-400">Stacklens</a> · This report was shared by the account owner · Employee data is anonymised
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function NotFound() {
   const { language } = useLang();
   const t = useTranslation(language);
@@ -15625,6 +15968,7 @@ export default function App() {
           <Route path="/sub-processors" element={<SubProcessorsPage />} />
           <Route path="/security-info" element={<SecurityPage />} />
           <Route path="/finishSignUp" element={<FinishSignUpPage />} />
+          <Route path="/report/:token" element={<ReportPage />} />
           <Route path="/onboarding" element={<OnboardingPage />} />
           <Route
             path="/dashboard"

@@ -446,6 +446,35 @@ export async function signInWithMicrosoft() {
 // Sets plan='trial' and trial_started_at on /users/{uid}.
 // Best-effort: silently fails if Firestore rules reject (Cloud Function may have already set it).
 // ============================================================================
+export async function saveReport(token, payload) {
+  try {
+    await setDoc(doc(firestoreDb, 'reports', token), payload);
+  } catch (err) {
+    console.error('saveReport:', err);
+    throw err;
+  }
+}
+
+export async function getReport(token) {
+  try {
+    const snap = await getDoc(doc(firestoreDb, 'reports', token));
+    return snap.exists() ? snap.data() : null;
+  } catch (err) {
+    console.error('getReport:', err);
+    return null;
+  }
+}
+
+export async function deleteReport(token) {
+  try {
+    const { deleteDoc } = await import('firebase/firestore');
+    await deleteDoc(doc(firestoreDb, 'reports', token));
+  } catch (err) {
+    console.error('deleteReport:', err);
+    throw err;
+  }
+}
+
 export async function startTrial(uid) {
   try {
     await setDoc(
@@ -457,7 +486,6 @@ export async function startTrial(uid) {
       { merge: true }
     );
   } catch (e) {
-    // Likely a rules rejection — that's OK, the user is just on free tier
     console.warn('startTrial failed (continuing on free):', e?.message);
   }
 }
