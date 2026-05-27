@@ -10577,6 +10577,8 @@ function SettingsPage() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('general');
   const [saveMsg, setSaveMsg] = useState('');
+  const { data: db } = useDbQuery();
+  const muts = useDbMutations();
 
   const saved = JSON.parse(localStorage.getItem('sg_general') || '{}');
   const [orgName, setOrgName] = useState(saved.orgName || 'My Organisation');
@@ -10776,27 +10778,48 @@ function SettingsPage() {
               <CardBody>
                 <div className="space-y-1">
                   {[
-                    { label: 'New tool added to inventory', sub: 'When a tool is added via import or manually', defaultOn: true },
-                    { label: 'Orphaned tool detected', sub: 'Tools with no assigned owner', defaultOn: true },
-                    { label: 'High-risk access granted', sub: 'Admin access given to a new user', defaultOn: true },
-                    { label: 'Employee offboarding initiated', sub: 'When an offboarding task is started', defaultOn: true },
-                    { label: 'Renewal due in 30 days', sub: 'SaaS contract coming up for renewal', defaultOn: true },
-                    { label: 'Compliance report ready', sub: 'Weekly compliance digest', defaultOn: false },
-                    { label: 'Weekly summary email', sub: 'Overview of spend, risk and usage', defaultOn: true },
-                    { label: 'Invoice approval required', sub: 'New invoice needs sign-off', defaultOn: false },
-                    { label: t('budget_limit'), sub: 'Monthly spend passes your set limit', defaultOn: true },
-                  ].map(n => (
-                    <div key={n.label} className="flex items-center justify-between py-3.5 border-b border-slate-800 last:border-0">
-                      <div>
-                        <div className="text-sm font-medium text-slate-200">{n.label}</div>
-                        <div className="text-xs text-slate-500 mt-0.5">{n.sub}</div>
+                    { label: 'New tool added to inventory', sub: 'When a tool is added via import or manually', defaultOn: true, key: null },
+                    { label: 'Orphaned tool detected', sub: 'Tools with no assigned owner', defaultOn: true, key: null },
+                    { label: 'High-risk access granted', sub: 'Admin access given to a new user', defaultOn: true, key: null },
+                    { label: 'Employee offboarding initiated', sub: 'When an offboarding task is started', defaultOn: true, key: null },
+                    { label: 'Renewal due in 30 days', sub: 'Email alert when a SaaS contract is coming up for renewal', defaultOn: true, key: 'renewal_alerts' },
+                    { label: 'Compliance report ready', sub: 'Weekly compliance digest', defaultOn: false, key: null },
+                    { label: 'Weekly summary email', sub: 'Overview of spend, risk and usage', defaultOn: true, key: null },
+                    { label: 'Invoice approval required', sub: 'New invoice needs sign-off', defaultOn: false, key: null },
+                    { label: t('budget_limit'), sub: 'Monthly spend passes your set limit', defaultOn: true, key: null },
+                  ].map(n => {
+                    const isWired = n.key === 'renewal_alerts';
+                    const checked = isWired
+                      ? (db?.user?.renewal_alerts !== false)
+                      : n.defaultOn;
+                    return (
+                      <div key={n.label} className="flex items-center justify-between py-3.5 border-b border-slate-800 last:border-0">
+                        <div>
+                          <div className="text-sm font-medium text-slate-200 flex items-center gap-2">
+                            {n.label}
+                            {isWired && <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-900/40 text-emerald-400 font-semibold">LIVE</span>}
+                          </div>
+                          <div className="text-xs text-slate-500 mt-0.5">{n.sub}</div>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer flex-shrink-0 ml-4">
+                          <input
+                            type="checkbox"
+                            className="sr-only peer"
+                            checked={checked}
+                            onChange={isWired ? (e) => {
+                              muts.setAuth.mutate(
+                                { renewal_alerts: e.target.checked },
+                                { onSuccess: () => toast.success(e.target.checked ? 'Renewal alerts enabled' : 'Renewal alerts disabled') }
+                              );
+                            } : undefined}
+                            defaultChecked={!isWired ? n.defaultOn : undefined}
+                            readOnly={!isWired}
+                          />
+                          <div className="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-emerald-600 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all" />
+                        </label>
                       </div>
-                      <label className="relative inline-flex items-center cursor-pointer flex-shrink-0 ml-4">
-                        <input type="checkbox" className="sr-only peer" defaultChecked={n.defaultOn} />
-                        <div className="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-emerald-600 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all" />
-                      </label>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               
               <div className='mt-6'><SlackNotifications /></div>
