@@ -1122,6 +1122,53 @@ function seedDbIfEmpty() {
   return db;
 }
 
+// Load sample data for an authenticated user — keeps their auth info,
+// populates tools/employees/access with demo data, marks with _is_sample flag
+function loadSampleDataForUser() {
+  const existing = loadDb();
+  const now = new Date();
+  const d = (daysAgo) => format(subDays(now, daysAgo), "yyyy-MM-dd");
+
+  const employees = [
+    { id: uid("emp"), full_name: "Amina Dupont",  email: "amina.dupont@acme.com",  department: "security",     role: "Security Lead",       status: "active",      start_date: d(420), end_date: "" },
+    { id: uid("emp"), full_name: "Lucas Martin",  email: "lucas.martin@acme.com",  department: "engineering",  role: "Platform Engineer",   status: "active",      start_date: d(210), end_date: "" },
+    { id: uid("emp"), full_name: "Chloé Bernard", email: "chloe.bernard@acme.com", department: "finance",      role: "Controller",          status: "offboarding", start_date: d(680), end_date: d(3) },
+    { id: uid("emp"), full_name: "Noah Petit",    email: "noah.petit@acme.com",    department: "marketing",    role: "Growth Manager",      status: "offboarded",  start_date: d(980), end_date: d(35) },
+    { id: uid("emp"), full_name: "Sara Kim",      email: "sara.kim@acme.com",      department: "design",       role: "Product Designer",    status: "active",      start_date: d(150), end_date: "" },
+    { id: uid("emp"), full_name: "James Okafor",  email: "james.okafor@acme.com",  department: "sales",        role: "Account Executive",   status: "active",      start_date: d(320), end_date: "" },
+  ];
+  const tools = [
+    { id: uid("tool"), name: "Slack",       category: "communication", owner_email: "amina.dupont@acme.com",  owner_name: "Amina Dupont",  criticality: "high",   url: "https://slack.com",        status: "active",   last_used_date: d(1),   cost_per_month: 240, cost_monthly: 240, cost: 240, risk_score: "low",    notes: "SSO enabled" },
+    { id: uid("tool"), name: "GitHub",      category: "engineering",   owner_email: "lucas.martin@acme.com",  owner_name: "Lucas Martin",  criticality: "high",   url: "https://github.com",       status: "active",   last_used_date: d(0),   cost_per_month: 320, cost_monthly: 320, cost: 320, risk_score: "medium", notes: "Review admin access quarterly" },
+    { id: uid("tool"), name: "Figma",       category: "design",        owner_email: "",                       owner_name: "",              criticality: "medium",  url: "https://figma.com",        status: "orphaned", last_used_date: d(16),  cost_per_month: 180, cost_monthly: 180, cost: 180, risk_score: "high",   notes: "Owner missing" },
+    { id: uid("tool"), name: "HubSpot",     category: "sales",         owner_email: "noah.petit@acme.com",    owner_name: "Noah Petit",    criticality: "medium",  url: "https://hubspot.com",      status: "unused",   last_used_date: d(120), cost_per_month: 600, cost_monthly: 600, cost: 600, risk_score: "high",   notes: "Unused > 90 days" },
+    { id: uid("tool"), name: "Notion",      category: "productivity",  owner_email: "sara.kim@acme.com",      owner_name: "Sara Kim",      criticality: "medium",  url: "https://notion.so",        status: "active",   last_used_date: d(2),   cost_per_month: 96,  cost_monthly: 96,  cost: 96,  risk_score: "low",    notes: "" },
+    { id: uid("tool"), name: "Salesforce",  category: "sales",         owner_email: "james.okafor@acme.com",  owner_name: "James Okafor",  criticality: "high",   url: "https://salesforce.com",   status: "active",   last_used_date: d(4),   cost_per_month: 1200,cost_monthly:1200,cost:1200, risk_score: "medium", notes: "Enterprise contract" },
+    { id: uid("tool"), name: "Zoom",        category: "communication", owner_email: "amina.dupont@acme.com",  owner_name: "Amina Dupont",  criticality: "medium",  url: "https://zoom.us",          status: "active",   last_used_date: d(1),   cost_per_month: 150, cost_monthly: 150, cost: 150, risk_score: "low",    notes: "" },
+    { id: uid("tool"), name: "Jira",        category: "engineering",   owner_email: "lucas.martin@acme.com",  owner_name: "Lucas Martin",  criticality: "high",   url: "https://atlassian.com",    status: "active",   last_used_date: d(0),   cost_per_month: 280, cost_monthly: 280, cost: 280, risk_score: "low",    notes: "" },
+  ];
+  const access = [
+    { id: uid("acc"), tool_id: tools[0].id, tool_name: tools[0].name, employee_id: employees[0].id, employee_name: employees[0].full_name, employee_email: employees[0].email, access_level: "admin",   granted_date: d(300), last_accessed_date: d(1),  last_reviewed_date: d(200), status: "active", risk_flag: "needs_review" },
+    { id: uid("acc"), tool_id: tools[1].id, tool_name: tools[1].name, employee_id: employees[1].id, employee_name: employees[1].full_name, employee_email: employees[1].email, access_level: "admin",   granted_date: d(190), last_accessed_date: d(0),  last_reviewed_date: d(210), status: "active", risk_flag: "excessive_admin" },
+    { id: uid("acc"), tool_id: tools[2].id, tool_name: tools[2].name, employee_id: employees[1].id, employee_name: employees[1].full_name, employee_email: employees[1].email, access_level: "viewer",  granted_date: d(60),  last_accessed_date: d(20), last_reviewed_date: d(60),  status: "active", risk_flag: "orphaned" },
+    { id: uid("acc"), tool_id: tools[3].id, tool_name: tools[3].name, employee_id: employees[3].id, employee_name: employees[3].full_name, employee_email: employees[3].email, access_level: "admin",   granted_date: d(400), last_accessed_date: d(200),last_reviewed_date: d(300), status: "active", risk_flag: "former_employee" },
+    { id: uid("acc"), tool_id: tools[3].id, tool_name: tools[3].name, employee_id: employees[2].id, employee_name: employees[2].full_name, employee_email: employees[2].email, access_level: "billing", granted_date: d(120), last_accessed_date: d(80), last_reviewed_date: d(20),  status: "active", risk_flag: "needs_review" },
+    { id: uid("acc"), tool_id: tools[4].id, tool_name: tools[4].name, employee_id: employees[4].id, employee_name: employees[4].full_name, employee_email: employees[4].email, access_level: "editor",  granted_date: d(140), last_accessed_date: d(2),  last_reviewed_date: d(140), status: "active", risk_flag: "none" },
+    { id: uid("acc"), tool_id: tools[5].id, tool_name: tools[5].name, employee_id: employees[5].id, employee_name: employees[5].full_name, employee_email: employees[5].email, access_level: "admin",   granted_date: d(310), last_accessed_date: d(4),  last_reviewed_date: d(310), status: "active", risk_flag: "excessive_admin" },
+  ];
+
+  const newDb = {
+    ...(existing || {}),
+    user: existing?.user || {},
+    tools,
+    employees,
+    access,
+    _is_sample_data: true,
+  };
+  saveDb(newDb);
+  return newDb;
+}
+
 
 async function resetDb() {
   // Clear ALL user data — local AND Firestore
@@ -5126,6 +5173,7 @@ function DashboardPage() {
   const [selectedOwners, setSelectedOwners] = useState({});
   const { data: db, isLoading } = useDbQuery();
   const muts = useDbMutations();
+  const qc = useQueryClient();
 
   const derived = useMemo(() => {
     if (!db) return { tools: [], access: [], alerts: [], counts: { critical:0, high:0, medium:0, low:0 }, spend: 0, highRiskTools: 0, formerAccess: 0, activeTools: 0 };
@@ -5220,29 +5268,78 @@ function DashboardPage() {
         </div>
       )}
 
-      {/* When no risks — show a "next step" prompt instead */}
-      {derived.formerAccess === 0 && derived.tools.length === 0 && (
-        <div className="relative overflow-hidden rounded-2xl border border-blue-500/30 bg-gradient-to-r from-blue-500/10 via-indigo-500/5 to-transparent p-5 lg:p-6 mb-6">
-          <div className="relative flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-6">
-            <div className="flex items-center gap-4 flex-1">
-              <div className="flex-shrink-0 h-14 w-14 rounded-xl bg-blue-500/20 border border-blue-500/40 flex items-center justify-center">
-                <Upload className="h-7 w-7 text-blue-400" />
+      {/* Sample data active banner */}
+      {db?._is_sample_data && (
+        <div className="flex items-center justify-between gap-3 px-4 py-3 mb-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-sm">
+          <div className="flex items-center gap-2 text-amber-300">
+            <span>⚡</span>
+            <span className="font-semibold">Sample data active</span>
+            <span className="text-amber-400/70 hidden sm:inline">— this is example data, not your real stack</span>
+          </div>
+          <button
+            onClick={async () => {
+              const existing = loadDb();
+              const cleared = { ...existing, tools: [], employees: [], access: [], _is_sample_data: false };
+              saveDb(cleared);
+              qc.invalidateQueries({ queryKey: ['db'] });
+              if (_firestoreUid) { try { await saveUserData(_firestoreUid, cleared); } catch(e) {} }
+              toast.success('Sample data cleared — ready for your real data');
+            }}
+            className="text-xs font-semibold text-amber-300 hover:text-white border border-amber-500/40 hover:border-amber-400 px-3 py-1.5 rounded-lg transition-all whitespace-nowrap">
+            Clear &amp; import real data →
+          </button>
+        </div>
+      )}
+
+      {/* Empty state — two clear paths */}
+      {derived.tools.length === 0 && !db?._is_sample_data && (
+        <div className="mb-6">
+          <div className="text-center mb-6 pt-4">
+            <div className="text-4xl mb-3">🔍</div>
+            <h2 className="text-2xl font-bold text-white mb-2">Welcome to Stacklens</h2>
+            <p className="text-slate-400 text-sm max-w-md mx-auto">Your dashboard is empty. Choose how you want to get started — takes under 5 minutes either way.</p>
+          </div>
+          <div className="grid sm:grid-cols-2 gap-4 max-w-2xl mx-auto">
+            {/* Option 1 — sample data */}
+            <button
+              onClick={() => {
+                loadSampleDataForUser();
+                qc.invalidateQueries({ queryKey: ['db'] });
+                toast.success('Sample data loaded! Explore freely, then import your real data when ready.');
+              }}
+              className="group flex flex-col items-start gap-3 p-6 rounded-2xl border border-indigo-500/30 bg-indigo-500/5 hover:bg-indigo-500/10 hover:border-indigo-500/50 transition-all text-left">
+              <div className="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-xl">✨</div>
+              <div>
+                <div className="font-bold text-white mb-1">Explore with sample data</div>
+                <div className="text-xs text-slate-400 leading-relaxed">See a real company's SaaS stack instantly — 8 tools, 6 employees, live risk alerts. No setup needed.</div>
               </div>
-              <div className="flex-1">
-                <div className="text-[10px] font-bold uppercase tracking-widest text-blue-400 mb-1">Get started · Step 1 of 3</div>
-                <h2 className="text-xl lg:text-2xl font-bold text-white mb-1">Import your team and tools</h2>
-                <p className="text-sm text-slate-400">
-                  Upload a CSV or Excel file with your employees and SaaS tools. Stacklens maps everything in seconds.
-                </p>
+              <div className="mt-auto text-xs font-semibold text-indigo-400 group-hover:text-indigo-300 transition-colors">Load instantly →</div>
+            </button>
+
+            {/* Option 2 — real import */}
+            <button
+              onClick={() => { setImportKind('company'); setShowImport(true); }}
+              className="group flex flex-col items-start gap-3 p-6 rounded-2xl border border-blue-500/30 bg-blue-500/5 hover:bg-blue-500/10 hover:border-blue-500/50 transition-all text-left">
+              <div className="w-10 h-10 rounded-xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-xl">📂</div>
+              <div>
+                <div className="font-bold text-white mb-1">Import my real data</div>
+                <div className="text-xs text-slate-400 leading-relaxed">Upload a CSV or Excel file with your tools and employees. Stacklens maps everything automatically in seconds.</div>
               </div>
-            </div>
-            <div className="flex-shrink-0">
-              <Button
-                onClick={() => { setImportKind('company'); setShowImport(true); }}
-                className="w-full lg:w-auto !bg-blue-500 hover:!bg-blue-400 !text-white !px-6 !py-3 !font-bold">
-                Upload my data →
-              </Button>
-            </div>
+              <div className="mt-auto text-xs font-semibold text-blue-400 group-hover:text-blue-300 transition-colors">Upload file →</div>
+            </button>
+          </div>
+
+          {/* What you'll see */}
+          <div className="mt-6 max-w-2xl mx-auto grid grid-cols-3 gap-3">
+            {[
+              { icon: '💸', label: 'Monthly SaaS spend' },
+              { icon: '⚠️', label: 'Security risk alerts' },
+              { icon: '🔑', label: 'Access control map' },
+            ].map(({ icon, label }) => (
+              <div key={label} className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-slate-900/60 border border-slate-800 text-xs text-slate-400">
+                <span>{icon}</span>{label}
+              </div>
+            ))}
           </div>
         </div>
       )}
