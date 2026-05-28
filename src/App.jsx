@@ -5221,6 +5221,9 @@ function DashboardPage() {
               <Upload className="h-3.5 w-3.5" />Import Data
             </Button>
           </RoleGate>
+          <Button variant="secondary" size="sm" onClick={() => printExecutiveSummary(db, { ...derived, alerts: buildRiskAlerts({ ...(db || {}), tools: derived.tools, access: derived.access }) })} title="Download executive PDF report">
+            <FileText className="h-3.5 w-3.5" />PDF Report
+          </Button>
           <Button variant="secondary" size="sm" onClick={() => setShowShareModal(true)} title="Share a read-only report">
             <Share2 className="h-3.5 w-3.5" />Share Report
           </Button>
@@ -8698,6 +8701,221 @@ function ImportWizard({ defaultKind = null, onDone = null }) {
 }
 
 
+function printExecutiveSummary(db, derived) {
+  if (!db || !derived) return;
+  const today = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+  const orgName = JSON.parse(localStorage.getItem('sg_general') || '{}').orgName || 'Your Organisation';
+  const tools = derived.tools || [];
+  const employees = derived.employees || [];
+  const access = derived.access || [];
+  const totalSpend = tools.reduce((s, t) => s + Number(t.cost_per_month || 0), 0);
+  const annualSpend = totalSpend * 12;
+  const activeTools = tools.filter(t => t.derived_status === 'active').length;
+  const unusedTools = tools.filter(t => t.derived_status === 'unused' || t.derived_status === 'orphaned').length;
+  const highRisk = tools.filter(t => t.derived_risk === 'high').length;
+  const formerAccess = access.filter(a => a.derived_risk_flag === 'former_employee').length;
+  const healthScore = derived.healthScore || 0;
+  const healthLabel = healthScore >= 80 ? 'Audit Ready' : healthScore >= 60 ? 'Needs Attention' : 'At Risk';
+  const healthColor = healthScore >= 80 ? '#10b981' : healthScore >= 60 ? '#f59e0b' : '#ef4444';
+  const topTools = [...tools].sort((a, b) => Number(b.cost_per_month || 0) - Number(a.cost_per_month || 0)).slice(0, 10);
+  const renewals = tools.filter(t => t.renewal_date).sort((a, b) => new Date(a.renewal_date) - new Date(b.renewal_date))
+    .filter(t => { const d = new Date(t.renewal_date); const now = new Date(); return d >= now && d <= new Date(now.getFullYear(), now.getMonth() + 3, now.getDate()); }).slice(0, 8);
+  const byCategory = tools.reduce((acc, t) => { const k = t.category || 'Other'; acc[k] = (acc[k] || 0) + Number(t.cost_per_month || 0); return acc; }, {});
+  const topCategories = Object.entries(byCategory).sort((a, b) => b[1] - a[1]).slice(0, 6);
+  const risks = derived.alerts || buildRiskAlerts(db) || [];
+  const riskCounts = { critical: 0, high: 0, medium: 0, low: 0 };
+  risks.forEach(r => { if (riskCounts[r.severity] !== undefined) riskCounts[r.severity]++; });
+
+  const fmt = (n) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>Executive SaaS Report — ${orgName}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Helvetica Neue',Arial,sans-serif;color:#1e293b;background:#fff;padding:40px;font-size:13px}
+  .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;padding-bottom:20px;border-bottom:3px solid #0f172a}
+  .brand{font-size:24px;font-weight:800;color:#0f172a;letter-spacing:-0.5px}
+  .brand span{color:#3b82f6}
+  .doc-meta{text-align:right;font-size:11px;color:#64748b;line-height:1.9}
+  .section{margin-bottom:26px}
+  .section-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#64748b;margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid #e2e8f0}
+  .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:4px}
+  .kpi{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px 12px;text-align:center}
+  .kpi-num{font-size:26px;font-weight:800;color:#0f172a;line-height:1}
+  .kpi-lbl{font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;margin-top:4px}
+  .kpi-sub{font-size:11px;color:#64748b;margin-top:2px}
+  .health-row{display:flex;align-items:center;gap:16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px 16px;margin-bottom:16px}
+  .health-circle{width:52px;height:52px;border-radius:50%;background:conic-gradient(${healthColor} ${healthScore * 3.6}deg,#e2e8f0 0deg);display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative}
+  .health-inner{width:38px;height:38px;border-radius:50%;background:#f8fafc;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:${healthColor}}
+  .risk-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  .risk-card{border-radius:8px;padding:10px 12px;text-align:center}
+  .risk-num{font-size:20px;font-weight:800}
+  .risk-lbl{font-size:10px;font-weight:600;text-transform:uppercase}
+  table{width:100%;border-collapse:collapse}
+  th{background:#f1f5f9;text-align:left;padding:7px 10px;font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:#64748b;font-weight:600}
+  td{padding:8px 10px;border-bottom:1px solid #f8fafc;font-size:12px;vertical-align:middle}
+  .badge{display:inline-block;padding:2px 7px;border-radius:99px;font-size:9px;font-weight:700;text-transform:uppercase}
+  .b-high{background:#fee2e2;color:#dc2626}
+  .b-medium{background:#fef3c7;color:#d97706}
+  .b-low{background:#dcfce7;color:#16a34a}
+  .b-active{background:#dbeafe;color:#2563eb}
+  .b-unused{background:#f1f5f9;color:#64748b}
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .cat-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #f1f5f9;font-size:12px}
+  .cat-bar-wrap{width:80px;height:6px;background:#e2e8f0;border-radius:3px;margin:0 8px}
+  .footer{margin-top:32px;padding-top:12px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;font-size:10px;color:#94a3b8}
+  @media print{body{padding:16px}@page{margin:12mm;size:A4}}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <div class="brand">Stack<span>lens</span></div>
+    <div style="font-size:17px;font-weight:700;color:#334155;margin-top:6px">Executive SaaS Report</div>
+    <div style="font-size:12px;color:#94a3b8;margin-top:3px">${orgName}</div>
+  </div>
+  <div class="doc-meta">
+    <div><strong>Generated:</strong> ${today}</div>
+    <div><strong>Confidential</strong> — Executive Use Only</div>
+    <div style="margin-top:4px;font-size:10px;color:#94a3b8">Powered by Stacklens · stacklens.fr</div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">Key Performance Indicators</div>
+  <div class="kpi-grid">
+    <div class="kpi">
+      <div class="kpi-num">${tools.length}</div>
+      <div class="kpi-lbl">Total Tools</div>
+      <div class="kpi-sub">${activeTools} active · ${unusedTools} unused</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-num" style="color:#3b82f6">${fmt(totalSpend)}</div>
+      <div class="kpi-lbl">Monthly Spend</div>
+      <div class="kpi-sub">${fmt(annualSpend)} / year</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-num">${employees.length}</div>
+      <div class="kpi-lbl">Employees</div>
+      <div class="kpi-sub">${employees.filter(e => e.status === 'active').length} active</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-num">${access.filter(a => a.status === 'active').length}</div>
+      <div class="kpi-lbl">Access Records</div>
+      <div class="kpi-sub">${formerAccess > 0 ? `<span style="color:#dc2626">${formerAccess} at risk</span>` : 'All clear'}</div>
+    </div>
+  </div>
+</div>
+
+<div class="two-col">
+  <div class="section">
+    <div class="section-title">Security Health Score</div>
+    <div class="health-row">
+      <div class="health-circle"><div class="health-inner">${healthScore}</div></div>
+      <div>
+        <div style="font-size:15px;font-weight:700;color:${healthColor}">${healthLabel}</div>
+        <div style="font-size:11px;color:#64748b;margin-top:2px">${highRisk} high-risk tools · ${formerAccess} ex-employee access</div>
+      </div>
+    </div>
+    <div class="risk-grid">
+      <div class="risk-card" style="background:#fee2e2"><div class="risk-num" style="color:#dc2626">${riskCounts.critical}</div><div class="risk-lbl" style="color:#dc2626">Critical</div></div>
+      <div class="risk-card" style="background:#fef3c7"><div class="risk-num" style="color:#d97706">${riskCounts.high}</div><div class="risk-lbl" style="color:#d97706">High</div></div>
+      <div class="risk-card" style="background:#fefce8"><div class="risk-num" style="color:#ca8a04">${riskCounts.medium}</div><div class="risk-lbl" style="color:#ca8a04">Medium</div></div>
+      <div class="risk-card" style="background:#dcfce7"><div class="risk-num" style="color:#16a34a">${riskCounts.low}</div><div class="risk-lbl" style="color:#16a34a">Low</div></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Spend by Category</div>
+    ${topCategories.map(([cat, spend], i) => {
+      const pct = Math.round((spend / totalSpend) * 100) || 0;
+      return `<div class="cat-row">
+        <span style="color:#334155;font-weight:500">${cat}</span>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="cat-bar-wrap"><div style="height:6px;border-radius:3px;background:#3b82f6;width:${pct}%"></div></div>
+          <span style="color:#64748b;width:60px;text-align:right">${fmt(spend)}</span>
+        </div>
+      </div>`;
+    }).join('')}
+    ${topCategories.length === 0 ? '<div style="color:#94a3b8;font-size:12px;padding:8px 0">No spend data available.</div>' : ''}
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">Top Tools by Cost (Monthly)</div>
+  <table>
+    <thead><tr><th>#</th><th>Tool</th><th>Category</th><th>Owner</th><th>Status</th><th>Risk</th><th style="text-align:right">Monthly</th><th style="text-align:right">Annual</th></tr></thead>
+    <tbody>
+      ${topTools.map((t, i) => `<tr>
+        <td style="color:#94a3b8">${i + 1}</td>
+        <td><strong>${t.name}</strong>${t.url ? ` <span style="color:#94a3b8;font-size:10px">${t.url}</span>` : ''}</td>
+        <td style="color:#64748b">${t.category || '—'}</td>
+        <td style="color:#64748b">${t.owner_email || 'Unassigned'}</td>
+        <td><span class="badge ${t.derived_status === 'active' ? 'b-active' : 'b-unused'}">${t.derived_status}</span></td>
+        <td><span class="badge ${t.derived_risk === 'high' ? 'b-high' : t.derived_risk === 'medium' ? 'b-medium' : 'b-low'}">${t.derived_risk}</span></td>
+        <td style="text-align:right;font-weight:600">${t.cost_per_month ? fmt(Number(t.cost_per_month)) : '—'}</td>
+        <td style="text-align:right;color:#64748b">${t.cost_per_month ? fmt(Number(t.cost_per_month) * 12) : '—'}</td>
+      </tr>`).join('')}
+      <tr style="background:#f8fafc;font-weight:700">
+        <td colspan="6" style="text-align:right;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#64748b">Total</td>
+        <td style="text-align:right">${fmt(totalSpend)}</td>
+        <td style="text-align:right">${fmt(annualSpend)}</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+${renewals.length > 0 ? `
+<div class="section">
+  <div class="section-title">Upcoming Renewals (Next 90 Days)</div>
+  <table>
+    <thead><tr><th>Tool</th><th>Category</th><th>Renewal Date</th><th>Days Left</th><th style="text-align:right">Annual Cost</th></tr></thead>
+    <tbody>
+      ${renewals.map(t => {
+        const days = Math.ceil((new Date(t.renewal_date) - new Date()) / 86400000);
+        const urgentColor = days <= 7 ? '#dc2626' : days <= 30 ? '#d97706' : '#334155';
+        return `<tr>
+          <td><strong>${t.name}</strong></td>
+          <td style="color:#64748b">${t.category || '—'}</td>
+          <td>${t.renewal_date}</td>
+          <td style="color:${urgentColor};font-weight:600">${days} days</td>
+          <td style="text-align:right">${t.cost_per_month ? fmt(Number(t.cost_per_month) * 12) : '—'}</td>
+        </tr>`;
+      }).join('')}
+    </tbody>
+  </table>
+</div>` : ''}
+
+${unusedTools > 0 || formerAccess > 0 ? `
+<div class="section">
+  <div class="section-title">Recommendations</div>
+  <table>
+    <thead><tr><th>Priority</th><th>Action</th><th>Potential Saving / Impact</th></tr></thead>
+    <tbody>
+      ${formerAccess > 0 ? `<tr><td><span class="badge b-high">Critical</span></td><td>Revoke ${formerAccess} active access record(s) belonging to offboarded employees</td><td>Security / Compliance</td></tr>` : ''}
+      ${unusedTools > 0 ? `<tr><td><span class="badge b-medium">High</span></td><td>Review ${unusedTools} unused/orphaned tool(s) — consider cancelling licences</td><td>${fmt(tools.filter(t => t.derived_status === 'unused' || t.derived_status === 'orphaned').reduce((s, t) => s + Number(t.cost_per_month || 0), 0) * 12)} / year</td></tr>` : ''}
+      ${highRisk > 0 ? `<tr><td><span class="badge b-medium">Medium</span></td><td>Assign owners to ${highRisk} high-risk tool(s) with no designated owner</td><td>Governance</td></tr>` : ''}
+      <tr><td><span class="badge b-low">Low</span></td><td>Schedule quarterly access review for all critical tools</td><td>Best Practice</td></tr>
+    </tbody>
+  </table>
+</div>` : ''}
+
+<div class="footer">
+  <span>Generated by Stacklens · stacklens.fr</span>
+  <span>${orgName} · Confidential</span>
+  <span>${today}</span>
+</div>
+
+<script>window.onload=function(){window.print();}</script>
+</body>
+</html>`;
+  const w = window.open('', '_blank');
+  if (w) { w.document.write(html); w.document.close(); }
+}
+
 function AuditTabContent() {
   const { language } = useLang();
   const t = useTranslation(language);
@@ -8830,8 +9048,12 @@ function AuditTabContent() {
         <div className="rounded-2xl border border-blue-500/20 bg-gradient-to-br from-slate-900 to-blue-950/20 p-6">
           <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-4">{t("audit_export_package")}</div>
           <p className="text-sm text-slate-400 mb-5">{t("audit_package_desc")}</p>
-          <button onClick={exportFullPackage}
+          <button onClick={() => printExecutiveSummary(db, derived)}
             className="w-full flex items-center justify-center gap-2 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold text-sm transition-colors mb-3">
+            <FileText className="h-4 w-4" /> Executive PDF Report
+          </button>
+          <button onClick={exportFullPackage}
+            className="w-full flex items-center justify-center gap-2 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-xl font-semibold text-sm transition-colors mb-3">
             <Download className="h-4 w-4" /> {t("audit_download_full")}
           </button>
           <div className="text-xs text-slate-600 text-center">{t("audit_three_files")}</div>
