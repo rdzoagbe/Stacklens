@@ -4394,12 +4394,35 @@ function WorkspaceConnector({ compact = false }) {
   const [status, setStatus]   = useState(null);
   const [oktaStep, setOktaStep]     = useState(null);
   const [oktaDomain, setOktaDomain] = useState('');
+  const [cancelledProvider, setCancelledProvider] = useState(null); // 'google' | 'microsoft' | 'okta'
 
   // Handle Microsoft 365 PKCE callback
   useEffect(() => {
     const params   = new URLSearchParams(window.location.search);
-    const code     = params.get('code');
+    const urlError = params.get('error');
     const urlState = params.get('state');
+
+    // Detect OAuth cancellation from Microsoft / Okta redirect
+    if (urlError === 'access_denied' || urlError === 'login_required') {
+      const msState   = sessionStorage.getItem('ms_state');
+      const oktaState = sessionStorage.getItem('okta_state');
+      if (msState && urlState === msState) {
+        sessionStorage.removeItem('ms_state');
+        sessionStorage.removeItem('ms_code_verifier');
+        window.history.replaceState({}, '', window.location.pathname);
+        setCancelledProvider('microsoft');
+        return;
+      }
+      if (oktaState && urlState === oktaState) {
+        sessionStorage.removeItem('okta_state');
+        sessionStorage.removeItem('okta_code_verifier');
+        window.history.replaceState({}, '', window.location.pathname);
+        setCancelledProvider('okta');
+        return;
+      }
+    }
+
+    const code     = params.get('code');
     const msState  = sessionStorage.getItem('ms_state');
     if (!code || !msState || urlState !== msState) return;
 
@@ -4566,7 +4589,12 @@ function WorkspaceConnector({ compact = false }) {
       }
       setStatus({ type: 'success', msg: `Imported ${count} employees from Google Workspace!` });
     } catch (err) {
-      setStatus({ type: 'error', msg: `Google sync failed: ${err.message}` });
+      const cancelled = err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request' || err.message?.includes('closed');
+      if (cancelled) {
+        setCancelledProvider('google');
+      } else {
+        setStatus({ type: 'error', msg: `Google sync failed: ${err.message}` });
+      }
     } finally {
       setSyncing(null);
     }
@@ -4673,7 +4701,43 @@ function WorkspaceConnector({ compact = false }) {
     },
   ];
 
+  const providerName = cancelledProvider === 'google' ? 'Google Workspace' : cancelledProvider === 'microsoft' ? 'Microsoft 365' : 'Okta';
+  const retryAction  = cancelledProvider === 'google' ? syncGoogle : cancelledProvider === 'microsoft' ? connectMicrosoft : () => setOktaStep('domain');
+
   return (
+    <>
+    {cancelledProvider && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+        <div className="bg-slate-900 border border-amber-500/40 rounded-2xl w-full max-w-md p-6 shadow-2xl">
+          <div className="flex items-start gap-4 mb-5">
+            <div className="p-2.5 rounded-xl bg-amber-500/10 flex-shrink-0">
+              <AlertTriangle className="h-6 w-6 text-amber-400" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-white mb-1">Sync not completed</h3>
+              <p className="text-sm text-slate-400">
+                The {providerName} authorisation was cancelled before completing. Your directory was <strong className="text-white">not synced</strong> and no employees were imported.
+              </p>
+            </div>
+          </div>
+          <p className="text-sm text-slate-400 mb-6">Would you like to try again or cancel the sync?</p>
+          <div className="flex gap-3">
+            <button
+              onClick={() => { setCancelledProvider(null); retryAction(); }}
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold text-sm text-white transition-colors"
+            >
+              <RefreshCw className="h-4 w-4" /> Try Again
+            </button>
+            <button
+              onClick={() => setCancelledProvider(null)}
+              className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl font-semibold text-sm text-slate-300 transition-colors"
+            >
+              Cancel Sync
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 mb-6">
       <div className="flex items-center gap-3 mb-4">
         <div className="p-2 bg-blue-500/20 rounded-xl">
@@ -4775,6 +4839,7 @@ function WorkspaceConnector({ compact = false }) {
         </div>
       )}
     </div>
+    </>
   );
 }
 
