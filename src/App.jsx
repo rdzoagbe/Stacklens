@@ -4591,6 +4591,7 @@ function WorkspaceConnector({ compact = false }) {
     } catch (err) {
       const cancelled = err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request' || err.message?.includes('closed');
       if (cancelled) {
+        setStatus(null);
         setCancelledProvider('google');
       } else {
         setStatus({ type: 'error', msg: `Google sync failed: ${err.message}` });
