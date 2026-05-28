@@ -4396,6 +4396,16 @@ function WorkspaceConnector({ compact = false }) {
   const [oktaDomain, setOktaDomain] = useState('');
   const [cancelledProvider, setCancelledProvider] = useState(null); // 'google' | 'microsoft' | 'okta'
 
+  // Auto-dismiss success/error status after 6s; clear stale loading if syncing stops
+  React.useEffect(() => {
+    if (!status) return;
+    if (status.type === 'loading' && !syncing) { setStatus(null); return; }
+    if (status.type !== 'loading') {
+      const t = setTimeout(() => setStatus(null), 6000);
+      return () => clearTimeout(t);
+    }
+  }, [status, syncing]);
+
   // Handle Microsoft 365 PKCE callback
   useEffect(() => {
     const params   = new URLSearchParams(window.location.search);
@@ -16338,8 +16348,21 @@ function FloatingChatbot() {
 
   React.useEffect(() => {
     if (open && !initialized) {
-      setMessages([{ role: 'assistant', content: t('chatbot_welcome') }]);
       setInitialized(true);
+      // Probe the AI service immediately so the status dot is accurate upfront
+      setLoading(true);
+      callAI({ messages: [{ role: 'user', content: 'ping' }], max_tokens: 1 })
+        .then(() => {
+          setMessages([{ role: 'assistant', content: t('chatbot_welcome') }]);
+        })
+        .catch(() => {
+          setServiceDown(true);
+          setMessages([{
+            role: 'assistant',
+            content: 'The AI assistant is temporarily unavailable — the service needs to be restarted. In the meantime, email us at hello@stacklens.fr and we\'ll get back to you shortly.',
+          }]);
+        })
+        .finally(() => setLoading(false));
     }
   }, [open, initialized, t]);
 
