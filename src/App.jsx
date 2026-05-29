@@ -2631,12 +2631,14 @@ function CookieBanner() {
 function DemoBanner() {
   const { isDemo } = useAuth();
   const navigate = useNavigate();
+  const { language } = useLang();
+  const t = useTranslation(language);
   if (!isDemo) return null;
   return (
     <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm px-4 py-2.5 flex items-center justify-between">
       <div className="flex items-center gap-2">
         <span className="text-base">🎯</span>
-        <span className="font-semibold">You're in Demo Mode</span>
+        <span className="font-semibold">{t('ui_demo_mode')}</span>
         <span className="text-blue-200 hidden sm:inline">— Explore with sample data. Sign up for real data.</span>
       </div>
       <div className="flex items-center gap-2">
@@ -2776,15 +2778,15 @@ function AppShell({ subtitle, title, right, children }) {
               <div className="flex items-center gap-1">
                 <span>© {new Date().getFullYear()} Stacklens</span>
                 <span className="hidden sm:inline">·</span>
-                <span className="hidden sm:inline">SaaS management for SMBs</span>
+                <span className="hidden sm:inline">{t('ui_saas_for_smbs')}</span>
               </div>
               <div className="flex items-center gap-4">
-                <Link to="/contact" className="hover:text-slate-300 transition-colors">Contact</Link>
-                <Link to="/privacy" className="hover:text-slate-300 transition-colors">Privacy</Link>
-                <Link to="/terms" className="hover:text-slate-300 transition-colors">Terms</Link>
-                <Link to="/legal" className="hover:text-slate-300 transition-colors">Legal</Link>
-                <Link to="/security-info" className="hover:text-slate-300 transition-colors">Security</Link>
-                <Link to="/about" className="hover:text-slate-300 transition-colors">About</Link>
+                <Link to="/contact" className="hover:text-slate-300 transition-colors">{t('ui_contact')}</Link>
+                <Link to="/privacy" className="hover:text-slate-300 transition-colors">{t('footer_privacy_policy')}</Link>
+                <Link to="/terms" className="hover:text-slate-300 transition-colors">{t('footer_terms_of_service')}</Link>
+                <Link to="/legal" className="hover:text-slate-300 transition-colors">{t('ui_legal')}</Link>
+                <Link to="/security-info" className="hover:text-slate-300 transition-colors">{t('nav_security')}</Link>
+                <Link to="/about" className="hover:text-slate-300 transition-colors">{t('ui_about')}</Link>
               </div>
             </div>
           </footer>
@@ -3267,30 +3269,30 @@ function OnboardingPage() {
           {step === 1 && (
             <div className="space-y-5">
               <div>
-                <h2 className="text-xl font-black text-white mb-1">About your company</h2>
-                <p className="text-slate-500 text-sm">Helps us personalise your experience</p>
+                <h2 className="text-xl font-black text-white mb-1">{t('ob_about_company')}</h2>
+                <p className="text-slate-500 text-sm">{t('ob_personalise')}</p>
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">Company name</label>
+                <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">{t('ob_company_name')}</label>
                 <input value={formData.companyName} onChange={e => setFormData(p => ({ ...p, companyName: e.target.value }))}
-                  placeholder="Acme Corp"
+                  placeholder={t('ob_company_name')}
                   className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:border-emerald-500 transition-colors" />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">Your role</label>
+                <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">{t('ob_your_role')}</label>
                 <select value={formData.jobTitle} onChange={e => setFormData(p => ({ ...p, jobTitle: e.target.value }))}
                   className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:border-emerald-500 transition-colors">
-                  <option value="">Select your role</option>
+                  <option value="">{t('ob_select_role')}</option>
                   {['CTO','VP of IT','IT Manager','IT Director','CEO','CFO','Operations Manager','Security Manager','Other'].map(r => (
                     <option key={r} value={r}>{r}</option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">Company size</label>
+                <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">{t('ob_company_size')}</label>
                 <select value={formData.companySize} onChange={e => setFormData(p => ({ ...p, companySize: e.target.value }))}
                   className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:border-emerald-500 transition-colors">
-                  <option value="">Select size</option>
+                  <option value="">{t('ob_select_size')}</option>
                   {['1-50','51-200','201-500','501-1000','1000+'].map(s => (
                     <option key={s} value={s}>{s} employees</option>
                   ))}
@@ -3316,8 +3318,8 @@ function OnboardingPage() {
             <div className="space-y-6">
               <div>
                 <div className="text-4xl mb-3">👥</div>
-                <h2 className="text-xl font-black text-white mb-1">Invite team members?</h2>
-                <p className="text-slate-400 text-sm">Add colleagues who will manage SaaS tools alongside you.</p>
+                <h2 className="text-xl font-black text-white mb-1">{t('ob_invite_team_q')}</h2>
+                <p className="text-slate-400 text-sm">{t('ob_invite_team_body')}</p>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <button onClick={() => setStep('2-yes')}
@@ -3339,7 +3341,7 @@ function OnboardingPage() {
           {step === '2-yes' && (
             <div className="space-y-5">
               <div>
-                <h2 className="text-xl font-black text-white mb-1">Invite your team</h2>
+                <h2 className="text-xl font-black text-white mb-1">{t('ob_invite_your_team')}</h2>
                 <p className="text-slate-400 text-sm">Enter email addresses — we'll send them an invite.</p>
               </div>
               <div className="space-y-2">
@@ -3367,7 +3369,7 @@ function OnboardingPage() {
                 <button onClick={() => setStep(2)} className="px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-semibold rounded-xl transition-colors">
                   ← Back
                 </button>
-                <button onClick={() => { setStep(3); toast.success('Team invites saved! We\'ll notify your colleagues.'); }}
+                <button onClick={() => { setStep(3); toast.success(t('toast_team_invites_saved')); }}
                   className="flex-1 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded-xl transition-all">
                   Save invites & continue →
                 </button>
@@ -3380,7 +3382,7 @@ function OnboardingPage() {
             <div className="space-y-6">
               <div>
                 <div className="text-4xl mb-3">📂</div>
-                <h2 className="text-xl font-black text-white mb-1">Import your directory?</h2>
+                <h2 className="text-xl font-black text-white mb-1">{t('ob_import_directory_q')}</h2>
                 <p className="text-slate-400 text-sm">Connect Google Workspace, Microsoft 365, or Okta to auto-import your employees.</p>
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -3403,7 +3405,7 @@ function OnboardingPage() {
           {step === '3-yes' && (
             <div className="space-y-5">
               <div>
-                <h2 className="text-xl font-black text-white mb-1">Choose your directory</h2>
+                <h2 className="text-xl font-black text-white mb-1">{t('ob_choose_directory')}</h2>
                 <p className="text-slate-400 text-sm">You can always add more from Settings → Integrations.</p>
               </div>
               <div className="space-y-2">
@@ -3436,9 +3438,9 @@ function OnboardingPage() {
                 </button>
                 <button
                   onClick={() => {
-                    if (!directoryChoice) { toast.error('Please select a provider first.'); return; }
+                    if (!directoryChoice) { toast.error(t('toast_select_provider')); return; }
                     setStep(4);
-                    toast.success('Great! We\'ll connect your directory — you\'ll finish the setup from the Integrations page after this wizard.');
+                    toast.success(t('toast_directory_connecting'));
                   }}
                   disabled={!directoryChoice}
                   className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:opacity-40 text-white font-bold rounded-xl transition-all">
@@ -4389,6 +4391,8 @@ const OKTA_CLIENT_ID  = import.meta.env.VITE_OKTA_CLIENT_ID  || '6a09e0ebf5aaa66
 const AZURE_CLIENT_ID = import.meta.env.VITE_AZURE_CLIENT_ID || '5270e1b9-2a70-48d6-b0e1-cd5f22904968';
 
 function WorkspaceConnector({ compact = false }) {
+  const { language } = useLang();
+  const t = useTranslation(language);
   const muts = useDbMutations();
   const [syncing, setSyncing] = useState(null);
   const [status, setStatus]   = useState(null);
@@ -4725,13 +4729,13 @@ function WorkspaceConnector({ compact = false }) {
               <AlertTriangle className="h-6 w-6 text-amber-400" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white mb-1">Sync not completed</h3>
+              <h3 className="text-base font-bold text-white mb-1">{t('ds_sync_not_completed')}</h3>
               <p className="text-sm text-slate-400">
                 The {providerName} authorisation was cancelled before completing. Your directory was <strong className="text-white">not synced</strong> and no employees were imported.
               </p>
             </div>
           </div>
-          <p className="text-sm text-slate-400 mb-6">Would you like to try again or cancel the sync?</p>
+          <p className="text-sm text-slate-400 mb-6">{t('ds_sync_try_again_q')}</p>
           <div className="flex gap-3">
             <button
               onClick={() => { setCancelledProvider(null); retryAction(); }}
@@ -4757,14 +4761,14 @@ function WorkspaceConnector({ compact = false }) {
           </svg>
         </div>
         <div>
-          <h3 className="text-base font-bold text-white">Directory Sync</h3>
-          <p className="text-xs text-slate-400">Auto-import employees from your identity provider</p>
+          <h3 className="text-base font-bold text-white">{t('ds_directory_sync')}</h3>
+          <p className="text-xs text-slate-400">{t('ds_auto_import_idp')}</p>
         </div>
       </div>
 
       {oktaStep === 'domain' && (
         <div className="mb-4 p-4 bg-slate-800 rounded-xl border border-slate-700">
-          <p className="text-sm font-semibold text-white mb-1">Connect Okta</p>
+          <p className="text-sm font-semibold text-white mb-1">{t('ds_connect_okta')}</p>
           <p className="text-xs text-slate-400 mb-3">Enter your Okta organization domain. You'll be redirected to authorize Stacklens to read your directory.</p>
           <div className="flex gap-2">
             <input
@@ -5278,14 +5282,14 @@ function DashboardPage() {
   const markReviewed = (accId) => {
     muts.updateAccess.mutate(
       { id: accId, patch: { last_reviewed_date: todayISO(), risk_flag: "none" } },
-      { onSuccess: () => toast.success('Marked as reviewed') }
+      { onSuccess: () => toast.success(t('toast_marked_reviewed')) }
     );
   };
 
   const revokeAccess = (accId) => {
     muts.updateAccess.mutate(
       { id: accId, patch: { status: "revoked" } },
-      { onSuccess: () => toast.success('Access revoked') }
+      { onSuccess: () => toast.success(t('toast_access_revoked')) }
     );
   };
 
@@ -5294,18 +5298,18 @@ function DashboardPage() {
         <div className="flex items-center gap-2">
           <RoleGate requires="editor">
             <Button variant="secondary" size="sm" onClick={() => { setImportKind('tools'); setShowImport(true); }}>
-              <Upload className="h-3.5 w-3.5" />Import Data
+              <Upload className="h-3.5 w-3.5" />{t('import_data')}
             </Button>
           </RoleGate>
-          <Button variant="secondary" size="sm" onClick={() => printExecutiveSummary(db, { ...derived, alerts: buildRiskAlerts({ ...(db || {}), tools: derived.tools, access: derived.access }) })} title="Download executive PDF report">
-            <FileText className="h-3.5 w-3.5" />PDF Report
+          <Button variant="secondary" size="sm" onClick={() => printExecutiveSummary(db, { ...derived, alerts: buildRiskAlerts({ ...(db || {}), tools: derived.tools, access: derived.access }) })} title={t('dl_download_pdf_report')}>
+            <FileText className="h-3.5 w-3.5" />{t('dl_pdf_report')}
           </Button>
-          <Button variant="secondary" size="sm" onClick={() => setShowShareModal(true)} title="Share a read-only report">
-            <Share2 className="h-3.5 w-3.5" />Share Report
+          <Button variant="secondary" size="sm" onClick={() => setShowShareModal(true)} title={t('dl_share_readonly')}>
+            <Share2 className="h-3.5 w-3.5" />{t('dl_share_report')}
           </Button>
           <RoleGate requires="admin">
-            <Button variant="secondary" size="sm" onClick={() => { if(window.confirm('This will clear ALL your data (tools, employees, access). Are you sure?')) { resetDb(); } }} title="Reset all data">
-              <RefreshCw className="h-3.5 w-3.5" /> Reset Data
+            <Button variant="secondary" size="sm" onClick={() => { if(window.confirm(t('dl_reset_confirm'))) { resetDb(); } }} title={t('dl_reset_all_data')}>
+              <RefreshCw className="h-3.5 w-3.5" /> {t('reset_data')}
             </Button>
           </RoleGate>
           <LangSelectorCompact />
@@ -5332,13 +5336,13 @@ function DashboardPage() {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-rose-400">Priority · Act now</span>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-rose-400">{t('ui_priority_act_now')}</span>
                 </div>
                 <h2 className="text-xl lg:text-2xl font-bold text-white mb-1">
-                  {derived.formerAccess} ex-{derived.formerAccess === 1 ? 'employee' : 'employees'} can still access your tools
+                  {derived.formerAccess} {derived.formerAccess === 1 ? t('ui_ex_employee') : t('ui_ex_employees')} {t('ui_can_still_access')}
                 </h2>
                 <p className="text-sm text-slate-400">
-                  This is a security risk and probably wasted licence spend. Fix it in one click.
+                  {t('ui_priority_risk_body')}
                 </p>
               </div>
             </div>
@@ -5346,7 +5350,7 @@ function DashboardPage() {
               <Button
                 onClick={() => navigate('/offboarding')}
                 className="w-full lg:w-auto !bg-rose-500 hover:!bg-rose-400 !text-white !px-6 !py-3 !font-bold shadow-lg shadow-rose-900/30">
-                Remove their access →
+                {t('ui_remove_their_access')}
               </Button>
             </div>
           </div>
@@ -5358,7 +5362,7 @@ function DashboardPage() {
         <div className="flex items-center justify-between gap-3 px-4 py-3 mb-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-sm">
           <div className="flex items-center gap-2 text-amber-300">
             <span>⚡</span>
-            <span className="font-semibold">Sample data active</span>
+            <span className="font-semibold">{t('dl_sample_data_active')}</span>
             <span className="text-amber-400/70 hidden sm:inline">— this is example data, not your real stack</span>
           </div>
           <button
@@ -5368,7 +5372,7 @@ function DashboardPage() {
               saveDb(cleared);
               qc.invalidateQueries({ queryKey: ['db'] });
               if (_firestoreUid) { try { await saveUserData(_firestoreUid, cleared); } catch(e) {} }
-              toast.success('Sample data cleared — ready for your real data');
+              toast.success(t('toast_sample_cleared'));
             }}
             className="text-xs font-semibold text-amber-300 hover:text-white border border-amber-500/40 hover:border-amber-400 px-3 py-1.5 rounded-lg transition-all whitespace-nowrap">
             Clear &amp; import real data →
@@ -5381,7 +5385,7 @@ function DashboardPage() {
         <div className="mb-6">
           <div className="text-center mb-6 pt-4">
             <div className="text-4xl mb-3">🔍</div>
-            <h2 className="text-2xl font-bold text-white mb-2">Welcome to Stacklens</h2>
+            <h2 className="text-2xl font-bold text-white mb-2">{t('dl_welcome_stacklens')}</h2>
             <p className="text-slate-400 text-sm max-w-md mx-auto">Your dashboard is empty. Choose how you want to get started — takes under 5 minutes either way.</p>
           </div>
           <div className="grid sm:grid-cols-2 gap-4 max-w-2xl mx-auto">
@@ -5390,12 +5394,12 @@ function DashboardPage() {
               onClick={() => {
                 loadSampleDataForUser();
                 qc.invalidateQueries({ queryKey: ['db'] });
-                toast.success('Sample data loaded! Explore freely, then import your real data when ready.');
+                toast.success(t('toast_sample_loaded'));
               }}
               className="group flex flex-col items-start gap-3 p-6 rounded-2xl border border-indigo-500/30 bg-indigo-500/5 hover:bg-indigo-500/10 hover:border-indigo-500/50 transition-all text-left">
               <div className="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-xl">✨</div>
               <div>
-                <div className="font-bold text-white mb-1">Explore with sample data</div>
+                <div className="font-bold text-white mb-1">{t('dl_explore_sample')}</div>
                 <div className="text-xs text-slate-400 leading-relaxed">See a real company's SaaS stack instantly — 8 tools, 6 employees, live risk alerts. No setup needed.</div>
               </div>
               <div className="mt-auto text-xs font-semibold text-indigo-400 group-hover:text-indigo-300 transition-colors">Load instantly →</div>
@@ -5407,7 +5411,7 @@ function DashboardPage() {
               className="group flex flex-col items-start gap-3 p-6 rounded-2xl border border-blue-500/30 bg-blue-500/5 hover:bg-blue-500/10 hover:border-blue-500/50 transition-all text-left">
               <div className="w-10 h-10 rounded-xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-xl">📂</div>
               <div>
-                <div className="font-bold text-white mb-1">Import my real data</div>
+                <div className="font-bold text-white mb-1">{t('dl_import_real_data')}</div>
                 <div className="text-xs text-slate-400 leading-relaxed">Upload a CSV or Excel file with your tools and employees. Stacklens maps everything automatically in seconds.</div>
               </div>
               <div className="mt-auto text-xs font-semibold text-blue-400 group-hover:text-blue-300 transition-colors">Upload file →</div>
@@ -5555,7 +5559,7 @@ function DashboardPage() {
             title: `${a.employee_name || 'Ex-employee'} still has access to ${a.tool_name || 'a tool'}`,
             reason: 'This employee has left the company but their access has not been revoked.',
             action: 'Revoke access',
-            onAction: () => { muts.updateAccess.mutate({ id: a.id, patch: { status: 'revoked' } }, { onSuccess: () => toast.success('Access revoked') }); },
+            onAction: () => { muts.updateAccess.mutate({ id: a.id, patch: { status: 'revoked' } }, { onSuccess: () => toast.success(t('toast_access_revoked')) }); },
             link: '/offboarding',
           });
         });
@@ -5707,9 +5711,9 @@ function DashboardPage() {
               <div className="p-1.5 bg-purple-500/20 rounded-lg">
                 <Sparkles className="h-4 w-4 text-purple-400" />
               </div>
-              <span className="text-base font-semibold text-slate-100">AI Recommendations</span>
+              <span className="text-base font-semibold text-slate-100">{t('dl_ai_recommendations')}</span>
             </div>
-            <span className="text-xs text-slate-500">Powered by Claude</span>
+            <span className="text-xs text-slate-500">{t('dl_powered_by_claude')}</span>
           </div>
           <AIRecommendations tools={derived?.tools||[]} employees={db?.employees||[]} access={db?.access||[]} compact={true} />
         </div>
@@ -5722,13 +5726,13 @@ function DashboardPage() {
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 lg:p-6">
           <div className="flex items-center justify-between mb-4">
             <span className="text-base font-semibold text-slate-100">{t('spend_trend') || 'Spend by Category'}</span>
-            <span className="text-xs text-slate-500">Monthly</span>
+            <span className="text-xs text-slate-500">{t('monthly')}</span>
           </div>
           {(derived?.tools||[]).length === 0 ? (
             <div className="text-center py-6 mb-4">
               <div className="text-3xl mb-2 opacity-40">💸</div>
-              <div className="text-sm text-slate-400 mb-1">No spend data yet</div>
-              <div className="text-xs text-slate-600">Import your tools to see spending</div>
+              <div className="text-sm text-slate-400 mb-1">{t('dl_no_spend_data')}</div>
+              <div className="text-xs text-slate-600">{t('dl_import_tools_spending')}</div>
             </div>
           ) : (
             <div className="space-y-3 mb-4">
@@ -5752,7 +5756,7 @@ function DashboardPage() {
 
         <div className="rounded-2xl border border-purple-500/20 bg-purple-500/5 p-5 lg:p-6">
           <div className="flex items-center justify-between mb-4">
-            <span className="text-base font-semibold text-slate-100">Shadow IT Detected</span>
+            <span className="text-base font-semibold text-slate-100">{t('dl_shadow_it_detected')}</span>
             <span className="text-xs px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 font-semibold">New</span>
           </div>
           {(() => {
@@ -5762,8 +5766,8 @@ function DashboardPage() {
               return (
                 <div className="text-center py-6 mb-4">
                   <div className="text-3xl mb-2 opacity-40">🔍</div>
-                  <div className="text-sm text-slate-400 mb-1">No shadow IT detected yet</div>
-                  <div className="text-xs text-slate-600">Import your tools to start scanning</div>
+                  <div className="text-sm text-slate-400 mb-1">{t('dl_no_shadow_it')}</div>
+                  <div className="text-xs text-slate-600">{t('dl_import_tools_scan')}</div>
                 </div>
               );
             }
@@ -5776,7 +5780,7 @@ function DashboardPage() {
                       <div className="text-sm font-semibold text-slate-200 truncate">{app.name}</div>
                       <div className="text-xs text-slate-500">{app.user_count || 0} employees</div>
                     </div>
-                    <span className="text-xs font-semibold text-amber-400">Unsanctioned</span>
+                    <span className="text-xs font-semibold text-amber-400">{t('dl_unsanctioned')}</span>
                   </div>
                 ))}
               </div>
@@ -5793,8 +5797,8 @@ function DashboardPage() {
           {(derived?.access||[]).filter(a=>a.status==='active').length === 0 ? (
             <div className="text-center py-6 mb-4">
               <div className="text-3xl mb-2 opacity-40">📋</div>
-              <div className="text-sm text-slate-400 mb-1">No reviews pending</div>
-              <div className="text-xs text-slate-600">Import access records to start reviews</div>
+              <div className="text-sm text-slate-400 mb-1">{t('dl_no_reviews_pending')}</div>
+              <div className="text-xs text-slate-600">{t('dl_import_access_reviews')}</div>
             </div>
           ) : (
             <div className="space-y-2.5">
@@ -5862,7 +5866,7 @@ function DashboardPage() {
                 if (assignToolId) {
                   muts.updateTool.mutate(
                     { id: assignToolId, patch: { owner_email: emp.email, owner_name: emp.full_name } },
-                    { onSuccess: () => { toast.success(`${emp.full_name} is now the owner of ${assignToolName}`); setShowAssignOwner(false); } }
+                    { onSuccess: () => { toast.success(`${emp.full_name} ${t('assign_is_now_owner')} ${assignToolName}`); setShowAssignOwner(false); } }
                   );
                 }
               }}
@@ -5975,7 +5979,7 @@ function ToolForm({ initial, employees, onSubmit, onClose }) {
           </Select>
         </div>
         <div>
-          <div className="mb-1 text-xs font-semibold text-slate-400">Status</div>
+          <div className="mb-1 text-xs font-semibold text-slate-400">{t('th_status')}</div>
           <Select value={form.status} onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}>
             {TOOL_STATUS.map((s) => (
               <option key={s} value={s}>
@@ -5998,7 +6002,7 @@ function ToolForm({ initial, employees, onSubmit, onClose }) {
 
       <div className="grid gap-3 md:grid-cols-3">
         <div className="md:col-span-2">
-          <div className="mb-1 text-xs font-semibold text-slate-400">URL</div>
+          <div className="mb-1 text-xs font-semibold text-slate-400">{t('th_url')}</div>
           <Input value={form.url} onChange={(e) => setForm((f) => ({ ...f, url: e.target.value }))} />
         </div>
         <div>
@@ -6014,7 +6018,7 @@ function ToolForm({ initial, employees, onSubmit, onClose }) {
 
       <div className="grid gap-3 md:grid-cols-2">
         <div>
-          <div className="mb-1 text-xs font-semibold text-slate-400">Cost / month</div>
+          <div className="mb-1 text-xs font-semibold text-slate-400">{t('fl_cost_per_month')}</div>
           <Input
             type="number"
             value={form.cost_per_month}
@@ -6022,7 +6026,7 @@ function ToolForm({ initial, employees, onSubmit, onClose }) {
           />
         </div>
         <div>
-          <div className="mb-1 text-xs font-semibold text-slate-400">Notes</div>
+          <div className="mb-1 text-xs font-semibold text-slate-400">{t('fl_notes')}</div>
           <Input value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} />
         </div>
       </div>
@@ -6044,6 +6048,7 @@ function ToolsPage() {
   const { data: db, isLoading } = useDbQuery();
   const { language, setLanguage } = useLang();
   const t = useTranslation(language);
+  const tr = t;
   const muts = useDbMutations();
 
   const [q, setQ] = useState("");
@@ -6208,7 +6213,7 @@ function ToolsPage() {
             <div className="p-6 space-y-2"><SkeletonRow cols={6} /><SkeletonRow cols={6} /><SkeletonRow cols={6} /></div>
           ) : filtered.length === 0 ? (
             <div className="p-12">
-              <EmptyState icon={Boxes} title="No tools found" body="Try adjusting your filters or add new tools." />
+              <EmptyState icon={Boxes} title={t('no_tools_found')} body={t('no_tools_body')} />
             </div>
           ) : (
             <>
@@ -6216,13 +6221,13 @@ function ToolsPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-slate-800 bg-slate-950/50">
-                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Tool</th>
-                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">Owner</th>
-                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden lg:table-cell">Last Used</th>
-                      <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Risk</th>
-                      <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden sm:table-cell">Status</th>
-                      <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Cost/mo</th>
-                      <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Actions</th>
+                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('tool_name')}</th>
+                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">{t('th_owner')}</th>
+                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden lg:table-cell">{t('th_last_used')}</th>
+                      <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('th_risk')}</th>
+                      <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden sm:table-cell">{t('th_status')}</th>
+                      <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('th_cost_mo')}</th>
+                      <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('th_actions')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -6246,7 +6251,7 @@ function ToolsPage() {
                               <div className="text-sm text-slate-300 truncate">{t.owner_name || '—'}</div>
                               <div className="text-xs text-slate-500 truncate">{t.owner_email}</div>
                             </div>
-                          ) : <button onClick={(ev) => { ev.stopPropagation(); setOwnerToolId(t.id); setOwnerToolName(t.name); setShowToolOwnerModal(true); }} className="text-xs text-amber-400 hover:text-amber-300 underline underline-offset-2 transition-colors">Assign owner</button>}
+                          ) : <button onClick={(ev) => { ev.stopPropagation(); setOwnerToolId(t.id); setOwnerToolName(t.name); setShowToolOwnerModal(true); }} className="text-xs text-amber-400 hover:text-amber-300 underline underline-offset-2 transition-colors">{tr('tools_assign_owner')}</button>}
                         </td>
                         <td className="py-3 px-4 text-sm text-slate-400 hidden lg:table-cell">{t.last_used_date || '—'}</td>
                         <td className="py-3 px-4 text-center"><RiskBadge risk={t.derived_risk} /></td>
@@ -6257,11 +6262,11 @@ function ToolsPage() {
                         <td className="py-3 px-4 text-right">
                           <div className="flex gap-1 justify-end" onClick={(ev) => ev.stopPropagation()}>
                             <button onClick={() => { setEditing(t); setOpen(true); }}
-                              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors" title="Edit">
+                              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors" title={tr('edit')}>
                               <Pencil className="h-3.5 w-3.5" />
                             </button>
-                            <button onClick={() => { if (window.confirm(`Delete ${t.name}?`)) { muts.deleteTool.mutate(t.id); toast.success(`${t.name} deleted!`); } }}
-                              className="p-1.5 rounded-lg bg-slate-800 hover:bg-red-600/20 text-slate-400 hover:text-red-400 transition-colors" title="Delete">
+                            <button onClick={() => { if (window.confirm(`${tr('confirm_delete_q')} ${t.name}?`)) { muts.deleteTool.mutate(t.id); toast.success(`${t.name} ${tr('toast_deleted')}`); } }}
+                              className="p-1.5 rounded-lg bg-slate-800 hover:bg-red-600/20 text-slate-400 hover:text-red-400 transition-colors" title={tr('delete')}>
                               <Trash2 className="h-3.5 w-3.5" />
                             </button>
                           </div>
@@ -6408,7 +6413,7 @@ function ToolsPage() {
                 if (ownerToolId) {
                   muts.updateTool.mutate(
                     { id: ownerToolId, patch: { owner_email: emp.email, owner_name: emp.full_name } },
-                    { onSuccess: () => { toast.success(`${emp.full_name} is now the owner of ${ownerToolName}`); setShowToolOwnerModal(false); } }
+                    { onSuccess: () => { toast.success(`${emp.full_name} ${t('assign_is_now_owner')} ${ownerToolName}`); setShowToolOwnerModal(false); } }
                   );
                 }
               }}
@@ -6424,7 +6429,7 @@ function ToolsPage() {
             </button>
           ))}
           {employees.filter(e => e.status === 'active').length === 0 && (
-            <div className="text-center py-6 text-sm text-slate-500">No active employees. Import your team first.</div>
+            <div className="text-center py-6 text-sm text-slate-500">{t("assign_no_active_employees")}</div>
           )}
         </div>
       </Modal>
@@ -6466,7 +6471,7 @@ function EmployeeForm({ initial, onSubmit, onClose }) {
           <Input value={form.full_name} onChange={(e) => setForm((f) => ({ ...f, full_name: e.target.value }))} />
         </div>
         <div>
-          <div className="mb-1 text-xs font-semibold text-slate-400">Email</div>
+          <div className="mb-1 text-xs font-semibold text-slate-400">{t('th_email')}</div>
           <Input value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
         </div>
       </div>
@@ -6483,11 +6488,11 @@ function EmployeeForm({ initial, onSubmit, onClose }) {
           </Select>
         </div>
         <div>
-          <div className="mb-1 text-xs font-semibold text-slate-400">Role</div>
+          <div className="mb-1 text-xs font-semibold text-slate-400">{t('employee_role')}</div>
           <Input value={form.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))} />
         </div>
         <div>
-          <div className="mb-1 text-xs font-semibold text-slate-400">Status</div>
+          <div className="mb-1 text-xs font-semibold text-slate-400">{t('th_status')}</div>
           <Select value={form.status} onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}>
             {['active','offboarding','offboarded'].map((s) => (
               <option key={s} value={s}>
@@ -6527,6 +6532,7 @@ function EmployeesPage() {
   const { data: db, isLoading } = useDbQuery();
   const { language, setLanguage } = useLang();
   const t = useTranslation(language);
+  const tr = t;
   const muts = useDbMutations();
 
   const [q, setQ] = useState("");
@@ -6673,9 +6679,9 @@ function EmployeesPage() {
             <select value={status} onChange={(e) => setStatus(e.target.value)}
               className="bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-300 outline-none">
               <option value="">{t("all_status")}</option>
-              <option value="active">Active</option>
-              <option value="offboarding">Offboarding</option>
-              <option value="offboarded">Offboarded</option>
+              <option value="active">{t('emp_status_active')}</option>
+              <option value="offboarding">{t('emp_status_offboarding')}</option>
+              <option value="offboarded">{t('emp_status_offboarded')}</option>
             </select>
             <span className="text-xs text-slate-500 whitespace-nowrap">{filtered.length} found</span>
           </div>
@@ -6687,7 +6693,7 @@ function EmployeesPage() {
             </div>
           ) : filtered.length === 0 ? (
             <div className="p-12">
-              <EmptyState icon={Users} title="No employees found" body="Try adjusting your filters or add new employees." />
+              <EmptyState icon={Users} title={t('no_employees_found')} body={t('empty_employees')} />
             </div>
           ) : (
             <>
@@ -6695,12 +6701,12 @@ function EmployeesPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-slate-800 bg-slate-950/50">
-                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Employee</th>
-                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">Department</th>
-                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden lg:table-cell">Role</th>
-                      <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden sm:table-cell">Tools</th>
-                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
-                      <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Actions</th>
+                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('th_employee')}</th>
+                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">{t('th_department')}</th>
+                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden lg:table-cell">{t('employee_role')}</th>
+                      <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden sm:table-cell">{t('th_tools')}</th>
+                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('th_status')}</th>
+                      <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('th_actions')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -6737,16 +6743,16 @@ function EmployeesPage() {
                         <td className="py-3 px-4 text-right">
                           <div className="flex gap-1 justify-end" onClick={(ev) => ev.stopPropagation()}>
                             <button onClick={() => { setEditing(e); setOpen(true); }}
-                              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors" title="Edit">
+                              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors" title={t('edit')}>
                               <Pencil className="h-3.5 w-3.5" />
                             </button>
                             <Link to={`/offboarding?employee=${encodeURIComponent(e.id)}`}>
-                              <button className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-amber-400 transition-colors" title="Offboard">
+                              <button className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-amber-400 transition-colors" title={t('nav_offboarding')}>
                                 <UserMinus className="h-3.5 w-3.5" />
                               </button>
                             </Link>
-                            <button onClick={() => { if (window.confirm(`Delete ${e.full_name}?`)) muts.deleteEmployee.mutate(e.id); }}
-                              className="p-1.5 rounded-lg bg-slate-800 hover:bg-red-600/20 text-slate-400 hover:text-red-400 transition-colors" title="Delete">
+                            <button onClick={() => { if (window.confirm(`${t('confirm_delete_q')} ${e.full_name}?`)) muts.deleteEmployee.mutate(e.id); }}
+                              className="p-1.5 rounded-lg bg-slate-800 hover:bg-red-600/20 text-slate-400 hover:text-red-400 transition-colors" title={t('delete')}>
                               <Trash2 className="h-3.5 w-3.5" />
                             </button>
                           </div>
@@ -6791,8 +6797,8 @@ function EmployeesPage() {
                                               t.risk === 'medium' ? 'bg-amber-500/20 text-amber-400' :
                                               'bg-emerald-500/20 text-emerald-400'
                                             )}>{t.risk || 'low'}</span>
-                                            <button onClick={(ev) => { ev.stopPropagation(); if(window.confirm(`Revoke ${e.full_name}'s access to ${t.tool_name}?`)) muts.deleteAccess.mutate(t.id); }}
-                                              className="p-1 rounded-lg bg-slate-800 hover:bg-red-600/20 text-slate-500 hover:text-red-400 transition-colors" title="Revoke access">
+                                            <button onClick={(ev) => { ev.stopPropagation(); if(window.confirm(`${tr('confirm_revoke')} ${e.full_name} → ${t.tool_name}?`)) muts.deleteAccess.mutate(t.id); }}
+                                              className="p-1 rounded-lg bg-slate-800 hover:bg-red-600/20 text-slate-500 hover:text-red-400 transition-colors" title={tr('revoke')}>
                                               <X className="h-3.5 w-3.5" />
                                             </button>
                                           </div>
@@ -7102,7 +7108,7 @@ function AccessPage() {
               <Button variant="secondary" size="sm" onClick={() => {
                 if(window.confirm('Revoke all ' + derived.highRisk.length + ' high-risk access records?')) {
                   derived.highRisk.forEach(a => muts.updateAccess.mutate({ id: a.id, patch: { status: 'revoked' } }));
-                  toast.success('All high-risk access revoked');
+                  toast.success(t('toast_all_high_risk_revoked'));
                 }
               }}>
                 {t("access_revoke_all_high")}
@@ -7119,7 +7125,7 @@ function AccessPage() {
                     <div className="text-xs text-slate-500 truncate">{a.tool?.name || a.tool_name} · {a.access_level}</div>
                   </div>
                   <button onClick={() => {
-                    muts.updateAccess.mutate({ id: a.id, patch: { status: 'revoked' } }, { onSuccess: () => toast.success('Revoked') });
+                    muts.updateAccess.mutate({ id: a.id, patch: { status: 'revoked' } }, { onSuccess: () => toast.success(t('toast_revoked')) });
                   }} className="px-2.5 py-1 bg-red-600/30 hover:bg-red-600/50 text-red-400 rounded-lg text-xs font-semibold transition-colors flex-shrink-0">
                     Revoke
                   </button>
@@ -7149,7 +7155,7 @@ function AccessPage() {
           </div>
           <select value={filterRisk} onChange={e => setFilterRisk(e.target.value)}
             className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-300 outline-none">
-            <option value="all">All Risk Levels</option>
+            <option value="all">{t('all_risk_levels')}</option>
             <option value="high">{t("high_risk_only")}</option>
             <option value="review">{t("needs_review_filter")}</option>
             <option value="clean">{t("clean_only")}</option>
@@ -7216,9 +7222,9 @@ function AccessPage() {
                                   title={empName + ' → ' + toolName + ' (' + access.level + ')' + (isRisk ? ' ⚠️ RISK' : '')}
                                   onClick={() => {
                                     const action = window.prompt(empName + ' → ' + toolName + ' (' + access.level + ')\n\n1 = Change to Viewer\n2 = Change to Admin\n3 = Revoke\n\nEnter 1, 2, or 3:');
-                                    if (action === '1') muts.updateAccess.mutate({ id: access.id, patch: { access_level: 'viewer' } }, { onSuccess: () => toast.success('Changed to Viewer') });
-                                    else if (action === '2') muts.updateAccess.mutate({ id: access.id, patch: { access_level: 'admin' } }, { onSuccess: () => toast.success('Changed to Admin') });
-                                    else if (action === '3') muts.updateAccess.mutate({ id: access.id, patch: { status: 'revoked' } }, { onSuccess: () => toast.success('Revoked') });
+                                    if (action === '1') muts.updateAccess.mutate({ id: access.id, patch: { access_level: 'viewer' } }, { onSuccess: () => toast.success(t('toast_changed_to_viewer')) });
+                                    else if (action === '2') muts.updateAccess.mutate({ id: access.id, patch: { access_level: 'admin' } }, { onSuccess: () => toast.success(t('toast_changed_to_admin')) });
+                                    else if (action === '3') muts.updateAccess.mutate({ id: access.id, patch: { status: 'revoked' } }, { onSuccess: () => toast.success(t('toast_revoked')) });
                                   }}
                                 />
                               </div>
@@ -7253,7 +7259,7 @@ function AccessPage() {
                     privCount[name].count++;
                   });
                   const sorted = Object.entries(privCount).sort((a,b) => b[1].count - a[1].count).slice(0,5);
-                  if (sorted.length === 0) return <div className="text-sm text-slate-500 text-center py-4">No admin access yet</div>;
+                  if (sorted.length === 0) return <div className="text-sm text-slate-500 text-center py-4">{t('no_admin_access_yet')}</div>;
                   return sorted.map(([name, data]) => (
                     <div key={name} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-800/40 transition-colors">
                       <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
@@ -7289,7 +7295,7 @@ function AccessPage() {
                   });
                   const sorted = Object.entries(toolCount).sort((a,b) => b[1].count - a[1].count).slice(0,5);
                   const maxCount = sorted[0]?.[1].count || 1;
-                  if (sorted.length === 0) return <div className="text-sm text-slate-500 text-center py-4">No access records yet</div>;
+                  if (sorted.length === 0) return <div className="text-sm text-slate-500 text-center py-4">{t('no_access_records_yet')}</div>;
                   return sorted.map(([name, data]) => (
                     <div key={name}>
                       <div className="flex items-center justify-between mb-1">
@@ -7327,7 +7333,7 @@ function AccessPage() {
                   const sorted = Object.entries(deptCount).sort((a,b) => b[1] - a[1]).slice(0,6);
                   const total = sorted.reduce((s, [,c]) => s + c, 0) || 1;
                   const colors = ['#3b82f6','#8b5cf6','#10b981','#f59e0b','#ef4444','#06b6d4'];
-                  if (sorted.length === 0) return <div className="text-sm text-slate-500 text-center py-4">No departments yet</div>;
+                  if (sorted.length === 0) return <div className="text-sm text-slate-500 text-center py-4">{t('no_departments_yet')}</div>;
                   return sorted.map(([dept, count], idx) => {
                     const pct = Math.round((count/total)*100);
                     return (
@@ -7405,12 +7411,12 @@ function AccessPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-800 bg-slate-950/50">
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-slate-400">Employee</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-slate-400">Tool</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-slate-400">Level</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-slate-400">Status</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-slate-400">Risk</th>
-                  <th className="text-right py-3 px-4 text-xs font-semibold text-slate-400">Actions</th>
+                  <th className="text-left py-3 px-4 text-xs font-semibold text-slate-400">{t('th_employee')}</th>
+                  <th className="text-left py-3 px-4 text-xs font-semibold text-slate-400">{t('tool_name')}</th>
+                  <th className="text-left py-3 px-4 text-xs font-semibold text-slate-400">{t('th_level')}</th>
+                  <th className="text-left py-3 px-4 text-xs font-semibold text-slate-400">{t('th_status')}</th>
+                  <th className="text-left py-3 px-4 text-xs font-semibold text-slate-400">{t('th_risk')}</th>
+                  <th className="text-right py-3 px-4 text-xs font-semibold text-slate-400">{t('th_actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -7443,12 +7449,12 @@ function AccessPage() {
                       <div className="flex gap-1 justify-end">
                         <button onClick={() => {
                           const action = window.prompt('Manage: ' + (a.employee?.full_name||'') + ' → ' + (a.tool?.name||a.tool_name) + '\n\n1=Viewer  2=Admin  3=Revoke');
-                          if (action === '1') muts.updateAccess.mutate({ id: a.id, patch: { access_level: 'viewer' } }, { onSuccess: () => toast.success('Changed to Viewer') });
-                          else if (action === '2') muts.updateAccess.mutate({ id: a.id, patch: { access_level: 'admin' } }, { onSuccess: () => toast.success('Changed to Admin') });
-                          else if (action === '3') muts.updateAccess.mutate({ id: a.id, patch: { status: 'revoked' } }, { onSuccess: () => toast.success('Revoked') });
-                        }} className="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold">Manage</button>
+                          if (action === '1') muts.updateAccess.mutate({ id: a.id, patch: { access_level: 'viewer' } }, { onSuccess: () => toast.success(t('toast_changed_to_viewer')) });
+                          else if (action === '2') muts.updateAccess.mutate({ id: a.id, patch: { access_level: 'admin' } }, { onSuccess: () => toast.success(t('toast_changed_to_admin')) });
+                          else if (action === '3') muts.updateAccess.mutate({ id: a.id, patch: { status: 'revoked' } }, { onSuccess: () => toast.success(t('toast_revoked')) });
+                        }} className="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold">{t('manage')}</button>
                         <button onClick={() => {
-                          if(window.confirm('Revoke?')) muts.updateAccess.mutate({ id: a.id, patch: { status: 'revoked' } }, { onSuccess: () => toast.success('Revoked') });
+                          if(window.confirm(t('confirm_revoke_q'))) muts.updateAccess.mutate({ id: a.id, patch: { status: 'revoked' } }, { onSuccess: () => toast.success(t('toast_revoked')) });
                         }} className="px-2 py-1 bg-red-600/20 hover:bg-red-600/40 text-red-400 rounded-lg text-xs font-semibold">×</button>
                       </div>
                     </td>
@@ -7547,8 +7553,8 @@ Return ONLY the JSON array, no markdown.`;
             <svg className="h-5 w-5 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
           </div>
           <div>
-            <h3 className="text-base font-bold text-white">AI Access Recommendations</h3>
-            <p className="text-xs text-slate-400">Powered by Claude AI</p>
+            <h3 className="text-base font-bold text-white">{t('ai_access_recommendations')}</h3>
+            <p className="text-xs text-slate-400">{t('powered_by_claude_ai')}</p>
           </div>
         </div>
         <button onClick={generateRecs} disabled={loading}
@@ -7556,7 +7562,7 @@ Return ONLY the JSON array, no markdown.`;
           {loading ? 'Analysing...' : 'Refresh'}
         </button>
       </div>
-      {loading && <div className="flex items-center gap-2 text-slate-400 text-sm"><div className="h-4 w-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin"/><span>Analysing your access data...</span></div>}
+      {loading && <div className="flex items-center gap-2 text-slate-400 text-sm"><div className="h-4 w-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin"/><span>{t('analysing_access_data')}</span></div>}
       {recs && (
         <div className="space-y-3">
           {(expanded ? recs : recs.slice(0,3)).map((rec, i) => (
@@ -7585,6 +7591,8 @@ Return ONLY the JSON array, no markdown.`;
 
 // ── Slack Notifications Setup ─────────────────────────────────────────────
 function SlackNotifications() {
+  const { language } = useLang();
+  const t = useTranslation(language);
   const [webhook, setWebhook] = React.useState(localStorage.getItem('slack_webhook') || '');
   const [saved, setSaved] = React.useState(false);
   const [testing, setTesting] = React.useState(false);
@@ -7603,9 +7611,9 @@ function SlackNotifications() {
         method: 'POST',
         body: JSON.stringify({ text: '✅ Stacklens connected! You will receive alerts for security risks, renewals and offboarding.' })
       });
-      toast.success('Test message sent to Slack!');
+      toast.success(t('toast_slack_test_sent'));
     } catch(e) {
-      toast.error('Failed to send. Check your webhook URL.');
+      toast.error(t('toast_slack_failed'));
     } finally { setTesting(false); }
   };
 
@@ -7614,13 +7622,13 @@ function SlackNotifications() {
       <div className="flex items-center gap-3 mb-4">
         <div className="p-2 bg-emerald-500/20 rounded-xl text-xl">💬</div>
         <div>
-          <h3 className="text-base font-bold text-white">Slack Notifications</h3>
-          <p className="text-xs text-slate-400">Get alerts for risks, renewals & offboarding</p>
+          <h3 className="text-base font-bold text-white">{t('slack_notifications')}</h3>
+          <p className="text-xs text-slate-400">{t('slack_get_alerts')}</p>
         </div>
       </div>
       <div className="space-y-3">
         <div>
-          <label className="text-xs text-slate-400 mb-1 block">Slack Webhook URL</label>
+          <label className="text-xs text-slate-400 mb-1 block">{t('slack_webhook_url')}</label>
           <input
             value={webhook}
             onChange={e => setWebhook(e.target.value)}
@@ -7628,7 +7636,7 @@ function SlackNotifications() {
             className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-emerald-500 transition-colors"
           />
           <p className="text-xs text-slate-500 mt-1">
-            <a href="https://api.slack.com/apps" target="_blank" rel="noreferrer" className="text-blue-400 hover:underline">Create a Slack App</a> → Incoming Webhooks → Add New Webhook
+            <a href="https://api.slack.com/apps" target="_blank" rel="noreferrer" className="text-blue-400 hover:underline">{t('slack_create_app')}</a> → Incoming Webhooks → Add New Webhook
           </p>
         </div>
         <div className="flex gap-2">
@@ -7642,7 +7650,7 @@ function SlackNotifications() {
           )}
         </div>
         <div className="pt-2 border-t border-slate-800">
-          <p className="text-xs text-slate-500 mb-2">You will receive alerts for:</p>
+          <p className="text-xs text-slate-500 mb-2">{t('slack_will_receive')}</p>
           <div className="grid grid-cols-2 gap-1">
             {['🚨 High risk tools', '👤 Former employee access', '🔔 Renewals in 30 days', '⚡ Offboarding needed'].map(a => (
               <div key={a} className="text-xs text-slate-400 flex items-center gap-1">{a}</div>
@@ -7657,6 +7665,7 @@ function SlackNotifications() {
 // ── License Benchmarking ──────────────────────────────────────────────────
 function LicenseBenchmark({ tools }) {
   const { language } = useLang();
+  const t = useTranslation(language);
   const BENCHMARKS = {
     'slack': { avg: 8.75, name: 'Slack' },
     'github': { avg: 21, name: 'GitHub' },
@@ -7688,8 +7697,8 @@ function LicenseBenchmark({ tools }) {
           <svg className="h-5 w-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
         </div>
         <div>
-          <h3 className="text-base font-bold text-white">License Benchmarking</h3>
-          <p className="text-xs text-slate-400">Your costs vs industry average</p>
+          <h3 className="text-base font-bold text-white">{t('license_benchmarking')}</h3>
+          <p className="text-xs text-slate-400">{t('license_costs_vs_industry')}</p>
         </div>
       </div>
       <div className="space-y-2">
@@ -7714,6 +7723,8 @@ function LicenseBenchmark({ tools }) {
 }
 
 function ChecklistItems() {
+  const { language } = useLang();
+  const t = useTranslation(language);
   const [checked, setChecked] = React.useState({});
   const items = [
     "Revoke all SaaS tool access",
@@ -7729,7 +7740,7 @@ function ChecklistItems() {
     <div>
       <div className="flex items-center justify-between mb-3">
         <span className="text-xs text-slate-500">{doneCount}/{items.length} completed</span>
-        {doneCount === items.length && <span className="text-xs text-emerald-400 font-semibold">All done!</span>}
+        {doneCount === items.length && <span className="text-xs text-emerald-400 font-semibold">{t('all_done')}</span>}
       </div>
       <div className="space-y-2 text-sm text-slate-400">
         {items.map((item) => (
@@ -7952,17 +7963,17 @@ function OffboardingPage() {
   const activeRecords = access.filter((a) => a.employee_id === employeeId && a.status === "active");
 
   const revokeOne = (id) => {
-    muts.updateAccess.mutate({ id, patch: { status: "revoked" } }, { onSuccess: () => toast.success("Access revoked") });
+    muts.updateAccess.mutate({ id, patch: { status: "revoked" } }, { onSuccess: () => toast.success(t('toast_access_revoked')) });
   };
   const revokeAll = () => {
     if (!employee) return;
-    if (!window.confirm(`Revoke all ${activeRecords.length} access records for ${employee.full_name}?`)) return;
+    if (!window.confirm(`${t('confirm_offboard_revoke_all')} ${activeRecords.length} ${t('confirm_revoke_all_risky')} ${employee.full_name}`)) return;
     activeRecords.forEach((r) => muts.updateAccess.mutate({ id: r.id, patch: { status: "revoked" } }));
     muts.updateEmployee.mutate({
       id: employeeId,
       patch: { status: "offboarded", end_date: employee?.end_date || todayISO() },
     });
-    toast.success(`${employee.full_name} offboarded — ${activeRecords.length} access records revoked`);
+    toast.success(`${employee.full_name} ${t('toast_employee_offboarded')} — ${activeRecords.length} ${t('toast_revoked_records')}`);
     setEmployeeId("");
   };
 
@@ -8065,12 +8076,12 @@ function OffboardingPage() {
                   })}
                 </div>
                 <button onClick={() => {
-                  if (window.confirm(`Revoke all ${riskRecords.length} risky access records?`)) {
+                  if (window.confirm(`${t('confirm_offboard_revoke_all')} ${riskRecords.length} ${t('confirm_revoke_all_risky')}`)) {
                     riskRecords.forEach(a => muts.updateAccess.mutate({ id: a.id, patch: { status: "revoked" } }));
-                    toast.success(`Revoked ${riskRecords.length} access records`);
+                    toast.success(`${t('toast_revoked')} ${riskRecords.length} ${t('toast_revoked_records')}`);
                   }
                 }} className="px-4 py-2 bg-red-600 hover:bg-red-500 rounded-xl font-semibold text-sm text-white transition-colors">
-                  Revoke All Risky Access
+                  {t('access_revoke_all_high')}
                 </button>
               </div>
             </div>
@@ -8437,7 +8448,7 @@ function ImportWizard({ defaultKind = null, onDone = null }) {
     const detected = detectKind(csv);
     if (detected) {
       setKind(detected);
-      toast.success('Detected: ' + (KINDS[detected]?.label || detected));
+      toast.success(t('toast_detected') + ' ' + (KINDS[detected]?.label || detected));
     } else if (!kind) {
       toast('Could not detect file type — please select the data type above.', { icon: '⚠️' });
     }
@@ -8458,7 +8469,7 @@ function ImportWizard({ defaultKind = null, onDone = null }) {
       if (msg.startsWith('PLAN_LIMIT:')) {
         toast.error(msg.replace('PLAN_LIMIT:', ''), { duration: 8000 });
       } else {
-        toast.error('Import failed: ' + (msg || 'Unknown error'));
+        toast.error(t('toast_import_failed') + ' ' + (msg || 'Unknown error'));
       }
     } finally { setImporting(false); }
   };
@@ -8506,7 +8517,7 @@ function ImportWizard({ defaultKind = null, onDone = null }) {
     const detected = detectKind(val);
     if (detected && detected !== kind) {
       setKind(detected);
-      toast.success('Detected type: ' + KINDS[detected].label + ' — smart detection! ✨');
+      toast.success(t('toast_detected_type') + ' ' + KINDS[detected].label + ' ✨');
     }
   };
 
@@ -8647,7 +8658,7 @@ function ImportWizard({ defaultKind = null, onDone = null }) {
           {kind && (
             <div className="flex items-center gap-2 text-xs text-slate-500 bg-slate-900/60 border border-slate-800 rounded-xl px-4 py-2.5">
               <span className="text-lg">{KINDS[kind].icon}</span>
-              <span>Importing as <span className="text-white font-semibold">{KINDS[kind].label}</span></span>
+              <span>{t('imp_importing_as')} <span className="text-white font-semibold">{KINDS[kind].label}</span></span>
               <button onClick={() => goTo(0)} className="ml-auto text-blue-400 hover:text-blue-300 font-semibold">{t('back')}</button>
             </div>
           )}
@@ -8725,7 +8736,7 @@ function ImportWizard({ defaultKind = null, onDone = null }) {
                             <td className="px-3 py-2">
                               {valid
                                 ? <span className="text-emerald-400 flex items-center gap-1"><Check className="h-3 w-3" /> OK</span>
-                                : <span className="text-rose-400 flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> Missing</span>
+                                : <span className="text-rose-400 flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> {t('imp_missing')}</span>
                               }
                             </td>
                           </tr>
@@ -8737,7 +8748,7 @@ function ImportWizard({ defaultKind = null, onDone = null }) {
                   {liveRows.length > 10 && <div className="text-center text-xs text-slate-600 py-2">Showing 10 of {liveRows.length} rows</div>}
                 </div>
                 <div className="flex items-center justify-between mt-4">
-                  <div className="text-xs text-slate-500">Existing records will be updated, not duplicated</div>
+                  <div className="text-xs text-slate-500">{t('imp_existing_updated')}</div>
                   <button disabled={validCount === 0 || importing} onClick={handleImport}
                     className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 rounded-xl font-bold text-sm transition-all active:scale-[0.98]">
                     {importing
@@ -9032,21 +9043,21 @@ function AuditTabContent() {
     const headers = ["Name","Category","Owner","Criticality","Status","Risk","Monthly Cost","Last Used","URL"];
     const rows = derived.tools.map(t => [t.name, t.category, t.owner_email||'Unassigned', t.criticality, t.derived_status, t.derived_risk, t.cost_per_month||0, t.last_used_date||'Never', t.url||'']);
     downloadText(`stacklens_tools_${todayISO()}.csv`, toCsv(headers, rows));
-    toast.success('Tools export downloaded');
+    toast.success(t('toast_tools_export'));
   };
   const exportEmployees = () => {
     if (!derived) return;
     const headers = ["Name","Email","Department","Role","Status","Start Date","End Date"];
     const rows = derived.employees.map(e => [e.full_name, e.email, e.department, e.role, e.status, e.start_date||'', e.end_date||'']);
     downloadText(`stacklens_employees_${todayISO()}.csv`, toCsv(headers, rows));
-    toast.success('Employees export downloaded');
+    toast.success(t('toast_employees_export'));
   };
   const exportAccess = () => {
     if (!derived) return;
     const headers = ["Tool","Employee","Email","Access Level","Granted","Last Accessed","Last Reviewed","Status","Risk Flag"];
     const rows = derived.access.map(a => [a.tool_name, a.employee_name, a.employee_email, a.access_level, a.granted_date||'', a.last_accessed_date||'', a.last_reviewed_date||'', a.status, a.derived_risk_flag||'none']);
     downloadText(`stacklens_access_${todayISO()}.csv`, toCsv(headers, rows));
-    toast.success('Access export downloaded');
+    toast.success(t('toast_access_export'));
   };
   const exportFullPackage = () => { exportTools(); setTimeout(exportEmployees, 300); setTimeout(exportAccess, 600); };
 
@@ -9054,7 +9065,7 @@ function AuditTabContent() {
   const healthBg = (s) => s >= 80 ? "bg-emerald-500" : s >= 60 ? "bg-amber-500" : "bg-red-500";
 
   if (isLoading || !derived) return (
-    <div className="flex items-center justify-center py-20 text-slate-500">Loading audit data...</div>
+    <div className="flex items-center justify-center py-20 text-slate-500">{t('audit_loading')}</div>
   );
 
   return (
@@ -9099,22 +9110,22 @@ function AuditTabContent() {
         {/* Quick Stats */}
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
-            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Tools</div>
+            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t('nav_tools')}</div>
             <div className="text-2xl font-black text-white">{derived.activeTools}</div>
             <div className="text-xs text-slate-500">{derived.unusedTools} unused</div>
           </div>
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
-            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Employees</div>
+            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t('nav_employees')}</div>
             <div className="text-2xl font-black text-white">{derived.employees.length}</div>
             <div className="text-xs text-slate-500">{derived.employees.filter(e => e.status === 'active').length} active</div>
           </div>
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
-            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Access Records</div>
+            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t('exec_access_records')}</div>
             <div className="text-2xl font-black text-white">{derived.access.length}</div>
             <div className="text-xs text-slate-500">{derived.access.filter(a => a.status === 'active').length} active</div>
           </div>
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
-            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Risk Items</div>
+            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t('audit_risk_items')}</div>
             <div className="text-2xl font-black text-red-400">{derived.highRiskCount + derived.formerEmpAccess}</div>
             <div className="text-xs text-slate-500">{derived.highRiskCount} tools, {derived.formerEmpAccess} access</div>
           </div>
@@ -9173,7 +9184,7 @@ function AuditTabContent() {
             
             {/* Mini preview table */}
             <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-3 mb-4">
-              <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-600 mb-2">Preview</div>
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-600 mb-2">{t('audit_preview')}</div>
               <div className="space-y-1.5">
                 {item.preview.map((row, idx) => (
                   <div key={idx} className="flex items-center justify-between text-xs">
@@ -9598,12 +9609,12 @@ function PricingTiers({ currentPlan = 'free' }) {
                       logLegalAcceptance(db.user.uid, db.user.email, plan.id).catch(() => {});
                     }
                     const priceId = billing === 'annual' ? plan.annualPriceId : plan.monthlyPriceId;
-                    if (!priceId) { toast.error('Price not configured for this plan'); return; }
+                    if (!priceId) { toast.error(t('toast_price_not_configured')); return; }
                     const { url, error } = await createCheckoutSession(priceId, db?.user?.email);
                     if (url) window.location.href = url;
                     else toast.error(error || 'Could not start checkout');
                   } catch(e) {
-                    toast.error('Checkout failed: ' + e.message);
+                    toast.error(t('toast_checkout_failed') + ' ' + e.message);
                   }
                 }}
                 className={`w-full py-3 rounded-xl font-bold transition-all ${isCurrent ? 'bg-slate-700 text-slate-400 cursor-not-allowed' : plan.popular ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-slate-800 hover:bg-slate-700 text-white'}`}>
@@ -9643,11 +9654,11 @@ function PricingTiers({ currentPlan = 'free' }) {
 }
 
 function BillingPage({ noShell = false }) {
-  React.useEffect(() => { const p = new URLSearchParams(window.location.search); if (p.get("success")) { toast.success("Plan upgraded!"); setTimeout(() => { window.history.replaceState({}, "", window.location.pathname); window.location.reload(); }, 1500); } }, []);
+  React.useEffect(() => { const p = new URLSearchParams(window.location.search); if (p.get("success")) { toast.success(t('toast_plan_upgraded')); setTimeout(() => { window.history.replaceState({}, "", window.location.pathname); window.location.reload(); }, 1500); } }, []);
   const handleManageSubscription = async () => {
     const { url, error } = await createBillingPortal(window.location.href);
     if (url) window.location.href = url;
-    else toast.error('Could not open billing portal: ' + (error || 'Unknown error'));
+    else toast.error(t('toast_portal_failed') + ' ' + (error || 'Unknown error'));
   };
   const { data: db } = useDbQuery();
   const muts = useDbMutations();
@@ -9847,14 +9858,14 @@ function BillingPage({ noShell = false }) {
     if (id === 'enterprise') { setShowContactModal(true); return; }
     if (id === 'free' || id === 'startup') return;
     const priceId = PRICE_IDS[id]?.[billing] || PRICE_IDS[id]?.monthly;
-    if (!priceId) { toast.error('Plan not available. Contact us!'); return; }
+    if (!priceId) { toast.error(t('toast_plan_not_available')); return; }
     setUpgrading(true);
     try {
       const { url, error } = await createCheckoutSession(priceId);
       if (error) throw new Error(error);
       if (url) window.location.href = url;
     } catch (err) {
-      toast.error('Could not start checkout: ' + err.message);
+      toast.error(t('toast_could_not_checkout') + ' ' + err.message);
     } finally {
       setUpgrading(false);
     }
@@ -10227,14 +10238,14 @@ function IntegrationConnectors() {
           </div>
           <div className="flex-1">
             <h2 className="text-2xl font-black text-white">{t("integration_marketplace")}</h2>
-            <p className="text-slate-400">Connect your tools to automate SaaS management</p>
+            <p className="text-slate-400">{t('int_connect_automate')}</p>
           </div>
         </div>
         
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="bg-slate-900/50 rounded-xl p-4 text-center border border-slate-800">
             <div className="text-xl md:text-3xl font-black text-blue-400">{integrations.length}</div>
-            <div className="text-sm text-slate-400 mt-1">Total</div>
+            <div className="text-sm text-slate-400 mt-1">{t('int_total')}</div>
           </div>
           <div className="bg-slate-900/50 rounded-xl p-4 text-center border border-slate-800">
             <div className="text-xl md:text-3xl font-black text-emerald-400">{connectedCount}</div>
@@ -10668,17 +10679,17 @@ function SecurityTabContent() {
                 {c.status === 'compliant' ? (
                   <div className="flex items-center gap-1.5 text-emerald-400">
                     <BadgeCheck className="h-4 w-4" />
-                    <span className="text-xs font-semibold">Compliant</span>
+                    <span className="text-xs font-semibold">{t('sec_compliant')}</span>
                   </div>
                 ) : c.status === 'review' ? (
                   <div className="flex items-center gap-1.5 text-amber-400">
                     <AlertTriangle className="h-4 w-4" />
-                    <span className="text-xs font-semibold">Review Needed</span>
+                    <span className="text-xs font-semibold">{t('sec_review_needed')}</span>
                   </div>
                 ) : (
                   <div className="flex items-center gap-1.5 text-red-400">
                     <X className="h-4 w-4" />
-                    <span className="text-xs font-semibold">Non-Compliant</span>
+                    <span className="text-xs font-semibold">{t('sec_non_compliant')}</span>
                   </div>
                 )}
               </div>
@@ -10777,7 +10788,7 @@ function CostManagementPage() {
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
             <h1 data-tour="tour-cost-header" className="text-2xl md:text-3xl font-black text-white mb-1">{t("cost_mgmt_title") || "Cost Management"}</h1>
-            <p className="text-slate-400">Find waste, optimise spend, reclaim unused licenses</p>
+            <p className="text-slate-400">{t('fin_find_waste')}</p>
           </div>
           <button onClick={() => navigate('/licenses')} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-semibold transition-colors text-sm">
             {t('reclaim_licenses') || 'Manage Licenses'} →
@@ -10943,7 +10954,7 @@ function AnalyticsReportsPage() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-slate-400 text-sm">Live insights across your entire SaaS stack</p>
+            <p className="text-slate-400 text-sm">{t('fin_live_insights')}</p>
           </div>
           <button onClick={exportCSV} className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-semibold transition-colors text-sm">
             <Download className="h-4 w-4" /> Export CSV
@@ -11177,7 +11188,7 @@ function SettingsPage() {
               <CardBody>
                 <div className="space-y-5 max-w-2xl">
                   {[
-                    { label: t('org_name_label'), el: <input value={orgName} onChange={e=>setOrgName(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm outline-none focus:border-emerald-500 transition-colors" placeholder="Acme Corp" /> },
+                    { label: t('org_name_label'), el: <input value={orgName} onChange={e=>setOrgName(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm outline-none focus:border-emerald-500 transition-colors" placeholder={t('ob_company_name')} /> },
 
                     { label: t('time_zone_label'), el: <select value={timezone} onChange={e=>setTimezone(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm outline-none"><option>Europe/London</option><option>UTC</option><option>America/New_York</option><option>America/Los_Angeles</option><option>Europe/Paris</option><option>Asia/Tokyo</option></select> },
                     { label: t('date_format_label'), el: <select value={dateFormat} onChange={e=>setDateFormat(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm outline-none"><option>DD/MM/YYYY</option><option>MM/DD/YYYY</option><option>YYYY-MM-DD</option></select> },
@@ -11239,15 +11250,15 @@ function SettingsPage() {
                         className="flex-1 min-w-48 bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm outline-none focus:border-emerald-500 transition-colors" placeholder="colleague@company.com" />
                       <select value={inviteRole} onChange={e => setInviteRole(e.target.value)}
                         className="bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm outline-none">
-                        <option value="admin">Admin — Manage tools, employees & access</option>
-                        <option value="editor">Editor — View & edit data</option>
-                        <option value="viewer">Viewer — Read-only access</option>
+                        <option value="admin">{t('role_admin_opt')}</option>
+                        <option value="editor">{t('role_editor_opt')}</option>
+                        <option value="viewer">{t('role_viewer_opt')}</option>
                       </select>
                       <div className="w-full mt-2 p-3 bg-slate-900/60 rounded-xl border border-slate-800 text-xs text-slate-400 space-y-1.5">
-                        <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0"></span><span><span className="text-amber-400 font-semibold">Owner</span> — Full access + billing + roles</span></div>
-                        <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-blue-400 flex-shrink-0"></span><span><span className="text-blue-400 font-semibold">Admin</span> — Manage tools, employees, access & offboarding</span></div>
-                        <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-emerald-400 flex-shrink-0"></span><span><span className="text-emerald-400 font-semibold">Editor</span> — View & edit data, cannot delete</span></div>
-                        <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-slate-400 flex-shrink-0"></span><span><span className="text-slate-300 font-semibold">Viewer</span> — Read-only, no edits</span></div>
+                        <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0"></span><span><span className="text-amber-400 font-semibold">{t('role_owner')}</span> — {t('role_owner_desc')}</span></div>
+                        <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-blue-400 flex-shrink-0"></span><span><span className="text-blue-400 font-semibold">{t('role_admin')}</span> — {t('role_admin_desc')}</span></div>
+                        <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-emerald-400 flex-shrink-0"></span><span><span className="text-emerald-400 font-semibold">{t('role_editor')}</span> — {t('role_editor_desc')}</span></div>
+                        <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-slate-400 flex-shrink-0"></span><span><span className="text-slate-300 font-semibold">{t('role_viewer')}</span> — {t('role_viewer_desc')}</span></div>
                       </div>
                       <button onClick={() => { if (inviteEmail) { window.open('mailto:' + inviteEmail + '?subject=Join%20Stacklens&body=You%27ve%20been%20invited%20to%20Stacklens.%20Sign%20in%20at%3A%20https%3A%2F%2Faccessguard-v2.web.app'); setInviteSent(true); } }}
                         className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-semibold text-sm transition-colors whitespace-nowrap">
@@ -11472,8 +11483,8 @@ function SettingsPage() {
               <Card><CardBody>
                 <div className="text-center py-8">
                   <div className="text-3xl mb-3">🔒</div>
-                  <h3 className="text-lg font-semibold text-white mb-1">Owner Access Required</h3>
-                  <p className="text-slate-400 text-sm">Only the account owner can manage billing and subscriptions.</p>
+                  <h3 className="text-lg font-semibold text-white mb-1">{t('set_owner_access_required')}</h3>
+                  <p className="text-slate-400 text-sm">{t('set_owner_only_billing')}</p>
                 </div>
               </CardBody></Card>
             }>
@@ -11504,6 +11515,8 @@ function SettingsPage() {
 function FounderAdminPage() {
   const { data: db } = useDbQuery();
   const dbUser = db?.user;
+  const { language } = useLang();
+  const t = useTranslation(language);
   const navigate = useNavigate();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -11540,11 +11553,11 @@ function FounderAdminPage() {
     setActionLoading(prev => ({ ...prev, [uid]: true }));
     try {
       await founderExtendTrial(uid, days);
-      toast.success(`Trial extended by ${days} days`);
+      toast.success(t('toast_trial_extended') + ' ' + days + ' ' + t('days'));
       const updated = await loadAllUsersAdmin();
       setUsers(updated);
     } catch (e) {
-      toast.error('Failed: ' + e.message);
+      toast.error(t('toast_failed') + ' ' + e.message);
     } finally {
       setActionLoading(prev => ({ ...prev, [uid]: false }));
     }
@@ -11554,11 +11567,11 @@ function FounderAdminPage() {
     setActionLoading(prev => ({ ...prev, [uid]: true }));
     try {
       await founderSetPlan(uid, plan);
-      toast.success(`Plan set to ${plan}`);
+      toast.success(t('toast_plan_set') + ' ' + plan);
       const updated = await loadAllUsersAdmin();
       setUsers(updated);
     } catch (e) {
-      toast.error('Failed: ' + e.message);
+      toast.error(t('toast_failed') + ' ' + e.message);
     } finally {
       setActionLoading(prev => ({ ...prev, [uid]: false }));
     }
@@ -11615,7 +11628,7 @@ function FounderAdminPage() {
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Search by email or name…"
+            placeholder={t('set_search_email_name')}
             className="w-full pl-9 pr-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
           />
         </div>
@@ -11631,15 +11644,15 @@ function FounderAdminPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-800 bg-slate-900/60">
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide">Account</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide">Plan</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide">Trial started</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide">Actions</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide">{t('set_account')}</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide">{t('plan')}</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide">{t('set_trial_started')}</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide">{t('th_actions')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60">
                   {filtered.length === 0 ? (
-                    <tr><td colSpan={4} className="text-center py-12 text-slate-500">No accounts found</td></tr>
+                    <tr><td colSpan={4} className="text-center py-12 text-slate-500">{t('set_no_accounts')}</td></tr>
                   ) : filtered.map(u => {
                     const busy = actionLoading[u.uid];
                     const trialStart = u.trial_started_at
@@ -11707,6 +11720,8 @@ function FounderAdminPage() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function ShareReportModal({ onClose, db, user }) {
+  const { language } = useLang();
+  const t = useTranslation(language);
   const [step, setStep] = useState('idle'); // idle | generating | done | error
   const [token, setToken] = useState(null);
   const [copied, setCopied] = useState(false);
@@ -11782,7 +11797,7 @@ function ShareReportModal({ onClose, db, user }) {
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-xl">🔗</div>
             <div>
-              <div className="font-bold text-white text-lg">Share Report</div>
+              <div className="font-bold text-white text-lg">{t('share_report')}</div>
               <div className="text-xs text-slate-500">Read-only link — no sign-in required</div>
             </div>
           </div>
@@ -11790,13 +11805,13 @@ function ShareReportModal({ onClose, db, user }) {
           {step === 'idle' && (
             <div className="space-y-5">
               <div className="rounded-xl bg-slate-800/60 border border-slate-700/50 p-4 space-y-2 text-sm text-slate-400">
-                <div className="flex items-center gap-2"><span>💸</span> Monthly SaaS spend summary</div>
-                <div className="flex items-center gap-2"><span>⚠️</span> Risk overview & top alerts</div>
-                <div className="flex items-center gap-2"><span>🛠️</span> Top tools by cost</div>
-                <div className="flex items-center gap-2"><span>🔒</span> Employee emails hidden for privacy</div>
+                <div className="flex items-center gap-2"><span>💸</span> {t('share_monthly_summary')}</div>
+                <div className="flex items-center gap-2"><span>⚠️</span> {t('share_risk_overview')}</div>
+                <div className="flex items-center gap-2"><span>🛠️</span> {t('share_top_tools_cost')}</div>
+                <div className="flex items-center gap-2"><span>🔒</span> {t('share_emails_hidden')}</div>
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wide">Link expires after</label>
+                <label className="block text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wide">{t('share_link_expires')}</label>
                 <div className="flex gap-2">
                   {[['7','7 days'],['30','30 days'],['365','1 year']].map(([val, label]) => (
                     <button key={val} onClick={() => setExpiry(val)}
@@ -11824,7 +11839,7 @@ function ShareReportModal({ onClose, db, user }) {
           {step === 'done' && (
             <div className="space-y-4">
               <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-4">
-                <div className="text-xs font-semibold text-emerald-400 mb-2 uppercase tracking-wide">Your report link</div>
+                <div className="text-xs font-semibold text-emerald-400 mb-2 uppercase tracking-wide">{t('share_your_link')}</div>
                 <div className="flex items-center gap-2">
                   <div className="flex-1 bg-slate-800 rounded-lg px-3 py-2 text-xs text-slate-300 font-mono truncate">{reportUrl}</div>
                   <button onClick={copy}
@@ -11841,7 +11856,7 @@ function ShareReportModal({ onClose, db, user }) {
                 </button>
                 <button onClick={revoke}
                   className="px-4 py-2.5 bg-slate-800 hover:bg-rose-500/20 hover:text-rose-400 border border-slate-700 hover:border-rose-500/30 rounded-xl text-slate-400 text-sm font-semibold transition-all">
-                  Revoke
+                  {t('revoke')}
                 </button>
               </div>
             </div>
@@ -11850,9 +11865,9 @@ function ShareReportModal({ onClose, db, user }) {
           {step === 'error' && (
             <div className="py-8 text-center space-y-3">
               <div className="text-3xl">⚠️</div>
-              <div className="text-white font-semibold">Could not generate report</div>
-              <div className="text-slate-400 text-sm">Make sure you're signed in and try again.</div>
-              <button onClick={() => setStep('idle')} className="text-sm text-blue-400 hover:text-blue-300 underline">Try again</button>
+              <div className="text-white font-semibold">{t('share_could_not_generate')}</div>
+              <div className="text-slate-400 text-sm">{t('share_make_sure_signed')}</div>
+              <button onClick={() => setStep('idle')} className="text-sm text-blue-400 hover:text-blue-300 underline">{t('share_try_again')}</button>
             </div>
           )}
         </div>
@@ -11862,6 +11877,8 @@ function ShareReportModal({ onClose, db, user }) {
 }
 
 function ReportPage() {
+  const { language } = useLang();
+  const t = useTranslation(language);
   const { token } = useParams();
   const [report, setReport] = useState(null);
   const [status, setStatus] = useState('loading'); // loading | found | expired | notfound
@@ -11886,8 +11903,8 @@ function ReportPage() {
     <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6">
       <div className="text-center space-y-3">
         <div className="text-5xl">⏰</div>
-        <div className="text-white font-bold text-xl">This report has expired</div>
-        <div className="text-slate-400 text-sm">Ask the owner to generate a new link.</div>
+        <div className="text-white font-bold text-xl">{t('share_expired')}</div>
+        <div className="text-slate-400 text-sm">{t('share_ask_owner_new')}</div>
         <a href="/" className="inline-block mt-4 text-blue-400 hover:text-blue-300 text-sm underline">Go to Stacklens →</a>
       </div>
     </div>
@@ -11897,8 +11914,8 @@ function ReportPage() {
     <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6">
       <div className="text-center space-y-3">
         <div className="text-5xl">🔍</div>
-        <div className="text-white font-bold text-xl">Report not found</div>
-        <div className="text-slate-400 text-sm">This link may have been revoked or never existed.</div>
+        <div className="text-white font-bold text-xl">{t('share_not_found')}</div>
+        <div className="text-slate-400 text-sm">{t('share_revoked_or_never')}</div>
         <a href="/" className="inline-block mt-4 text-blue-400 hover:text-blue-300 text-sm underline">Go to Stacklens →</a>
       </div>
     </div>
@@ -11920,7 +11937,7 @@ function ReportPage() {
             </div>
             <div>
               <div className="font-black text-white text-sm">Stacklens</div>
-              <div className="text-[10px] text-slate-500 uppercase tracking-widest">Read-only report</div>
+              <div className="text-[10px] text-slate-500 uppercase tracking-widest">{t('share_read_only')}</div>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -11933,17 +11950,17 @@ function ReportPage() {
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8 space-y-6">
         {/* Title */}
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1">SaaS Stack Report</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1">{t('share_saas_stack_report')}</h1>
           <p className="text-slate-400 text-sm">{s.companyName} · Shared via Stacklens</p>
         </div>
 
         {/* KPI row */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: 'Monthly SaaS Spend', value: fmt(s.spend), icon: '💸', color: 'blue' },
-            { label: 'Tools Tracked', value: s.tools?.length || 0, icon: '🛠️', color: 'indigo' },
-            { label: 'Employees', value: s.employeeCount || 0, icon: '👥', color: 'violet' },
-            { label: 'Former Access Risks', value: s.formerAccess || 0, icon: '⚠️', color: s.formerAccess > 0 ? 'rose' : 'emerald' },
+            { label: t('monthly_spend'), value: fmt(s.spend), icon: '💸', color: 'blue' },
+            { label: t('tools_tracked'), value: s.tools?.length || 0, icon: '🛠️', color: 'indigo' },
+            { label: t('nav_employees'), value: s.employeeCount || 0, icon: '👥', color: 'violet' },
+            { label: t('former_employee_access'), value: s.formerAccess || 0, icon: '⚠️', color: s.formerAccess > 0 ? 'rose' : 'emerald' },
           ].map(({ label, value, icon, color }) => (
             <div key={label} className={`rounded-2xl border bg-slate-900/60 p-4 border-${color}-500/20`}>
               <div className="text-xl mb-1">{icon}</div>
@@ -11956,7 +11973,7 @@ function ReportPage() {
         {/* Risk breakdown */}
         {s.riskCounts && Object.keys(s.riskCounts).length > 0 && (
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
-            <div className="text-sm font-bold text-white mb-4">Risk Breakdown</div>
+            <div className="text-sm font-bold text-white mb-4">{t('share_risk_breakdown')}</div>
             <div className="flex gap-3 flex-wrap">
               {Object.entries(s.riskCounts).sort((a,b) => ['high','medium','low'].indexOf(a[0]) - ['high','medium','low'].indexOf(b[0])).map(([risk, count]) => (
                 <div key={risk} className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border ${riskBg[risk] || 'bg-slate-800 border-slate-700'}`}>
@@ -11972,17 +11989,17 @@ function ReportPage() {
         {s.topTools?.length > 0 && (
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 overflow-hidden">
             <div className="px-5 py-4 border-b border-slate-800">
-              <div className="font-bold text-white text-sm">Top Tools by Monthly Cost</div>
+              <div className="font-bold text-white text-sm">{t('share_top_tools_monthly')}</div>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-800 bg-slate-950/50">
-                    <th className="text-left py-3 px-5 text-xs font-semibold text-slate-500 uppercase tracking-wider">Tool</th>
-                    <th className="text-left py-3 px-5 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden sm:table-cell">Category</th>
-                    <th className="text-left py-3 px-5 text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
-                    <th className="text-left py-3 px-5 text-xs font-semibold text-slate-500 uppercase tracking-wider">Risk</th>
-                    <th className="text-right py-3 px-5 text-xs font-semibold text-slate-500 uppercase tracking-wider">Monthly cost</th>
+                    <th className="text-left py-3 px-5 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('tool_name')}</th>
+                    <th className="text-left py-3 px-5 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden sm:table-cell">{t('category')}</th>
+                    <th className="text-left py-3 px-5 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('th_status')}</th>
+                    <th className="text-left py-3 px-5 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('th_risk')}</th>
+                    <th className="text-right py-3 px-5 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('share_monthly_cost')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -12008,7 +12025,7 @@ function ReportPage() {
                 </tbody>
                 <tfoot>
                   <tr className="border-t border-slate-700 bg-slate-950/40">
-                    <td colSpan={3} className="py-3 px-5 text-xs text-slate-500">Total shown</td>
+                    <td colSpan={3} className="py-3 px-5 text-xs text-slate-500">{t('share_total_shown')}</td>
                     <td />
                     <td className="py-3 px-5 text-right font-bold text-white">{fmt(s.spend)}/mo</td>
                   </tr>
@@ -12020,7 +12037,7 @@ function ReportPage() {
 
         {/* CTA */}
         <div className="rounded-2xl border border-blue-500/20 bg-gradient-to-r from-blue-500/10 to-indigo-500/5 p-6 text-center">
-          <div className="text-white font-bold text-lg mb-2">Want this for your own SaaS stack?</div>
+          <div className="text-white font-bold text-lg mb-2">{t('share_want_this')}</div>
           <p className="text-slate-400 text-sm mb-4 max-w-sm mx-auto">Stacklens gives you this dashboard in under 5 minutes. Free plan available — no credit card needed.</p>
           <a href="/" className="inline-block px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 rounded-xl text-white font-bold text-sm transition-all shadow-lg">
             Try Stacklens free →
@@ -13583,14 +13600,14 @@ function CostTabContent({ setFinTab }) {
           
           {/* Waste breakdown bar */}
           <div className="mb-2 flex items-center justify-between">
-            <span className="text-xs text-slate-500">Healthy spend</span>
+            <span className="text-xs text-slate-500">{t('fin_healthy_spend')}</span>
             <span className="text-xs font-semibold text-white">{100 - wastePercent}%</span>
           </div>
           <div className="h-2 bg-slate-800 rounded-full overflow-hidden mb-2">
             <div className="h-full bg-emerald-500 transition-all" style={{width: `${100 - wastePercent}%`}} />
           </div>
           <div className="flex items-center justify-between text-xs">
-            <span className="text-slate-500">Wasted</span>
+            <span className="text-slate-500">{t('fin_wasted')}</span>
             <span className={"font-semibold " + (wastePercent > 20 ? "text-red-400" : wastePercent > 10 ? "text-amber-400" : "text-emerald-400")}>
               {wastePercent}% ({getCurrency(language)}{convertCurrency(Math.round(wasteAmount), language).toLocaleString()})
             </span>
@@ -13654,11 +13671,11 @@ function CostTabContent({ setFinTab }) {
                 </div>
                 <div className="mt-3 pt-3 border-t border-slate-800/50 space-y-1">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-slate-500">Cost/mo</span>
+                    <span className="text-slate-500">{t('th_cost_mo')}</span>
                     <span className="text-white font-semibold">{getCurrency(language)}{convertCurrency(Math.round(tool.cost), language).toLocaleString()}</span>
                   </div>
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-slate-500">Active users</span>
+                    <span className="text-slate-500">{t('fin_active_users')}</span>
                     <span className={tool.activeUsers === 0 ? "text-red-400 font-semibold" : "text-white"}>{tool.activeUsers}</span>
                   </div>
                   <div className="flex items-center justify-between text-xs">
@@ -13688,9 +13705,9 @@ function CostTabContent({ setFinTab }) {
             ))}
             <select value={sortBy} onChange={e => setSortBy(e.target.value)}
               className="px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-slate-300 outline-none">
-              <option value="cost">Sort: Cost</option>
-              <option value="perUser">Sort: Cost/User</option>
-              <option value="users">Sort: Users</option>
+              <option value="cost">{t('sort_cost')}</option>
+              <option value="perUser">{t('sort_cost_user')}</option>
+              <option value="users">{t('sort_users')}</option>
             </select>
           </div>
         </div>
@@ -13709,11 +13726,11 @@ function CostTabContent({ setFinTab }) {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-800 bg-slate-950/50">
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Tool</th>
-                    <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Monthly Cost</th>
-                    <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">Users</th>
-                    <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">Cost/User</th>
-                    <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('cost_col_tool')}</th>
+                    <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('cost_col_monthly_cost')}</th>
+                    <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">{t('cost_col_users')}</th>
+                    <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">{t('th_cost_user')}</th>
+                    <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('cost_col_status')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -13878,7 +13895,7 @@ function AnalyticsTabContent() {
     a.download = 'saasguard-analytics-' + new Date().toISOString().slice(0,10) + '.csv';
     a.click();
     URL.revokeObjectURL(url);
-    toast.success('Analytics report exported');
+    toast.success(t('toast_analytics_exported'));
   };
 
   return (
@@ -14196,6 +14213,8 @@ function ExecutiveDashboard({ data }) {
 // AI INSIGHTS — inlined from DashboardComponents.jsx
 // ============================================================================
 function AIInsights({ tools, employees, spend, accessData }) {
+  const { language } = useLang();
+  const t = useTranslation(language);
   const insights = [];
   const unusedTools = tools?.filter(t => {
     const lastUsed = new Date(t.last_used_date || 0);
@@ -14203,14 +14222,14 @@ function AIInsights({ tools, employees, spend, accessData }) {
   }) || [];
   if (unusedTools.length > 0) {
     const savings = unusedTools.reduce((sum, t) => sum + (t.cost_per_month || 0), 0);
-    insights.push({ icon: TrendingDown, title: 'Unused License Opportunity', description: `${unusedTools.length} tools haven't been used in 90+ days. Potential savings: ${getCurrency(language)}${savings.toLocaleString()}/month`, savings, priority: 'high', action: 'Review Tools', link: '/tools' });
+    insights.push({ icon: TrendingDown, title: t('unused_licenses'), description: `${unusedTools.length} tools haven't been used in 90+ days. Potential savings: ${getCurrency(language)}${savings.toLocaleString()}/month`, savings, priority: 'high', action: t('review_tools'), link: '/tools' });
   }
   const orphanedTools = tools?.filter(t => !t.owner_name || t.owner_name === 'Unassigned') || [];
   if (orphanedTools.length > 0) {
-    insights.push({ icon: AlertTriangle, title: 'Unassigned Tools Detected', description: `${orphanedTools.length} tools have no owner. Security risk!`, priority: 'medium', action: 'Assign Owners', link: '/tools' });
+    insights.push({ icon: AlertTriangle, title: t('unassigned_tools'), description: `${orphanedTools.length} tools have no owner. Security risk!`, priority: 'medium', action: t('assign_owners'), link: '/tools' });
   }
   if (insights.length === 0) {
-    insights.push({ icon: Sparkles, title: 'All Systems Optimized', description: 'No immediate optimization opportunities detected!', priority: 'low', action: 'View Dashboard', link: '/dashboard' });
+    insights.push({ icon: Sparkles, title: t('all_optimized'), description: t('no_optimizations'), priority: 'low', action: t('nav_dashboard'), link: '/dashboard' });
   }
   insights.sort((a, b) => ({ critical: 0, high: 1, medium: 2, low: 3 }[a.priority] - { critical: 0, high: 1, medium: 2, low: 3 }[b.priority]));
   const totalSavings = insights.filter(i => i.savings).reduce((sum, i) => sum + i.savings, 0);
@@ -14220,10 +14239,10 @@ function AIInsights({ tools, employees, spend, accessData }) {
       <div className="flex items-center gap-3 mb-4">
         <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-500 rounded-xl"><Sparkles className="h-5 w-5 text-white" /></div>
         <div className="flex-1">
-          <h3 className="text-lg font-bold text-white">AI-Powered Insights</h3>
-          <p className="text-sm text-slate-300">Smart recommendations to optimise your SaaS stack</p>
+          <h3 className="text-lg font-bold text-white">{t('ai_powered_insights')}</h3>
+          <p className="text-sm text-slate-300">{t('ai_smart_recommendations')}</p>
         </div>
-        {totalSavings > 0 && <div className="text-right"><div className="text-2xl font-black text-emerald-400">${totalSavings.toLocaleString()}</div><div className="text-xs text-slate-400">potential monthly savings</div></div>}
+        {totalSavings > 0 && <div className="text-right"><div className="text-2xl font-black text-emerald-400">${totalSavings.toLocaleString()}</div><div className="text-xs text-slate-400">{t('potential_savings')}</div></div>}
       </div>
       <div className="space-y-3">
         {insights.slice(0, 3).map((insight, idx) => {
@@ -14496,9 +14515,9 @@ function LicenseManagement() {
                 className="px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-slate-300 outline-none focus:border-blue-500 transition-colors w-40" />
               <select value={sortBy} onChange={e => setSortBy(e.target.value)}
                 className="px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-slate-300 outline-none">
-                <option value="waste">Sort: Waste</option>
-                <option value="cost">Sort: Cost</option>
-                <option value="utilization">Sort: Utilization</option>
+                <option value="waste">{t('sort_waste')}</option>
+                <option value="cost">{t('sort_cost')}</option>
+                <option value="utilization">{t('sort_utilization')}</option>
               </select>
             </div>
           </div>
@@ -14532,12 +14551,12 @@ function LicenseManagement() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-800 bg-slate-950/50">
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Application</th>
-                    <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Used / Total</th>
-                    <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">Utilization</th>
-                    <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden lg:table-cell">Cost/mo</th>
-                    <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Waste</th>
-                    <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Action</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('th_application')}</th>
+                    <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('th_used_total')}</th>
+                    <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">{t('th_utilization')}</th>
+                    <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden lg:table-cell">{t('th_cost_mo')}</th>
+                    <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('waste')}</th>
+                    <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('license_action')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -14862,22 +14881,22 @@ function RenewalAlerts() {
       {/* ── Row 1: KPI Strip ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-blue-500">
-          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Annual Spend at Risk</div>
+          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t('ren_annual_at_risk')}</div>
           <div className="text-3xl font-black text-blue-400">{getCurrency(language)}{convertCurrency(Math.round(totalAtRisk), language).toLocaleString()}</div>
           <div className="text-sm text-slate-500 mt-1">next 90 days</div>
         </div>
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-red-500">
-          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Critical</div>
+          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t('critical')}</div>
           <div className="text-3xl font-black text-red-400">{overdue.length + critical.length}</div>
           <div className="text-sm text-slate-500 mt-1">≤ 14 days or overdue</div>
         </div>
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-amber-500">
-          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Upcoming</div>
+          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t('ren_upcoming')}</div>
           <div className="text-3xl font-black text-amber-400">{urgent.length + upcoming.length}</div>
           <div className="text-sm text-slate-500 mt-1">15–90 days</div>
         </div>
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-purple-500">
-          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Auto-Renewing</div>
+          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t('ren_auto_renewing')}</div>
           <div className="text-3xl font-black text-purple-400">{autoRenewing.length}</div>
           <div className="text-sm text-slate-500 mt-1">may auto-charge</div>
         </div>
@@ -14948,11 +14967,11 @@ function RenewalAlerts() {
                 </div>
                 <div className="mt-3 pt-3 border-t border-slate-800/50 space-y-1">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-slate-500">Annual</span>
+                    <span className="text-slate-500">{t('annual')}</span>
                     <span className="text-white font-semibold">{getCurrency(language)}{convertCurrency(Math.round(opp.annualCost), language).toLocaleString()}</span>
                   </div>
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-slate-500">Potential save</span>
+                    <span className="text-slate-500">{t('ren_potential_save')}</span>
                     <span className="text-emerald-400 font-semibold">{getCurrency(language)}{convertCurrency(Math.round(opp.annualCost * 0.15), language).toLocaleString()}/yr</span>
                   </div>
                 </div>
@@ -14971,7 +14990,7 @@ function RenewalAlerts() {
         <div className="p-4 border-b border-slate-800">
           <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
             <div className="flex-1 min-w-0">
-              <h3 className="text-base font-semibold text-white">All Renewals</h3>
+              <h3 className="text-base font-semibold text-white">{t('ren_all_renewals')}</h3>
               <p className="text-xs text-slate-500">{filtered.length} {filtered.length === 1 ? 'renewal' : 'renewals'} shown</p>
             </div>
             <div className="flex gap-2 flex-wrap items-center">
@@ -14988,9 +15007,9 @@ function RenewalAlerts() {
               </div>
               <select value={sortBy} onChange={e => setSortBy(e.target.value)}
                 className="px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-slate-300 outline-none">
-                <option value="date">Sort: Date</option>
-                <option value="cost">Sort: Cost</option>
-                <option value="app">Sort: A–Z</option>
+                <option value="date">{t('sort_date')}</option>
+                <option value="cost">{t('sort_cost')}</option>
+                <option value="app">{t('sort_az')}</option>
               </select>
               <button onClick={exportICS}
                 className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-xs font-semibold text-slate-300 transition-colors flex items-center gap-1.5">
@@ -15019,7 +15038,7 @@ function RenewalAlerts() {
             <div className="inline-flex p-3 rounded-2xl bg-slate-800 mb-3">
               <Calendar className="h-6 w-6 text-slate-500" />
             </div>
-            <h3 className="text-base font-semibold text-white mb-1">No renewals to show</h3>
+            <h3 className="text-base font-semibold text-white mb-1">{t('ren_no_renewals')}</h3>
             <p className="text-sm text-slate-500">{filter !== 'all' ? 'Try a different filter.' : 'Add renewal dates to your tools to track them here.'}</p>
           </div>
         ) : view === 'list' ? (
@@ -15028,12 +15047,12 @@ function RenewalAlerts() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-800 bg-slate-950/50">
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">App</th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">Renewal Date</th>
-                    <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
-                    <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden lg:table-cell">Annual</th>
-                    <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden lg:table-cell">Auto</th>
-                    <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Action</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('th_application')}</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">{t('exec_renewal_date')}</th>
+                    <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('th_status')}</th>
+                    <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden lg:table-cell">{t('annual')}</th>
+                    <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden lg:table-cell">{t('renewal_auto')}</th>
+                    <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('license_action')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -15097,7 +15116,7 @@ function RenewalAlerts() {
           /* Calendar view */
           <div className="p-4 lg:p-6 space-y-5">
             {calendarMonths.length === 0 ? (
-              <div className="text-center py-10 text-slate-500 text-sm">No renewals match the current filter.</div>
+              <div className="text-center py-10 text-slate-500 text-sm">{t('ren_no_match')}</div>
             ) : calendarMonths.map(month => (
               <div key={month.key}>
                 <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-800">
@@ -15228,7 +15247,7 @@ function InvoiceManager() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-slate-500">Submit and track vendor invoices for finance approval</p>
+        <p className="text-sm text-slate-500">{t('inv_submit_track')}</p>
           <button 
             onClick={() => setShowUploadModal(true)}
             className="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold flex items-center gap-2"
@@ -15303,13 +15322,13 @@ function InvoiceManager() {
               <thead>
                 <tr className="border-b border-white/10">
                   <th className="text-left py-4 px-4 text-sm font-semibold text-slate-400">Invoice #</th>
-                  <th className="text-left py-4 px-4 text-sm font-semibold text-slate-400">Vendor</th>
-                  <th className="text-left py-4 px-4 text-sm font-semibold text-slate-400">Category</th>
-                  <th className="text-right py-4 px-4 text-sm font-semibold text-slate-400">Amount</th>
+                  <th className="text-left py-4 px-4 text-sm font-semibold text-slate-400">{t('th_vendor')}</th>
+                  <th className="text-left py-4 px-4 text-sm font-semibold text-slate-400">{t('category')}</th>
+                  <th className="text-right py-4 px-4 text-sm font-semibold text-slate-400">{t('amount')}</th>
                   <th className="text-left py-4 px-4 text-sm font-semibold text-slate-400">{t("hc_due_date")}</th>
                   <th className="text-left py-4 px-4 text-sm font-semibold text-slate-400">{t("hc_submitted_by")}</th>
-                  <th className="text-left py-4 px-4 text-sm font-semibold text-slate-400">Status</th>
-                  <th className="text-right py-4 px-4 text-sm font-semibold text-slate-400">Actions</th>
+                  <th className="text-left py-4 px-4 text-sm font-semibold text-slate-400">{t('th_status')}</th>
+                  <th className="text-right py-4 px-4 text-sm font-semibold text-slate-400">{t('th_actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -15431,7 +15450,7 @@ function InvoiceManager() {
                 <input type="date" required value={uploadForm.dueDate} onChange={e => setUploadForm(f => ({...f, dueDate: e.target.value}))} className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-white" />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-slate-300 mb-2">Category</label>
+                <label className="block text-sm font-semibold text-slate-300 mb-2">{t('category')}</label>
                 <Select required>
                   <option>CRM</option>
                   <option>Communication</option>
@@ -15659,7 +15678,7 @@ Respond with this exact JSON structure:
       setView('results');
       setActiveTab('overview');
     } catch (e) {
-      toast.error('Analysis failed — please try again');
+      toast.error(t('toast_analysis_failed'));
       setView('upload');
     } finally {
       clearInterval(interval);
@@ -15685,7 +15704,7 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
           }], max_tokens: 800 });
       setRewriteResult(data.content?.[0]?.text || '');
     } catch {
-      toast.error('Rewrite failed');
+      toast.error(t('toast_rewrite_failed'));
     } finally {
       setRewriteLoading(false);
     }
@@ -15820,7 +15839,7 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
                         }
                         setState(s => ({...s, text: text.trim() || "Could not extract.", fileName: file.name}));
                       } catch (err) {
-                        toast.error('PDF extraction failed');
+                        toast.error(t('toast_pdf_failed'));
                       }
                     } else if (name.endsWith(".docx") || name.endsWith(".doc")) {
                       reader.onload = ev => {
@@ -15912,7 +15931,7 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
             <button onClick={() => {
               const txt = `CONTRACT COMPARISON REPORT\n${contractA.name} vs ${contractB.name}\n\n${analysis.summary}\n\nPROVISIONS:\n${provisions.map(p => `${p.name}:\n  A: ${p.contractA}\n  B: ${p.contractB}\n  Suggestion: ${p.suggestion}`).join('\n\n')}`;
               const a = document.createElement('a'); a.href = 'data:text/plain,' + encodeURIComponent(txt); a.download = 'contract-comparison.txt'; a.click();
-              toast.success('Report exported');
+              toast.success(t('toast_report_exported'));
             }} className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition-colors flex items-center gap-1.5">
               <Download className="h-3.5 w-3.5" /> Export Report
             </button>
@@ -15923,22 +15942,22 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
       {/* ── Row 2: KPI Strip ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-blue-500">
-          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Risk Score A</div>
+          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t('ca_risk_score_a')}</div>
           <div className={"text-3xl font-black " + ((analysis.riskScore?.a || 0) > 6 ? 'text-rose-400' : 'text-amber-400')}>{analysis.riskScore?.a || 0}<span className="text-base text-slate-500">/10</span></div>
           <div className="text-sm text-slate-500 mt-1 truncate">{contractA.name || 'Contract A'}</div>
         </div>
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-emerald-500">
-          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Risk Score B</div>
+          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t('ca_risk_score_b')}</div>
           <div className={"text-3xl font-black " + ((analysis.riskScore?.b || 0) > 6 ? 'text-rose-400' : 'text-amber-400')}>{analysis.riskScore?.b || 0}<span className="text-base text-slate-500">/10</span></div>
           <div className="text-sm text-slate-500 mt-1 truncate">{contractB.name || 'Contract B'}</div>
         </div>
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-indigo-500">
-          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Provisions</div>
+          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t('ca_provisions')}</div>
           <div className="text-3xl font-black text-indigo-400">{provisions.length}</div>
           <div className="text-sm text-slate-500 mt-1">analyzed</div>
         </div>
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-rose-500">
-          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Deal Breakers</div>
+          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t('ca_deal_breakers')}</div>
           <div className="text-3xl font-black text-rose-400">{dealBreakers.length}</div>
           <div className="text-sm text-slate-500 mt-1">flagged</div>
         </div>
@@ -15997,7 +16016,7 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 lg:p-6">
             <div className="flex items-center gap-2 mb-3">
               <FileText className="h-4 w-4 text-slate-400" />
-              <h3 className="text-base font-semibold text-white">Executive Summary</h3>
+              <h3 className="text-base font-semibold text-white">{t('ca_executive_summary')}</h3>
             </div>
             <p className="text-sm text-slate-300 leading-relaxed">{analysis.summary}</p>
           </div>
@@ -16009,15 +16028,15 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <AlertTriangle className="h-4 w-4 text-rose-400" />
-                  <h3 className="text-base font-semibold text-white">Deal Breakers</h3>
+                  <h3 className="text-base font-semibold text-white">{t('ca_deal_breakers')}</h3>
                 </div>
                 <span className="text-xs px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-400 font-semibold">{dealBreakers.length} found</span>
               </div>
               {dealBreakers.length === 0 ? (
                 <div className="py-6 text-center">
                   <Check className="h-8 w-8 text-emerald-400 mx-auto mb-2" />
-                  <p className="text-sm text-emerald-400 font-semibold">No critical deal breakers</p>
-                  <p className="text-xs text-slate-500 mt-1">Both contracts look acceptable</p>
+                  <p className="text-sm text-emerald-400 font-semibold">{t('ca_no_deal_breakers')}</p>
+                  <p className="text-xs text-slate-500 mt-1">{t('ca_both_acceptable')}</p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -16038,10 +16057,10 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
             <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
               <div className="flex items-center gap-2 mb-4">
                 <Target className="h-4 w-4 text-blue-400" />
-                <h3 className="text-base font-semibold text-white">Focus Areas</h3>
+                <h3 className="text-base font-semibold text-white">{t('ca_focus_areas')}</h3>
               </div>
               {focusAreas.length === 0 ? (
-                <p className="text-sm text-slate-500 py-4 text-center">No specific focus areas identified</p>
+                <p className="text-sm text-slate-500 py-4 text-center">{t('ca_no_focus_areas')}</p>
               ) : (
                 <div className="space-y-2">
                   {focusAreas.map((fa, i) => (
@@ -16061,7 +16080,7 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
             <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
               <div className="flex items-center gap-2 mb-4">
                 <BarChart3 className="h-4 w-4 text-amber-400" />
-                <h3 className="text-base font-semibold text-white">Market Standard Deviations</h3>
+                <h3 className="text-base font-semibold text-white">{t('ca_market_deviations')}</h3>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 {marketDeviations.map((md, i) => (
@@ -16087,7 +16106,7 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
             <div className="flex items-center gap-3 flex-wrap">
               <div className="flex-1 min-w-0">
-                <h3 className="text-base font-semibold text-white">All Provisions</h3>
+                <h3 className="text-base font-semibold text-white">{t('ca_all_provisions')}</h3>
                 <p className="text-xs text-slate-500">{provisions.length} provisions compared side-by-side</p>
               </div>
             </div>
@@ -16098,7 +16117,7 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
               <div className="inline-flex p-3 rounded-2xl bg-slate-800 mb-3">
                 <FileText className="h-6 w-6 text-slate-500" />
               </div>
-              <p className="text-sm text-slate-500">No provisions extracted from analysis</p>
+              <p className="text-sm text-slate-500">{t('ca_no_provisions')}</p>
             </div>
           ) : provisions.map((p, i) => (
             <div key={i} className="rounded-2xl border border-slate-800 bg-slate-900/60 overflow-hidden hover:border-slate-700 transition-colors">
@@ -16112,7 +16131,7 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
                   <span className={"text-[10px] px-2 py-0.5 rounded-full font-bold uppercase " + (diffColor[p.difference] || diffColor.moderate)}>
                     {p.difference}
                   </span>
-                  <span className="text-xs text-slate-500">Favors: <span className="text-white font-semibold">{p.favors}</span></span>
+                  <span className="text-xs text-slate-500">{t('ca_favors')} <span className="text-white font-semibold">{p.favors}</span></span>
                   <span className={"text-xs font-semibold " + (marketColor[p.marketStandard] || 'text-slate-400')}>
                     {p.marketStandard === 'above' ? '↑ market' : p.marketStandard === 'below' ? '↓ market' : '= market'}
                   </span>
@@ -16130,14 +16149,14 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
                     <div className="w-2 h-2 rounded-full bg-blue-500" />
                     <span className="text-blue-400 text-[10px] font-bold uppercase tracking-wider truncate">{contractA.name || 'Contract A'}</span>
                   </div>
-                  <p className="text-xs text-slate-300 leading-relaxed">{p.contractA || <span className="text-slate-600 italic">Not present in this contract</span>}</p>
+                  <p className="text-xs text-slate-300 leading-relaxed">{p.contractA || <span className="text-slate-600 italic">{t('ca_not_present')}</span>}</p>
                 </div>
                 <div className="p-4">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="w-2 h-2 rounded-full bg-emerald-500" />
                     <span className="text-emerald-400 text-[10px] font-bold uppercase tracking-wider truncate">{contractB.name || 'Contract B'}</span>
                   </div>
-                  <p className="text-xs text-slate-300 leading-relaxed">{p.contractB || <span className="text-slate-600 italic">Not present in this contract</span>}</p>
+                  <p className="text-xs text-slate-300 leading-relaxed">{p.contractB || <span className="text-slate-600 italic">{t('ca_not_present')}</span>}</p>
                 </div>
               </div>
 
@@ -16174,10 +16193,10 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
             <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
               <div className="flex items-center gap-2 mb-3">
                 <FileText className="h-4 w-4 text-slate-400" />
-                <h3 className="text-base font-semibold text-white">Select a Provision</h3>
+                <h3 className="text-base font-semibold text-white">{t('ca_select_provision')}</h3>
               </div>
               {provisions.length === 0 ? (
-                <p className="text-sm text-slate-500">No provisions to rewrite</p>
+                <p className="text-sm text-slate-500">{t('ca_no_provisions_rewrite')}</p>
               ) : (
                 <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
                   {provisions.map((p, i) => (
@@ -16196,7 +16215,7 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
             <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
               <div className="flex items-center gap-2 mb-3">
                 <Sparkles className="h-4 w-4 text-indigo-400" />
-                <h3 className="text-base font-semibold text-white">Rewrite Mode</h3>
+                <h3 className="text-base font-semibold text-white">{t('ca_rewrite_mode')}</h3>
               </div>
               <div className="space-y-2">
                 {[
@@ -16225,16 +16244,16 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 space-y-4">
             <div className="flex items-center gap-2">
               <Sparkles className="h-4 w-4 text-indigo-400" />
-              <h3 className="text-base font-semibold text-white">Rewritten Provision</h3>
+              <h3 className="text-base font-semibold text-white">{t('ca_rewritten_provision')}</h3>
             </div>
             {rewriteTarget && (
               <div className="grid grid-cols-2 gap-3">
                 <div className="rounded-xl bg-slate-800/40 border border-slate-800 p-3">
-                  <div className="text-blue-400 text-[10px] font-bold uppercase tracking-wider mb-1">Original A</div>
+                  <div className="text-blue-400 text-[10px] font-bold uppercase tracking-wider mb-1">{t('ca_original_a')}</div>
                   <p className="text-xs text-slate-400 leading-relaxed line-clamp-4">{rewriteTarget.contractA || '—'}</p>
                 </div>
                 <div className="rounded-xl bg-slate-800/40 border border-slate-800 p-3">
-                  <div className="text-emerald-400 text-[10px] font-bold uppercase tracking-wider mb-1">Original B</div>
+                  <div className="text-emerald-400 text-[10px] font-bold uppercase tracking-wider mb-1">{t('ca_original_b')}</div>
                   <p className="text-xs text-slate-400 leading-relaxed line-clamp-4">{rewriteTarget.contractB || '—'}</p>
                 </div>
               </div>
@@ -16243,7 +16262,7 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
               {rewriteLoading ? (
                 <div className="flex items-center gap-3 text-indigo-400">
                   <Sparkles className="h-4 w-4 animate-pulse" />
-                  <span className="text-sm">Claude AI is rewriting...</span>
+                  <span className="text-sm">{t('ca_rewriting')}</span>
                 </div>
               ) : rewriteResult ? (
                 <>
@@ -16251,13 +16270,13 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
                     <Sparkles className="h-3 w-3" /> AI Rewrite — {rewriteMode}
                   </div>
                   <p className="text-sm text-white leading-relaxed">{rewriteResult}</p>
-                  <button onClick={() => { navigator.clipboard?.writeText(rewriteResult); toast.success('Copied to clipboard'); }}
+                  <button onClick={() => { navigator.clipboard?.writeText(rewriteResult); toast.success(t('toast_copied_clipboard')); }}
                     className="mt-3 px-3 py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 text-xs font-semibold transition-colors">
                     Copy
                   </button>
                 </>
               ) : (
-                <p className="text-sm text-slate-500">Select a provision and click Generate Rewrite</p>
+                <p className="text-sm text-slate-500">{t('ca_select_and_generate')}</p>
               )}
             </div>
           </div>
@@ -16272,8 +16291,8 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
               <Sparkles className="h-4 w-4 text-indigo-400" />
             </div>
             <div className="min-w-0">
-              <div className="text-sm font-semibold text-white">Ask AI About These Contracts</div>
-              <div className="text-xs text-slate-500">Ask about specific clauses, risks, or recommendations</div>
+              <div className="text-sm font-semibold text-white">{t('ca_ask_ai')}</div>
+              <div className="text-xs text-slate-500">{t('ca_ask_about')}</div>
             </div>
           </div>
           <div className="flex-1 overflow-y-auto p-5 space-y-4">
@@ -16312,7 +16331,7 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
               value={chatInput}
               onChange={e => setChatInput(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendChat()}
-              placeholder="Ask anything about these contracts..."
+              placeholder={t('ca_ask_anything_ph')}
               className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-white text-sm placeholder-slate-500 outline-none focus:border-blue-500 transition-colors"
             />
             <button onClick={sendChat} disabled={!chatInput.trim() || chatLoading}
