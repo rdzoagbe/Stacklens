@@ -13256,7 +13256,7 @@ function SpendTrendChart({ monthlyTrend, byCategory }) {
 
         {totalMonthly > 0 && (
           <div className="mt-5 pt-4 border-t border-slate-800 flex items-center justify-between">
-            <span className="text-sm text-slate-400">Total monthly</span>
+            <span className="text-sm text-slate-400">{t('total_monthly')}</span>
             <span className="text-lg font-black text-white">{getCurrency(language)}{convertCurrency(totalMonthly, language).toLocaleString()}</span>
           </div>
         )}
