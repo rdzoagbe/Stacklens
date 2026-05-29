@@ -5345,7 +5345,7 @@ function DashboardPage() {
           <div className="flex items-center gap-2 text-amber-300">
             <span>⚡</span>
             <span className="font-semibold">{t('dl_sample_data_active')}</span>
-            <span className="text-amber-400/70 hidden sm:inline">— this is example data, not your real stack</span>
+            <span className="text-amber-400/70 hidden sm:inline">{t('dl_sample_example_data')}</span>
           </div>
           <button
             onClick={async () => {
@@ -5357,7 +5357,7 @@ function DashboardPage() {
               toast.success(t('toast_sample_cleared'));
             }}
             className="text-xs font-semibold text-amber-300 hover:text-white border border-amber-500/40 hover:border-amber-400 px-3 py-1.5 rounded-lg transition-all whitespace-nowrap">
-            Clear &amp; import real data →
+            {t('dl_clear_import_real')}
           </button>
         </div>
       )}
@@ -5368,7 +5368,7 @@ function DashboardPage() {
           <div className="text-center mb-6 pt-4">
             <div className="text-4xl mb-3">🔍</div>
             <h2 className="text-2xl font-bold text-white mb-2">{t('dl_welcome_stacklens')}</h2>
-            <p className="text-slate-400 text-sm max-w-md mx-auto">Your dashboard is empty. Choose how you want to get started — takes under 5 minutes either way.</p>
+            <p className="text-slate-400 text-sm max-w-md mx-auto">{t('dl_dashboard_empty')}</p>
           </div>
           <div className="grid sm:grid-cols-2 gap-4 max-w-2xl mx-auto">
             {/* Option 1 — sample data */}
@@ -5382,9 +5382,9 @@ function DashboardPage() {
               <div className="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-xl">✨</div>
               <div>
                 <div className="font-bold text-white mb-1">{t('dl_explore_sample')}</div>
-                <div className="text-xs text-slate-400 leading-relaxed">See a real company's SaaS stack instantly — 8 tools, 6 employees, live risk alerts. No setup needed.</div>
+                <div className="text-xs text-slate-400 leading-relaxed">{t('dl_explore_sample_desc')}</div>
               </div>
-              <div className="mt-auto text-xs font-semibold text-indigo-400 group-hover:text-indigo-300 transition-colors">Load instantly →</div>
+              <div className="mt-auto text-xs font-semibold text-indigo-400 group-hover:text-indigo-300 transition-colors">{t('dl_load_instantly')}</div>
             </button>
 
             {/* Option 2 — real import */}
@@ -5394,18 +5394,18 @@ function DashboardPage() {
               <div className="w-10 h-10 rounded-xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-xl">📂</div>
               <div>
                 <div className="font-bold text-white mb-1">{t('dl_import_real_data')}</div>
-                <div className="text-xs text-slate-400 leading-relaxed">Upload a CSV or Excel file with your tools and employees. Stacklens maps everything automatically in seconds.</div>
+                <div className="text-xs text-slate-400 leading-relaxed">{t('dl_import_real_desc')}</div>
               </div>
-              <div className="mt-auto text-xs font-semibold text-blue-400 group-hover:text-blue-300 transition-colors">Upload file →</div>
+              <div className="mt-auto text-xs font-semibold text-blue-400 group-hover:text-blue-300 transition-colors">{t('dl_upload_file_arrow')}</div>
             </button>
           </div>
 
           {/* What you'll see */}
           <div className="mt-6 max-w-2xl mx-auto grid grid-cols-3 gap-3">
             {[
-              { icon: '💸', label: 'Monthly SaaS spend' },
-              { icon: '⚠️', label: 'Security risk alerts' },
-              { icon: '🔑', label: 'Access control map' },
+              { icon: '💸', label: t('dl_monthly_saas_spend') },
+              { icon: '⚠️', label: t('dl_security_risk_alerts') },
+              { icon: '🔑', label: t('dl_access_control_map') },
             ].map(({ icon, label }) => (
               <div key={label} className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-slate-900/60 border border-slate-800 text-xs text-slate-400">
                 <span>{icon}</span>{label}
@@ -5426,8 +5426,8 @@ function DashboardPage() {
               <Activity className="h-5 w-5 text-blue-400" />
             </div>
             <div>
-              <span className="text-base font-semibold text-slate-100 block">Directory Sync</span>
-              <span className="text-xs text-slate-500">Connect your identity provider to auto-import employees & tools</span>
+              <span className="text-base font-semibold text-slate-100 block">{t('dl_directory_sync')}</span>
+              <span className="text-xs text-slate-500">{t('dl_directory_sync_desc')}</span>
             </div>
           </div>
           <WorkspaceConnector compact={true} />
@@ -5445,7 +5445,7 @@ function DashboardPage() {
           // Real security score: 100 minus penalties
           const score = hasData ? Math.max(0, Math.min(100, 100 - (orphanedTools * 10) - (highRiskTools * 5) - (formerAccess * 8))) : null;
           const scoreColor = score === null ? '#475569' : score >= 80 ? '#10b981' : score >= 60 ? '#f59e0b' : '#ef4444';
-          const scoreLabel = score === null ? 'No data' : score >= 80 ? 'Good' : score >= 60 ? 'Needs Work' : 'Critical';
+          const scoreLabel = score === null ? t('dl_no_data') : score >= 80 ? t('dl_good') : score >= 60 ? t('dl_needs_work') : t('dl_critical');
           const labelBg = score === null ? 'bg-slate-700/40 text-slate-400' : score >= 80 ? 'bg-emerald-500/20 text-emerald-400' : score >= 60 ? 'bg-amber-500/20 text-amber-400' : 'bg-red-500/20 text-red-400';
 
           // MFA coverage: % of tools with MFA enabled
@@ -5485,10 +5485,10 @@ function DashboardPage() {
             </div>
             <div className="flex-1 space-y-2">
               {[
-                {label:'MFA coverage', value: mfaCoverage === null ? '—' : `${mfaCoverage}%`, color: mfaCoverage === null ? 'text-slate-500' : mfaCoverage >= 80 ? 'text-emerald-400' : 'text-amber-400'},
-                {label:'Access reviews', value: !hasData ? '—' : overdueReviews > 0 ? `${overdueReviews} overdue` : 'On track', color: !hasData ? 'text-slate-500' : overdueReviews > 0 ? 'text-red-400' : 'text-emerald-400'},
-                {label:'Ex-employees with access', value:`${formerAccess} active`, color: formerAccess > 0 ? 'text-red-400' : 'text-emerald-400'},
-                {label:'Tools without owners', value:`${orphanedTools}`, color: orphanedTools > 0 ? 'text-amber-400' : 'text-emerald-400'},
+                {label:t('dl_mfa_coverage'), value: mfaCoverage === null ? '—' : `${mfaCoverage}%`, color: mfaCoverage === null ? 'text-slate-500' : mfaCoverage >= 80 ? 'text-emerald-400' : 'text-amber-400'},
+                {label:t('dl_access_reviews'), value: !hasData ? '—' : overdueReviews > 0 ? `${overdueReviews} ${t('dl_overdue')}` : t('dl_on_track'), color: !hasData ? 'text-slate-500' : overdueReviews > 0 ? 'text-red-400' : 'text-emerald-400'},
+                {label:t('dl_ex_employees_access'), value:`${formerAccess} ${t('dl_active_suffix')}`, color: formerAccess > 0 ? 'text-red-400' : 'text-emerald-400'},
+                {label:t('dl_tools_without_owners'), value:`${orphanedTools}`, color: orphanedTools > 0 ? 'text-amber-400' : 'text-emerald-400'},
               ].map((row,i)=>(
                 <div key={i} className="flex items-center justify-between py-1 text-sm">
                   <span className="text-slate-400">{row.label}</span>
@@ -5498,7 +5498,7 @@ function DashboardPage() {
             </div>
           </div>
           <Link to="/security" className="block mt-4">
-            <Button variant="secondary" className="w-full text-sm">{hasData ? 'Review my security score →' : 'Set up to see your score →'}</Button>
+            <Button variant="secondary" className="w-full text-sm">{hasData ? t('dl_review_my_score') : t('dl_set_up_score')}</Button>
           </Link>
         </div>
           );
@@ -5510,7 +5510,7 @@ function DashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-5 mb-6">
         {[
           { label: t('security_alerts') || 'Security Alerts', value: derived?.alerts?.length || 0, sub: `${derived?.counts?.critical||0} critical · ${derived?.counts?.high||0} high`, color: 'border-l-red-500', vcolor: 'text-red-400', link: '/security' },
-          { label: 'Wasted Spend', value: getCurrency(language) + convertCurrency(Math.round((derived?.spend||0)*0.14), language).toLocaleString(), sub: 'Idle licenses detected', color: 'border-l-amber-500', vcolor: 'text-amber-400', link: '/tools' },
+          { label: t('dl_wasted_spend'), value: getCurrency(language) + convertCurrency(Math.round((derived?.spend||0)*0.14), language).toLocaleString(), sub: t('dl_idle_licenses'), color: 'border-l-amber-500', vcolor: 'text-amber-400', link: '/tools' },
           { label: t('monthly_spend') || 'Monthly Spend', value: getCurrency(language) + convertCurrency(derived?.spend||0, language).toLocaleString(), sub: getCurrency(language) + convertCurrency((derived?.spend||0)*12, language).toLocaleString() + '/yr', color: 'border-l-emerald-500', vcolor: 'text-emerald-400', link: '/finance' },
         ].map((kpi, i) => (
           <Link key={i} to={kpi.link}>
@@ -5538,9 +5538,9 @@ function DashboardPage() {
             id: 'former-' + a.id,
             severity: 'critical',
             icon: '🔴',
-            title: `${a.employee_name || 'Ex-employee'} still has access to ${a.tool_name || 'a tool'}`,
-            reason: 'This employee has left the company but their access has not been revoked.',
-            action: 'Revoke access',
+            title: `${a.employee_name || t('ui_ex_employee')} ${t('action_still_has_access')} ${a.tool_name || 'a tool'}`,
+            reason: t('action_former_reason'),
+            action: t('action_revoke_access'),
             onAction: () => { muts.updateAccess.mutate({ id: a.id, patch: { status: 'revoked' } }, { onSuccess: () => toast.success(t('toast_access_revoked')) }); },
             link: '/offboarding',
           });
@@ -5553,9 +5553,9 @@ function DashboardPage() {
             id: 'noowner-' + t.id,
             severity: 'high',
             icon: '🟡',
-            title: `${t.name} has no assigned owner`,
+            title: `${t.name} ${t('action_no_owner')}`,
             reason: `No one is responsible for managing this tool. Cost: ${getCurrency(language)}${convertCurrency(t.cost_per_month || 0, language).toLocaleString()}/mo.`,
-            action: 'Assign owner',
+            action: t('action_assign_owner'),
             toolId: t.id,
             toolName: t.name,
             needsOwner: true,
@@ -5570,9 +5570,9 @@ function DashboardPage() {
             id: 'mfa-' + t.id,
             severity: 'high',
             icon: '🛡️',
-            title: `${t.name} is high risk with no MFA`,
+            title: `${t.name} ${t('action_high_risk_no_mfa')}`,
             reason: `Risk: ${t.derived_risk}. Last used: ${t.last_used_date || 'unknown'}. Owner: ${t.owner_email || 'none'}. No multi-factor authentication enabled.`,
-            action: 'Review',
+            action: t('action_review'),
             link: '/security',
           });
         });
@@ -5589,9 +5589,9 @@ function DashboardPage() {
             id: 'idle-' + t.id,
             severity: 'medium',
             icon: '💸',
-            title: `${t.name} — ${getCurrency(language)}${convertCurrency(t.cost_per_month || 0, language).toLocaleString()}/mo possibly wasted`,
+            title: `${t.name} — ${getCurrency(language)}${convertCurrency(t.cost_per_month || 0, language).toLocaleString()}/mo ${t('action_possibly_wasted')}`,
             reason: `Last used: ${t.last_used_date || 'never'}. Consider cancelling or reassigning this license.`,
-            action: 'Review tool',
+            action: t('action_review_tool'),
             link: '/tools',
           });
         });
@@ -5650,7 +5650,7 @@ function DashboardPage() {
             </div>
             {actions.length > 8 && (
               <div className="mt-3 text-center">
-                <Link to="/security" className="text-xs text-blue-400 hover:text-blue-300">View all {actions.length} items →</Link>
+                <Link to="/security" className="text-xs text-blue-400 hover:text-blue-300">{t('dl_view_all_items')} {actions.length} {t('dl_items_arrow')}</Link>
               </div>
             )}
           </div>
@@ -5681,7 +5681,7 @@ function DashboardPage() {
             )) : (
               <div className="flex items-center gap-3 rounded-xl p-4 bg-emerald-500/5 border border-emerald-500/20">
                 <BadgeCheck className="h-5 w-5 text-emerald-400 flex-shrink-0" />
-                <div className="text-sm text-emerald-400 font-semibold">All clear — no critical issues</div>
+                <div className="text-sm text-emerald-400 font-semibold">{t('dl_all_clear_no_critical')}</div>
               </div>
             )}
           </div>
@@ -5732,7 +5732,7 @@ function DashboardPage() {
             </div>
           )}
           <Link to="/finance">
-            <Button variant="secondary" className="w-full text-sm">Dig into the numbers →</Button>
+            <Button variant="secondary" className="w-full text-sm">{t('dl_dig_into_numbers')}</Button>
           </Link>
         </div>
 
@@ -5768,13 +5768,13 @@ function DashboardPage() {
               </div>
             );
           })()}
-          <Button variant="secondary" className="w-full text-sm" onClick={()=>toast('Shadow IT report coming soon!', { icon: '🔜' })}>See what's behind this →</Button>
+          <Button variant="secondary" className="w-full text-sm" onClick={()=>toast(t('dl_shadow_report_soon'), { icon: '🔜' })}>{t('dl_see_behind')}</Button>
         </div>
 
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 lg:p-6">
           <div className="flex items-center justify-between mb-4">
             <span className="text-base font-semibold text-slate-100">{t('overdue_reviews') || 'Overdue Reviews'}</span>
-            <span className="text-sm text-slate-500">{(derived?.access||[]).filter(a=>a.status==='active').length} pending</span>
+            <span className="text-sm text-slate-500">{(derived?.access||[]).filter(a=>a.status==='active').length} {t('dl_pending_suffix')}</span>
           </div>
           {(derived?.access||[]).filter(a=>a.status==='active').length === 0 ? (
             <div className="text-center py-6 mb-4">
@@ -5802,7 +5802,7 @@ function DashboardPage() {
             </div>
           )}
           <Link to="/access" className="block mt-4">
-            <Button variant="secondary" className="w-full text-sm">Review pending access →</Button>
+            <Button variant="secondary" className="w-full text-sm">{t('dl_review_pending_access')}</Button>
           </Link>
         </div>
       </div>
@@ -5832,12 +5832,12 @@ function DashboardPage() {
       {/* ── Assign Owner Modal ── */}
       <Modal
         open={showAssignOwner}
-        title="Assign tool owner"
-        subtitle={`Who should own ${assignToolName}?`}
+        title={t('dl_assign_tool_owner')}
+        subtitle={`${t('dl_who_should_own')} ${assignToolName}?`}
         onClose={() => setShowAssignOwner(false)}
         footer={
           <div className="flex justify-end">
-            <Button variant="secondary" onClick={() => setShowAssignOwner(false)}>Cancel</Button>
+            <Button variant="secondary" onClick={() => setShowAssignOwner(false)}>{t('cancel')}</Button>
           </div>
         }
       >
@@ -5859,12 +5859,12 @@ function DashboardPage() {
               </div>
               <div className="min-w-0 flex-1">
                 <div className="text-sm font-semibold text-slate-200 truncate">{emp.full_name}</div>
-                <div className="text-xs text-slate-500 truncate">{emp.email} · {emp.department || 'No dept'}</div>
+                <div className="text-xs text-slate-500 truncate">{emp.email} · {emp.department || t('no_dept')}</div>
               </div>
             </button>
           ))}
           {(db?.employees || []).filter(e => e.status === 'active').length === 0 && (
-            <div className="text-center py-6 text-sm text-slate-500">{t("assign_no_active_employees") || "No active employees. Import your team first."}</div>
+            <div className="text-center py-6 text-sm text-slate-500">{t("assign_no_active_employees")}</div>
           )}
         </div>
       </Modal>
@@ -6129,7 +6129,7 @@ function ToolsPage() {
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-blue-500">
             <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t("kpi_total_tools")}</div>
             <div className="text-3xl font-black text-white">{tools.length}</div>
-            <div className="text-sm text-slate-500">{tools.filter(t => t.derived_status === 'active').length} active</div>
+            <div className="text-sm text-slate-500">{tools.filter(t => t.derived_status === 'active').length} {tr('active')}</div>
           </div>
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-emerald-500">
             <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t("kpi_monthly_spend")}</div>
@@ -6158,7 +6158,7 @@ function ToolsPage() {
             <div className="flex flex-wrap gap-2">
               <button onClick={() => setCat('')}
                 className={"px-3 py-1.5 rounded-full text-xs font-semibold transition-all " + (!cat ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700')}>
-                All ({tools.length})
+                {tr('all_filter')} ({tools.length})
               </button>
               {catStats.map(([name, stats]) => (
                 <button key={name} onClick={() => setCat(name)}
@@ -6188,7 +6188,7 @@ function ToolsPage() {
               <option value="">{t("all_risk")}</option>
               {RISK_SCORE.map((r) => <option key={r} value={r}>{r}</option>)}
             </select>
-            <span className="text-xs text-slate-500 whitespace-nowrap">{filtered.length} found</span>
+            <span className="text-xs text-slate-500 whitespace-nowrap">{filtered.length} {tr('found_count')}</span>
           </div>
 
           {isLoading ? (
@@ -6274,7 +6274,7 @@ function ToolsPage() {
                                     <div className="flex flex-wrap gap-1.5">
                                       {evidence.map((r, j) => (
                                         <span key={j} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-800 text-[10px] text-slate-400 border border-slate-700">
-                                          {t(r.key) || r.fallback}
+                                          {tr(r.key) || r.fallback}
                                         </span>
                                       ))}
                                     </div>
@@ -6282,13 +6282,13 @@ function ToolsPage() {
                                 );
                               })()}
                               <div className="flex items-center justify-between mb-3">
-                                <h4 className="text-sm font-semibold text-purple-400">Employees using {t.name} ({getToolEmployees(t.id, t.name).length})</h4>
-                                <Link to="/employees" className="text-xs text-slate-500 hover:text-purple-400 transition-colors">{t("drill_view_all_employees") || "View all employees"} →</Link>
+                                <h4 className="text-sm font-semibold text-purple-400">{tr('drill_employees_using')} {t.name} ({getToolEmployees(t.id, t.name).length})</h4>
+                                <Link to="/employees" className="text-xs text-slate-500 hover:text-purple-400 transition-colors">{tr("drill_view_all_employees")} →</Link>
                               </div>
                               {(() => {
                                 const toolEmps = getToolEmployees(t.id, t.name);
                                 if (toolEmps.length === 0) return (
-                                  <div className="text-center py-4 text-sm text-slate-500">{t("drill_no_employees") || "No employees currently assigned to this tool"}</div>
+                                  <div className="text-center py-4 text-sm text-slate-500">{tr("drill_no_employees")}</div>
                                 );
                                 return (
                                   <div className="grid gap-2">
@@ -6310,8 +6310,8 @@ function ToolsPage() {
                                             emp.employee_status === 'offboarding' ? 'bg-amber-500/20 text-amber-400' :
                                             'bg-slate-700 text-slate-400'
                                           )}>{emp.employee_status}</span>
-                                          <button onClick={(ev) => { ev.stopPropagation(); if(window.confirm(`Revoke ${emp.employee_name}'s access to ${t.name}?`)) muts.deleteAccess.mutate(emp.id); }}
-                                            className="p-1 rounded-lg bg-slate-800 hover:bg-red-600/20 text-slate-500 hover:text-red-400 transition-colors" title="Revoke access">
+                                          <button onClick={(ev) => { ev.stopPropagation(); if(window.confirm(`${tr('confirm_revoke')} ${emp.employee_name}?`)) muts.deleteAccess.mutate(emp.id); }}
+                                            className="p-1 rounded-lg bg-slate-800 hover:bg-red-600/20 text-slate-500 hover:text-red-400 transition-colors" title={tr('revoke_access_btn')}>
                                             <X className="h-3.5 w-3.5" />
                                           </button>
                                         </div>
@@ -6334,27 +6334,27 @@ function ToolsPage() {
               {totalPages > 1 && (
                 <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-slate-800 bg-slate-950/30">
                   <span className="text-xs text-slate-500">
-                    Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, filtered.length)} of {filtered.length}
+                    {tr('page_showing')} {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, filtered.length)} {tr('page_of')} {filtered.length}
                   </span>
                   <div className="flex items-center gap-1">
                     <button onClick={() => setPage(0)} disabled={page === 0}
                       className="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-400 text-xs hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
-                      « {t("page_first").replace("« ", "")}
+                      {tr("page_first")}
                     </button>
                     <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}
                       className="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-400 text-xs hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
-                      {t("page_prev")}
+                      {tr("page_prev")}
                     </button>
                     <span className="px-3 py-1 text-xs text-slate-300 font-semibold">
-                      Page {page + 1} / {totalPages}
+                      {tr('page_label')} {page + 1} / {totalPages}
                     </span>
                     <button onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1}
                       className="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-400 text-xs hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
-                      {t("page_next")}
+                      {tr("page_next")}
                     </button>
                     <button onClick={() => setPage(totalPages - 1)} disabled={page >= totalPages - 1}
                       className="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-400 text-xs hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
-                      {t("page_last")}
+                      {tr("page_last")}
                     </button>
                   </div>
                 </div>
@@ -6364,7 +6364,7 @@ function ToolsPage() {
         </div>
       </div>
 
-      <Modal open={open} title={editing ? "Edit tool" : t('add_tool_btn')} subtitle={t('tool_inventory_sub')} onClose={() => setOpen(false)}>
+      <Modal open={open} title={editing ? tr('edit_tool_btn') : tr('add_tool_btn')} subtitle={tr('tool_inventory_sub')} onClose={() => setOpen(false)}>
         <ToolForm
           initial={editing}
           employees={employees}
@@ -6379,12 +6379,12 @@ function ToolsPage() {
       {/* ── Assign Owner Modal (Tools page) ── */}
       <Modal
         open={showToolOwnerModal}
-        title="Assign tool owner"
-        subtitle={`Who should own ${ownerToolName}?`}
+        title={t('dl_assign_tool_owner')}
+        subtitle={`${t('dl_who_should_own')} ${ownerToolName}?`}
         onClose={() => setShowToolOwnerModal(false)}
         footer={
           <div className="flex justify-end">
-            <Button variant="secondary" onClick={() => setShowToolOwnerModal(false)}>Cancel</Button>
+            <Button variant="secondary" onClick={() => setShowToolOwnerModal(false)}>{t('cancel')}</Button>
           </div>
         }
       >
@@ -6406,7 +6406,7 @@ function ToolsPage() {
               </div>
               <div className="min-w-0 flex-1">
                 <div className="text-sm font-semibold text-slate-200 truncate">{emp.full_name}</div>
-                <div className="text-xs text-slate-500 truncate">{emp.email} · {emp.department || 'No dept'}</div>
+                <div className="text-xs text-slate-500 truncate">{emp.email} · {emp.department || t('no_dept')}</div>
               </div>
             </button>
           ))}
@@ -6636,9 +6636,9 @@ function EmployeesPage() {
               {dept && <button onClick={() => setDept('')} className="text-xs text-blue-400 hover:text-blue-300">{t("clear_filter")}</button>}
             </div>
             <div className="flex flex-wrap gap-2">
-              <button onClick={() => setDept('')} 
+              <button onClick={() => setDept('')}
                 className={"px-3 py-1.5 rounded-full text-xs font-semibold transition-all " + (!dept ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700')}>
-                All ({employees.length})
+                {tr('all_filter')} ({employees.length})
               </button>
               {deptStats.map(([name, stats]) => (
                 <button key={name} onClick={() => setDept(name)}
@@ -6665,7 +6665,7 @@ function EmployeesPage() {
               <option value="offboarding">{t('emp_status_offboarding')}</option>
               <option value="offboarded">{t('emp_status_offboarded')}</option>
             </select>
-            <span className="text-xs text-slate-500 whitespace-nowrap">{filtered.length} found</span>
+            <span className="text-xs text-slate-500 whitespace-nowrap">{filtered.length} {tr('found_count')}</span>
           </div>
 
           {/* ── Compact table ── */}
@@ -6746,51 +6746,51 @@ function EmployeesPage() {
                           <td colSpan="6" className="p-0">
                             <div className="bg-slate-950/80 border-y border-blue-500/20 px-6 py-4">
                               <div className="flex items-center justify-between mb-3">
-                                <h4 className="text-sm font-semibold text-blue-400">{e.full_name}'s tools ({toolCounts.get(e.id) || 0})</h4>
-                                <Link to={`/tools`} className="text-xs text-slate-500 hover:text-blue-400 transition-colors">{t("drill_view_all_tools") || "View all tools"} →</Link>
+                                <h4 className="text-sm font-semibold text-blue-400">{e.full_name}{tr('drill_tools_for')} ({toolCounts.get(e.id) || 0})</h4>
+                                <Link to={`/tools`} className="text-xs text-slate-500 hover:text-blue-400 transition-colors">{tr("drill_view_all_tools")} →</Link>
                               </div>
                               {(() => {
                                 const empTools = getEmployeeTools(e.id);
                                 if (empTools.length === 0) return (
-                                  <div className="text-center py-4 text-sm text-slate-500">'{t("drill_no_active_tools") || "No active tools assigned to this employee"}'</div>
+                                  <div className="text-center py-4 text-sm text-slate-500">{tr("drill_no_active_tools")}</div>
                                 );
                                 return (
                                   <div className="grid gap-2">
-                                    {empTools.map((t, i) => {
-                                      const toolObj = (db?.tools || []).find(x => x.id === t.tool_id || x.name === t.tool_name);
+                                    {empTools.map((tool, i) => {
+                                      const toolObj = (db?.tools || []).find(x => x.id === tool.tool_id || x.name === tool.tool_name);
                                       const evidence = toolObj ? getRiskEvidence(toolObj) : [];
                                       return (
                                       <div key={i} className="rounded-xl border border-slate-800 bg-slate-900/50 hover:border-slate-700 transition-colors">
                                         <div className="flex items-center gap-3 p-3">
                                           <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-sm font-bold text-slate-300 flex-shrink-0">
-                                            {(t.tool_name || '?')[0]}
+                                            {(tool.tool_name || '?')[0]}
                                           </div>
                                           <div className="flex-1 min-w-0">
-                                            <div className="text-sm font-semibold text-slate-200 truncate">{t.tool_name}</div>
+                                            <div className="text-sm font-semibold text-slate-200 truncate">{tool.tool_name}</div>
                                             <div className="text-xs text-slate-500">
-                                              {t.last_used ? `Last used ${t.last_used}` : 'No usage data'}
-                                              {t.cost > 0 && ` · €${t.cost}/mo`}
+                                              {tool.last_used ? `${tr('drill_last_used')} ${tool.last_used}` : tr('drill_no_usage')}
+                                              {tool.cost > 0 && ` · €${tool.cost}/mo`}
                                             </div>
                                           </div>
                                           <div className="flex items-center gap-2 flex-shrink-0">
-                                            {t.mfa && <span className="px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 text-[10px] font-semibold">MFA</span>}
+                                            {tool.mfa && <span className="px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 text-[10px] font-semibold">MFA</span>}
                                             <span className={"px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase " + (
-                                              t.risk === 'high' ? 'bg-red-500/20 text-red-400' :
-                                              t.risk === 'medium' ? 'bg-amber-500/20 text-amber-400' :
+                                              tool.risk === 'high' ? 'bg-red-500/20 text-red-400' :
+                                              tool.risk === 'medium' ? 'bg-amber-500/20 text-amber-400' :
                                               'bg-emerald-500/20 text-emerald-400'
-                                            )}>{t.risk || 'low'}</span>
-                                            <button onClick={(ev) => { ev.stopPropagation(); if(window.confirm(`${tr('confirm_revoke')} ${e.full_name} → ${t.tool_name}?`)) muts.deleteAccess.mutate(t.id); }}
+                                            )}>{tool.risk || 'low'}</span>
+                                            <button onClick={(ev) => { ev.stopPropagation(); if(window.confirm(`${tr('confirm_revoke')} ${e.full_name} → ${tool.tool_name}?`)) muts.deleteAccess.mutate(tool.id); }}
                                               className="p-1 rounded-lg bg-slate-800 hover:bg-red-600/20 text-slate-500 hover:text-red-400 transition-colors" title={tr('revoke')}>
                                               <X className="h-3.5 w-3.5" />
                                             </button>
                                           </div>
                                         </div>
-                                        {evidence.length > 0 && (t.risk === 'high' || t.risk === 'medium') && (
+                                        {evidence.length > 0 && (tool.risk === 'high' || tool.risk === 'medium') && (
                                           <div className="px-3 pb-3 pt-0">
                                             <div className="flex flex-wrap gap-1.5">
                                               {evidence.map((r, j) => (
                                                 <span key={j} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-800 text-[10px] text-slate-400 border border-slate-700">
-                                                  {t(r.key) || r.fallback}
+                                                  {tr(r.key) || r.fallback}
                                                 </span>
                                               ))}
                                             </div>
@@ -6816,27 +6816,27 @@ function EmployeesPage() {
               {totalPages > 1 && (
                 <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-slate-800 bg-slate-950/30">
                   <span className="text-xs text-slate-500">
-                    Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, filtered.length)} of {filtered.length}
+                    {tr('page_showing')} {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, filtered.length)} {tr('page_of')} {filtered.length}
                   </span>
                   <div className="flex items-center gap-1">
                     <button onClick={() => setPage(0)} disabled={page === 0}
                       className="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-400 text-xs hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
-                      « {t("page_first").replace("« ", "")}
+                      {tr("page_first")}
                     </button>
                     <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}
                       className="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-400 text-xs hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
-                      {t("page_prev")}
+                      {tr("page_prev")}
                     </button>
                     <span className="px-3 py-1 text-xs text-slate-300 font-semibold">
-                      Page {page + 1} / {totalPages}
+                      {tr('page_label')} {page + 1} / {totalPages}
                     </span>
                     <button onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1}
                       className="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-400 text-xs hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
-                      {t("page_next")}
+                      {tr("page_next")}
                     </button>
                     <button onClick={() => setPage(totalPages - 1)} disabled={page >= totalPages - 1}
                       className="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-400 text-xs hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
-                      {t("page_last")}
+                      {tr("page_last")}
                     </button>
                   </div>
                 </div>
@@ -6846,7 +6846,7 @@ function EmployeesPage() {
         </div>
       </div>
 
-      <Modal open={open} title={editing ? "Edit employee" : "Add employee"} subtitle={t('employee_directory_sub')} onClose={() => setOpen(false)}>
+      <Modal open={open} title={editing ? tr('edit_employee_btn') : tr('add_employee_btn')} subtitle={tr('employee_directory_sub')} onClose={() => setOpen(false)}>
         <EmployeeForm
           initial={editing}
           onClose={() => setOpen(false)}
@@ -6910,7 +6910,7 @@ function AccessForm({ initial, tools, employees, onSubmit, onClose }) {
     >
       <div className="grid gap-3 md:grid-cols-2">
         <div>
-          <div className="mb-1 text-xs font-semibold text-slate-400">Tool</div>
+          <div className="mb-1 text-xs font-semibold text-slate-400">{t('tool_name')}</div>
           <Select value={form.tool_id} onChange={(e) => setForm((f) => ({ ...f, tool_id: e.target.value }))}>
             {tools.map((t) => (
               <option key={t.id} value={t.id}>
@@ -6920,7 +6920,7 @@ function AccessForm({ initial, tools, employees, onSubmit, onClose }) {
           </Select>
         </div>
         <div>
-          <div className="mb-1 text-xs font-semibold text-slate-400">Employee</div>
+          <div className="mb-1 text-xs font-semibold text-slate-400">{t('employee')}</div>
           <Select value={form.employee_id} onChange={(e) => setForm((f) => ({ ...f, employee_id: e.target.value }))}>
             {employees.map((e) => (
               <option key={e.id} value={e.id}>
@@ -6943,7 +6943,7 @@ function AccessForm({ initial, tools, employees, onSubmit, onClose }) {
           </Select>
         </div>
         <div>
-          <div className="mb-1 text-xs font-semibold text-slate-400">Status</div>
+          <div className="mb-1 text-xs font-semibold text-slate-400">{t('status')}</div>
           <Select value={form.status} onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}>
             {ACCESS_STATUS.map((s) => (
               <option key={s} value={s}>
@@ -7085,10 +7085,10 @@ function AccessPage() {
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <AlertTriangle className="h-5 w-5 text-red-400" />
-                <span className="text-base font-semibold text-white">Urgent: {derived.highRisk.length} high-risk access records</span>
+                <span className="text-base font-semibold text-white">{t('urgent_high_risk_header').replace('{n}', derived.highRisk.length)}</span>
               </div>
               <Button variant="secondary" size="sm" onClick={() => {
-                if(window.confirm('Revoke all ' + derived.highRisk.length + ' high-risk access records?')) {
+                if(window.confirm(t('confirm_revoke_all_high').replace('{n}', derived.highRisk.length))) {
                   derived.highRisk.forEach(a => muts.updateAccess.mutate({ id: a.id, patch: { status: 'revoked' } }));
                   toast.success(t('toast_all_high_risk_revoked'));
                 }
@@ -7109,7 +7109,7 @@ function AccessPage() {
                   <button onClick={() => {
                     muts.updateAccess.mutate({ id: a.id, patch: { status: 'revoked' } }, { onSuccess: () => toast.success(t('toast_revoked')) });
                   }} className="px-2.5 py-1 bg-red-600/30 hover:bg-red-600/50 text-red-400 rounded-lg text-xs font-semibold transition-colors flex-shrink-0">
-                    Revoke
+                    {t('revoke')}
                   </button>
                 </div>
               ))}
@@ -7152,7 +7152,7 @@ function AccessPage() {
                 <h2 className="text-base font-semibold text-white">{t("access_map_label")}</h2>
                 <p className="text-sm text-slate-500">{t("access_map_sub")}</p>
               </div>
-              <span className="text-xs text-slate-500">{Object.keys(derived.matrix).length} employees · {derived.allTools.length} tools</span>
+              <span className="text-xs text-slate-500">{t('employees_n_tools_n').replace('{e}', Object.keys(derived.matrix).length).replace('{t}', derived.allTools.length)}</span>
             </div>
 
             {/* Legend */}
@@ -7249,11 +7249,11 @@ function AccessPage() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-medium text-white truncate">{name}</div>
-                        <div className="text-xs text-slate-500 truncate">{data.dept || 'No department'}</div>
+                        <div className="text-xs text-slate-500 truncate">{data.dept || t('no_department')}</div>
                       </div>
                       <div className="text-right">
                         <div className="text-sm font-bold text-purple-400">{data.count}</div>
-                        <div className="text-[10px] text-slate-500">admin</div>
+                        <div className="text-[10px] text-slate-500">{t('admin')}</div>
                       </div>
                     </div>
                   ));
@@ -7356,11 +7356,11 @@ function AccessPage() {
                   <div className="flex items-center justify-between mb-3">
                     <div>
                       <h3 className="text-sm font-semibold text-white">{toolName}</h3>
-                      <div className="text-xs text-slate-500">{tool?.category || 'Uncategorized'}</div>
+                      <div className="text-xs text-slate-500">{tool?.category || t('uncategorized')}</div>
                     </div>
                     <div className="flex items-center gap-2">
-                      {adminCount > 0 && <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400 font-semibold">{adminCount} admin</span>}
-                      <span className="text-xs text-slate-500">{employees.length} users</span>
+                      {adminCount > 0 && <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400 font-semibold">{adminCount} {t('admin')}</span>}
+                      <span className="text-xs text-slate-500">{t('n_users_label').replace('{n}', employees.length)}</span>
                     </div>
                   </div>
                   <div className="space-y-1.5">
@@ -7378,7 +7378,7 @@ function AccessPage() {
                         </div>
                       );
                     })}
-                    {employees.length > 5 && <div className="text-[10px] text-slate-600">+ {employees.length - 5} more</div>}
+                    {employees.length > 5 && <div className="text-[10px] text-slate-600">{t('n_more_items').replace('{n}', employees.length - 5)}</div>}
                   </div>
                 </div>
               );
@@ -7445,7 +7445,7 @@ function AccessPage() {
               </tbody>
             </table>
             </div>
-            {filteredAccess.length > 25 && <div className="text-center py-3 text-xs text-slate-500">Showing 25 of {filteredAccess.length} records</div>}
+            {filteredAccess.length > 25 && <div className="text-center py-3 text-xs text-slate-500">{t('showing_n_of_m').replace('{x}', 25).replace('{n}', filteredAccess.length)}</div>}
           </div>
         )}
 
@@ -7541,7 +7541,7 @@ Return ONLY the JSON array, no markdown.`;
         </div>
         <button onClick={generateRecs} disabled={loading}
           className="text-xs px-3 py-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 rounded-lg border border-purple-500/20 transition-colors">
-          {loading ? 'Analysing...' : 'Refresh'}
+          {loading ? t('contract_analysing') : t('refresh')}
         </button>
       </div>
       {loading && <div className="flex items-center gap-2 text-slate-400 text-sm"><div className="h-4 w-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin"/><span>{t('analysing_access_data')}</span></div>}
@@ -7562,7 +7562,7 @@ Return ONLY the JSON array, no markdown.`;
           ))}
           {recs.length > 3 && (
             <button onClick={() => setExpanded(e => !e)} className="text-xs text-slate-400 hover:text-slate-200 transition-colors">
-              {expanded ? 'Show less' : `Show ${recs.length - 3} more recommendations`}
+              {expanded ? t('collapse') : `${t('show_more')} (${recs.length - 3})`}
             </button>
           )}
         </div>
@@ -7623,18 +7623,18 @@ function SlackNotifications() {
         </div>
         <div className="flex gap-2">
           <button onClick={save} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold rounded-xl transition-colors">
-            {saved ? '✓ Saved!' : 'Save'}
+            {saved ? `✓ ${t('saved_msg')}` : t('save')}
           </button>
           {webhook && (
             <button onClick={test} disabled={testing} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-semibold rounded-xl transition-colors">
-              {testing ? 'Sending...' : 'Test Connection'}
+              {testing ? `${t('loading')}` : t('send')}
             </button>
           )}
         </div>
         <div className="pt-2 border-t border-slate-800">
           <p className="text-xs text-slate-500 mb-2">{t('slack_will_receive')}</p>
           <div className="grid grid-cols-2 gap-1">
-            {['🚨 High risk tools', '👤 Former employee access', '🔔 Renewals in 30 days', '⚡ Offboarding needed'].map(a => (
+            {[`🚨 ${t('high_risk_tools')}`, `👤 ${t('hc_former_employee_access')}`, `🔔 ${t('renewals_tab')} 30d`, `⚡ ${t('offboarding_title')}`].map(a => (
               <div key={a} className="text-xs text-slate-400 flex items-center gap-1">{a}</div>
             ))}
           </div>
@@ -7709,19 +7709,19 @@ function ChecklistItems() {
   const t = useTranslation(language);
   const [checked, setChecked] = React.useState({});
   const items = [
-    "Revoke all SaaS tool access",
-    "Remove from SSO / identity provider",
-    "Transfer ownership of shared docs",
-    "Recover company devices",
-    "Archive or reassign email",
-    "Remove from Slack / Teams",
-    "Cancel user-specific subscriptions",
+    t('cl_revoke_saas'),
+    t('cl_remove_sso'),
+    t('cl_transfer_docs'),
+    t('cl_recover_devices'),
+    t('cl_archive_email'),
+    t('cl_remove_slack'),
+    t('cl_cancel_subs'),
   ];
   const doneCount = Object.values(checked).filter(Boolean).length;
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
-        <span className="text-xs text-slate-500">{doneCount}/{items.length} completed</span>
+        <span className="text-xs text-slate-500">{t('cl_n_of_m_completed').replace('{n}', doneCount).replace('{m}', items.length)}</span>
         {doneCount === items.length && <span className="text-xs text-emerald-400 font-semibold">{t('all_done')}</span>}
       </div>
       <div className="space-y-2 text-sm text-slate-400">
@@ -7996,7 +7996,7 @@ function OffboardingPage() {
         <div className="flex gap-2">
           {employee && (
             <Button variant="secondary" onClick={() => printOffboardingChecklist(employee, activeRecords, access)}>
-              <Download className="h-4 w-4" /> Print Checklist
+              <Download className="h-4 w-4" /> {t('off_print_checklist')}
             </Button>
           )}
           <Button variant="secondary" onClick={() => nav("/employees")}>
@@ -8039,8 +8039,8 @@ function OffboardingPage() {
                 <AlertTriangle className="h-5 w-5 text-red-400" />
               </div>
               <div className="flex-1">
-                <div className="text-base font-semibold text-red-400 mb-1">Security Risk: {riskRecords.length} active access records belong to offboarded employees</div>
-                <p className="text-sm text-slate-400 mb-4">These users have been offboarded but their access was never revoked. This is a major security and compliance issue.</p>
+                <div className="text-base font-semibold text-red-400 mb-1">{t('offboarding_security_risk_header').replace('{n}', riskRecords.length)}</div>
+                <p className="text-sm text-slate-400 mb-4">{t('offboarding_security_risk_body')}</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 mb-4">
                   {riskRecords.slice(0, 6).map((a, idx) => {
                     const emp = employees.find(e => e.id === a.employee_id);
@@ -8079,8 +8079,8 @@ function OffboardingPage() {
             {/* Tab bar */}
             <div className="flex gap-1 rounded-xl border border-slate-800 bg-slate-900/60 p-1 w-fit">
               {[
-                { id: "queue",   label: `Queue (${upcoming.length})` },
-                { id: "history", label: `History (${offboarded.length})` },
+                { id: "queue",   label: t('off_queue_tab').replace('{n}', upcoming.length) },
+                { id: "history", label: t('off_history_tab').replace('{n}', offboarded.length) },
               ].map(({ id, label }) => (
                 <button key={id} onClick={() => setTab(id)}
                   className={"px-4 py-2 rounded-lg text-sm font-semibold transition-colors " + (tab === id ? "bg-blue-600 text-white" : "text-slate-400 hover:text-slate-200")}>
@@ -8121,7 +8121,7 @@ function OffboardingPage() {
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="text-sm font-semibold text-white truncate">{e.full_name}</div>
-                            <div className="text-xs text-slate-500 truncate">{e.department || '—'} · {empAccess.length} active access</div>
+                            <div className="text-xs text-slate-500 truncate">{e.department || '—'} · {t('off_n_active_access').replace('{n}', empAccess.length)}</div>
                           </div>
                           <div className="flex items-center gap-2 flex-shrink-0">
                             {days !== null && (
@@ -8130,7 +8130,7 @@ function OffboardingPage() {
                                 days <= 7 ? "bg-amber-500/20 text-amber-400" :
                                 "bg-slate-700 text-slate-400"
                               )}>
-                                {days < 0 ? `${Math.abs(days)}d overdue` : days === 0 ? "Today" : `${days}d`}
+                                {days < 0 ? t('offboarding_d_overdue').replace('{n}', Math.abs(days)) : days === 0 ? t('offboarding_today') : `${days}d`}
                               </span>
                             )}
                             <span className={"text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase " + (
@@ -8176,15 +8176,15 @@ function OffboardingPage() {
                           <div className="flex-1 min-w-0">
                             <div className="text-sm font-semibold text-white truncate">{e.full_name}</div>
                             <div className="text-xs text-slate-500 truncate">
-                              {e.department || '—'} · Offboarded {e.end_date || 'recently'}
+                              {e.department || '—'} · {t('off_offboarded_date').replace('{d}', e.end_date || t('recently') || 'recently')}
                             </div>
                           </div>
                           <div className="flex items-center gap-2 flex-shrink-0">
                             {revokedCount > 0 && (
-                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400">{revokedCount} revoked</span>
+                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400">{t('off_n_revoked').replace('{n}', revokedCount)}</span>
                             )}
                             {remainingCount > 0 && (
-                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-500/20 text-red-400">{remainingCount} risk</span>
+                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-500/20 text-red-400">{t('off_n_risk').replace('{n}', remainingCount)}</span>
                             )}
                           </div>
                         </div>
@@ -8249,11 +8249,11 @@ function OffboardingPage() {
                     </div>
                     <div className="rounded-lg bg-slate-800/50 p-2">
                       <div className="text-[10px] text-slate-500 uppercase">{t("offboarding_access_label")}</div>
-                      <div className="text-xs font-semibold text-white">{activeRecords.length} active</div>
+                      <div className="text-xs font-semibold text-white">{t('off_n_active').replace('{n}', activeRecords.length)}</div>
                     </div>
                     <div className="rounded-lg bg-slate-800/50 p-2">
                       <div className="text-[10px] text-slate-500 uppercase">{t("offboarding_end_date")}</div>
-                      <div className="text-xs font-semibold text-white">{employee.end_date || 'TBD'}</div>
+                      <div className="text-xs font-semibold text-white">{employee.end_date || t('off_tbd')}</div>
                     </div>
                   </div>
                 </div>
@@ -8283,12 +8283,12 @@ function OffboardingPage() {
                             <div className="flex-1 min-w-0">
                               <div className="text-sm font-semibold text-white truncate">{r.tool_name}</div>
                               <div className="text-[10px] text-slate-500">
-                                <span className="capitalize">{r.access_level}</span> · Granted {r.granted_date || '—'}
+                                <span className="capitalize">{r.access_level}</span> · {t('off_granted_date').replace('{d}', r.granted_date || '—')}
                               </div>
                             </div>
                             <button onClick={() => revokeOne(r.id)}
                               className="px-2.5 py-1 bg-red-600/20 hover:bg-red-600/40 text-red-400 rounded-lg text-xs font-semibold transition-colors flex-shrink-0">
-                              Revoke
+                              {t('revoke')}
                             </button>
                           </div>
                         ))}
@@ -8298,7 +8298,7 @@ function OffboardingPage() {
                       <button onClick={revokeAll}
                         className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-600 hover:bg-red-500 rounded-xl font-bold text-sm text-white transition-all shadow-lg shadow-red-500/20">
                         <BadgeX className="h-4 w-4" />
-                        One-Click Offboard ({activeRecords.length} access)
+                        {t('off_one_click_label').replace('{n}', activeRecords.length)}
                       </button>
                       <p className="text-[10px] text-slate-600 text-center mt-2">
                         {t("offboarding_one_click_sub")}
@@ -9076,7 +9076,7 @@ function AuditTabContent() {
             </div>
             <div>
               <div className={`text-lg font-semibold ${healthColor(derived.healthScore)}`}>
-                {derived.healthScore >= 80 ? 'Audit Ready' : derived.healthScore >= 60 ? 'Needs Attention' : 'At Risk'}
+                {derived.healthScore >= 80 ? t('security_audit_ready') : derived.healthScore >= 60 ? t('security_needs_attention') : t('security_at_risk')}
               </div>
               <p className="text-sm text-slate-500 mt-1">
                 {derived.healthScore >= 80 
@@ -9094,22 +9094,22 @@ function AuditTabContent() {
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
             <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t('nav_tools')}</div>
             <div className="text-2xl font-black text-white">{derived.activeTools}</div>
-            <div className="text-xs text-slate-500">{derived.unusedTools} unused</div>
+            <div className="text-xs text-slate-500">{t('audit_n_unused').replace('{n}', derived.unusedTools)}</div>
           </div>
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
             <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t('nav_employees')}</div>
             <div className="text-2xl font-black text-white">{derived.employees.length}</div>
-            <div className="text-xs text-slate-500">{derived.employees.filter(e => e.status === 'active').length} active</div>
+            <div className="text-xs text-slate-500">{t('audit_n_active').replace('{n}', derived.employees.filter(e => e.status === 'active').length)}</div>
           </div>
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
             <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t('exec_access_records')}</div>
             <div className="text-2xl font-black text-white">{derived.access.length}</div>
-            <div className="text-xs text-slate-500">{derived.access.filter(a => a.status === 'active').length} active</div>
+            <div className="text-xs text-slate-500">{t('audit_n_active').replace('{n}', derived.access.filter(a => a.status === 'active').length)}</div>
           </div>
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
             <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t('audit_risk_items')}</div>
             <div className="text-2xl font-black text-red-400">{derived.highRiskCount + derived.formerEmpAccess}</div>
-            <div className="text-xs text-slate-500">{derived.highRiskCount} tools, {derived.formerEmpAccess} access</div>
+            <div className="text-xs text-slate-500">{t('audit_n_tools_n_access').replace('{n}', derived.highRiskCount).replace('{n}', derived.formerEmpAccess)}</div>
           </div>
         </div>
 
@@ -9119,7 +9119,7 @@ function AuditTabContent() {
           <p className="text-sm text-slate-400 mb-5">{t("audit_package_desc")}</p>
           <button onClick={() => printExecutiveSummary(db, derived)}
             className="w-full flex items-center justify-center gap-2 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold text-sm transition-colors mb-3">
-            <FileText className="h-4 w-4" /> Executive PDF Report
+            <FileText className="h-4 w-4" /> {t('audit_exec_pdf')}
           </button>
           <button onClick={exportFullPackage}
             className="w-full flex items-center justify-center gap-2 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-xl font-semibold text-sm transition-colors mb-3">
@@ -9132,25 +9132,25 @@ function AuditTabContent() {
       {/* ── Row 2: Individual Exports with preview ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-5">
         {[
-          { 
-            title: 'Tools Inventory', 
-            desc: 'Complete SaaS tool registry with ownership, risk level, cost, and status',
+          {
+            title: t('audit_tools_inventory'),
+            desc: t('audit_tools_inventory_desc'),
             count: derived.tools.length,
             fn: exportTools,
             color: 'blue',
-            preview: derived.tools.slice(0,3).map(t => ({ name: t.name, status: t.derived_status, risk: t.derived_risk })),
+            preview: derived.tools.slice(0,3).map(tt => ({ name: tt.name, status: tt.derived_status, risk: tt.derived_risk })),
           },
-          { 
-            title: 'Employee Directory', 
-            desc: 'Staff directory with department, role, employment status, and dates',
+          {
+            title: t('audit_employee_directory'),
+            desc: t('audit_employee_directory_desc'),
             count: derived.employees.length,
             fn: exportEmployees,
             color: 'emerald',
             preview: derived.employees.slice(0,3).map(e => ({ name: e.full_name, dept: e.department, status: e.status })),
           },
-          { 
-            title: 'Access Records', 
-            desc: 'Every permission record with risk flags, review dates, and access levels',
+          {
+            title: t('audit_access_records'),
+            desc: t('audit_access_records_desc'),
             count: derived.access.length,
             fn: exportAccess,
             color: 'purple',
@@ -9160,7 +9160,7 @@ function AuditTabContent() {
           <div key={item.title} className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 lg:p-6">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-base font-semibold text-white">{item.title}</h3>
-              <span className="text-xs text-slate-500">{item.count} records</span>
+              <span className="text-xs text-slate-500">{t('audit_n_records').replace('{n}', item.count)}</span>
             </div>
             <p className="text-sm text-slate-400 mb-4">{item.desc}</p>
             
@@ -9179,12 +9179,12 @@ function AuditTabContent() {
                   </div>
                 ))}
               </div>
-              {item.count > 3 && <div className="text-[10px] text-slate-600 mt-1.5">+ {item.count - 3} more</div>}
+              {item.count > 3 && <div className="text-[10px] text-slate-600 mt-1.5">{t('n_more_items').replace('{n}', item.count - 3)}</div>}
             </div>
 
             <button onClick={item.fn}
               className="w-full flex items-center justify-center gap-2 py-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl font-semibold text-sm transition-colors">
-              <Download className="h-4 w-4" /> Export CSV
+              <Download className="h-4 w-4" /> {t('audit_export_csv')}
             </button>
           </div>
         ))}
@@ -9198,7 +9198,7 @@ function AuditTabContent() {
               <h2 className="text-base font-semibold text-white">{t("audit_usage_dist")}</h2>
               <p className="text-sm text-slate-500">{t("audit_usage_sub")}</p>
             </div>
-            <span className="text-xs text-slate-500">{derived.topToolsByUsers.length} tools with users</span>
+            <span className="text-xs text-slate-500">{t('audit_n_tools_users').replace('{n}', derived.topToolsByUsers.length)}</span>
           </div>
           <div className="space-y-3">
             {derived.topToolsByUsers.map(([name, count], idx) => {
@@ -9213,7 +9213,7 @@ function AuditTabContent() {
                   </div>
                   <div className="w-20 text-right">
                     <span className="text-sm font-semibold text-white">{count}</span>
-                    <span className="text-xs text-slate-500 ml-1">users</span>
+                    <span className="text-xs text-slate-500 ml-1">{t('audit_users')}</span>
                   </div>
                 </div>
               );
@@ -10500,7 +10500,7 @@ function SecurityTabContent() {
   const mfaCoverage = activeTools > 0 ? Math.round(((activeTools - orphanedTools) / activeTools) * 100) : 100;
   const securityScore = Math.max(0, Math.min(100, 100 - (orphanedTools * 10) - (highRiskTools * 5) - (formerAccess * 8)));
   const scoreColor = securityScore >= 80 ? '#10b981' : securityScore >= 60 ? '#f59e0b' : '#ef4444';
-  const scoreLabel = securityScore >= 80 ? 'Good' : securityScore >= 60 ? 'Needs Work' : 'Critical';
+  const scoreLabel = securityScore >= 80 ? t('dl_good') : securityScore >= 60 ? t('dl_needs_work') : t('dl_critical');
 
   const alerts = buildRiskAlerts({ tools, access, employees });
   const criticalAlerts = alerts.filter(a => a.severity === 'critical');
@@ -10571,7 +10571,7 @@ function SecurityTabContent() {
               <Shield className="h-4 w-4 text-emerald-400" />
             </div>
             <div className="text-3xl font-black text-emerald-400">{mfaCoverage}%</div>
-            <div className="text-sm text-slate-500 mt-1">{activeTools - orphanedTools} of {activeTools} tools secured</div>
+            <div className="text-sm text-slate-500 mt-1">{activeTools - orphanedTools} {t('tools_secured_sub').replace('{n}', activeTools)}</div>
           </div>
         </div>
       </div>
@@ -10581,12 +10581,12 @@ function SecurityTabContent() {
         <div className="flex items-center justify-between mb-5">
           <div>
             <h2 className="text-base font-semibold text-white">{t('security_alerts') || 'Security Alerts'}</h2>
-            <p className="text-sm text-slate-500">{alerts.length} active alerts across your SaaS stack</p>
+            <p className="text-sm text-slate-500">{alerts.length} {t('security_alerts_active')}</p>
           </div>
           <div className="flex items-center gap-2">
-            {criticalAlerts.length > 0 && <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-red-500/20 text-red-400 border border-red-500/30">{criticalAlerts.length} critical</span>}
-            {highAlerts.length > 0 && <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">{highAlerts.length} high</span>}
-            {mediumAlerts.length > 0 && <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30">{mediumAlerts.length} medium</span>}
+            {criticalAlerts.length > 0 && <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-red-500/20 text-red-400 border border-red-500/30">{criticalAlerts.length} {t('critical')}</span>}
+            {highAlerts.length > 0 && <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">{highAlerts.length} {t('high')}</span>}
+            {mediumAlerts.length > 0 && <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30">{mediumAlerts.length} {t('medium')}</span>}
           </div>
         </div>
 
@@ -10648,10 +10648,10 @@ function SecurityTabContent() {
           <h2 className="text-base font-semibold text-white mb-4">{t("security_compliance")}</h2>
           <div className="space-y-3">
             {[
-              { name: 'SOC 2 Type II', status: 'compliant', desc: 'Service Organization Control' },
-              { name: 'GDPR', status: 'compliant', desc: 'General Data Protection Regulation' },
-              { name: 'HIPAA', status: tools.length > 0 ? 'review' : 'non-compliant', desc: 'Health Insurance Portability' },
-              { name: 'ISO 27001', status: 'compliant', desc: 'Information Security Management' },
+              { name: 'SOC 2 Type II', status: 'compliant', desc: t('soc2_desc') },
+              { name: 'GDPR', status: 'compliant', desc: t('gdpr_desc') },
+              { name: 'HIPAA', status: tools.length > 0 ? 'review' : 'non-compliant', desc: t('hipaa_desc') },
+              { name: 'ISO 27001', status: 'compliant', desc: t('iso_desc') },
             ].map((c) => (
               <div key={c.name} className="flex items-center justify-between p-3.5 rounded-xl border border-slate-800 bg-slate-950/30">
                 <div>
@@ -10691,21 +10691,22 @@ function SecurityTabContent() {
             };
             const total = tools.filter(t => t.status === 'active').length || 1;
             const colors = { 'Critical': '#ef4444', 'High Risk': '#f59e0b', 'Orphaned': '#8b5cf6', 'Secured': '#10b981' };
+            const rgLabels = { 'Critical': t('critical'), 'High Risk': t('high_risk'), 'Orphaned': t('orphaned'), 'Secured': t('rg_secured') };
             return (
               <div className="space-y-4">
                 {/* Stacked bar */}
                 <div className="flex h-4 rounded-full overflow-hidden bg-slate-800">
-                  {Object.entries(riskGroups).map(([label, items]) => (
-                    items.length > 0 && <div key={label} className="h-full transition-all" style={{width: `${(items.length/total)*100}%`, background: colors[label]}} title={`${label}: ${items.length}`} />
+                  {Object.entries(riskGroups).map(([key, items]) => (
+                    items.length > 0 && <div key={key} className="h-full transition-all" style={{width: `${(items.length/total)*100}%`, background: colors[key]}} title={`${rgLabels[key]}: ${items.length}`} />
                   ))}
                 </div>
                 {/* Legend + counts */}
                 <div className="space-y-2.5">
-                  {Object.entries(riskGroups).map(([label, items]) => (
-                    <div key={label} className="flex items-center justify-between">
+                  {Object.entries(riskGroups).map(([key, items]) => (
+                    <div key={key} className="flex items-center justify-between">
                       <div className="flex items-center gap-2.5">
-                        <div className="w-3 h-3 rounded-full flex-shrink-0" style={{background: colors[label]}} />
-                        <span className="text-sm text-slate-300">{label}</span>
+                        <div className="w-3 h-3 rounded-full flex-shrink-0" style={{background: colors[key]}} />
+                        <span className="text-sm text-slate-300">{rgLabels[key]}</span>
                       </div>
                       <div className="flex items-center gap-3">
                         <span className="text-sm font-semibold text-white">{items.length}</span>
@@ -10721,7 +10722,7 @@ function SecurityTabContent() {
                     {riskGroups['High Risk'].slice(0,3).map(tool => (
                       <div key={tool.id} className="flex items-center justify-between py-2 text-sm">
                         <span className="text-slate-300">{tool.name}</span>
-                        <button onClick={() => navigate('/tools')} className="text-xs text-blue-400 hover:text-blue-300">Review →</button>
+                        <button onClick={() => navigate('/tools')} className="text-xs text-blue-400 hover:text-blue-300">{t('security_review_action')} →</button>
                       </div>
                     ))}
                   </div>
@@ -11184,7 +11185,7 @@ function SettingsPage() {
                   <div className="flex items-center gap-3 pt-2">
                     <button onClick={() => save('sg_general', { orgName, timezone, currency, dateFormat })}
                       className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-semibold text-sm transition-colors">
-                      Save Changes
+                      {t('save_changes')}
                     </button>
                     {saveMsg && <span className="text-sm text-emerald-400 font-semibold">{saveMsg}</span>}
                   </div>
@@ -11197,7 +11198,7 @@ function SettingsPage() {
           {activeTab === 'team' && (
             <div className="space-y-4">
               <Card>
-                <CardHeader title={t('team_members')} subtitle={members.length + " members with access to Stacklens"} />
+                <CardHeader title={t('team_members')} subtitle={members.length + " " + t('members_with_access')} />
                 <CardBody>
                   <div className="space-y-2">
                     {members.map(m => (
@@ -11208,7 +11209,7 @@ function SettingsPage() {
                           <div className="text-xs text-slate-500">{m.email}</div>
                         </div>
                         <span className={"text-xs font-semibold px-2.5 py-1 rounded-full " + (m.role === 'Owner' ? 'bg-violet-500/15 text-violet-400' : m.role === 'Admin' ? 'bg-blue-500/15 text-blue-400' : 'bg-slate-700 text-slate-400')}>{m.role}</span>
-                        <div className="text-xs text-slate-600">Joined {m.joined}</div>
+                        <div className="text-xs text-slate-600">{t('joined_label')} {m.joined}</div>
                         {m.role !== 'Owner' && can('invite') && (
                           <button onClick={() => setMembers(prev => prev.filter(x => x.id !== m.id))} className="text-xs text-rose-500 hover:text-rose-400 transition-colors">{t('remove_member')}</button>
                         )}
@@ -11244,7 +11245,7 @@ function SettingsPage() {
                       </div>
                       <button onClick={() => { if (inviteEmail) { window.open('mailto:' + inviteEmail + '?subject=Join%20Stacklens&body=You%27ve%20been%20invited%20to%20Stacklens.%20Sign%20in%20at%3A%20https%3A%2F%2Faccessguard-v2.web.app'); setInviteSent(true); } }}
                         className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-semibold text-sm transition-colors whitespace-nowrap">
-                        Send Invite
+                        {t('send_invite')}
                       </button>
                     </div>
                   )}
@@ -11260,15 +11261,15 @@ function SettingsPage() {
               <CardBody>
                 <div className="space-y-1">
                   {[
-                    { label: 'New tool added to inventory', sub: 'When a tool is added via import or manually', defaultOn: true, key: null },
-                    { label: 'Orphaned tool detected', sub: 'Tools with no assigned owner', defaultOn: true, key: null },
-                    { label: 'High-risk access granted', sub: 'Admin access given to a new user', defaultOn: true, key: null },
-                    { label: 'Employee offboarding initiated', sub: 'When an offboarding task is started', defaultOn: true, key: null },
-                    { label: 'Renewal due in 30 days', sub: 'Email alert when a SaaS contract is coming up for renewal', defaultOn: true, key: 'renewal_alerts' },
-                    { label: 'Compliance report ready', sub: 'Weekly compliance digest', defaultOn: false, key: null },
-                    { label: 'Weekly summary email', sub: 'Overview of spend, risk and usage', defaultOn: true, key: null },
-                    { label: 'Invoice approval required', sub: 'New invoice needs sign-off', defaultOn: false, key: null },
-                    { label: t('budget_limit'), sub: 'Monthly spend passes your set limit', defaultOn: true, key: null },
+                    { label: t('notif_tool_added'), sub: t('notif_tool_added_sub'), defaultOn: true, key: null },
+                    { label: t('notif_orphaned_tool'), sub: t('notif_orphaned_tool_sub'), defaultOn: true, key: null },
+                    { label: t('notif_high_risk_access'), sub: t('notif_high_risk_access_sub'), defaultOn: true, key: null },
+                    { label: t('notif_offboarding'), sub: t('notif_offboarding_sub'), defaultOn: true, key: null },
+                    { label: t('notif_renewal_due'), sub: t('notif_renewal_due_sub'), defaultOn: true, key: 'renewal_alerts' },
+                    { label: t('notif_compliance'), sub: t('notif_compliance_sub'), defaultOn: false, key: null },
+                    { label: t('notif_weekly'), sub: t('notif_weekly_sub'), defaultOn: true, key: null },
+                    { label: t('notif_invoice'), sub: t('notif_invoice_sub'), defaultOn: false, key: null },
+                    { label: t('budget_limit'), sub: t('notif_budget_sub'), defaultOn: true, key: null },
                   ].map(n => {
                     const isWired = n.key === 'renewal_alerts';
                     const checked = isWired
@@ -11291,7 +11292,7 @@ function SettingsPage() {
                             onChange={isWired ? (e) => {
                               muts.setAuth.mutate(
                                 { renewal_alerts: e.target.checked },
-                                { onSuccess: () => toast.success(e.target.checked ? 'Renewal alerts enabled' : 'Renewal alerts disabled') }
+                                { onSuccess: () => toast.success(e.target.checked ? t('renewal_alerts_enabled') : t('renewal_alerts_disabled')) }
                               );
                             } : undefined}
                             defaultChecked={!isWired ? n.defaultOn : undefined}
@@ -11340,7 +11341,7 @@ function SettingsPage() {
                   <div className="flex items-center gap-3 mt-5">
                     <button onClick={() => save('sg_security', { mfa: mfaEnabled, timeout: sessionTimeout, ipRestrict, auditLog })}
                       className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-semibold text-sm transition-colors">
-                      Save Security Settings
+                      {t('save_security')}
                     </button>
                     {saveMsg && <span className="text-sm text-emerald-400 font-semibold">{saveMsg}</span>}
                   </div>
@@ -11352,8 +11353,8 @@ function SettingsPage() {
                     <AlertTriangle className="h-5 w-5 text-amber-400 flex-shrink-0 mt-0.5" />
                     <div>
                       <div className="font-bold text-white text-sm mb-1">{t('sso_enterprise')}</div>
-                      <p className="text-xs text-slate-400">Connect your Okta, Azure AD, or Google Workspace SSO to enforce centralised authentication.</p>
-                      <button onClick={() => { navigate('/settings'); setTimeout(() => { const el = document.querySelector('[data-tab="billing"]'); if(el) el.click(); }, 100); }} className="text-xs text-amber-400 font-semibold hover:underline mt-2 inline-block">View Enterprise Plan →</button>
+                      <p className="text-xs text-slate-400">{t('sso_desc')}</p>
+                      <button onClick={() => { navigate('/settings'); setTimeout(() => { const el = document.querySelector('[data-tab="billing"]'); if(el) el.click(); }, 100); }} className="text-xs text-amber-400 font-semibold hover:underline mt-2 inline-block">{t('view_enterprise_plan')} →</button>
                     </div>
                   </div>
                 </CardBody>
@@ -11369,7 +11370,7 @@ function SettingsPage() {
                 <CardBody>
                   {showNewKey && (
                     <div className="mb-4 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-                      <div className="text-sm font-bold text-emerald-400 mb-1">✓ New API key generated — copy it now, it won't be shown again</div>
+                      <div className="text-sm font-bold text-emerald-400 mb-1">✓ {t('new_key_notice')}</div>
                       <div className="font-mono text-xs bg-slate-900 px-3 py-2 rounded-lg text-white break-all">{showNewKey}</div>
                       <button onClick={() => { navigator.clipboard.writeText(showNewKey); }} className="text-xs text-emerald-400 mt-2 hover:underline">{t("hc_copy_to_clipboard")}</button>
                     </div>
@@ -11383,8 +11384,8 @@ function SettingsPage() {
                           <div className="font-mono text-xs text-slate-500">{k.prefix}</div>
                         </div>
                         <div className="text-right text-xs text-slate-600">
-                          <div>Created {k.created}</div>
-                          <div>Last used: {k.lastUsed}</div>
+                          <div>{t('created_label')} {k.created}</div>
+                          <div>{t('last_used_label')}: {k.lastUsed}</div>
                         </div>
                         <button onClick={() => setApiKeys(prev => prev.filter(x => x.id !== k.id))} className="text-xs text-rose-500 hover:text-rose-400 transition-colors flex-shrink-0">{t('revoke')}</button>
                       </div>
@@ -11393,14 +11394,14 @@ function SettingsPage() {
                 </CardBody>
               </Card>
               <Card>
-                <CardHeader title="Generate New Key" subtitle="Name it so you remember what it's for" />
+                <CardHeader title={t('generate_new_key_title')} subtitle={t('generate_new_key_sub')} />
                 <CardBody>
                   <div className="flex gap-3">
                     <input value={newKeyName} onChange={e => setNewKeyName(e.target.value)}
                       className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm outline-none focus:border-emerald-500 transition-colors" placeholder={t('key_name_placeholder')} />
                     <button onClick={generateApiKey}
                       className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-semibold text-sm transition-colors whitespace-nowrap">
-                      Generate Key
+                      {t('generate_key')}
                     </button>
                   </div>
                 </CardBody>
@@ -11417,9 +11418,9 @@ function SettingsPage() {
                 <CardBody>
                   <div className="grid sm:grid-cols-3 gap-3">
                     {[
-                      { label: 'Tools & Licenses', desc: 'All tool records, costs, owners', icon: Boxes },
-                      { label: 'Employees & Access', desc: 'Employee directory and access map', icon: Users },
-                      { label: 'Audit Log', desc: 'Full history of all actions', icon: Download },
+                      { label: t('export_tools_label'), desc: t('export_tools_desc'), icon: Boxes },
+                      { label: t('export_employees_label'), desc: t('export_employees_desc'), icon: Users },
+                      { label: t('export_audit_label'), desc: t('export_audit_desc'), icon: Download },
                     ].map(({ label, desc, icon: Icon }) => (
                       <button key={label} onClick={() => { const a=document.createElement('a');a.href='data:text/plain,Stacklens Export: '+label;a.download='stacklens-'+label.replace(/ /g,'-').toLowerCase()+'.csv';a.click(); }}
                         className="flex items-start gap-3 p-4 rounded-xl bg-slate-800/60 border border-slate-800 hover:border-emerald-500/30 hover:bg-slate-800 transition-all text-left">
@@ -11438,9 +11439,9 @@ function SettingsPage() {
                 <CardBody>
                   <div className="space-y-3">
                     {[
-                      { label: 'Delete all tool data', desc: 'Removes all tools from your account', btn: 'Delete Tools' },
-                      { label: 'Delete all employee data', desc: 'Removes all employee and access records', btn: 'Delete Employees' },
-                      { label: 'Delete account', desc: 'Permanently deletes your Stacklens account and all data', btn: 'Delete Account', danger: true },
+                      { label: t('delete_tools'), desc: t('del_tools_desc'), btn: t('del_tools_btn') },
+                      { label: t('delete_employees'), desc: t('del_employees_desc'), btn: t('del_employees_btn') },
+                      { label: t('delete_account'), desc: t('del_account_desc'), btn: t('del_account_btn'), danger: true },
                     ].map(item => (
                       <div key={item.label} className="flex items-center justify-between py-3 border-b border-rose-500/10 last:border-0">
                         <div>
@@ -11478,7 +11479,7 @@ function SettingsPage() {
           {activeTab === 'integrations' && (
             <div className="space-y-4">
               <Card>
-                <CardHeader title={t('nav_integrations') || 'Integrations'} subtitle="Connect Stacklens to your tools for automatic discovery and user sync" />
+                <CardHeader title={t('nav_integrations') || 'Integrations'} subtitle={t('integrations_connect_sub')} />
                 <CardBody>
                   <IntegrationConnectors />
                 </CardBody>
