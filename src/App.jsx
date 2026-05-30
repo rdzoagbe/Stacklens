@@ -5555,31 +5555,31 @@ function DashboardPage() {
         });
 
         // 2. Tools with no owner
-        const unownedTools = (derived?.tools || []).filter(t => !t.owner_email);
-        unownedTools.slice(0, 5).forEach(t => {
+        const unownedTools = (derived?.tools || []).filter(tool => !tool.owner_email);
+        unownedTools.slice(0, 5).forEach(tool => {
           actions.push({
-            id: 'noowner-' + t.id,
+            id: 'noowner-' + tool.id,
             severity: 'high',
             icon: '🟡',
-            title: `${t.name} ${t('action_no_owner')}`,
-            reason: t('action_no_owner_reason').replace('{cost}', `${getCurrency(language)}${convertCurrency(t.cost_per_month || 0, language).toLocaleString()}`),
+            title: `${tool.name} ${t('action_no_owner')}`,
+            reason: t('action_no_owner_reason').replace('{cost}', `${getCurrency(language)}${convertCurrency(tool.cost_per_month || 0, language).toLocaleString()}`),
             action: t('action_assign_owner'),
-            toolId: t.id,
-            toolName: t.name,
+            toolId: tool.id,
+            toolName: tool.name,
             needsOwner: true,
             link: '/tools',
           });
         });
 
         // 3. High-risk tools without MFA
-        const highRiskNoMfa = (derived?.tools || []).filter(t => t.derived_risk === 'high' && !t.mfa_required && !t.mfa_enabled);
-        highRiskNoMfa.slice(0, 3).forEach(t => {
+        const highRiskNoMfa = (derived?.tools || []).filter(tool => tool.derived_risk === 'high' && !tool.mfa_required && !tool.mfa_enabled);
+        highRiskNoMfa.slice(0, 3).forEach(tool => {
           actions.push({
-            id: 'mfa-' + t.id,
+            id: 'mfa-' + tool.id,
             severity: 'high',
             icon: '🛡️',
-            title: `${t.name} ${t('action_high_risk_no_mfa')}`,
-            reason: t('action_mfa_reason').replace('{risk}', t.derived_risk || '').replace('{date}', t.last_used_date || t('unknown')),
+            title: `${tool.name} ${t('action_high_risk_no_mfa')}`,
+            reason: t('action_mfa_reason').replace('{risk}', tool.derived_risk || '').replace('{date}', tool.last_used_date || t('unknown')),
             action: t('action_review'),
             link: '/security',
           });
@@ -5587,18 +5587,18 @@ function DashboardPage() {
 
         // 4. Idle licenses (tools with cost but not used in 60+ days)
         const sixtyDaysAgo = Date.now() - (60 * 24 * 60 * 60 * 1000);
-        const idleTools = (derived?.tools || []).filter(t => {
-          if (!t.cost_per_month || t.cost_per_month <= 0) return false;
-          if (!t.last_used_date) return true;
-          return new Date(t.last_used_date).getTime() < sixtyDaysAgo;
+        const idleTools = (derived?.tools || []).filter(tool => {
+          if (!tool.cost_per_month || tool.cost_per_month <= 0) return false;
+          if (!tool.last_used_date) return true;
+          return new Date(tool.last_used_date).getTime() < sixtyDaysAgo;
         });
-        idleTools.slice(0, 3).forEach(t => {
+        idleTools.slice(0, 3).forEach(tool => {
           actions.push({
-            id: 'idle-' + t.id,
+            id: 'idle-' + tool.id,
             severity: 'medium',
             icon: '💸',
-            title: `${t.name} — ${getCurrency(language)}${convertCurrency(t.cost_per_month || 0, language).toLocaleString()}/mo ${t('action_possibly_wasted')}`,
-            reason: t('action_idle_reason').replace('{date}', t.last_used_date || t('never')),
+            title: `${tool.name} — ${getCurrency(language)}${convertCurrency(tool.cost_per_month || 0, language).toLocaleString()}/mo ${t('action_possibly_wasted')}`,
+            reason: t('action_idle_reason').replace('{date}', tool.last_used_date || t('never')),
             action: t('action_review_tool'),
             link: '/tools',
           });
