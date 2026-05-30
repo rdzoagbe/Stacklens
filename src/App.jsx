@@ -5562,7 +5562,7 @@ function DashboardPage() {
             severity: 'high',
             icon: '🟡',
             title: `${t.name} ${t('action_no_owner')}`,
-            reason: `No one is responsible for managing this tool. Cost: ${getCurrency(language)}${convertCurrency(t.cost_per_month || 0, language).toLocaleString()}/mo.`,
+            reason: t('action_no_owner_reason').replace('{cost}', `${getCurrency(language)}${convertCurrency(t.cost_per_month || 0, language).toLocaleString()}`),
             action: t('action_assign_owner'),
             toolId: t.id,
             toolName: t.name,
@@ -5579,7 +5579,7 @@ function DashboardPage() {
             severity: 'high',
             icon: '🛡️',
             title: `${t.name} ${t('action_high_risk_no_mfa')}`,
-            reason: `Risk: ${t.derived_risk}. Last used: ${t.last_used_date || 'unknown'}. Owner: ${t.owner_email || 'none'}. No multi-factor authentication enabled.`,
+            reason: t('action_mfa_reason').replace('{risk}', t.derived_risk || '').replace('{date}', t.last_used_date || t('unknown')),
             action: t('action_review'),
             link: '/security',
           });
@@ -5598,7 +5598,7 @@ function DashboardPage() {
             severity: 'medium',
             icon: '💸',
             title: `${t.name} — ${getCurrency(language)}${convertCurrency(t.cost_per_month || 0, language).toLocaleString()}/mo ${t('action_possibly_wasted')}`,
-            reason: `Last used: ${t.last_used_date || 'never'}. Consider cancelling or reassigning this license.`,
+            reason: t('action_idle_reason').replace('{date}', t.last_used_date || t('never')),
             action: t('action_review_tool'),
             link: '/tools',
           });
@@ -5684,7 +5684,7 @@ function DashboardPage() {
                   <div className="text-sm font-semibold text-slate-100">{a.title}</div>
                   <div className="text-sm text-slate-500 mt-0.5 line-clamp-2">{a.body}</div>
                 </div>
-                <Link to={a.action.to} className="text-sm text-blue-400 hover:text-blue-300 flex-shrink-0 font-medium mt-0.5">Fix →</Link>
+                <Link to={a.action.to} className="text-sm text-blue-400 hover:text-blue-300 flex-shrink-0 font-medium mt-0.5">{t('dl_fix_arrow')}</Link>
               </div>
             )) : (
               <div className="flex items-center gap-3 rounded-xl p-4 bg-emerald-500/5 border border-emerald-500/20">
@@ -5747,7 +5747,7 @@ function DashboardPage() {
         <div className="rounded-2xl border border-purple-500/20 bg-purple-500/5 p-5 lg:p-6">
           <div className="flex items-center justify-between mb-4">
             <span className="text-base font-semibold text-slate-100">{t('dl_shadow_it_detected')}</span>
-            <span className="text-xs px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 font-semibold">New</span>
+            <span className="text-xs px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 font-semibold">{t('badge_new')}</span>
           </div>
           {(() => {
             // Real shadow IT detection: tools tagged as 'shadow' or marked 'unsanctioned'

@@ -1047,6 +1047,12 @@ export const translations = {
     action_high_risk_no_mfa: "is high risk with no MFA",
     action_possibly_wasted: "possibly wasted",
     action_former_reason: "This employee has left the company but their access has not been revoked.",
+    unknown: "unknown",
+    badge_new: "New",
+    dl_fix_arrow: "Fix →",
+    action_no_owner_reason: "No one is responsible for managing this tool. Cost: {cost}/mo.",
+    action_mfa_reason: "Risk: {risk}. Last used: {date}. No multi-factor authentication enabled.",
+    action_idle_reason: "Last used: {date}. Consider cancelling or reassigning this license.",
     action_view_all: "View all",
 
     // Owner Assignment
@@ -2966,6 +2972,12 @@ export const translations = {
     action_high_risk_no_mfa: "est à haut risque sans MFA",
     action_possibly_wasted: "potentiellement gaspillé",
     action_former_reason: "Cet employé a quitté l'entreprise mais son accès n'a pas été révoqué.",
+    unknown: "inconnu",
+    badge_new: "Nouveau",
+    dl_fix_arrow: "Corriger →",
+    action_no_owner_reason: "Personne n'est responsable de la gestion de cet outil. Coût : {cost}/mois.",
+    action_mfa_reason: "Risque : {risk}. Dernière utilisation : {date}. Aucune authentification multifacteur activée.",
+    action_idle_reason: "Dernière utilisation : {date}. Envisagez d'annuler ou de réaffecter cette licence.",
     action_view_all: "Voir tout",
 
     // Owner Assignment
@@ -4392,7 +4404,7 @@ export const translations = {
     refresh: 'Aktualisieren', print: 'Drucken',
     // Status (missing)
     pending: 'Ausstehend', connected: 'Verbunden', available: 'Verfügbar',
-    coming_soon: 'Demnächst', never: 'Nie', today: 'Heute', yesterday: 'Gestern',
+    coming_soon: 'Demnächst', never: 'Nie', unknown: 'unbekannt', today: 'Heute', yesterday: 'Gestern',
     this_week: 'Diese Woche', this_month: 'Diesen Monat', days: 'Tage',
     hours: 'Stunden', minutes: 'Minuten', ago: 'vor', annual: 'Jährlich', monthly: 'Monatlich',
     high_risk: 'Hohes Risiko', medium_risk: 'Mittleres Risiko', low_risk: 'Niedriges Risiko',
@@ -4609,7 +4621,7 @@ export const translations = {
     delete_tools: 'Alle Tool-Daten löschen', delete_employees: 'Alle Mitarbeiterdaten löschen',
     delete_account: 'Konto löschen',
     min_15: '15 Minuten', min_30: '30 Minuten', hr_1: '1 Stunde', hr_8: '8 Stunden',
-    session_never: 'Nie',
+    session_never: 'Nie', unknown: 'unbekannt',
     collapse: 'Einklappen', navigation: 'Navigation', jump_to: 'Gehe zu',
     // Forms (missing)
     name: 'Name', email: 'E-Mail', role: 'Rolle', department: 'Abteilung',
@@ -5175,7 +5187,7 @@ export const translations = {
     what_stacklens_finds: 'Was Stacklens findet',
 
     // Remaining missing keys (DE)
-    en: 'en', nav_platform: 'Plattform', done: 'Fertig', connected: 'Verbunden', never: 'Nie',
+    en: 'en', nav_platform: 'Plattform', done: 'Fertig', connected: 'Verbunden', never: 'Nie', unknown: 'unbekannt',
     former_employee_access: 'Zugriff ehemaliger Mitarbeiter', tool_name: 'Tool-Name',
     tool_users: 'Benutzer', add_employee: 'Mitarbeiter hinzufügen',
     offboarding_employees: 'Im Offboarding', employee_since: 'Seit',
@@ -5362,7 +5374,7 @@ export const translations = {
     refresh: 'Atualizar', print: 'Imprimir',
     // Status (missing)
     pending: 'Pendente', connected: 'Ligado', available: 'Disponível',
-    coming_soon: 'Brevemente', never: 'Nunca', today: 'Hoje', yesterday: 'Ontem',
+    coming_soon: 'Brevemente', never: 'Nunca', unknown: 'desconhecido', today: 'Hoje', yesterday: 'Ontem',
     this_week: 'Esta semana', this_month: 'Este mês', days: 'dias',
     hours: 'horas', minutes: 'minutos', ago: 'atrás', annual: 'Anual', monthly: 'Mensal',
     orphaned: 'Órfão', unassigned: 'Não atribuído',
@@ -6545,7 +6557,7 @@ export const translations = {
     active: "Activo", inactive: "Inactivo", approved: "Aprobado", rejected: "Rechazado",
     pending: "Pendiente", in_progress: "En progreso", completed: "Completado",
     connected: "Conectado", available: "Disponible", coming_soon: "Próximamente",
-    never: "Nunca", today: "Hoy", yesterday: "Ayer",
+    never: "Nunca", unknown: "desconocido", today: "Hoy", yesterday: "Ayer",
     this_week: "Esta semana", days: "días",
     hours: "horas", minutes: "minutos", ago: "hace", annual: "Anual",
     high_risk: "Alto riesgo", medium_risk: "Riesgo medio", low_risk: "Riesgo bajo",
