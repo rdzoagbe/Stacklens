@@ -2056,11 +2056,39 @@ function useAuth() {
   return { user, isAuthed, isDemo, login, logout, startDemo, endDemo, firebaseUser, loading };
 }
 
+function useIdleTimer(enabled) {
+  const navigate = useNavigate();
+  useEffect(() => {
+    if (!enabled) return;
+    const savedSec = JSON.parse(localStorage.getItem('sg_security') || '{}');
+    const minutes = parseInt(savedSec.timeout || '60', 10);
+    if (!minutes || minutes <= 0) return;
+    const ms = minutes * 60 * 1000;
+    let timer;
+    const reset = () => {
+      clearTimeout(timer);
+      timer = setTimeout(async () => {
+        await signOutUser();
+        navigate('/', { replace: true });
+        toast(minutes + ' min idle — signed out for security');
+      }, ms);
+    };
+    const events = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart'];
+    events.forEach(e => window.addEventListener(e, reset, { passive: true }));
+    reset();
+    return () => {
+      clearTimeout(timer);
+      events.forEach(e => window.removeEventListener(e, reset));
+    };
+  }, [enabled, navigate]);
+}
+
 function RequireAuth({ children }) {
   const { language } = useLang();
   const t = useTranslation(language);
   const { isAuthed, isDemo, loading, firebaseUser } = useAuth();
   const location = useLocation();
+  useIdleTimer(!!(isAuthed && !isDemo && firebaseUser));
 
   // Wait for Firebase auth to fully resolve before deciding to redirect
   if (loading) return <div className="flex items-center justify-center h-screen bg-slate-950"><div className="text-white text-sm">{t('loading')}</div></div>;
