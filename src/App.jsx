@@ -11792,7 +11792,7 @@ function ShareReportModal({ onClose, db, user }) {
   const generate = async () => {
     setStep('generating');
     try {
-      const tok = crypto.randomUUID().replace(/-/g, '').slice(0, 20);
+      const tok = crypto.randomUUID().replace(/-/g, '');
       const tools = (db?.tools || []).map(t => ({
         name: t.name,
         category: t.category || 'other',
@@ -12161,7 +12161,7 @@ function ContactPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          access_key: '88adb1a1-a43c-4395-b37f-b3dd7ac14411',
+          access_key: import.meta.env.VITE_WEB3FORMS_KEY || '',
           from_name: form.name,
           email: form.email,
           subject: `[Stacklens ${form.subject}] from ${form.name}`,
@@ -12425,6 +12425,7 @@ function DpaPage() {
               <li>{isFr ? 'Données actives : conservées pendant toute la durée de l\'abonnement' : 'Active data: retained for the duration of the subscription'}</li>
               <li>{isFr ? 'Après résiliation : suppression dans les 30 jours' : 'After termination: deleted within 30 days'}</li>
               <li>{isFr ? 'Logs de consentement cookies : 3 ans (obligation CNIL)' : 'Cookie consent logs: 3 years (CNIL obligation)'}</li>
+              <li>{isFr ? 'Acceptations légales (CGU/CGV/DPA) : 5 ans (preuve contractuelle)' : 'Legal acceptances (ToS/DPA): 5 years (contractual proof)'}</li>
               <li>{isFr ? 'Données de paiement (Stripe) : selon politique de conservation de Stripe' : 'Payment data (Stripe): per Stripe retention policy'}</li>
               <li>{isFr ? 'Textes de contrats analysés par IA : non conservés après analyse' : 'Contract texts analysed by AI: not retained after analysis'}</li>
             </ul>
@@ -12489,6 +12490,8 @@ function SubProcessorsPage() {
     { name: 'Anthropic (Claude AI)', purpose: isFr ? 'Analyse de contrats assistée par IA — uniquement lorsque la fonctionnalité est utilisée explicitement. Les textes soumis ne sont pas conservés par Anthropic pour l\'entraînement.' : 'AI-assisted contract analysis — only when feature is explicitly used. Submitted texts are not retained by Anthropic for training.', location: 'USA', link: 'https://www.anthropic.com/privacy', transfer: isFr ? 'Transfert vers USA — SCCs + politique de non-conservation des données' : 'Transfer to USA — SCCs + data non-retention policy' },
     { name: 'OVHcloud', purpose: isFr ? 'Registrar du nom de domaine stacklens.fr, messagerie hello@stacklens.fr' : 'Domain registrar for stacklens.fr, hello@stacklens.fr email', location: 'EU (France)', link: 'https://www.ovhcloud.com/fr/personal-data-protection/', transfer: isFr ? 'EU — aucun transfert hors UE' : 'EU — no transfer outside EU' },
     { name: 'Google Analytics', purpose: isFr ? 'Mesure d\'audience anonymisée — uniquement avec consentement explicite via le bandeau CNIL' : 'Anonymised audience measurement — only with explicit consent via CNIL cookie banner', location: 'EU', link: 'https://support.google.com/analytics/answer/6004245', transfer: isFr ? 'Données anonymisées uniquement, stockage EU' : 'Anonymised data only, EU storage' },
+    { name: 'SendGrid (Twilio)', purpose: isFr ? 'Envoi d\'emails transactionnels (alertes de renouvellement)' : 'Transactional email delivery (renewal alerts)', location: 'USA', link: 'https://www.twilio.com/en-us/legal/privacy', transfer: isFr ? 'Transfert vers USA — SCCs en place' : 'Transfer to USA — SCCs in place' },
+    { name: 'Web3Forms', purpose: isFr ? 'Traitement des soumissions du formulaire de contact' : 'Contact form submission processing', location: 'USA', link: 'https://web3forms.com/privacy', transfer: isFr ? 'Email de contact uniquement, aucune donnée conservée' : 'Contact email only, no data retained' },
   ];
 
   return (
@@ -12802,7 +12805,7 @@ function PrivacyPage() {
           <section>
             <h2 className="text-xl font-bold mb-3 text-white">{isFr ? '1. Responsable du traitement' : '1. Data Controller'}</h2>
             <p>{isFr ? 'Le responsable du traitement de vos données personnelles est :' : 'The data controller for your personal data is:'}</p>
-            <p className="mt-2"><strong>Stacklens</strong> — Roland Dzoagbe<br/>Paris, France<br/>Email: <a href="mailto:hello@stacklens.fr" className="text-blue-400 hover:text-blue-300">hello@stacklens.fr</a></p>
+            <p className="mt-2"><strong>Stacklens</strong> — Roland Dzoagbe<br/>Paris, Île-de-France, France<br/>Email: <a href="mailto:hello@stacklens.fr" className="text-blue-400 hover:text-blue-300">hello@stacklens.fr</a></p>
           </section>
 
           <section>
@@ -12856,6 +12859,7 @@ function PrivacyPage() {
                   <tr className="border-b border-slate-800"><td className="py-2 pr-4">Anthropic (Claude AI)</td><td className="py-2 pr-4">{isFr ? 'Analyse de contrats IA' : 'AI contract analysis'}</td><td className="py-2">USA</td></tr>
                   <tr className="border-b border-slate-800"><td className="py-2 pr-4">Google Analytics</td><td className="py-2 pr-4">{isFr ? 'Analytiques (avec consentement)' : 'Analytics (with consent)'}</td><td className="py-2">EU</td></tr>
                   <tr className="border-b border-slate-800"><td className="py-2 pr-4">OVHcloud</td><td className="py-2 pr-4">{isFr ? 'Domaine et emails' : 'Domain and email'}</td><td className="py-2">EU (France)</td></tr>
+                  <tr className="border-b border-slate-800"><td className="py-2 pr-4">SendGrid (Twilio)</td><td className="py-2 pr-4">{isFr ? 'Emails transactionnels (alertes renouvellement)' : 'Transactional emails (renewal alerts)'}</td><td className="py-2">USA</td></tr>
                   <tr className="border-b border-slate-800"><td className="py-2 pr-4">Web3Forms</td><td className="py-2 pr-4">{isFr ? 'Formulaire de contact' : 'Contact form'}</td><td className="py-2">USA</td></tr>
                   <tr className="border-b border-slate-800"><td className="py-2 pr-4">Google Workspace Admin API</td><td className="py-2 pr-4">{isFr ? 'Synchronisation d\'annuaire (optionnel, lecture seule)' : 'Directory sync (optional, read-only)'}</td><td className="py-2">USA/EU</td></tr>
                   <tr className="border-b border-slate-800"><td className="py-2 pr-4">Microsoft Graph API</td><td className="py-2 pr-4">{isFr ? 'Synchronisation d\'annuaire Microsoft 365 (optionnel, lecture seule)' : 'Microsoft 365 directory sync (optional, read-only)'}</td><td className="py-2">EU</td></tr>
@@ -12876,8 +12880,8 @@ function PrivacyPage() {
           <section>
             <h2 className="text-xl font-bold mb-3 text-white">{isFr ? '5. Conservation des données' : '5. Data Retention'}</h2>
             <p>{isFr
-              ? 'Vos données sont conservées tant que votre compte est actif. Après suppression de votre compte, toutes vos données sont effacées dans un délai de 30 jours. Les données de facturation sont conservées 10 ans conformément à la législation fiscale française.'
-              : 'Your data is retained as long as your account is active. After account deletion, all your data is erased within 30 days. Billing data is retained for 10 years as required by French tax law.'
+              ? 'Vos données sont conservées tant que votre compte est actif. Après suppression de votre compte, toutes vos données sont effacées dans un délai de 30 jours. Les données de facturation sont conservées 10 ans conformément à la législation fiscale française. Les acceptations légales (CGU/DPA) sont conservées 5 ans à titre de preuve contractuelle. Les logs de consentement cookies sont conservés 3 ans (obligation CNIL).'
+              : 'Your data is retained as long as your account is active. After account deletion, all your data is erased within 30 days. Billing data is retained for 10 years as required by French tax law. Legal acceptances (ToS/DPA) are retained for 5 years as contractual proof. Cookie consent logs are retained for 3 years (CNIL obligation).'
             }</p>
           </section>
 
@@ -13183,8 +13187,8 @@ function SecurityPage() {
             { icon: "🔒", title: "End-to-End Encryption", body: "All data encrypted in transit using TLS 1.3 and at rest using AES-256. Your SaaS inventory, employee records, and access data are never stored in plaintext. Encryption keys are rotated quarterly." },
             { icon: "🏗️", title: "Infrastructure & Hosting", body: "Stacklens runs on Google Cloud Platform (Firebase/GCP), hosted in the EU (europe-west1) by default. We use isolated, per-organisation Firestore databases. No data is ever co-mingled between customers." },
             { icon: "👤", title: "Data Access Controls", body: "Only you and users you explicitly invite can access your workspace. Stacklens staff have zero access to your data by default. Any internal access requires approval, is time-limited, and fully audit-logged." },
-            { icon: "🔑", title: "Authentication & SSO", body: "We support Google OAuth 2.0, Magic Link (passwordless), and SAML 2.0 for enterprise plans. Multi-factor authentication (MFA) is available on all plans and can be enforced organisation-wide by admins." },
-            { icon: "📋", title: "Tamper-Proof Audit Logs", body: "Every action in Stacklens — logins, access grants, revocations, data exports — is logged with timestamp, user identity, and IP. Logs are immutable and retained for 12 months (Enterprise: 7 years)." },
+            { icon: "🔑", title: "Authentication & SSO", body: "We support Google OAuth 2.0, Magic Link (passwordless), and Microsoft 365 SSO. SAML 2.0 and enforced MFA are available on Enterprise plans." },
+            { icon: "📋", title: "Activity Audit Logs", body: "Key events in Stacklens — logins, access grants, revocations, and data exports — are logged with a timestamp and user identity. Enterprise plans include extended log retention and export." },
             { icon: "🗑️", title: "Data Portability & Deletion", body: "You own your data. Export everything in CSV or JSON at any time from Settings. When you cancel, all your data is permanently deleted within 30 days. We do not sell or share your data with any third party." },
             { icon: "🔍", title: "Vulnerability Disclosure", body: "We take every security report seriously. If you discover a vulnerability, email hello@stacklens.fr with details. We aim to respond within 48 hours and acknowledge responsible disclosure." },
             { icon: "📡", title: "Uptime & Reliability", body: "Stacklens runs on Google Firebase infrastructure with automatic scaling and redundancy. We target 99.5% uptime. For any service issues, contact hello@stacklens.fr." },
