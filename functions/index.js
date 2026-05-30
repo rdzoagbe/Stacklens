@@ -35,6 +35,7 @@ const STRIPE_WEBHOOK_SECRET = defineSecret('STRIPE_WEBHOOK_SECRET');
 
 const RATE_LIMIT          = { maxCalls: 20, windowMs: 60 * 60 * 1000 };
 const CHECKOUT_RATE_LIMIT = { maxCalls: 5,  windowMs: 60 * 60 * 1000 };
+const SYNCUSER_RATE_LIMIT = { maxCalls: 30, windowMs: 60 * 60 * 1000 };
 
 async function verifyAuth(req, res) {
   const header = req.headers.authorization || '';
@@ -152,6 +153,16 @@ exports.createCheckout = onRequest({ secrets: [STRIPE_SECRET_KEY], cors: true, t
     const allowed = await checkRateLimit(decoded.uid, res, CHECKOUT_RATE_LIMIT, 'checkout'); if (!allowed) return;
     const { priceId } = req.body;
     if (!priceId) return res.status(400).json({ error: 'priceId required' });
+    const ALLOWED_PRICE_IDS = new Set([
+      'price_1TMhOt1yFs6IziIVgJGBbzoG','price_1TMhfK1yFs6IziIVOtbhpy23',
+      'price_1TWxAB1yFs6IziIVjxw3CG2V','price_1TWxFd1yFs6IziIVjPZnA8XT',
+      'price_1TMhNW1yFs6IziIV5hwlssrt','price_1TMhNW1yFs6IziIVMxiacXD7',
+      'price_1TMhNk1yFs6IziIVPkv7RiLc','price_1TMhNk1yFs6IziIViMLzewdQ',
+      'price_1T9X4k0E2aOcllaPRKLOAgiK','price_1T9XaZ0E2aOcllaPORiPFfGp',
+      'price_1T9X5G0E2aOcllaP1KncPTsP','price_1T9Xaa0E2aOcllaPRA4P9Cy8',
+      'price_1TBUkO0E2aOcllaPOuw3UBPM','price_1TBUoe0E2aOcllaP5J7bvqWK',
+    ]);
+    if (!ALLOWED_PRICE_IDS.has(priceId)) return res.status(400).json({ error: 'Invalid priceId' });
     try {
       const stripe = require('stripe')(STRIPE_SECRET_KEY.value());
       const customerId = await getOrCreateCustomer(stripe, decoded.uid, decoded.email, decoded.name);
@@ -246,6 +257,7 @@ exports.syncuser = onRequest({ cors: true }, async (req, res) => {
     if (req.method === 'OPTIONS') return res.status(204).send('');
     if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
     const decoded = await verifyAuth(req, res); if (!decoded) return;
+    const allowed = await checkRateLimit(decoded.uid, res, SYNCUSER_RATE_LIMIT, 'syncuser'); if (!allowed) return;
     const { email, displayName, photoURL } = req.body;
     const uid = decoded.uid;
     const userRef = admin.firestore().collection('users').doc(uid);

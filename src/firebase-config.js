@@ -19,6 +19,7 @@ import {
   GoogleAuthProvider,
   OAuthProvider,
   signOut,
+  deleteUser,
   onAuthStateChanged,
   sendSignInLinkToEmail,
   isSignInWithEmailLink,
@@ -507,5 +508,17 @@ export async function startTrial(uid) {
   } catch (e) {
     console.warn('startTrial failed (continuing on free):', e?.message);
   }
+}
+
+export async function deleteAccount() {
+  const user = auth.currentUser;
+  if (!user) throw new Error('Not authenticated');
+  const uid = user.uid;
+  const { deleteDoc } = await import('firebase/firestore');
+  await deleteDoc(doc(firestoreDb, 'userdata', uid));
+  await deleteDoc(doc(firestoreDb, 'users', uid));
+  localStorage.removeItem('saasguard_db');
+  localStorage.removeItem('accessguard_v1');
+  await deleteUser(user);
 }
 

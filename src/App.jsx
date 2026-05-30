@@ -9,7 +9,7 @@ import {
   useNavigate,
   useParams,
 } from "react-router-dom";
-import { signInWithGoogle, signInWithGoogleWorkspace, handleRedirectResult, signOutUser, onAuthChange, sendMagicLink, completeMagicLinkSignIn, callAI, loadUserData, saveUserData, syncUserProfile, getUserPlanFromFirestore, registerWithEmail, signInWithEmail, resetPassword, createBillingPortal, createCheckoutSession, logConsent, startTrial, logLegalAcceptance, loadAllUsersAdmin, founderExtendTrial, founderSetPlan, signInWithMicrosoft, saveReport, getReport, deleteReport } from './firebase-config';
+import { signInWithGoogle, signInWithGoogleWorkspace, handleRedirectResult, signOutUser, onAuthChange, sendMagicLink, completeMagicLinkSignIn, callAI, loadUserData, saveUserData, syncUserProfile, getUserPlanFromFirestore, registerWithEmail, signInWithEmail, resetPassword, createBillingPortal, createCheckoutSession, logConsent, startTrial, logLegalAcceptance, loadAllUsersAdmin, founderExtendTrial, founderSetPlan, signInWithMicrosoft, saveReport, getReport, deleteReport, deleteAccount } from './firebase-config';
 
 // ── Compatibility stubs (migrated to Firestore) ──────────────
 async function getUserProfile(uid) {
@@ -1849,6 +1849,11 @@ function useDbMutations() {
     onSuccess: invalidate,
   });
 
+  const updateDb = (patch) => {
+    setDb((db) => ({ ...db, ...patch }));
+    invalidate();
+  };
+
   return {
     createTool,
     updateTool,
@@ -1862,6 +1867,7 @@ function useDbMutations() {
     setPlan,
     setAuth,
     bulkImport,
+    updateDb,
   };
 }
 
@@ -11421,16 +11427,24 @@ function SettingsPage() {
           {activeTab === 'data' && (
             <div className="space-y-4">
               <Card>
-                <CardHeader title={t('export_data')} subtitle={t('export_data_sub')
-} />
+                <CardHeader title={t('export_data')} subtitle={t('export_data_sub')} />
                 <CardBody>
                   <div className="grid sm:grid-cols-3 gap-3">
                     {[
-                      { label: t('export_tools_label'), desc: t('export_tools_desc'), icon: Boxes },
-                      { label: t('export_employees_label'), desc: t('export_employees_desc'), icon: Users },
-                      { label: t('export_audit_label'), desc: t('export_audit_desc'), icon: Download },
-                    ].map(({ label, desc, icon: Icon }) => (
-                      <button key={label} onClick={() => { const a=document.createElement('a');a.href='data:text/plain,Stacklens Export: '+label;a.download='stacklens-'+label.replace(/ /g,'-').toLowerCase()+'.csv';a.click(); }}
+                      { label: t('export_tools_label'), desc: t('export_tools_desc'), icon: Boxes, key: 'tools' },
+                      { label: t('export_employees_label'), desc: t('export_employees_desc'), icon: Users, key: 'employees' },
+                      { label: t('export_audit_label'), desc: t('export_audit_desc'), icon: Download, key: 'access' },
+                    ].map(({ label, desc, icon: Icon, key }) => (
+                      <button key={key} onClick={() => {
+                        const rows = db?.[key] || [];
+                        if (!rows.length) { toast(t('no_data_to_export') || 'No data to export'); return; }
+                        const cols = Object.keys(rows[0]);
+                        const csv = [cols.join(','), ...rows.map(r => cols.map(c => JSON.stringify(r[c] ?? '')).join(','))].join('\n');
+                        const a = document.createElement('a');
+                        a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+                        a.download = 'stacklens-' + key + '-' + new Date().toISOString().slice(0,10) + '.csv';
+                        a.click();
+                      }}
                         className="flex items-start gap-3 p-4 rounded-xl bg-slate-800/60 border border-slate-800 hover:border-emerald-500/30 hover:bg-slate-800 transition-all text-left">
                         <Icon className="h-5 w-5 text-emerald-400 flex-shrink-0 mt-0.5" />
                         <div>
@@ -11446,22 +11460,49 @@ function SettingsPage() {
                 <CardHeader title={t('danger_zone')} subtitle={t('danger_zone_sub')} />
                 <CardBody>
                   <div className="space-y-3">
-                    {[
-                      { label: t('delete_tools'), desc: t('del_tools_desc'), btn: t('del_tools_btn') },
-                      { label: t('delete_employees'), desc: t('del_employees_desc'), btn: t('del_employees_btn') },
-                      { label: t('delete_account'), desc: t('del_account_desc'), btn: t('del_account_btn'), danger: true },
-                    ].map(item => (
-                      <div key={item.label} className="flex items-center justify-between py-3 border-b border-rose-500/10 last:border-0">
-                        <div>
-                          <div className="font-medium text-slate-200 text-sm">{item.label}</div>
-                          <div className="text-xs text-slate-500">{item.desc}</div>
-                        </div>
-                        <button onClick={() => toast('This action is disabled in demo mode.')}
-                          className={"text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors " + (item.danger ? 'border-rose-500/40 text-rose-400 hover:bg-rose-500/10' : 'border-slate-700 text-slate-400 hover:text-white hover:border-slate-600')}>
-                          {item.btn}
-                        </button>
+                    <div className="flex items-center justify-between py-3 border-b border-rose-500/10">
+                      <div>
+                        <div className="font-medium text-slate-200 text-sm">{t('delete_tools')}</div>
+                        <div className="text-xs text-slate-500">{t('del_tools_desc')}</div>
                       </div>
-                    ))}
+                      <button onClick={() => { if (window.confirm(t('confirm_delete_q') + ' ' + t('delete_tools') + '?')) { muts.updateDb({ tools: [] }); toast.success(t('toast_deleted')); } }}
+                        className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-700 text-slate-400 hover:text-white hover:border-slate-600 transition-colors">
+                        {t('del_tools_btn')}
+                      </button>
+                    </div>
+                    <div className="flex items-center justify-between py-3 border-b border-rose-500/10">
+                      <div>
+                        <div className="font-medium text-slate-200 text-sm">{t('delete_employees')}</div>
+                        <div className="text-xs text-slate-500">{t('del_employees_desc')}</div>
+                      </div>
+                      <button onClick={() => { if (window.confirm(t('confirm_delete_q') + ' ' + t('delete_employees') + '?')) { muts.updateDb({ employees: [], access: [] }); toast.success(t('toast_deleted')); } }}
+                        className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-700 text-slate-400 hover:text-white hover:border-slate-600 transition-colors">
+                        {t('del_employees_btn')}
+                      </button>
+                    </div>
+                    <div className="flex items-center justify-between py-3">
+                      <div>
+                        <div className="font-medium text-slate-200 text-sm">{t('delete_account')}</div>
+                        <div className="text-xs text-slate-500">{t('del_account_desc')}</div>
+                      </div>
+                      <button onClick={async () => {
+                        const confirmed = window.confirm(t('del_account_confirm') || 'Permanently delete your account and all data? This cannot be undone.');
+                        if (!confirmed) return;
+                        try {
+                          await deleteAccount();
+                          toast.success(t('del_account_done') || 'Account deleted');
+                        } catch (err) {
+                          if (err.code === 'auth/requires-recent-login') {
+                            toast.error(t('del_account_reauth') || 'Please sign out and sign back in, then try again.');
+                          } else {
+                            toast.error(err.message);
+                          }
+                        }
+                      }}
+                        className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-rose-500/40 text-rose-400 hover:bg-rose-500/10 transition-colors">
+                        {t('del_account_btn')}
+                      </button>
+                    </div>
                   </div>
                 </CardBody>
               </Card>
