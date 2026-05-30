@@ -1284,7 +1284,9 @@ function computeAccessDerivedRiskFlag(accessRow, employeesById, toolsById) {
   return "none";
 }
 
-function buildRiskAlerts(db) {
+function buildRiskAlerts(db, tr) {
+  // tr: optional translation function. Falls back to English when absent (e.g. PDF export).
+  const L = (key, fallback) => (tr ? tr(key) : fallback);
   const employeesById = Object.fromEntries(db.employees.map((e) => [e.id, e]));
 
   const orphanedTools = db.tools.filter((t) => !t.owner_email);
@@ -1313,9 +1315,9 @@ function buildRiskAlerts(db) {
     alerts.push({
       id: "orphaned_tools",
       severity: "critical",
-      title: "Tools without owners detected",
-      body: `${orphanedTools.length} tool(s) have no owner assigned.`,
-      action: { label: "Review Tools", to: "/tools", icon: Boxes },
+      title: L("alert_orphaned_title", "Tools without owners detected"),
+      body: L("alert_orphaned_body", "{n} tool(s) have no owner assigned.").replace("{n}", orphanedTools.length),
+      action: { label: L("alert_orphaned_action", "Review Tools"), to: "/tools", icon: Boxes },
     });
   }
 
@@ -1323,9 +1325,9 @@ function buildRiskAlerts(db) {
     alerts.push({
       id: "former_employee_access",
       severity: "critical",
-      title: "Former employees still have access",
-      body: `${formerEmployeeAccess.length} active access record(s) belong to offboarded employees.`,
-      action: { label: "Offboarding", to: "/offboarding", icon: UserMinus },
+      title: L("alert_former_title", "Former employees still have access"),
+      body: L("alert_former_body", "{n} active access record(s) belong to offboarded employees.").replace("{n}", formerEmployeeAccess.length),
+      action: { label: L("alert_former_action", "Offboarding"), to: "/offboarding", icon: UserMinus },
     });
   }
 
@@ -1333,9 +1335,9 @@ function buildRiskAlerts(db) {
     alerts.push({
       id: "admin_overdue_review",
       severity: "high",
-      title: "Admin access overdue for review",
-      body: `${adminOverdueReview.length} admin access record(s) have not been reviewed in 6+ months.`,
-      action: { label: 'Access Map', to: '/access', icon: GitMerge },
+      title: L("alert_admin_title", "Admin access overdue for review"),
+      body: L("alert_admin_body", "{n} admin access record(s) have not been reviewed in 6+ months.").replace("{n}", adminOverdueReview.length),
+      action: { label: L("alert_admin_action", "Access Map"), to: '/access', icon: GitMerge },
     });
   }
 
@@ -1343,9 +1345,9 @@ function buildRiskAlerts(db) {
     alerts.push({
       id: "tools_unused_90",
       severity: "high",
-      title: "Tools unused for 90+ days",
-      body: `${toolsUnused90.length} tool(s) have not been used in 90+ days.`,
-      action: { label: "Audit Export", to: "/audit", icon: Download },
+      title: L("alert_unused_title", "Tools unused for 90+ days"),
+      body: L("alert_unused_body", "{n} tool(s) have not been used in 90+ days.").replace("{n}", toolsUnused90.length),
+      action: { label: L("alert_unused_action", "Audit Export"), to: "/audit", icon: Download },
     });
   }
 
@@ -1359,9 +1361,9 @@ function buildRiskAlerts(db) {
     alerts.push({
       id: "needs_review",
       severity: "medium",
-      title: "Access records need review",
-      body: `${needsReview.length} access record(s) are due for annual review.`,
-      action: { label: "Review Access", to: "/access", icon: GitMerge },
+      title: L("alert_review_title", "Access records need review"),
+      body: L("alert_review_body", "{n} access record(s) are due for annual review.").replace("{n}", needsReview.length),
+      action: { label: L("alert_review_action", "Review Access"), to: "/access", icon: GitMerge },
     });
   }
 
@@ -1370,9 +1372,9 @@ function buildRiskAlerts(db) {
     alerts.push({
       id: "spend_watch",
       severity: "medium",
-      title: "Monthly spend exceeds threshold",
-      body: `Current tool spend is ${getCurrency(localStorage.getItem("language") || "en")}${Math.round(spend)} / month.`,
-      action: { label: "Tools", to: "/tools", icon: Boxes },
+      title: L("alert_spend_title", "Monthly spend exceeds threshold"),
+      body: L("alert_spend_body", "Current tool spend is {amount} / month.").replace("{amount}", `${getCurrency(localStorage.getItem("language") || "en")}${Math.round(spend)}`),
+      action: { label: L("alert_spend_action", "Tools"), to: "/tools", icon: Boxes },
     });
   }
 
@@ -2084,50 +2086,56 @@ function CategoryIcon({ category }) {
 }
 
 function StatusBadge({ status }) {
+  const { language } = useLang();
+  const t = useTranslation(language);
   const m = {
-    active: { tone: "green", icon: BadgeCheck, label: "Active" },
-    orphaned: { tone: "rose", icon: AlertTriangle, label: "Orphaned" },
-    unused: { tone: "amber", icon: CalendarClock, label: "Unused" },
-    decommissioned: { tone: "slate", icon: BadgeX, label: "Decommissioned" },
-    revoked: { tone: "slate", icon: BadgeX, label: "Revoked" },
-    pending_revocation: { tone: "amber", icon: RefreshCw, label: "Pending" },
-    offboarding: { tone: "amber", icon: RefreshCw, label: "Offboarding" },
-    offboarded: { tone: "slate", icon: BadgeX, label: "Offboarded" },
+    active: { tone: "green", icon: BadgeCheck, key: "active" },
+    orphaned: { tone: "rose", icon: AlertTriangle, key: "orphaned" },
+    unused: { tone: "amber", icon: CalendarClock, key: "unused" },
+    decommissioned: { tone: "slate", icon: BadgeX, key: "decommissioned" },
+    revoked: { tone: "slate", icon: BadgeX, key: "revoked" },
+    pending_revocation: { tone: "amber", icon: RefreshCw, key: "pending" },
+    offboarding: { tone: "amber", icon: RefreshCw, key: "offboarding" },
+    offboarded: { tone: "slate", icon: BadgeX, key: "offboarded" },
   };
-  const v = m[status] || { tone: "slate", icon: Info, label: String(status || "-") };
+  const v = m[status];
   return (
-    <Pill tone={v.tone} icon={v.icon}>
-      {v.label}
+    <Pill tone={v?.tone || "slate"} icon={v?.icon || Info}>
+      {v ? t(v.key) : String(status || "-")}
     </Pill>
   );
 }
 
 function RiskBadge({ risk }) {
+  const { language } = useLang();
+  const t = useTranslation(language);
   const m = {
-    low: { tone: "green", icon: BadgeCheck, label: "Low" },
-    medium: { tone: "amber", icon: AlertTriangle, label: "Medium" },
-    high: { tone: "rose", icon: AlertTriangle, label: "High" },
-    critical: { tone: "rose", icon: AlertTriangle, label: "Critical" },
+    low: { tone: "green", icon: BadgeCheck, key: "low" },
+    medium: { tone: "amber", icon: AlertTriangle, key: "medium" },
+    high: { tone: "rose", icon: AlertTriangle, key: "high" },
+    critical: { tone: "rose", icon: AlertTriangle, key: "critical" },
   };
-  const v = m[risk] || { tone: "slate", icon: Info, label: String(risk || "-") };
+  const v = m[risk];
   return (
-    <Pill tone={v.tone} icon={v.icon}>
-      {v.label}
+    <Pill tone={v?.tone || "slate"} icon={v?.icon || Info}>
+      {v ? t(v.key) : String(risk || "-")}
     </Pill>
   );
 }
 
 function AccessLevelBadge({ level }) {
+  const { language } = useLang();
+  const t = useTranslation(language);
   const m = {
-    admin: { tone: "rose", icon: Lock, label: "Admin" },
-    editor: { tone: "blue", icon: Pencil, label: "Editor" },
-    viewer: { tone: "slate", icon: BadgeCheck, label: "Viewer" },
-    billing: { tone: "purple", icon: CreditCard, label: "Billing" },
+    admin: { tone: "rose", icon: Lock, key: "admin" },
+    editor: { tone: "blue", icon: Pencil, key: "editor" },
+    viewer: { tone: "slate", icon: BadgeCheck, key: "viewer" },
+    billing: { tone: "purple", icon: CreditCard, key: "billing" },
   };
-  const v = m[level] || { tone: "slate", icon: Info, label: String(level || "-") };
+  const v = m[level];
   return (
-    <Pill tone={v.tone} icon={v.icon}>
-      {v.label}
+    <Pill tone={v?.tone || "slate"} icon={v?.icon || Info}>
+      {v ? t(v.key) : String(level || "-")}
     </Pill>
   );
 }
@@ -4355,7 +4363,7 @@ function ExecutivePageWrapper() {
     tools: db.tools.map(t => ({ ...t, derived_risk: computeToolDerivedRisk(t) })),
     employees: db.employees || [],
     access: db.access || [],
-    alerts: buildRiskAlerts({ tools: db.tools, access: db.access || [], employees: db.employees || [] })
+    alerts: buildRiskAlerts({ tools: db.tools, access: db.access || [], employees: db.employees || [] }, t)
   };
   
   return (
@@ -5253,7 +5261,7 @@ function DashboardPage() {
       ...a,
       derived_risk_flag: computeAccessDerivedRiskFlag(a, employeesById, toolsById),
     }));
-    const alerts = buildRiskAlerts({ ...db, tools, access });
+    const alerts = buildRiskAlerts({ ...db, tools, access }, t);
     const counts = riskSeverityCounts(alerts);
     const spend = tools.reduce((sum, t) => sum + Number(t.cost_per_month || 0), 0);
     const highRiskTools = tools.filter((t) => t.derived_risk === "high").length;
@@ -10002,9 +10010,9 @@ function BillingPage({ noShell = false }) {
             <h3 className="font-bold text-white mb-4">{t('after_trial_title')}</h3>
             <div className="grid sm:grid-cols-3 gap-4">
               {[
-                { day: 'Day 14', title: 'Trial ends', desc: "You'll be prompted to choose a plan. Your data stays safe.", color: 'text-amber-400' },
-                { day: t('never'), title: 'No surprise charges', desc: "We'll never charge you without your consent.", color: 'text-slate-400' },
-                { day: 'Recommended', title: t('plan_scale'), desc: 'Keep all features. Cancel anytime.', color: 'text-emerald-400' },
+                { day: t('after_trial_d1_day'), title: t('after_trial_d1_title'), desc: t('after_trial_d1_desc'), color: 'text-amber-400' },
+                { day: t('never'), title: t('after_trial_d2_title'), desc: t('after_trial_d2_desc'), color: 'text-slate-400' },
+                { day: t('after_trial_d3_day'), title: t('plan_scale'), desc: t('after_trial_d3_desc'), color: 'text-emerald-400' },
               ].map(item => (
                 <div key={item.day} className="p-4 rounded-xl bg-slate-800/60">
                   <div className={"text-xs font-bold uppercase tracking-wide mb-1 " + item.color}>{item.day}</div>
@@ -10022,8 +10030,8 @@ function BillingPage({ noShell = false }) {
             <h3 className="font-bold text-white mb-4">{t('plan_usage')}</h3>
             <div className="grid sm:grid-cols-2 gap-4">
               {[
-                { label: 'Tools', used: db?.tools?.length || 0, max: currentPlanObj.limits.tools },
-                { label: 'Employees', used: db?.employees?.length || 0, max: currentPlanObj.limits.employees },
+                { label: t('nav_tools'), used: db?.tools?.length || 0, max: currentPlanObj.limits.tools },
+                { label: t('nav_employees'), used: db?.employees?.length || 0, max: currentPlanObj.limits.employees },
               ].map(({ label, used, max }) => {
                 const pct = Math.min((used / max) * 100, 100);
                 return (
@@ -10502,7 +10510,7 @@ function SecurityTabContent() {
   const scoreColor = securityScore >= 80 ? '#10b981' : securityScore >= 60 ? '#f59e0b' : '#ef4444';
   const scoreLabel = securityScore >= 80 ? t('dl_good') : securityScore >= 60 ? t('dl_needs_work') : t('dl_critical');
 
-  const alerts = buildRiskAlerts({ tools, access, employees });
+  const alerts = buildRiskAlerts({ tools, access, employees }, t);
   const criticalAlerts = alerts.filter(a => a.severity === 'critical');
   const highAlerts = alerts.filter(a => a.severity === 'high');
   const mediumAlerts = alerts.filter(a => a.severity === 'medium');
@@ -13785,7 +13793,7 @@ function ExecutiveTabContent() {
     tools: db.tools.map(t => ({ ...t, derived_risk: computeToolDerivedRisk(t) })),
     employees: db.employees || [],
     access: db.access || [],
-    alerts: buildRiskAlerts({ tools: db.tools, access: db.access || [], employees: db.employees || [] })
+    alerts: buildRiskAlerts({ tools: db.tools, access: db.access || [], employees: db.employees || [] }, t)
   };
   return <div className="p-2"><ExecutiveDashboard data={derived} /></div>;
 }
