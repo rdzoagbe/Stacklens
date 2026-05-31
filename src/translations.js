@@ -58,6 +58,7 @@ export const translations = {
     category_overview_sub: "Active categories in your stack",
     monthly_cost: "Monthly Cost", total_tools: "Total Tools",
     no_tools_found: "No tools found", no_tools_body: "Add your first tool to get started",
+    no_results: "No results", try_adjusting_filters: "Try adjusting your filters or search query.",
     search_tools: "Search tools, owners...", all_categories: "All Categories",
     all_status: "All Status", all_risk: "All Risk", total_cost: "Total Cost",
     need_attention: "Need Attention", no_owner: "No Owner",

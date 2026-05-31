@@ -2195,25 +2195,50 @@ function RiskFlagBadge({ flag }) {
 const NAV = [
   { to: "/dashboard",    tKey: "nav_dashboard",    icon: LayoutDashboard },
   { separator: true,     tKey: "nav_access_identity" },
-  { to: "/tools",        tKey: "nav_tools",         icon: Boxes },
-  { to: "/employees",    tKey: "nav_employees",      icon: Users },
-  { to: "/access",       tKey: "nav_access",         icon: GitMerge },
-  { to: "/offboarding",  tKey: "nav_offboarding",    icon: UserMinus },
+  { to: "/tools",        tKey: "nav_tools",         icon: Boxes,       badgeKey: "tools" },
+  { to: "/employees",    tKey: "nav_employees",      icon: Users,       badgeKey: "offboarding" },
+  { to: "/access",       tKey: "nav_access",         icon: GitMerge,    badgeKey: "access" },
+  { to: "/offboarding",  tKey: "nav_offboarding",    icon: UserMinus,   badgeKey: "offboarding" },
   { separator: true,     tKey: "nav_security" },
-  { to: "/security",     tKey: "nav_security",       icon: Shield },
+  { to: "/security",     tKey: "nav_security",       icon: Shield,      badgeKey: "security" },
   { separator: true,     tKey: "nav_finance_section" },
   { to: "/finance",      tKey: "nav_finance",        icon: BarChart3 },
   { separator: true,     tKey: "nav_platform" },
   { to: "/settings",     tKey: "nav_settings",       icon: Settings },
 ];
 
+function useSidebarBadges() {
+  const { data: db } = useDbQuery();
+  return useMemo(() => {
+    if (!db) return {};
+    const employeesById = Object.fromEntries((db.employees || []).map(e => [e.id, e]));
+    const toolsById = Object.fromEntries((db.tools || []).map(t => [t.id, t]));
+    const activeAccess = (db.access || []).filter(a => a.status === 'active');
+
+    const highRiskAccess = activeAccess.filter(a => {
+      const flag = computeAccessDerivedRiskFlag(a, employeesById, toolsById);
+      return flag === 'former_employee' || flag === 'excessive_admin';
+    }).length;
+
+    const highRiskTools = (db.tools || []).filter(t => computeToolDerivedRisk(t) === 'high').length;
+    const noOwnerTools = (db.tools || []).filter(t => !t.owner_email).length;
+    const offboardingQueue = (db.employees || []).filter(e => e.status === 'offboarding').length;
+
+    return {
+      security: highRiskAccess + highRiskTools,
+      access: highRiskAccess,
+      offboarding: offboardingQueue,
+      tools: noOwnerTools,
+    };
+  }, [db]);
+}
+
 function Sidebar({ collapsed, setCollapsed }) {
   const location = useLocation();
   const { language } = useLang();
   const t = useTranslation(language);
+  const badges = useSidebarBadges();
 
-  
-  
   return (
     <div
       className={cx(
@@ -2287,11 +2312,12 @@ function Sidebar({ collapsed, setCollapsed }) {
           
           const active = location.pathname.startsWith(item.to);
           const Icon = item.icon;
+          const badgeCount = item.badgeKey ? (badges[item.badgeKey] || 0) : 0;
           return (
             <Link
               key={item.to}
               to={item.to}
-              title={collapsed ? t(item.tKey) : undefined}
+              title={collapsed ? t(item.tKey) + (badgeCount > 0 ? ` (${badgeCount})` : '') : undefined}
               className={cx(
                 "mb-1 flex items-center gap-3 rounded-2xl px-3 py-2.5 text-[14px] transition",
                 active
@@ -2299,8 +2325,24 @@ function Sidebar({ collapsed, setCollapsed }) {
                   : "text-slate-300 hover:bg-slate-900/60"
               )}
             >
-              <Icon className="h-4 w-4 flex-shrink-0" />
-              {!collapsed ? <span>{t(item.tKey)}</span> : null}
+              <div className="relative flex-shrink-0">
+                <Icon className="h-4 w-4" />
+                {badgeCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 min-w-[14px] h-[14px] flex items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white px-0.5 leading-none">
+                    {badgeCount > 99 ? '99+' : badgeCount}
+                  </span>
+                )}
+              </div>
+              {!collapsed ? (
+                <span className="flex-1 flex items-center justify-between">
+                  {t(item.tKey)}
+                  {badgeCount > 0 && (
+                    <span className="ml-auto rounded-full bg-red-500/20 text-red-400 text-[10px] font-bold px-1.5 py-0.5 leading-none">
+                      {badgeCount > 99 ? '99+' : badgeCount}
+                    </span>
+                  )}
+                </span>
+              ) : null}
             </Link>
           );
         })}
@@ -6293,7 +6335,17 @@ function ToolsPage() {
             <div className="p-6 space-y-2"><SkeletonRow cols={6} /><SkeletonRow cols={6} /><SkeletonRow cols={6} /></div>
           ) : filtered.length === 0 ? (
             <div className="p-12">
-              <EmptyState icon={Boxes} title={t('no_tools_found')} body={t('no_tools_body')} />
+              <EmptyState icon={Boxes} title={tools.length === 0 ? t('no_tools_found') : t('no_results')} body={tools.length === 0 ? t('no_tools_body') : t('try_adjusting_filters')}
+                action={tools.length === 0 ? (
+                  <button onClick={() => setOpen(true)} className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-semibold transition-colors">
+                    <Plus className="h-4 w-4" />{t('add_tool')}
+                  </button>
+                ) : (
+                  <button onClick={() => { setQ(''); setRisk(''); setStatus(''); setCat(''); setOnlyUnassigned(false); }} className="inline-flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-xl text-sm font-semibold transition-colors">
+                    {t('clear_filter')}
+                  </button>
+                )}
+              />
             </div>
           ) : (
             <>
@@ -6808,7 +6860,19 @@ function EmployeesPage() {
             </div>
           ) : filtered.length === 0 ? (
             <div className="p-12">
-              <EmptyState icon={Users} title={t('no_employees_found')} body={t('empty_employees')} />
+              <EmptyState icon={Users}
+                title={employees.length === 0 ? t('no_employees_found') : t('no_results')}
+                body={employees.length === 0 ? t('empty_employees') : t('try_adjusting_filters')}
+                action={employees.length === 0 ? (
+                  <button onClick={() => setOpen(true)} className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-semibold transition-colors">
+                    <Plus className="h-4 w-4" />{t('add_employee')}
+                  </button>
+                ) : (
+                  <button onClick={() => { setQ(''); setStatus(''); setDept(''); }} className="inline-flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-xl text-sm font-semibold transition-colors">
+                    {t('clear_filter')}
+                  </button>
+                )}
+              />
             </div>
           ) : (
             <>
@@ -13525,9 +13589,8 @@ function FinanceDashboard() {
   const [showReclaimModal, setShowReclaimModal] = useState(false);
   const [selectedBill, setSelectedBill] = useState(null);
   // Compute real financial data from tools
-  const _fdb = JSON.parse(localStorage.getItem('accessguard_v1') || '{}');
-  const _fReal = _fdb?.user?.is_authenticated && !_fdb?.user?.is_demo;
-  const _tools = _fdb?.tools || [];
+  const _tools = db?.tools || [];
+  const _fReal = _tools.length > 0;
   const _totalSpend = _fReal ? _tools.reduce((s, t) => s + (t.cost_per_month || t.cost_monthly || t.cost || 0), 0) : 47850;
   const _byCategory = _fReal ? Object.values(_tools.reduce((acc, tool) => {
     const cat = tool.category || 'Other';
