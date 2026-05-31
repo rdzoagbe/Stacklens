@@ -11639,7 +11639,7 @@ function FounderAdminPage() {
 
   const filtered = users.filter(u => {
     const q = search.toLowerCase();
-    return !q || (u.email || '').toLowerCase().includes(q) || (u.displayName || '').toLowerCase().includes(q);
+    return !q || (u.email || '').toLowerCase().includes(q) || (u.displayName || '').toLowerCase().includes(q) || (u.uid || '').toLowerCase().includes(q);
   });
 
   const planBadgeColor = (u) => {
@@ -11721,8 +11721,9 @@ function FounderAdminPage() {
                     return (
                       <tr key={u.uid} className="hover:bg-slate-800/30 transition-colors">
                         <td className="px-4 py-3">
-                          <div className="font-semibold text-white">{u.displayName || u.email || u.uid}</div>
-                          {u.displayName && <div className="text-xs text-slate-500">{u.email}</div>}
+                          <div className="font-semibold text-white text-sm">{u.displayName || <span className="text-slate-500 italic">No name</span>}</div>
+                          <div className="text-xs text-slate-400 mt-0.5">{u.email || <span className="text-slate-600 italic">No email</span>}</div>
+                          <div className="text-xs text-slate-700 mt-0.5 font-mono select-all">{u.uid}</div>
                         </td>
                         <td className="px-4 py-3">
                           <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${planBadgeColor(u)}`}>
