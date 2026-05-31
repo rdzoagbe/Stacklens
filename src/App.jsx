@@ -7099,22 +7099,30 @@ function AccessPage() {
 
         {/* ── Row 1: KPI Strip ── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-5">
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-blue-500">
+          <div
+            className={"rounded-2xl border bg-slate-900/60 p-5 border-l-4 border-l-blue-500 cursor-pointer transition-all " + (filterRisk === 'all' ? 'border-blue-500 ring-1 ring-blue-500/40' : 'border-slate-800 hover:border-slate-700')}
+            onClick={() => { setFilterRisk('all'); }}>
             <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t("kpi_total_access")}</div>
             <div className="text-3xl font-black text-white">{derived.access.filter(a => a.status === 'active').length}</div>
             <div className="text-sm text-slate-500">{t("sub_active_permissions")}</div>
           </div>
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-red-500 cursor-pointer hover:border-slate-700 transition-colors" onClick={() => setFilterRisk('high')}>
+          <div
+            className={"rounded-2xl border bg-slate-900/60 p-5 border-l-4 border-l-red-500 cursor-pointer transition-all " + (filterRisk === 'high' ? 'border-red-500 ring-1 ring-red-500/40' : 'border-slate-800 hover:border-slate-700')}
+            onClick={() => { setFilterRisk('high'); setViewMode('table'); }}>
             <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t("kpi_high_risk")}</div>
             <div className="text-3xl font-black text-red-400">{derived.highRisk.length}</div>
             <div className="text-sm text-slate-500">{t("sub_click_to_filter")}</div>
           </div>
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-amber-500 cursor-pointer hover:border-slate-700 transition-colors" onClick={() => setFilterRisk('review')}>
+          <div
+            className={"rounded-2xl border bg-slate-900/60 p-5 border-l-4 border-l-amber-500 cursor-pointer transition-all " + (filterRisk === 'review' ? 'border-amber-500 ring-1 ring-amber-500/40' : 'border-slate-800 hover:border-slate-700')}
+            onClick={() => { setFilterRisk('review'); setViewMode('table'); }}>
             <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t("kpi_needs_review")}</div>
             <div className="text-3xl font-black text-amber-400">{derived.needsReview.length}</div>
             <div className="text-sm text-slate-500">{t("sub_click_to_filter")}</div>
           </div>
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-emerald-500 cursor-pointer hover:border-slate-700 transition-colors" onClick={() => setFilterRisk('clean')}>
+          <div
+            className={"rounded-2xl border bg-slate-900/60 p-5 border-l-4 border-l-emerald-500 cursor-pointer transition-all " + (filterRisk === 'clean' ? 'border-emerald-500 ring-1 ring-emerald-500/40' : 'border-slate-800 hover:border-slate-700')}
+            onClick={() => { setFilterRisk('clean'); setViewMode('table'); }}>
             <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t("kpi_clean")}</div>
             <div className="text-3xl font-black text-emerald-400">{derived.access.filter(a => a.status === 'active').length - derived.highRisk.length - derived.needsReview.length}</div>
             <div className="text-sm text-slate-500">{t("sub_click_to_filter")}</div>
