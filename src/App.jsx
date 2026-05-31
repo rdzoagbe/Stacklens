@@ -2291,6 +2291,7 @@ function Sidebar({ collapsed, setCollapsed }) {
             <Link
               key={item.to}
               to={item.to}
+              title={collapsed ? t(item.tKey) : undefined}
               className={cx(
                 "mb-1 flex items-center gap-3 rounded-2xl px-3 py-2.5 text-[14px] transition",
                 active
@@ -2298,7 +2299,7 @@ function Sidebar({ collapsed, setCollapsed }) {
                   : "text-slate-300 hover:bg-slate-900/60"
               )}
             >
-              <Icon className="h-4 w-4" />
+              <Icon className="h-4 w-4 flex-shrink-0" />
               {!collapsed ? <span>{t(item.tKey)}</span> : null}
             </Link>
           );
@@ -6080,7 +6081,16 @@ function ToolsPage() {
   const [status, setStatus] = useState("");
   const [risk, setRisk] = useState("");
   const [page, setPage] = useState(0);
+  const [sortField, setSortField] = useState('name');
+  const [sortDir, setSortDir] = useState('asc');
+  const toggleSort = (field) => { if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc'); else { setSortField(field); setSortDir('asc'); } };
   const PAGE_SIZE = 25;
+  const searchRef = useRef(null);
+  useEffect(() => {
+    const handler = (e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); searchRef.current?.focus(); searchRef.current?.select(); } };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -6123,8 +6133,15 @@ function ToolsPage() {
         if (risk && t.derived_risk !== risk) return false;
         return true;
       })
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [tools, q, cat, status, risk]);
+      .sort((a, b) => {
+        let av, bv;
+        if (sortField === 'cost') { av = a.cost_per_month || 0; bv = b.cost_per_month || 0; return sortDir === 'asc' ? av - bv : bv - av; }
+        if (sortField === 'risk') { const o = { high: 0, medium: 1, low: 2 }; av = o[a.derived_risk] ?? 3; bv = o[b.derived_risk] ?? 3; return sortDir === 'asc' ? av - bv : bv - av; }
+        if (sortField === 'status') { av = a.derived_status || ''; bv = b.derived_status || ''; }
+        else { av = a.name || ''; bv = b.name || ''; }
+        return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+      });
+  }, [tools, q, cat, status, risk, sortField, sortDir]);
 
   React.useEffect(() => { setPage(0); }, [q, cat, status, risk]);
 
@@ -6217,8 +6234,9 @@ function ToolsPage() {
           <div className="p-4 border-b border-slate-800 flex flex-col sm:flex-row gap-3 items-center">
             <div className="relative flex-1 w-full">
               <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
-              <input className="w-full pl-9 pr-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-600 outline-none focus:border-blue-500 transition-colors"
+              <input ref={searchRef} className="w-full pl-9 pr-16 py-2 bg-slate-800 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-600 outline-none focus:border-blue-500 transition-colors"
                 placeholder={t("search_placeholder_tools")} value={q} onChange={(e) => setQ(e.target.value)} />
+              <kbd className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 hidden sm:flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-mono text-slate-500 bg-slate-700 rounded border border-slate-600">⌘K</kbd>
             </div>
             <select value={status} onChange={(e) => setStatus(e.target.value)}
               className="bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-300 outline-none">
@@ -6245,12 +6263,12 @@ function ToolsPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-slate-800 bg-slate-950/50">
-                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('tool_name')}</th>
-                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">{t('th_owner')}</th>
-                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden lg:table-cell">{t('th_last_used')}</th>
-                      <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('th_risk')}</th>
-                      <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden sm:table-cell">{t('th_status')}</th>
-                      <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('th_cost_mo')}</th>
+                      {[['name', t('tool_name'), 'left'], ['', t('th_owner'), 'left hidden md:table-cell'], ['', t('th_last_used'), 'left hidden lg:table-cell'], ['risk', t('th_risk'), 'center'], ['status', t('th_status'), 'center hidden sm:table-cell'], ['cost', t('th_cost_mo'), 'right']].map(([field, label, align]) => (
+                        <th key={label} className={`py-3 px-4 text-xs font-semibold uppercase tracking-wider ${align.includes('center') ? 'text-center' : align.includes('right') ? 'text-right' : 'text-left'} ${align.includes('hidden') ? align.split(' ').filter(c=>c.startsWith('hidden')||c.startsWith('md')||c.startsWith('lg')||c.startsWith('sm')).join(' ') : ''} ${field ? 'cursor-pointer select-none hover:text-slate-300' : ''} text-slate-500 transition-colors`}
+                          onClick={() => field && toggleSort(field)}>
+                          <span className="inline-flex items-center gap-1">{label}{field && (sortField === field ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ' ↕')}</span>
+                        </th>
+                      ))}
                       <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('th_actions')}</th>
                     </tr>
                   </thead>
@@ -6310,7 +6328,7 @@ function ToolsPage() {
                                     <div className="flex items-center gap-2 mb-2">
                                       <AlertTriangle className={`h-3.5 w-3.5 ${t.derived_risk === 'high' ? 'text-red-400' : 'text-amber-400'}`} />
                                       <span className={`text-xs font-semibold ${t.derived_risk === 'high' ? 'text-red-400' : 'text-amber-400'}`}>
-                                        Why this tool is {t.derived_risk} risk
+                                        {tr('why_risk_label') || `Why this tool is ${t.derived_risk} risk`}
                                       </span>
                                     </div>
                                     <div className="flex flex-wrap gap-1.5">

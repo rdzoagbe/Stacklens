@@ -1076,6 +1076,7 @@ export const translations = {
     evidence_business_critical: "Tagged as business-critical",
     evidence_orphaned: "Orphaned — no owner responsible",
     evidence_unused: "Marked as unused",
+    why_risk_label: "Why this tool is flagged",
 
     // Drill-down
     drill_tools_for: "'s tools",
@@ -3000,6 +3001,7 @@ export const translations = {
     evidence_no_mfa: "MFA non activé",
     evidence_not_used_days: "Non utilisé depuis {days} jours",
     evidence_last_used_days: "Dernière utilisation il y a {days} jours",
+    why_risk_label: "Pourquoi cet outil est signalé",
     evidence_no_usage_data: "Aucune donnée d'utilisation",
     evidence_high_cost: "Coût élevé",
     evidence_business_critical: "Marqué comme critique pour l'entreprise",
