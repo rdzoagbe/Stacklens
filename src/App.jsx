@@ -5282,6 +5282,7 @@ function DashboardPage() {
   const { data: db, isLoading } = useDbQuery();
   const muts = useDbMutations();
   const qc = useQueryClient();
+  const [resetConfirm, setResetConfirm] = useState(false);
 
   const derived = useMemo(() => {
     if (!db) return { tools: [], access: [], alerts: [], counts: { critical:0, high:0, medium:0, low:0 }, spend: 0, highRiskTools: 0, formerAccess: 0, activeTools: 0 };
@@ -5333,9 +5334,16 @@ function DashboardPage() {
             <Share2 className="h-3.5 w-3.5" />{t('dl_share_report')}
           </Button>
           <RoleGate requires="admin">
-            <Button variant="secondary" size="sm" onClick={() => { if(window.confirm(t('dl_reset_confirm'))) { resetDb(); } }} title={t('dl_reset_all_data')}>
-              <RefreshCw className="h-3.5 w-3.5" /> {t('reset_data')}
-            </Button>
+            {resetConfirm ? (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-400">{t('dl_reset_confirm')}</span>
+                <ConfirmButtons onConfirm={() => { resetDb(); setResetConfirm(false); }} onCancel={() => setResetConfirm(false)} />
+              </div>
+            ) : (
+              <Button variant="secondary" size="sm" onClick={() => setResetConfirm(true)} title={t('dl_reset_all_data')}>
+                <RefreshCw className="h-3.5 w-3.5" /> {t('reset_data')}
+              </Button>
+            )}
           </RoleGate>
           <LangSelectorCompact />
         </div>
@@ -6121,6 +6129,8 @@ function ToolsPage() {
   const [costValue, setCostValue] = useState('');
   const [ownerToolId, setOwnerToolId] = useState(null);
   const [ownerToolName, setOwnerToolName] = useState('');
+  const [onlyUnassigned, setOnlyUnassigned] = useState(false);
+  const navigate = useNavigate();
 
   // Get employees who have access to a specific tool (for drill-down)
   const getToolEmployees = (toolId, toolName) => {
@@ -6154,6 +6164,7 @@ function ToolsPage() {
         if (cat && t.category !== cat) return false;
         if (status && t.derived_status !== status) return false;
         if (risk && t.derived_risk !== risk) return false;
+        if (onlyUnassigned && t.owner_email) return false;
         return true;
       })
       .sort((a, b) => {
@@ -6164,9 +6175,9 @@ function ToolsPage() {
         else { av = a.name || ''; bv = b.name || ''; }
         return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
       });
-  }, [tools, q, cat, status, risk, sortField, sortDir]);
+  }, [tools, q, cat, status, risk, onlyUnassigned, sortField, sortDir]);
 
-  React.useEffect(() => { setPage(0); }, [q, cat, status, risk]);
+  React.useEffect(() => { setPage(0); }, [q, cat, status, risk, onlyUnassigned]);
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
@@ -6208,25 +6219,29 @@ function ToolsPage() {
 
         {/* ── Row 1: KPI strip ── */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 lg:gap-5">
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-blue-500">
+          <div className={`rounded-2xl border bg-slate-900/60 p-5 border-l-4 border-l-blue-500 cursor-pointer hover:border-slate-600 transition-all ${!risk && !status && !cat && !onlyUnassigned ? 'border-blue-500/60 ring-1 ring-blue-500/30' : 'border-slate-800'}`}
+            onClick={() => { setRisk(''); setStatus(''); setCat(''); setQ(''); setOnlyUnassigned(false); }}>
             <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t("kpi_total_tools")}</div>
             <div className="text-3xl font-black text-white">{tools.length}</div>
             <div className="text-sm text-slate-500">{tools.filter(t => t.derived_status === 'active').length} {tr('active')}</div>
           </div>
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-emerald-500">
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-emerald-500 cursor-pointer hover:border-slate-600 transition-all"
+            onClick={() => navigate('/finance')}>
             <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t("kpi_monthly_spend")}</div>
             <div className="text-3xl font-black text-emerald-400">{getCurrency(language)}{convertCurrency(Math.round(totalCost), language).toLocaleString()}</div>
             <div className="text-sm text-slate-500">{getCurrency(language)}{convertCurrency(Math.round(totalCost*12), language).toLocaleString()}/yr</div>
           </div>
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-red-500 cursor-pointer hover:border-slate-700 transition-colors" onClick={() => setRisk('high')}>
+          <div className={`rounded-2xl border bg-slate-900/60 p-5 border-l-4 border-l-red-500 cursor-pointer hover:border-slate-600 transition-all ${risk === 'high' ? 'border-red-500/60 ring-1 ring-red-500/30' : 'border-slate-800'}`}
+            onClick={() => { setRisk(risk === 'high' ? '' : 'high'); setOnlyUnassigned(false); }}>
             <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t("kpi_high_risk")}</div>
             <div className="text-3xl font-black text-red-400">{highRiskCount}</div>
             <div className="text-sm text-slate-500">{t("sub_click_to_filter")}</div>
           </div>
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-amber-500">
+          <div className={`rounded-2xl border bg-slate-900/60 p-5 border-l-4 border-l-amber-500 cursor-pointer hover:border-slate-600 transition-all ${onlyUnassigned ? 'border-amber-500/60 ring-1 ring-amber-500/30' : 'border-slate-800'}`}
+            onClick={() => { setOnlyUnassigned(v => !v); setRisk(''); }}>
             <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t("kpi_unassigned")}</div>
             <div className="text-3xl font-black text-amber-400">{unassignedCount}</div>
-            <div className="text-sm text-slate-500">{t("sub_no_owner")}</div>
+            <div className="text-sm text-slate-500">{t("sub_click_to_filter")}</div>
           </div>
         </div>
 
@@ -6721,20 +6736,23 @@ function EmployeesPage() {
 
         {/* ── Row 1: Compact KPI strip ── */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 lg:gap-5">
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-blue-500">
+          <div className={`rounded-2xl border bg-slate-900/60 p-5 border-l-4 border-l-blue-500 cursor-pointer hover:border-slate-600 transition-all ${!status ? 'border-blue-500/60 ring-1 ring-blue-500/30' : 'border-slate-800'}`}
+            onClick={() => { setStatus(''); setDept(''); setQ(''); }}>
             <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t("kpi_total")}</div>
             <div className="text-3xl font-black text-white">{employees.length}</div>
             <div className="text-sm text-slate-500">{t("sub_all_employees")}</div>
           </div>
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-emerald-500">
+          <div className={`rounded-2xl border bg-slate-900/60 p-5 border-l-4 border-l-emerald-500 cursor-pointer hover:border-slate-600 transition-all ${status === 'active' ? 'border-emerald-500/60 ring-1 ring-emerald-500/30' : 'border-slate-800'}`}
+            onClick={() => setStatus(status === 'active' ? '' : 'active')}>
             <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t("kpi_active")}</div>
             <div className="text-3xl font-black text-emerald-400">{activeCount}</div>
-            <div className="text-sm text-slate-500">{t("sub_currently_working")}</div>
+            <div className="text-sm text-slate-500">{t("sub_click_to_filter")}</div>
           </div>
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-amber-500">
+          <div className={`rounded-2xl border bg-slate-900/60 p-5 border-l-4 border-l-amber-500 cursor-pointer hover:border-slate-600 transition-all ${status === 'offboarding' ? 'border-amber-500/60 ring-1 ring-amber-500/30' : 'border-slate-800'}`}
+            onClick={() => setStatus(status === 'offboarding' ? '' : 'offboarding')}>
             <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t("kpi_offboarding")}</div>
             <div className="text-3xl font-black text-amber-400">{offboardingCount}</div>
-            <div className="text-sm text-slate-500">{t("sub_in_transition")}</div>
+            <div className="text-sm text-slate-500">{t("sub_click_to_filter")}</div>
           </div>
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-purple-500">
             <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t("kpi_departments")}</div>
@@ -7129,6 +7147,10 @@ function AccessPage() {
   const [viewMode, setViewMode] = useState('map');
   const [filterRisk, setFilterRisk] = useState('all');
   const [search, setSearch] = useState('');
+  const [revokeAllConfirm, setRevokeAllConfirm] = useState(false);
+  const rowRevokeConfirm = useConfirm();
+  const [managingId, setManagingId] = useState(null);
+  const [mapManaging, setMapManaging] = useState(null); // { id, empName, toolName, level }
 
   const derived = useMemo(() => {
     if (!db) return null;
@@ -7224,14 +7246,16 @@ function AccessPage() {
                 <AlertTriangle className="h-5 w-5 text-red-400" />
                 <span className="text-base font-semibold text-white">{t('urgent_high_risk_header').replace('{n}', derived.highRisk.length)}</span>
               </div>
-              <Button variant="secondary" size="sm" onClick={() => {
-                if(window.confirm(t('confirm_revoke_all_high').replace('{n}', derived.highRisk.length))) {
-                  derived.highRisk.forEach(a => muts.updateAccess.mutate({ id: a.id, patch: { status: 'revoked' } }));
-                  toast.success(t('toast_all_high_risk_revoked'));
-                }
-              }}>
-                {t("access_revoke_all_high")}
-              </Button>
+              {revokeAllConfirm ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-400">{t('confirm_revoke_all_high').replace('{n}', derived.highRisk.length)}</span>
+                  <ConfirmButtons onConfirm={() => { derived.highRisk.forEach(a => muts.updateAccess.mutate({ id: a.id, patch: { status: 'revoked' } })); toast.success(t('toast_all_high_risk_revoked')); setRevokeAllConfirm(false); }} onCancel={() => setRevokeAllConfirm(false)} />
+                </div>
+              ) : (
+                <Button variant="secondary" size="sm" onClick={() => setRevokeAllConfirm(true)}>
+                  {t("access_revoke_all_high")}
+                </Button>
+              )}
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {derived.highRisk.slice(0, 6).map((a, idx) => (
@@ -7339,12 +7363,7 @@ function AccessPage() {
                               <div key={toolName} className="w-10 h-8 flex items-center justify-center flex-shrink-0">
                                 <div className={"w-4 h-4 rounded-full transition-all cursor-pointer hover:scale-125 " + color + (isRisk ? ' ring-2 ring-red-500 ring-offset-1 ring-offset-slate-950' : '')}
                                   title={empName + ' → ' + toolName + ' (' + access.level + ')' + (isRisk ? ' ⚠️ RISK' : '')}
-                                  onClick={() => {
-                                    const action = window.prompt(empName + ' → ' + toolName + ' (' + access.level + ')\n\n1 = Change to Viewer\n2 = Change to Admin\n3 = Revoke\n\nEnter 1, 2, or 3:');
-                                    if (action === '1') muts.updateAccess.mutate({ id: access.id, patch: { access_level: 'viewer' } }, { onSuccess: () => toast.success(t('toast_changed_to_viewer')) });
-                                    else if (action === '2') muts.updateAccess.mutate({ id: access.id, patch: { access_level: 'admin' } }, { onSuccess: () => toast.success(t('toast_changed_to_admin')) });
-                                    else if (action === '3') muts.updateAccess.mutate({ id: access.id, patch: { status: 'revoked' } }, { onSuccess: () => toast.success(t('toast_revoked')) });
-                                  }}
+                                  onClick={() => setMapManaging({ id: access.id, empName, toolName, level: access.level })}
                                 />
                               </div>
                             );
@@ -7355,6 +7374,22 @@ function AccessPage() {
                   })}
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Map dot action panel ── */}
+        {mapManaging && (
+          <div className="rounded-2xl border border-blue-500/30 bg-slate-900/80 p-4 flex items-center gap-4 flex-wrap">
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-semibold text-white">{mapManaging.empName} → {mapManaging.toolName}</div>
+              <div className="text-xs text-slate-500">{t('current_access')}: <span className="text-slate-300 font-medium">{mapManaging.level}</span></div>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <button onClick={() => { muts.updateAccess.mutate({ id: mapManaging.id, patch: { access_level: 'viewer' } }, { onSuccess: () => toast.success(t('toast_changed_to_viewer')) }); setMapManaging(null); }} className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-xs font-semibold">Viewer</button>
+              <button onClick={() => { muts.updateAccess.mutate({ id: mapManaging.id, patch: { access_level: 'admin' } }, { onSuccess: () => toast.success(t('toast_changed_to_admin')) }); setMapManaging(null); }} className="px-3 py-1.5 bg-blue-700 hover:bg-blue-600 text-white rounded-lg text-xs font-semibold">Admin</button>
+              <button onClick={() => { muts.updateAccess.mutate({ id: mapManaging.id, patch: { status: 'revoked' } }, { onSuccess: () => toast.success(t('toast_revoked')) }); setMapManaging(null); }} className="px-3 py-1.5 bg-red-600/30 hover:bg-red-600/50 text-red-400 rounded-lg text-xs font-semibold">{t('revoke')}</button>
+              <button onClick={() => setMapManaging(null)} className="p-1.5 text-slate-500 hover:text-white rounded-lg text-xs font-bold">✗</button>
             </div>
           </div>
         )}
@@ -7565,16 +7600,24 @@ function AccessPage() {
                       ) : <span className="text-[10px] text-slate-600">—</span>}
                     </td>
                     <td className="py-3 px-4 text-right">
-                      <div className="flex gap-1 justify-end">
-                        <button onClick={() => {
-                          const action = window.prompt('Manage: ' + (a.employee?.full_name||'') + ' → ' + (a.tool?.name||a.tool_name) + '\n\n1=Viewer  2=Admin  3=Revoke');
-                          if (action === '1') muts.updateAccess.mutate({ id: a.id, patch: { access_level: 'viewer' } }, { onSuccess: () => toast.success(t('toast_changed_to_viewer')) });
-                          else if (action === '2') muts.updateAccess.mutate({ id: a.id, patch: { access_level: 'admin' } }, { onSuccess: () => toast.success(t('toast_changed_to_admin')) });
-                          else if (action === '3') muts.updateAccess.mutate({ id: a.id, patch: { status: 'revoked' } }, { onSuccess: () => toast.success(t('toast_revoked')) });
-                        }} className="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold">{t('manage')}</button>
-                        <button onClick={() => {
-                          if(window.confirm(t('confirm_revoke_q'))) muts.updateAccess.mutate({ id: a.id, patch: { status: 'revoked' } }, { onSuccess: () => toast.success(t('toast_revoked')) });
-                        }} className="px-2 py-1 bg-red-600/20 hover:bg-red-600/40 text-red-400 rounded-lg text-xs font-semibold">×</button>
+                      <div className="flex gap-1 justify-end items-center">
+                        {managingId === a.id ? (
+                          <div className="flex gap-1 items-center">
+                            <button onClick={() => { muts.updateAccess.mutate({ id: a.id, patch: { access_level: 'viewer' } }, { onSuccess: () => toast.success(t('toast_changed_to_viewer')) }); setManagingId(null); }} className="px-2 py-1 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-xs font-semibold">Viewer</button>
+                            <button onClick={() => { muts.updateAccess.mutate({ id: a.id, patch: { access_level: 'admin' } }, { onSuccess: () => toast.success(t('toast_changed_to_admin')) }); setManagingId(null); }} className="px-2 py-1 bg-blue-700 hover:bg-blue-600 text-white rounded-lg text-xs font-semibold">Admin</button>
+                            <button onClick={() => { muts.updateAccess.mutate({ id: a.id, patch: { status: 'revoked' } }, { onSuccess: () => toast.success(t('toast_revoked')) }); setManagingId(null); }} className="px-2 py-1 bg-red-600/30 hover:bg-red-600/50 text-red-400 rounded-lg text-xs font-semibold">{t('revoke')}</button>
+                            <button onClick={() => setManagingId(null)} className="px-1.5 py-1 text-slate-500 hover:text-white rounded-lg text-xs font-bold">✗</button>
+                          </div>
+                        ) : (
+                          <>
+                            <button onClick={() => { setManagingId(a.id); rowRevokeConfirm.reset(); }} className="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold">{t('manage')}</button>
+                            {rowRevokeConfirm.isPending(a.id) ? (
+                              <ConfirmButtons onConfirm={() => { muts.updateAccess.mutate({ id: a.id, patch: { status: 'revoked' } }, { onSuccess: () => toast.success(t('toast_revoked')) }); rowRevokeConfirm.reset(); }} onCancel={rowRevokeConfirm.cancel} />
+                            ) : (
+                              <button onClick={() => rowRevokeConfirm.ask(a.id)} className="px-2 py-1 bg-red-600/20 hover:bg-red-600/40 text-red-400 rounded-lg text-xs font-semibold">×</button>
+                            )}
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -8073,6 +8116,8 @@ function OffboardingPage() {
   const [tab, setTab] = useState("queue"); // "queue" | "history"
   const [employeeId, setEmployeeId] = useState(pre || "");
   const [checked, setChecked] = useState({});
+  const [revokeAllConfirm, setRevokeAllConfirm] = useState(false);
+  const [revokeRiskyConfirm, setRevokeRiskyConfirm] = useState(false);
 
   useEffect(() => {
     if (pre) setEmployeeId(pre);
@@ -8086,7 +8131,6 @@ function OffboardingPage() {
   };
   const revokeAll = () => {
     if (!employee) return;
-    if (!window.confirm(`${t('confirm_offboard_revoke_all')} ${activeRecords.length} ${t('confirm_revoke_all_risky')} ${employee.full_name}`)) return;
     activeRecords.forEach((r) => muts.updateAccess.mutate({ id: r.id, patch: { status: "revoked" } }));
     muts.updateEmployee.mutate({
       id: employeeId,
@@ -8094,6 +8138,7 @@ function OffboardingPage() {
     });
     toast.success(`${employee.full_name} ${t('toast_employee_offboarded')} — ${activeRecords.length} ${t('toast_revoked_records')}`);
     setEmployeeId("");
+    setRevokeAllConfirm(false);
   };
 
   // Pipeline buckets
@@ -8194,14 +8239,16 @@ function OffboardingPage() {
                     );
                   })}
                 </div>
-                <button onClick={() => {
-                  if (window.confirm(`${t('confirm_offboard_revoke_all')} ${riskRecords.length} ${t('confirm_revoke_all_risky')}`)) {
-                    riskRecords.forEach(a => muts.updateAccess.mutate({ id: a.id, patch: { status: "revoked" } }));
-                    toast.success(`${t('toast_revoked')} ${riskRecords.length} ${t('toast_revoked_records')}`);
-                  }
-                }} className="px-4 py-2 bg-red-600 hover:bg-red-500 rounded-xl font-semibold text-sm text-white transition-colors">
-                  {t('access_revoke_all_high')}
-                </button>
+                {revokeRiskyConfirm ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-red-300">{t('confirm_offboard_revoke_all')} {riskRecords.length} {t('confirm_revoke_all_risky')}</span>
+                    <ConfirmButtons onConfirm={() => { riskRecords.forEach(a => muts.updateAccess.mutate({ id: a.id, patch: { status: "revoked" } })); toast.success(`${t('toast_revoked')} ${riskRecords.length} ${t('toast_revoked_records')}`); setRevokeRiskyConfirm(false); }} onCancel={() => setRevokeRiskyConfirm(false)} />
+                  </div>
+                ) : (
+                  <button onClick={() => setRevokeRiskyConfirm(true)} className="px-4 py-2 bg-red-600 hover:bg-red-500 rounded-xl font-semibold text-sm text-white transition-colors">
+                    {t('access_revoke_all_high')}
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -8432,11 +8479,18 @@ function OffboardingPage() {
                       </div>
 
                       {/* One-click button */}
-                      <button onClick={revokeAll}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-600 hover:bg-red-500 rounded-xl font-bold text-sm text-white transition-all shadow-lg shadow-red-500/20">
-                        <BadgeX className="h-4 w-4" />
-                        {t('off_one_click_label').replace('{n}', activeRecords.length)}
-                      </button>
+                      {revokeAllConfirm ? (
+                        <div className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl border border-red-500/30 bg-red-500/10">
+                          <span className="text-sm text-red-300">{t('confirm_offboard_revoke_all')} {activeRecords.length} {t('confirm_revoke_all_risky')}</span>
+                          <ConfirmButtons onConfirm={revokeAll} onCancel={() => setRevokeAllConfirm(false)} />
+                        </div>
+                      ) : (
+                        <button onClick={() => setRevokeAllConfirm(true)}
+                          className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-600 hover:bg-red-500 rounded-xl font-bold text-sm text-white transition-all shadow-lg shadow-red-500/20">
+                          <BadgeX className="h-4 w-4" />
+                          {t('off_one_click_label').replace('{n}', activeRecords.length)}
+                        </button>
+                      )}
                       <p className="text-[10px] text-slate-600 text-center mt-2">
                         {t("offboarding_one_click_sub")}
                       </p>
@@ -11211,6 +11265,9 @@ function SettingsPage() {
   const [sessionTimeout, setSessionTimeout] = useState(savedSec.timeout || '60');
   const [ipRestrict, setIpRestrict] = useState(savedSec.ipRestrict ?? false);
   const [auditLog, setAuditLog] = useState(savedSec.auditLog ?? true);
+  const [deleteToolsConfirm, setDeleteToolsConfirm] = useState(false);
+  const [deleteEmpsConfirm, setDeleteEmpsConfirm] = useState(false);
+  const [deleteAccConfirm, setDeleteAccConfirm] = useState(false);
 
   const [apiKeys, setApiKeys] = useState([
     { id: 'key_1', name: 'Production API', created: '2025-12-01', lastUsed: '2026-03-05', prefix: 'sg_live_••••••••••' },
@@ -11588,43 +11645,57 @@ function SettingsPage() {
                         <div className="font-medium text-slate-200 text-sm">{t('delete_tools')}</div>
                         <div className="text-xs text-slate-500">{t('del_tools_desc')}</div>
                       </div>
-                      <button onClick={() => { if (window.confirm(t('confirm_delete_q') + ' ' + t('delete_tools') + '?')) { muts.updateDb({ tools: [] }); toast.success(t('toast_deleted')); } }}
-                        className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-700 text-slate-400 hover:text-white hover:border-slate-600 transition-colors">
-                        {t('del_tools_btn')}
-                      </button>
+                      {deleteToolsConfirm ? (
+                        <ConfirmButtons onConfirm={() => { muts.updateDb({ tools: [] }); toast.success(t('toast_deleted')); setDeleteToolsConfirm(false); }} onCancel={() => setDeleteToolsConfirm(false)} />
+                      ) : (
+                        <button onClick={() => setDeleteToolsConfirm(true)}
+                          className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-700 text-slate-400 hover:text-white hover:border-slate-600 transition-colors">
+                          {t('del_tools_btn')}
+                        </button>
+                      )}
                     </div>
                     <div className="flex items-center justify-between py-3 border-b border-rose-500/10">
                       <div>
                         <div className="font-medium text-slate-200 text-sm">{t('delete_employees')}</div>
                         <div className="text-xs text-slate-500">{t('del_employees_desc')}</div>
                       </div>
-                      <button onClick={() => { if (window.confirm(t('confirm_delete_q') + ' ' + t('delete_employees') + '?')) { muts.updateDb({ employees: [], access: [] }); toast.success(t('toast_deleted')); } }}
-                        className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-700 text-slate-400 hover:text-white hover:border-slate-600 transition-colors">
-                        {t('del_employees_btn')}
-                      </button>
+                      {deleteEmpsConfirm ? (
+                        <ConfirmButtons onConfirm={() => { muts.updateDb({ employees: [], access: [] }); toast.success(t('toast_deleted')); setDeleteEmpsConfirm(false); }} onCancel={() => setDeleteEmpsConfirm(false)} />
+                      ) : (
+                        <button onClick={() => setDeleteEmpsConfirm(true)}
+                          className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-700 text-slate-400 hover:text-white hover:border-slate-600 transition-colors">
+                          {t('del_employees_btn')}
+                        </button>
+                      )}
                     </div>
                     <div className="flex items-center justify-between py-3">
                       <div>
                         <div className="font-medium text-slate-200 text-sm">{t('delete_account')}</div>
                         <div className="text-xs text-slate-500">{t('del_account_desc')}</div>
                       </div>
-                      <button onClick={async () => {
-                        const confirmed = window.confirm(t('del_account_confirm') || 'Permanently delete your account and all data? This cannot be undone.');
-                        if (!confirmed) return;
-                        try {
-                          await deleteAccount();
-                          toast.success(t('del_account_done') || 'Account deleted');
-                        } catch (err) {
-                          if (err.code === 'auth/requires-recent-login') {
-                            toast.error(t('del_account_reauth') || 'Please sign out and sign back in, then try again.');
-                          } else {
-                            toast.error(err.message);
-                          }
-                        }
-                      }}
-                        className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-rose-500/40 text-rose-400 hover:bg-rose-500/10 transition-colors">
-                        {t('del_account_btn')}
-                      </button>
+                      {deleteAccConfirm ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-rose-300">{t('del_account_confirm')}</span>
+                          <ConfirmButtons onConfirm={async () => {
+                            setDeleteAccConfirm(false);
+                            try {
+                              await deleteAccount();
+                              toast.success(t('del_account_done') || 'Account deleted');
+                            } catch (err) {
+                              if (err.code === 'auth/requires-recent-login') {
+                                toast.error(t('del_account_reauth') || 'Please sign out and sign back in, then try again.');
+                              } else {
+                                toast.error(err.message);
+                              }
+                            }
+                          }} onCancel={() => setDeleteAccConfirm(false)} />
+                        </div>
+                      ) : (
+                        <button onClick={() => setDeleteAccConfirm(true)}
+                          className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-rose-500/40 text-rose-400 hover:bg-rose-500/10 transition-colors">
+                          {t('del_account_btn')}
+                        </button>
+                      )}
                     </div>
                   </div>
                 </CardBody>

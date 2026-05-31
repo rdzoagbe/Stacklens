@@ -686,6 +686,7 @@ export const translations = {
     sub_active_tools: "active tools",
     sub_no_owner: "no owner",
     sub_click_to_filter: "click to filter",
+    current_access: "Current access",
     sub_in_queue: "in queue",
     sub_being_processed: "being processed",
     sub_total_offboarded: "total offboarded",
