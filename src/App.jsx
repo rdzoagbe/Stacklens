@@ -6069,6 +6069,25 @@ function ToolForm({ initial, employees, onSubmit, onClose }) {
   );
 }
 
+// Inline confirm: replaces ugly window.confirm with a small in-place "Sure? ✓ ✗" UI
+function useConfirm() {
+  const [pendingId, setPendingId] = useState(null);
+  return {
+    isPending: (id) => pendingId === id,
+    ask: (id) => setPendingId(id),
+    cancel: () => setPendingId(null),
+    reset: () => setPendingId(null),
+  };
+}
+function ConfirmButtons({ onConfirm, onCancel }) {
+  return (
+    <div className="flex gap-1 items-center">
+      <button onClick={onCancel} className="p-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white transition-colors text-xs font-bold" title="Cancel">✗</button>
+      <button onClick={onConfirm} className="p-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white transition-colors text-xs font-bold" title="Confirm">✓</button>
+    </div>
+  );
+}
+
 function ToolsPage() {
   const { data: db, isLoading } = useDbQuery();
   const { language, setLanguage } = useLang();
@@ -6096,6 +6115,10 @@ function ToolsPage() {
   const [editing, setEditing] = useState(null);
   const [expandedTool, setExpandedTool] = useState(null);
   const [showToolOwnerModal, setShowToolOwnerModal] = useState(false);
+  const deleteConfirm = useConfirm();
+  const revokeConfirm = useConfirm();
+  const [editingCost, setEditingCost] = useState(null);
+  const [costValue, setCostValue] = useState('');
   const [ownerToolId, setOwnerToolId] = useState(null);
   const [ownerToolName, setOwnerToolName] = useState('');
 
@@ -6298,8 +6321,20 @@ function ToolsPage() {
                         <td className="py-3 px-4 text-sm text-slate-400 hidden lg:table-cell">{t.last_used_date || '—'}</td>
                         <td className="py-3 px-4 text-center"><RiskBadge risk={t.derived_risk} /></td>
                         <td className="py-3 px-4 text-center hidden sm:table-cell"><StatusBadge status={t.derived_status} /></td>
-                        <td className="py-3 px-4 text-right text-sm font-semibold text-white whitespace-nowrap">
-                          {getCurrency(language)}{convertCurrency(t.cost_per_month || 0, language).toLocaleString()}
+                        <td className="py-3 px-4 text-right whitespace-nowrap" onClick={(ev) => ev.stopPropagation()}>
+                          {editingCost === t.id ? (
+                            <input autoFocus type="number" min="0" value={costValue}
+                              className="w-24 text-right bg-slate-700 border border-blue-500 text-white text-sm rounded-lg px-2 py-1 focus:outline-none"
+                              onChange={e => setCostValue(e.target.value)}
+                              onBlur={() => { muts.updateTool.mutate({ id: t.id, patch: { cost_per_month: Number(costValue) } }); setEditingCost(null); }}
+                              onKeyDown={e => { if (e.key === 'Enter') { muts.updateTool.mutate({ id: t.id, patch: { cost_per_month: Number(costValue) } }); setEditingCost(null); } if (e.key === 'Escape') setEditingCost(null); }} />
+                          ) : (
+                            <span className="text-sm font-semibold text-white cursor-pointer hover:text-blue-400 transition-colors" title={tr('edit') + ' cost'}
+                              onClick={() => { setEditingCost(t.id); setCostValue(String(t.cost_per_month || 0)); }}>
+                              {getCurrency(language)}{convertCurrency(t.cost_per_month || 0, language).toLocaleString()}
+                              <span className="ml-1 text-slate-600 text-[10px]">✎</span>
+                            </span>
+                          )}
                         </td>
                         <td className="py-3 px-4 text-right">
                           <div className="flex gap-1 justify-end" onClick={(ev) => ev.stopPropagation()}>
@@ -6307,10 +6342,14 @@ function ToolsPage() {
                               className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors" title={tr('edit')}>
                               <Pencil className="h-3.5 w-3.5" />
                             </button>
-                            <button onClick={() => { if (window.confirm(`${tr('confirm_delete_q')} ${t.name}?`)) { muts.deleteTool.mutate(t.id); toast.success(`${t.name} ${tr('toast_deleted')}`); } }}
+                            {deleteConfirm.isPending(t.id) ? (
+                              <ConfirmButtons onConfirm={() => { muts.deleteTool.mutate(t.id); toast.success(`${t.name} ${tr('toast_deleted')}`); deleteConfirm.reset(); }} onCancel={deleteConfirm.cancel} />
+                            ) : (
+                            <button onClick={() => deleteConfirm.ask(t.id)}
                               className="p-1.5 rounded-lg bg-slate-800 hover:bg-red-600/20 text-slate-400 hover:text-red-400 transition-colors" title={tr('delete')}>
                               <Trash2 className="h-3.5 w-3.5" />
                             </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -6370,10 +6409,14 @@ function ToolsPage() {
                                             emp.employee_status === 'offboarding' ? 'bg-amber-500/20 text-amber-400' :
                                             'bg-slate-700 text-slate-400'
                                           )}>{emp.employee_status}</span>
-                                          <button onClick={(ev) => { ev.stopPropagation(); if(window.confirm(`${tr('confirm_revoke')} ${emp.employee_name}?`)) muts.deleteAccess.mutate(emp.id); }}
+                                          {revokeConfirm.isPending(emp.id) ? (
+                                            <ConfirmButtons onConfirm={() => { muts.deleteAccess.mutate(emp.id); revokeConfirm.reset(); }} onCancel={revokeConfirm.cancel} />
+                                          ) : (
+                                          <button onClick={(ev) => { ev.stopPropagation(); revokeConfirm.ask(emp.id); }}
                                             className="p-1 rounded-lg bg-slate-800 hover:bg-red-600/20 text-slate-500 hover:text-red-400 transition-colors" title={tr('revoke_access_btn')}>
                                             <X className="h-3.5 w-3.5" />
                                           </button>
+                                          )}
                                         </div>
                                       </div>
                                     ))}
@@ -6582,10 +6625,15 @@ function EmployeesPage() {
   const [status, setStatus] = useState("");
   const [page, setPage] = useState(0);
   const PAGE_SIZE = 25;
+  const [sortField, setSortField] = useState('name');
+  const [sortDir, setSortDir] = useState('asc');
+  const toggleSort = (field) => { if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc'); else { setSortField(field); setSortDir('asc'); } };
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [expandedEmployee, setExpandedEmployee] = useState(null);
+  const deleteConfirm = useConfirm();
+  const revokeConfirm = useConfirm();
 
   const toolCounts = useMemo(() => {
     const m = new Map();
@@ -6624,8 +6672,15 @@ function EmployeesPage() {
       if (dept && e.department !== dept) return false;
       if (status && e.status !== status) return false;
       return true;
+    }).sort((a, b) => {
+      let av, bv;
+      if (sortField === 'dept') { av = a.department || ''; bv = b.department || ''; }
+      else if (sortField === 'role') { av = a.role || ''; bv = b.role || ''; }
+      else if (sortField === 'status') { av = a.status || ''; bv = b.status || ''; }
+      else { av = a.full_name || ''; bv = b.full_name || ''; }
+      return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
     });
-  }, [employees, q, dept, status]);
+  }, [employees, q, dept, status, sortField, sortDir]);
 
   // Reset page when filters change
   React.useEffect(() => { setPage(0); }, [q, dept, status]);
@@ -6743,11 +6798,17 @@ function EmployeesPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-slate-800 bg-slate-950/50">
-                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('th_employee')}</th>
-                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">{t('th_department')}</th>
-                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden lg:table-cell">{t('employee_role')}</th>
+                      {[['name', t('th_employee'), ''], ['dept', t('th_department'), 'hidden md:table-cell'], ['role', t('employee_role'), 'hidden lg:table-cell']].map(([field, label, extra]) => (
+                        <th key={field} className={`text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer select-none hover:text-slate-300 transition-colors ${extra}`}
+                          onClick={() => toggleSort(field)}>
+                          {label}{sortField === field ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ' ↕'}
+                        </th>
+                      ))}
                       <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden sm:table-cell">{t('th_tools')}</th>
-                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('th_status')}</th>
+                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer select-none hover:text-slate-300 transition-colors"
+                        onClick={() => toggleSort('status')}>
+                        {t('th_status')}{sortField === 'status' ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ' ↕'}
+                      </th>
                       <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('th_actions')}</th>
                     </tr>
                   </thead>
@@ -6793,10 +6854,14 @@ function EmployeesPage() {
                                 <UserMinus className="h-3.5 w-3.5" />
                               </button>
                             </Link>
-                            <button onClick={() => { if (window.confirm(`${t('confirm_delete_q')} ${e.full_name}?`)) muts.deleteEmployee.mutate(e.id); }}
-                              className="p-1.5 rounded-lg bg-slate-800 hover:bg-red-600/20 text-slate-400 hover:text-red-400 transition-colors" title={t('delete')}>
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
+                            {deleteConfirm.isPending(e.id) ? (
+                              <ConfirmButtons onConfirm={() => { muts.deleteEmployee.mutate(e.id); deleteConfirm.reset(); }} onCancel={deleteConfirm.cancel} />
+                            ) : (
+                              <button onClick={() => deleteConfirm.ask(e.id)}
+                                className="p-1.5 rounded-lg bg-slate-800 hover:bg-red-600/20 text-slate-400 hover:text-red-400 transition-colors" title={t('delete')}>
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -6839,10 +6904,14 @@ function EmployeesPage() {
                                               tool.risk === 'medium' ? 'bg-amber-500/20 text-amber-400' :
                                               'bg-emerald-500/20 text-emerald-400'
                                             )}>{tool.risk || 'low'}</span>
-                                            <button onClick={(ev) => { ev.stopPropagation(); if(window.confirm(`${tr('confirm_revoke')} ${e.full_name} → ${tool.tool_name}?`)) muts.deleteAccess.mutate(tool.id); }}
-                                              className="p-1 rounded-lg bg-slate-800 hover:bg-red-600/20 text-slate-500 hover:text-red-400 transition-colors" title={tr('revoke')}>
-                                              <X className="h-3.5 w-3.5" />
-                                            </button>
+                                            {revokeConfirm.isPending(tool.id) ? (
+                                              <ConfirmButtons onConfirm={() => { muts.deleteAccess.mutate(tool.id); revokeConfirm.reset(); }} onCancel={revokeConfirm.cancel} />
+                                            ) : (
+                                              <button onClick={(ev) => { ev.stopPropagation(); revokeConfirm.ask(tool.id); }}
+                                                className="p-1 rounded-lg bg-slate-800 hover:bg-red-600/20 text-slate-500 hover:text-red-400 transition-colors" title={tr('revoke')}>
+                                                <X className="h-3.5 w-3.5" />
+                                              </button>
+                                            )}
                                           </div>
                                         </div>
                                         {evidence.length > 0 && (tool.risk === 'high' || tool.risk === 'medium') && (
