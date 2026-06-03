@@ -45,6 +45,26 @@ async function verifyAuth(req, res) {
   catch { res.status(401).json({ error: 'Invalid auth token' }); return null; }
 }
 
+async function verifyAppCheck(req, res) {
+  const appCheckToken = req.headers['x-firebase-appcheck'];
+  if (!appCheckToken) {
+    // In development (no App Check token), allow through
+    // In production, reject requests without a valid App Check token
+    if (process.env.NODE_ENV === 'production' || process.env.FUNCTIONS_EMULATOR !== 'true') {
+      res.status(401).json({ error: 'App Check token required' });
+      return false;
+    }
+    return true;
+  }
+  try {
+    await admin.appCheck().verifyToken(appCheckToken);
+    return true;
+  } catch {
+    res.status(401).json({ error: 'Invalid App Check token' });
+    return false;
+  }
+}
+
 async function checkRateLimit(uid, res, limit = RATE_LIMIT, keyPrefix = 'ai') {
   const db = admin.firestore();
   const now = Date.now();
@@ -67,7 +87,7 @@ async function checkRateLimit(uid, res, limit = RATE_LIMIT, keyPrefix = 'ai') {
     });
     if (!result.allowed) { res.status(429).json({ error: `Rate limit exceeded. Try again in ${result.minutesLeft} minutes.` }); return false; }
     return true;
-  } catch (err) { console.error('checkRateLimit error:', err); return true; }
+  } catch (err) { console.error('checkRateLimit error:', err); res.status(503).json({ error: 'Service temporarily unavailable, please try again.' }); return false; }
 }
 
 function sanitizeMessages(messages) {
@@ -123,6 +143,7 @@ exports.ai = onRequest({ secrets: [ANTHROPIC_API_KEY], cors: true, timeoutSecond
   cors(req, res, async () => {
     if (req.method === 'OPTIONS') return res.status(204).send('');
     if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
+    if (!await verifyAppCheck(req, res)) return;
     const decoded = await verifyAuth(req, res); if (!decoded) return;
     const allowed = await checkRateLimit(decoded.uid, res); if (!allowed) return;
     const sanitized = sanitizeMessages(req.body.messages);
@@ -149,6 +170,7 @@ exports.createCheckout = onRequest({ secrets: [STRIPE_SECRET_KEY], cors: true, t
   cors(req, res, async () => {
     if (req.method === 'OPTIONS') return res.status(204).send('');
     if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
+    if (!await verifyAppCheck(req, res)) return;
     const decoded = await verifyAuth(req, res); if (!decoded) return;
     const allowed = await checkRateLimit(decoded.uid, res, CHECKOUT_RATE_LIMIT, 'checkout'); if (!allowed) return;
     const { priceId } = req.body;
@@ -297,7 +319,8 @@ exports.renewalAlerts = onSchedule({
   const BATCH_SIZE = 100;
 
   while (true) {
-    let q = db.collection('userdata').limit(BATCH_SIZE);
+    // Exclude users who explicitly opted out; field absence means opted-in (default on)
+    let q = db.collection('userdata').where('user.renewal_alerts', '!=', false).limit(BATCH_SIZE);
     if (lastDoc) q = q.startAfter(lastDoc);
     const snapshot = await q.get();
     if (snapshot.empty) break;
@@ -309,7 +332,6 @@ exports.renewalAlerts = onSchedule({
       const tools = data?.tools || [];
       if (!email) continue;
       if (seenEmails.has(email)) continue;
-      if (data?.user?.renewal_alerts === false) continue;
       const upcoming = tools.filter(t => t.renewal_date >= todayStr && t.renewal_date <= in30Str);
       if (!upcoming.length) continue;
       const rows = upcoming.map(t => {

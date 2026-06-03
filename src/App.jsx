@@ -1411,6 +1411,18 @@ function useDbQuery() {
   });
 }
 
+function appendAuditEntry(db, action, details) {
+  if (!db.audit_log) db.audit_log = [];
+  db.audit_log.unshift({
+    id: uid('log'),
+    ts: new Date().toISOString(),
+    action,
+    actor: db.user?.email || db.user?.displayName || 'unknown',
+    ...details,
+  });
+  if (db.audit_log.length > 500) db.audit_log = db.audit_log.slice(0, 500);
+}
+
 function useDbMutations() {
   const qc = useQueryClient();
 
@@ -1438,7 +1450,9 @@ function useDbMutations() {
         throw new Error(`PLAN_LIMIT:You've reached your ${limits.label} plan limit of ${limits.tools} tools. Upgrade to add more.`);
       }
       setDb((db) => {
-        db.tools.unshift({ ...tool, id: uid("tool") });
+        const newTool = { ...tool, id: uid("tool") };
+        db.tools.unshift(newTool);
+        appendAuditEntry(db, 'add_tool', { target: tool.name });
         return db;
       });
     },
@@ -1467,8 +1481,10 @@ function useDbMutations() {
   const deleteTool = useMutation({
     mutationFn: async (id) => {
       setDb((db) => {
+        const tool = db.tools.find((t) => t.id === id);
         db.tools = db.tools.filter((t) => t.id !== id);
         db.access = db.access.filter((a) => a.tool_id !== id);
+        appendAuditEntry(db, 'delete_tool', { target: tool?.name || id });
         return db;
       });
     },
@@ -1486,6 +1502,7 @@ function useDbMutations() {
       }
       setDb((db) => {
         db.employees.unshift({ ...emp, id: uid("emp") });
+        appendAuditEntry(db, 'add_employee', { target: emp.full_name, dept: emp.department });
         return db;
       });
     },
@@ -1550,6 +1567,7 @@ function useDbMutations() {
               : t
           );
         }
+        appendAuditEntry(db, 'delete_employee', { target: emp?.full_name || id, dept: emp?.department });
         return db;
       });
     },
@@ -1569,7 +1587,13 @@ function useDbMutations() {
   const updateAccess = useMutation({
     mutationFn: async ({ id, patch }) => {
       setDb((db) => {
+        const before = db.access.find((a) => a.id === id);
         db.access = db.access.map((a) => (a.id === id ? { ...a, ...patch } : a));
+        if (patch.status === 'revoked') {
+          appendAuditEntry(db, 'revoke_access', { target: before?.employee_name, tool: before?.tool_name, access_level: before?.access_level });
+        } else if (patch.access_level) {
+          appendAuditEntry(db, 'change_access_level', { target: before?.employee_name, tool: before?.tool_name, from: before?.access_level, to: patch.access_level });
+        }
         return db;
       });
     },
@@ -1579,7 +1603,9 @@ function useDbMutations() {
   const deleteAccess = useMutation({
     mutationFn: async (id) => {
       setDb((db) => {
+        const record = db.access.find((a) => a.id === id);
         db.access = db.access.filter((a) => a.id !== id);
+        appendAuditEntry(db, 'revoke_access', { target: record?.employee_name, tool: record?.tool_name, access_level: record?.access_level });
         return db;
       });
     },
@@ -4235,6 +4261,14 @@ function TrialPage() {
                     </div>
                     {t('lp_auth_continue_microsoft')}
                   </button>
+
+                  {/* Legal footer — always visible above email divider */}
+                  <p className="text-center text-[10px] text-slate-600 leading-relaxed -mt-1">
+                    {t('lp_auth_agree_1')}{' '}
+                    <Link to="/terms" className="text-slate-500 hover:text-white underline" onClick={() => setShowAuth(false)}>{t('lp_auth_agree_terms')}</Link>
+                    {' '}{t('lp_auth_agree_and')}{' '}
+                    <Link to="/privacy" className="text-slate-500 hover:text-white underline" onClick={() => setShowAuth(false)}>{t('hc_privacy_policy')}</Link>
+                  </p>
 
                   {/* Divider */}
                   <div className="flex items-center gap-3 py-1">
@@ -9476,6 +9510,61 @@ function AuditTabContent() {
           </div>
         </div>
       )}
+
+      {/* ── Audit Log ── */}
+      {(db?.audit_log?.length > 0) && (
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 lg:p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-base font-semibold text-white">{t('audit_log_title') || 'Activity Log'}</h2>
+              <p className="text-sm text-slate-500">{t('audit_log_sub') || 'Record of all changes made in this workspace'}</p>
+            </div>
+            <button onClick={() => {
+              const headers = ['Timestamp','Action','Actor','Target','Details'];
+              const rows = (db.audit_log || []).map(e => [e.ts, e.action, e.actor, e.target || '', JSON.stringify({ tool: e.tool, dept: e.dept, from: e.from, to: e.to })]);
+              downloadText(`stacklens_audit_log_${todayISO()}.csv`, toCsv(headers, rows));
+              toast.success('Audit log exported');
+            }} className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-xs font-semibold text-slate-300 transition-colors">
+              <Download className="h-3.5 w-3.5" /> Export CSV
+            </button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-800">
+                  {['Timestamp', 'Action', 'By', 'Target'].map(h => (
+                    <th key={h} className="text-left py-2 px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {(db.audit_log || []).slice(0, 50).map((entry) => (
+                  <tr key={entry.id} className="border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors">
+                    <td className="py-2.5 px-3 text-xs text-slate-500 whitespace-nowrap">{new Date(entry.ts).toLocaleString()}</td>
+                    <td className="py-2.5 px-3">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase ${
+                        entry.action.includes('delete') || entry.action === 'revoke_access' ? 'bg-red-500/15 text-red-400' :
+                        entry.action.includes('add') ? 'bg-emerald-500/15 text-emerald-400' :
+                        'bg-blue-500/15 text-blue-400'
+                      }`}>{entry.action.replace(/_/g, ' ')}</span>
+                    </td>
+                    <td className="py-2.5 px-3 text-xs text-slate-400 truncate max-w-[140px]">{entry.actor}</td>
+                    <td className="py-2.5 px-3 text-xs text-slate-300 truncate max-w-[200px]">
+                      {entry.target || '—'}
+                      {entry.tool && <span className="text-slate-500"> → {entry.tool}</span>}
+                      {entry.from && entry.to && <span className="text-slate-500"> ({entry.from} → {entry.to})</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {(db.audit_log?.length || 0) > 50 && (
+            <div className="text-center pt-3 text-xs text-slate-500">{t('showing_n_of_m')?.replace('{x}', 50).replace('{n}', db.audit_log.length) || `Showing 50 of ${db.audit_log.length} entries — export CSV for full log`}</div>
+          )}
+        </div>
+      )}
+
     </div>
   );
 }
