@@ -67,8 +67,10 @@ if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
 const app             = initializeApp(firebaseConfig);
 
 // ── App Check (anti-bot protection) ──────────────────────────────
-// Activates only when VITE_RECAPTCHA_SITE_KEY is set in .env
-// Silently does nothing otherwise — so local dev works without a key
+// Requires VITE_RECAPTCHA_SITE_KEY to be set to the key shown in
+// Firebase Console → App Check → Apps (not the reCAPTCHA admin console).
+// Leave the env var unset to disable App Check — auth still works when
+// Firebase App Check enforcement is in "Monitoring" mode.
 try {
   const recaptchaKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
   if (typeof window !== 'undefined' && recaptchaKey) {
@@ -78,6 +80,10 @@ try {
     });
   }
 } catch (e) {
+  // Initialization errors (wrong key format, etc.) are caught here.
+  // Runtime 400 errors from exchangeRecaptchaV3Token mean the site key in
+  // VITE_RECAPTCHA_SITE_KEY doesn't match what's registered in Firebase App Check
+  // console, or the domain isn't in the reCAPTCHA allowlist for that key.
   console.warn('App Check initialization skipped:', e?.message);
 }
 
