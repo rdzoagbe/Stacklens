@@ -4533,6 +4533,8 @@ function WorkspaceConnector({ compact = false }) {
   const [oktaStep, setOktaStep]     = useState(null);
   const [oktaDomain, setOktaDomain] = useState('');
   const [cancelledProvider, setCancelledProvider] = useState(null); // 'google' | 'microsoft' | 'okta'
+  const msPopupRef   = useRef(null); // track open popup to prevent double-click overwrite
+  const oktaPopupRef = useRef(null);
 
   // Auto-dismiss success/error status after 6s; clear stale loading if syncing stops
   React.useEffect(() => {
@@ -4554,6 +4556,7 @@ function WorkspaceConnector({ compact = false }) {
     const handleMessage = async (event) => {
       if (event.origin !== window.location.origin) return;
       const { type, code, state, error } = event.data || {};
+      if (!callbackRef.current) return;
       const { muts: m, setSyncing: ss, setStatus: st, setCancelledProvider: sc } = callbackRef.current;
 
       if (type === 'oauth_popup_cancelled') {
@@ -4756,9 +4759,25 @@ function WorkspaceConnector({ compact = false }) {
       code_challenge:        challenge,
       code_challenge_method: 'S256',
     });
+    // Reuse existing popup if still open (prevents double-click from overwriting sessionStorage)
+    if (msPopupRef.current && !msPopupRef.current.closed) {
+      msPopupRef.current.focus();
+      sessionStorage.removeItem('ms_state');
+      sessionStorage.removeItem('ms_code_verifier');
+      return;
+    }
     const url = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params}`;
     const popup = window.open(url, 'ms-auth', 'width=520,height=680,left=200,top=80');
-    if (!popup) window.location.href = url; // fallback if popup blocked
+    if (!popup) {
+      // Popup blocked — clean up and ask user to allow popups.
+      // We do NOT fall back to a full-page redirect because the URL-params callback
+      // handler was replaced with a postMessage handler; the redirect would silently fail.
+      sessionStorage.removeItem('ms_state');
+      sessionStorage.removeItem('ms_code_verifier');
+      setStatus({ type: 'error', msg: 'Popup blocked. Please allow popups for this site, then try again.' });
+      return;
+    }
+    msPopupRef.current = popup;
   };
 
   const connectOkta = async () => {
@@ -4788,9 +4807,24 @@ function WorkspaceConnector({ compact = false }) {
       code_challenge:        challenge,
       code_challenge_method: 'S256',
     });
+    // Reuse existing popup if still open (prevents double-click from overwriting sessionStorage)
+    if (oktaPopupRef.current && !oktaPopupRef.current.closed) {
+      oktaPopupRef.current.focus();
+      sessionStorage.removeItem('okta_state');
+      sessionStorage.removeItem('okta_code_verifier');
+      sessionStorage.removeItem('okta_domain');
+      return;
+    }
     const url = `https://${domain}/oauth2/v1/authorize?${params}`;
     const popup = window.open(url, 'okta-auth', 'width=520,height=680,left=200,top=80');
-    if (!popup) window.location.href = url; // fallback if popup blocked
+    if (!popup) {
+      sessionStorage.removeItem('okta_state');
+      sessionStorage.removeItem('okta_code_verifier');
+      sessionStorage.removeItem('okta_domain');
+      setStatus({ type: 'error', msg: 'Popup blocked. Please allow popups for this site, then try again.' });
+      return;
+    }
+    oktaPopupRef.current = popup;
   };
 
   const providers = [
