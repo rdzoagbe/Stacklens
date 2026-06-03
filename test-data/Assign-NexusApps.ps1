@@ -327,13 +327,16 @@ foreach ($tool in $Tools) {
 
     if (-not $sp) {
         if ($PSCmdlet.ShouldProcess($displayName, "Create Service Principal")) {
-            $sp = New-MgServicePrincipal -AppId $appOid `
-                -AppRoleAssignmentRequired $true `
-                -Tags @("WindowsAzureActiveDirectoryIntegratedApp")
+            $spParams = @{
+                AppId                    = $appOid
+                AppRoleAssignmentRequired = $true
+                Tags                     = @("WindowsAzureActiveDirectoryIntegratedApp")
+            }
+            $sp = New-MgServicePrincipal -BodyParameter $spParams
             Write-Verbose "    Service principal created: $($sp.Id)"
         }
     } elseif (-not $sp.AppRoleAssignmentRequired) {
-        Update-MgServicePrincipal -ServicePrincipalId $sp.Id -AppRoleAssignmentRequired $true
+        Update-MgServicePrincipal -ServicePrincipalId $sp.Id -BodyParameter @{ AppRoleAssignmentRequired = $true }
     }
 
     if (-not $sp) { continue }
