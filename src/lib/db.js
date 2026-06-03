@@ -201,6 +201,9 @@ export async function resetDb() {
     localStorage.removeItem('sg_github_token');
     localStorage.removeItem('sg_github_org');
     localStorage.removeItem('sg_github_last_sync');
+    localStorage.removeItem('sg_okta_token');
+    localStorage.removeItem('sg_okta_domain');
+    localStorage.removeItem('sg_okta_last_sync');
 
     await new Promise(r => setTimeout(r, 500));
     window.location.reload();
