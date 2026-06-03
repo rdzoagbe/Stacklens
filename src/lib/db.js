@@ -191,6 +191,16 @@ export async function resetDb() {
     localStorage.removeItem('sg_team_members');
     localStorage.removeItem('ag_ai_recs_cache');
     localStorage.removeItem('ag_live_translations');
+    // Integration state
+    localStorage.removeItem('sg_connected_integrations');
+    localStorage.removeItem('sg_gws_last_sync');
+    localStorage.removeItem('sg_slack_token');
+    localStorage.removeItem('sg_slack_channel');
+    localStorage.removeItem('sg_slack_last_sync');
+    localStorage.removeItem('sg_m365_last_sync');
+    localStorage.removeItem('sg_github_token');
+    localStorage.removeItem('sg_github_org');
+    localStorage.removeItem('sg_github_last_sync');
 
     await new Promise(r => setTimeout(r, 500));
     window.location.reload();

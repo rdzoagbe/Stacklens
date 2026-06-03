@@ -404,6 +404,7 @@ export function useDbMutations() {
               status:     r.status     || 'active',
               start_date: r.start_date || '',
               end_date:   r.end_date   || '',
+              ...(r.github_login && { github_login: r.github_login }),
             })),
             ...db.employees,
           ];
