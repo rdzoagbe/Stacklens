@@ -2106,6 +2106,7 @@ function useIdleTimer(enabled) {
       events.forEach(e => window.removeEventListener(e, reset));
     };
   }, [enabled, navigate]);
+}
 
 function EmailVerificationWall({ email }) {
   const { language } = useLang();
