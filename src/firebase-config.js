@@ -82,7 +82,11 @@ try {
 
 const auth            = getAuth(app);
 const firestoreDb     = getFirestore(app);
-const googleProvider  = new GoogleAuthProvider();
+const googleProvider    = new GoogleAuthProvider();
+const microsoftProvider = new OAuthProvider('microsoft.com');
+microsoftProvider.addScope('email');
+microsoftProvider.addScope('profile');
+microsoftProvider.setCustomParameters({ prompt: 'select_account' });
 let   analytics       = null;
 
 isSupported().then(ok => {
@@ -253,6 +257,15 @@ export async function signInWithGoogle() {
   }
 }
 
+export async function signInWithMicrosoft() {
+  try {
+    const result = await signInWithPopup(auth, microsoftProvider);
+    return { user: result.user, error: null };
+  } catch (error) {
+    return { user: null, error: error.message };
+  }
+}
+
 export async function handleRedirectResult() {
   try {
     const result = await getRedirectResult(auth);
@@ -312,6 +325,41 @@ export { auth, firestoreDb as db, analytics };
 // ============================================================================
 // STRIPE BILLING HELPERS
 // ============================================================================
+export async function refreshClaims() {
+  if (!auth.currentUser) return null;
+  await auth.currentUser.getIdToken(true);
+  const result = await auth.currentUser.getIdTokenResult();
+  return result.claims;
+}
+
+export async function syncClaimsFromServer() {
+  try {
+    const token = await getToken();
+    if (!token) return null;
+    const res = await fetch(`${FUNCTIONS_BASE}/refreshClaims`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    await auth.currentUser?.getIdToken(true);
+    return data.plan;
+  } catch { return null; }
+}
+
+export async function sendInviteEmail({ inviteeEmail, inviterName, orgName }) {
+  const token = await getToken();
+  if (!token) throw new Error('Not authenticated');
+  const res = await fetch(`${FUNCTIONS_BASE}/sendInvite`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    body: JSON.stringify({ inviteeEmail, inviterName, orgName }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Invite failed');
+  return data;
+}
+
 export async function createCheckoutSession(priceId) {
   const token = await getToken();
   if (!token) throw new Error('Not authenticated');
@@ -357,6 +405,17 @@ export async function signInWithEmail(email, password) {
     return { user: result.user, error: null };
   } catch (error) {
     return { user: null, error: error.message };
+  }
+}
+
+// Resend email verification to current user
+export async function resendEmailVerification() {
+  try {
+    if (!auth.currentUser) return { error: 'Not signed in' };
+    await sendEmailVerification(auth.currentUser);
+    return { error: null };
+  } catch (error) {
+    return { error: error.message };
   }
 }
 
@@ -415,8 +474,6 @@ export async function logLegalAcceptance(uid, email, planId) {
 
 // ============================================================================
 // FOUNDER ADMIN — read all users, extend trials
-// Requires is_founder=true on the calling user's /users/{uid} doc.
-// Firestore rules enforce this server-side.
 // ============================================================================
 export async function loadAllUsersAdmin() {
   try {
@@ -447,17 +504,6 @@ export async function founderSetPlan(targetUid, plan) {
   } catch (err) {
     console.error('founderSetPlan:', err);
     throw err;
-  }
-}
-
-export async function signInWithMicrosoft() {
-  try {
-    const provider = new OAuthProvider('microsoft.com');
-    provider.setCustomParameters({ prompt: 'select_account', tenant: 'common' });
-    const result = await signInWithPopup(auth, provider);
-    return { user: result.user, error: null };
-  } catch (error) {
-    return { user: null, error: error.message };
   }
 }
 

@@ -8,8 +8,9 @@ import {
   useLocation,
   useNavigate,
   useParams,
+  useSearchParams,
 } from "react-router-dom";
-import { signInWithGoogle, signInWithGoogleWorkspace, handleRedirectResult, signOutUser, onAuthChange, sendMagicLink, completeMagicLinkSignIn, callAI, loadUserData, saveUserData, syncUserProfile, getUserPlanFromFirestore, registerWithEmail, signInWithEmail, resetPassword, createBillingPortal, createCheckoutSession, logConsent, startTrial, logLegalAcceptance, loadAllUsersAdmin, founderExtendTrial, founderSetPlan, signInWithMicrosoft, saveReport, getReport, deleteReport, deleteAccount } from './firebase-config';
+import { signInWithGoogle, signInWithGoogleWorkspace, handleRedirectResult, signOutUser, onAuthChange, sendMagicLink, completeMagicLinkSignIn, callAI, loadUserData, saveUserData, syncUserProfile, getUserPlanFromFirestore, registerWithEmail, signInWithEmail, resetPassword, createBillingPortal, createCheckoutSession, logConsent, startTrial, logLegalAcceptance, loadAllUsersAdmin, founderExtendTrial, founderSetPlan, signInWithMicrosoft, saveReport, getReport, deleteReport, resendEmailVerification, deleteAccount } from './firebase-config';
 
 // ── Compatibility stubs (migrated to Firestore) ──────────────
 async function getUserProfile(uid) {
@@ -108,26 +109,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, L
 // ============================================================================
 // GLOBAL LANGUAGE CONTEXT — single source of truth for all pages
 // ============================================================================
-const LanguageContext = React.createContext({ language: 'en', setLanguage: () => {} });
-
-function LanguageProvider({ children }) {
-  const [language, setLanguage] = React.useState(
-    () => localStorage.getItem('language') || 'en'
-  );
-  const setAndPersist = React.useCallback((lang) => {
-    localStorage.setItem('language', lang);
-    setLanguage(lang);
-  }, []);
-  return (
-    <LanguageContext.Provider value={{ language, setLanguage: setAndPersist }}>
-      {children}
-    </LanguageContext.Provider>
-  );
-}
-
-function useLang() {
-  return React.useContext(LanguageContext);
-}
+// LanguageContext, LanguageProvider, useLang — imported from ./contexts/LangContext
 // ============================================================================
 
 
@@ -451,37 +433,8 @@ function RoleBadge({ role }) {
 }
 
 
-const LS_KEY = "accessguard_v1";
-
-const CATEGORIES = [
-  "engineering",
-  "design",
-  "marketing",
-  "sales",
-  "finance",
-  "hr",
-  "operations",
-  "security",
-  "communication",
-  "other",
-];
-
-const EMP_DEPARTMENTS = [...CATEGORIES, "executive"];
-
-const TOOL_STATUS = ["active", "orphaned", "unused", "decommissioned"];
-const CRITICALITY = ["low", "medium", "high"];
-const RISK_SCORE = ["low", "medium", "high"];
-
-const ACCESS_LEVEL = ["admin", "editor", "viewer", "billing"];
-const ACCESS_STATUS = ["active", "revoked", "pending_revocation"];
-const RISK_FLAG = [
-  "none",
-  "orphaned",
-  "unused",
-  "former_employee",
-  "excessive_admin",
-  "needs_review",
-];
+// LS_KEY, CATEGORIES, EMP_DEPARTMENTS, TOOL_STATUS, CRITICALITY, RISK_SCORE,
+// ACCESS_LEVEL, ACCESS_STATUS, RISK_FLAG — imported from ./lib/constants
 
 function uid(prefix = "id") {
   return `${prefix}_${Math.random().toString(16).slice(2)}_${Date.now()}`;
@@ -867,8 +820,25 @@ function loadDb() {
   try { return JSON.parse(raw); } catch { return null; }
 }
 
+const LS_SIZE_WARN_BYTES = 3 * 1024 * 1024; // warn at 3 MB
+const LS_SIZE_MAX_BYTES  = 4.5 * 1024 * 1024; // hard cap at 4.5 MB (browser limit ~5 MB)
+
 function saveDb(db) {
-  localStorage.setItem(LS_KEY, JSON.stringify(db));
+  const serialized = JSON.stringify(db);
+  // Phase 5: guard against localStorage overflow silently corrupting data
+  if (serialized.length > LS_SIZE_MAX_BYTES) {
+    // Trim oldest 20% of tools and access rows to stay under the limit
+    const trimmed = { ...db };
+    if (trimmed.tools?.length > 50) trimmed.tools = trimmed.tools.slice(0, Math.floor(trimmed.tools.length * 0.8));
+    if (trimmed.access?.length > 200) trimmed.access = trimmed.access.slice(0, Math.floor(trimmed.access.length * 0.8));
+    localStorage.setItem(LS_KEY, JSON.stringify(trimmed));
+    console.warn('[Stacklens] localStorage approaching limit — oldest records trimmed. Enable cloud sync for large datasets.');
+  } else {
+    if (serialized.length > LS_SIZE_WARN_BYTES) {
+      console.warn('[Stacklens] localStorage usage high:', Math.round(serialized.length / 1024), 'KB');
+    }
+    localStorage.setItem(LS_KEY, serialized);
+  }
   // Sync to Firestore (fire and forget) - only for real authenticated users
   if (_firestoreUid && db?.user?.is_authenticated && !db?.user?.is_demo) {
     saveUserData(_firestoreUid, db).catch(() => {});
@@ -880,14 +850,29 @@ async function hydrateFromFirestore(uid) {
   try {
     const cloudData = await loadUserData(uid);
     const localData = loadDb();
-    // Never overwrite local data that has more tools than cloud
-    if (localData && (localData.tools?.length > 0 || localData.employees?.length > 0)) {
+
+    // If localStorage belongs to a different user, discard it — never bleed one
+    // user's data into another account (e.g. switching from Google to Microsoft).
+    const storedUid = localStorage.getItem('sg_auth_uid');
+    if (localData && storedUid && storedUid !== uid) {
+      localStorage.removeItem(LS_KEY);
+      localStorage.removeItem('sg_team_members');
+      localStorage.removeItem('sg_api_keys');
+      localStorage.removeItem('sg_notifications');
+      localStorage.removeItem('sg_budget_cap');
+    }
+    localStorage.setItem('sg_auth_uid', uid);
+
+    const freshLocal = loadDb(); // re-read after possible clear
+
+    // Never overwrite local data (belonging to this user) that has more tools than cloud
+    if (freshLocal && (freshLocal.tools?.length > 0 || freshLocal.employees?.length > 0)) {
       // Local has data - just preserve plan from cloud and return local
       if (cloudData?.user?.plan && cloudData.user.plan !== "free") {
-        localData.user = { ...localData.user, plan: cloudData.user.plan, subscription_plan: cloudData.user.plan };
-        saveDb(localData);
+        freshLocal.user = { ...freshLocal.user, plan: cloudData.user.plan, subscription_plan: cloudData.user.plan };
+        saveDb(freshLocal);
       }
-      return localData;
+      return freshLocal;
     }
     if (cloudData && cloudData.tools !== undefined) {
       // Cloud data exists — use it but preserve existing plan from users collection
@@ -902,10 +887,9 @@ async function hydrateFromFirestore(uid) {
       localStorage.setItem(LS_KEY, JSON.stringify(cloudData));
       return cloudData;
     }
-    // No cloud data yet — local data (if any) will be synced on next saveDb
+    // No cloud data yet — local data (if any, belonging to this user) will be synced on next saveDb
     const local = loadDb();
     if (local && !local.user?.is_demo) {
-      // Migrate existing local data to Firestore
       await saveUserData(uid, local);
     }
     return local;
@@ -1202,6 +1186,7 @@ async function resetDb() {
     // 4. Clear all caches
     localStorage.removeItem('accessguard_fx_rates');
     localStorage.removeItem('sg_general');
+    localStorage.removeItem('sg_team_members');
     localStorage.removeItem('ag_ai_recs_cache');
     localStorage.removeItem('ag_live_translations');
 
@@ -1476,6 +1461,7 @@ function useDbMutations() {
       });
     },
     onSuccess: invalidate,
+    onError: () => toast.error('Failed to update tool. Please try again.'),
   });
 
   const deleteTool = useMutation({
@@ -1489,6 +1475,7 @@ function useDbMutations() {
       });
     },
     onSuccess: invalidate,
+    onError: () => toast.error('Failed to delete tool. Please try again.'),
   });
 
   const createEmployee = useMutation({
@@ -1551,6 +1538,7 @@ function useDbMutations() {
       });
     },
     onSuccess: invalidate,
+    onError: () => toast.error('Failed to update employee. Please try again.'),
   });
 
   const deleteEmployee = useMutation({
@@ -1572,6 +1560,7 @@ function useDbMutations() {
       });
     },
     onSuccess: invalidate,
+    onError: () => toast.error('Failed to delete employee. Please try again.'),
   });
 
   const createAccess = useMutation({
@@ -1582,6 +1571,7 @@ function useDbMutations() {
       });
     },
     onSuccess: invalidate,
+    onError: () => toast.error('Failed to add access record. Please try again.'),
   });
 
   const updateAccess = useMutation({
@@ -1598,6 +1588,7 @@ function useDbMutations() {
       });
     },
     onSuccess: invalidate,
+    onError: () => toast.error('Failed to update access record. Please try again.'),
   });
 
   const deleteAccess = useMutation({
@@ -1944,7 +1935,7 @@ function useAuth() {
       setLoading(false);
 
       if (fbUser) {
-        // Fetch plan from Firestore so billing reflects real subscription
+        // Fetch plan: custom claims (server-signed, tamper-proof) take precedence over Firestore
         let plan = 'free';
         let stripeCustomerId = null;
         let subscriptionStatus = null;
@@ -1952,10 +1943,15 @@ function useAuth() {
         let trialStartedAt = null;
         let fsUserExists = false;
         try {
+          // Read ID token claims — set by Cloud Functions on billing events
+          const tokenResult = await fbUser.getIdTokenResult();
+          const claimedPlan = tokenResult.claims?.plan;
+
           const fsUser = await getUserPlanFromFirestore(fbUser.uid);
           if (fsUser) {
             fsUserExists = true;
-            plan = fsUser.plan || 'free';
+            // Custom claim wins over Firestore if present and is a paid plan
+            plan = (claimedPlan && claimedPlan !== 'free') ? claimedPlan : (fsUser.plan || 'free');
             stripeCustomerId = fsUser.stripe_customer_id || null;
             subscriptionStatus = fsUser.subscription_status || null;
             isFounder = fsUser.is_founder === true;
@@ -1964,6 +1960,8 @@ function useAuth() {
                   ? fsUser.trial_started_at
                   : (fsUser.trial_started_at?.seconds ? fsUser.trial_started_at.seconds * 1000 : Date.parse(fsUser.trial_started_at) || null))
               : null;
+          } else if (claimedPlan && claimedPlan !== 'free') {
+            plan = claimedPlan;
           }
         } catch (e) { /* ignore, default to free */ }
 
@@ -2063,6 +2061,7 @@ function useAuth() {
 
   const logout = async () => {
     await signOutUser();
+    localStorage.removeItem('sg_auth_uid');
     const cur = seedDbIfEmpty();
     cur.user = { is_authenticated: false, is_demo: false };
     saveDb(cur);
@@ -2107,6 +2106,56 @@ function useIdleTimer(enabled) {
       events.forEach(e => window.removeEventListener(e, reset));
     };
   }, [enabled, navigate]);
+
+function EmailVerificationWall({ email }) {
+  const { language } = useLang();
+  const t = useTranslation(language);
+  const { firebaseUser } = useAuth();
+  const [sent, setSent] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleResend = async () => {
+    const { error: err } = await resendEmailVerification();
+    if (err) { setError(err); } else { setSent(true); setError(''); }
+  };
+
+  const handleCheck = async () => {
+    setChecking(true);
+    try {
+      await firebaseUser.reload();
+      // If verified, the onAuthStateChanged will re-render with updated user
+      if (!firebaseUser.emailVerified) setError(t('email_not_verified_yet') || 'Email not verified yet. Please check your inbox.');
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6">
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 max-w-md w-full text-center space-y-5">
+        <div className="text-5xl">✉️</div>
+        <div>
+          <h2 className="text-xl font-bold text-white mb-2">{t('verify_email_title') || 'Verify your email'}</h2>
+          <p className="text-slate-400 text-sm">{t('verify_email_sub') || "We sent a verification link to"} <span className="text-white font-medium">{email}</span>. {t('verify_email_sub2') || "Click the link to activate your account."}</p>
+        </div>
+        {error && <p className="text-red-400 text-sm">{error}</p>}
+        {sent && <p className="text-green-400 text-sm">{t('verification_resent') || 'Verification email resent!'}</p>}
+        <div className="flex flex-col gap-3">
+          <button onClick={handleCheck} disabled={checking}
+            className="w-full px-4 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-xl font-semibold text-sm transition-colors">
+            {checking ? (t('checking') || 'Checking...') : (t('ive_verified') || "I've verified — continue")}
+          </button>
+          <button onClick={handleResend}
+            className="w-full px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-semibold text-sm transition-colors">
+            {t('resend_verification') || 'Resend verification email'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function RequireAuth({ children }) {
@@ -2116,11 +2165,16 @@ function RequireAuth({ children }) {
   const location = useLocation();
   useIdleTimer(!!(isAuthed && !isDemo && firebaseUser));
 
-  // Wait for Firebase auth to fully resolve before deciding to redirect
   if (loading) return <div className="flex items-center justify-center h-screen bg-slate-950"><div className="text-white text-sm">{t('loading')}</div></div>;
 
-  // Accept: locally authed, demo mode, OR live Firebase session (handles post-redirect gap)
   if (!isAuthed && !isDemo && !firebaseUser) return <Navigate to="/" replace state={{ from: location }} />;
+
+  // Gate email/password users who haven't verified yet (Google/magic-link users are pre-verified)
+  const isPasswordProvider = firebaseUser?.providerData?.[0]?.providerId === 'password';
+  if (isPasswordProvider && firebaseUser?.emailVerified === false) {
+    return <EmailVerificationWall email={firebaseUser.email} />;
+  }
+
   return children;
 }
 
@@ -2554,21 +2608,28 @@ function TopBar({ title, right }) {
   const _db = JSON.parse(localStorage.getItem("accessguard_v1") || "{}");
   const userName = _db?.user?.displayName || _db?.user?.email?.split("@")[0] || "Stacklens";
   return (
-    <div className="flex items-center justify-between gap-4 border-b border-slate-800 bg-slate-950/30 p-5">
-      <div>
-
-        <div className="text-xl font-semibold text-slate-100">{title}</div>
-        <div className="mt-1 text-sm text-slate-500">{t('topbar_subtitle')}</div>
-      </div>
-      <div className="flex items-center gap-3">
-        <div className="hidden sm:flex items-center gap-2 text-sm text-slate-300">
+    <div className="border-b border-slate-800 bg-slate-950/30">
+      {/* Title row — always fits, user avatar pinned right */}
+      <div className="flex items-center justify-between gap-4 px-5 pt-4 pb-3">
+        <div>
+          <div className="text-xl font-semibold text-slate-100">{title}</div>
+          <div className="mt-0.5 text-sm text-slate-500">{t('topbar_subtitle')}</div>
+        </div>
+        <div className="hidden sm:flex items-center gap-2 text-sm text-slate-300 flex-shrink-0">
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600/20 text-blue-300 font-medium">
             {userName.charAt(0).toUpperCase()}
           </div>
-          <span>{userName}</span>
+          <span className="max-w-[120px] truncate">{userName}</span>
         </div>
-        {right ? <div className="flex items-center gap-2">{right}</div> : null}
       </div>
+      {/* Tab/action bar — scrollable on narrow screens */}
+      {right && (
+        <div className="overflow-x-auto px-5 pb-3 [&::-webkit-scrollbar]:h-0">
+          <div className="min-w-max">
+            {right}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -2739,6 +2800,32 @@ function CookieBanner() {
   );
 }
 
+function TrialExpiredBanner() {
+  const { user, isDemo } = useAuth();
+  const { language } = useLang();
+  const t = useTranslation(language);
+  const navigate = useNavigate();
+
+  if (isDemo) return null;
+  const plan = resolvePlan(user);
+  const { expired } = getTrialState(user);
+  if (!expired || (plan && plan !== 'free')) return null;
+
+  return (
+    <div className="bg-gradient-to-r from-amber-600 to-orange-600 text-white text-sm px-4 py-2.5 flex items-center justify-between">
+      <div className="flex items-center gap-2">
+        <span className="text-base">⏰</span>
+        <span className="font-semibold">{t('trial_expired_banner_title') || 'Your free trial has ended'}</span>
+        <span className="text-amber-100 hidden sm:inline">— {t('trial_expired_banner_sub') || 'Upgrade to keep your team\'s SaaS stack visible and actionable.'}</span>
+      </div>
+      <button onClick={() => navigate('/app/settings?tab=billing')}
+        className="bg-white text-amber-600 hover:bg-amber-50 px-3 py-1 rounded-lg text-xs font-bold transition-all flex-shrink-0">
+        {t('upgrade_now') || 'Upgrade now'} →
+      </button>
+    </div>
+  );
+}
+
 function DemoBanner() {
   const { isDemo } = useAuth();
   const navigate = useNavigate();
@@ -2801,6 +2888,7 @@ function AppShell({ subtitle, title, right, children }) {
     <div className="min-h-screen bg-slate-950 text-slate-100 overflow-x-hidden">
       <div className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.18),transparent_52%),radial-gradient(circle_at_bottom,rgba(99,102,241,0.10),transparent_55%)]" />
       <DemoBanner />
+      <TrialExpiredBanner />
       <div className="flex flex-col md:flex-row w-full overflow-x-hidden md:h-screen">
         <div className="hidden md:block flex-shrink-0">
           <Sidebar collapsed={collapsed} setCollapsed={setCollapsed} />
@@ -2948,69 +3036,7 @@ function convertCurrency(amountUSD, lang) {
 }
 
 
-// ── Real-time Currency Conversion ────────────────────────────────────────
-const CURRENCY_CACHE_KEY = 'accessguard_fx_rates';
-const CACHE_TTL = 3600000; // 1 hour
-
-async function fetchExchangeRates(base = 'USD') {
-  try {
-    const cached = JSON.parse(localStorage.getItem(CURRENCY_CACHE_KEY) || '{}');
-    if (cached.rates && cached.ts && Date.now() - cached.ts < CACHE_TTL) {
-      return cached.rates;
-    }
-    const res = await fetch(`https://open.er-api.com/v6/latest/${base}`);
-    const data = await res.json();
-    if (data.rates) {
-      localStorage.setItem(CURRENCY_CACHE_KEY, JSON.stringify({ rates: data.rates, ts: Date.now() }));
-      return data.rates;
-    }
-  } catch(e) {
-    console.warn('Exchange rate fetch failed:', e);
-  }
-  // Fallback rates
-  return { USD: 1, EUR: 0.92, GBP: 0.79, JPY: 149.5, CAD: 1.36 };
-}
-
-function useCurrencyConverter() {
-  const { language } = useLang();
-  const [rates, setRates] = React.useState({ USD: 1, EUR: 0.92, GBP: 0.79, JPY: 149.5 });
-  const [ready, setReady] = React.useState(false);
-
-  React.useEffect(() => {
-    fetchExchangeRates('USD').then(r => { setRates(r); setReady(true); });
-  }, []);
-
-  const getCurrencyForLang = (lang) => {
-    const settings = JSON.parse(localStorage.getItem('sg_general') || '{}');
-    if (settings.currency) {
-      if (settings.currency.includes('£')) return { code: 'GBP', symbol: '£' };
-      if (settings.currency.includes('€')) return { code: 'EUR', symbol: '€' };
-      if (settings.currency.includes('¥')) return { code: 'JPY', symbol: '¥' };
-    }
-    if (lang === 'fr') return { code: 'EUR', symbol: '€' };
-    return { code: 'USD', symbol: '$' };
-  };
-
-  const convert = React.useCallback((amountUSD, lang) => {
-    const activeLang = lang || language;
-    const { code, symbol } = getCurrencyForLang(activeLang);
-    const rate = rates[code] || 1;
-    const converted = Math.round(amountUSD * rate);
-    return symbol + converted.toLocaleString();
-  }, [rates, language]);
-
-  const symbol = React.useMemo(() => getCurrencyForLang(language).symbol, [language]);
-
-  return { convert, symbol, rates, ready };
-}
-
-// Global currency context
-const CurrencyContext = React.createContext({ convert: (n) => '$' + Math.round(n), symbol: '$', rates: {} });
-function CurrencyProvider({ children }) {
-  const converter = useCurrencyConverter();
-  return React.createElement(CurrencyContext.Provider, { value: converter }, children);
-}
-function useCurrency() { return React.useContext(CurrencyContext); }
+// CurrencyContext, CurrencyProvider, useCurrency, useCurrencyConverter — imported from ./contexts/CurrencyContext
 
 function downloadText(filename, text) {
   const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
@@ -3667,7 +3693,7 @@ function TrialPage() {
   // SSO Providers - exact match to screenshot
   const ssoProviders = [
     { id: 'google', name: 'Google', subtitle: 'Sign in with Google account', live: true },
-    { id: 'microsoft', name: 'Microsoft', subtitle: 'Microsoft 365 / Azure AD', live: false },
+    { id: 'microsoft', name: 'Microsoft', subtitle: 'Microsoft 365 / Azure AD', live: true },
     { id: 'github', name: 'GitHub', subtitle: 'Sign in with GitHub', live: false },
     { id: 'okta', name: 'Okta', subtitle: 'Enterprise SSO via Okta', live: false },
     { id: 'saml', name: 'SAML SSO', subtitle: 'Custom SAML 2.0 provider', live: false },
@@ -3702,19 +3728,19 @@ function TrialPage() {
     
     try {
       if (provider.id === 'google') {
-        // Triggers redirect to Google — browser navigates away, result handled in main.jsx on return
         await login();
-        // Page will redirect — code below won't execute until user returns
+      } else if (provider.id === 'microsoft') {
+        const { user, error } = await signInWithMicrosoft();
+        if (error) {
+          toast.error('Microsoft sign-in failed: ' + error);
+          setLoading(false);
+        }
+        // onAuthChange handles the rest if sign-in succeeded
       } else if (provider.id === 'magic') {
         setShowEmailForm(true);
         setLoading(false);
       } else {
-        // Demo mode for other providers (Microsoft, GitHub, etc)
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        localStorage.setItem('sso_provider', provider.id);
-        setShowAuth(false);
-        startDemo();
-        navigate("/dashboard", { replace: true });
+        toast.info(`${provider.name} SSO coming soon.`);
         setLoading(false);
       }
     } catch (error) {
@@ -4419,16 +4445,18 @@ function TrialPage() {
 }
 
 function ExitIntentModal({ open, onClose, onContinue }) {
+  const { language } = useLang();
+  const t = useTranslation(language);
   return (
     <Modal
       open={open}
-      title="Wait — quick win before you go"
-      subtitle="See how teams save money fast"
+      title={t('exit_intent_title')}
+      subtitle={t('exit_intent_sub')}
       onClose={onClose}
       footer={
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>
-            Close
+            {t('close')}
           </Button>
           <Button
             onClick={() => {
@@ -4437,24 +4465,24 @@ function ExitIntentModal({ open, onClose, onContinue }) {
             }}
           >
             <Sparkles className="h-4 w-4" />
-            Continue
+            {t('exit_intent_continue')}
           </Button>
         </div>
       }
     >
       <div className="space-y-3 text-sm text-slate-300">
         <div className="rounded-2xl border border-slate-800 bg-slate-950/30 p-4">
-          <div className="text-sm font-semibold text-slate-100">Case study (example)</div>
-          <div className="mt-2 text-slate-400">“Company X saved $50K in 3 months by removing unused licenses and tightening admin reviews.”</div>
+          <div className="text-sm font-semibold text-slate-100">{t('exit_intent_case_study')}</div>
+          <div className="mt-2 text-slate-400">&ldquo;{t('exit_intent_quote')}&rdquo;</div>
           <div className="mt-3 flex flex-wrap gap-2">
             <Pill tone="amber" icon={AlertTriangle}>
-              Unused licenses
+              {t('exit_intent_pill1')}
             </Pill>
             <Pill tone="rose" icon={UserMinus}>
-              Former employee access
+              {t('exit_intent_pill2')}
             </Pill>
             <Pill tone="blue" icon={Download}>
-              Audit exports
+              {t('exit_intent_pill3')}
             </Pill>
           </div>
         </div>
@@ -5084,80 +5112,8 @@ function TourLaunchButton() {
 }
 
 // Plan tier hierarchy
-// 4 tiers: free / starter / pro / enterprise
-// Legacy aliases (growth, scale, unlimited, professional, startup) mapped for back-compat
-const PLAN_TIERS = {
-  free: 0,
-  trial: 4,       // Trial = FULL access to everything — expires after 7 days
-  starter: 2,
-  hr_finance: 2,  // HR & Finance Pack — Finance Board + People Board (same tier as Starter)
-  pro: 3,
-  enterprise: 4,
-  // Legacy aliases
-  growth: 3, scale: 4, unlimited: 4, professional: 4, startup: 0,
-};
-
-// Hard limits per plan — these are enforced on data creation
-const PLAN_LIMITS = {
-  free:       { tools: 10,    employees: 25,    teamMembers: 1,  label: 'Free' },
-  trial:      { tools: 9999,  employees: 9999,  teamMembers: 5,  label: 'Trial (7 days)' },
-  starter:    { tools: 100,   employees: 250,   teamMembers: 5,  label: 'Starter' },
-  pro:        { tools: 500,   employees: 1500,  teamMembers: 15, label: 'Pro' },
-  enterprise: { tools: 99999, employees: 99999, teamMembers: 999,label: 'Enterprise' },
-  // Legacy plan support — map old plans to current limits
-  growth:     { tools: 500,   employees: 1500,  teamMembers: 15, label: 'Pro' },
-  scale:      { tools: 99999, employees: 99999, teamMembers: 999,label: 'Enterprise' },
-  unlimited:  { tools: 99999, employees: 99999, teamMembers: 999,label: 'Enterprise' },
-  professional: { tools: 99999, employees: 99999, teamMembers: 999, label: 'Enterprise' },
-  startup:    { tools: 10,    employees: 25,    teamMembers: 1,  label: 'Free' },
-};
-
-// Trial system — 7 days of full Pro access from signup
-const TRIAL_DAYS = 7;
-const TRIAL_MS = TRIAL_DAYS * 24 * 60 * 60 * 1000;
-
-// Resolve the effective plan, taking into account trial expiry and founder mode.
-// Source of truth for "what plan is this user actually on right now?"
-// Inputs: a `user` object with possible fields { is_founder, plan, subscription_plan, trial_started_at }
-// Returns: a plan string ('free' | 'trial' | 'starter' | 'pro' | 'enterprise' | etc.)
-function resolvePlan(user) {
-  if (!user) return 'free';
-  // Founder override always wins
-  if (user.is_founder === true) return 'scale';
-  // If user has a paid plan from Stripe, use it
-  const stored = user.plan || user.subscription_plan;
-  if (stored && stored !== 'trial' && stored !== 'free') return stored;
-  // If user is on trial, check expiry
-  if (stored === 'trial' && user.trial_started_at) {
-    const startedAt = typeof user.trial_started_at === 'number'
-      ? user.trial_started_at
-      : Date.parse(user.trial_started_at) || 0;
-    if (startedAt > 0 && (Date.now() - startedAt) < TRIAL_MS) {
-      return 'trial';   // still active
-    }
-    return 'free';      // expired
-  }
-  return stored || 'free';
-}
-
-// Returns trial state info: { isTrial, daysLeft, expired }
-function getTrialState(user) {
-  if (!user || !user.trial_started_at) return { isTrial: false, daysLeft: 0, expired: false };
-  const startedAt = typeof user.trial_started_at === 'number'
-    ? user.trial_started_at
-    : Date.parse(user.trial_started_at) || 0;
-  if (startedAt === 0) return { isTrial: false, daysLeft: 0, expired: false };
-  const elapsed = Date.now() - startedAt;
-  const daysLeft = Math.max(0, Math.ceil((TRIAL_MS - elapsed) / (24 * 60 * 60 * 1000)));
-  const expired = elapsed >= TRIAL_MS;
-  const isTrial = (user.plan === 'trial' || user.subscription_plan === 'trial') && !expired;
-  return { isTrial, daysLeft, expired };
-}
-
-
-function getPlanLimits(plan) {
-  return PLAN_LIMITS[plan] || PLAN_LIMITS.free;
-}
+// PLAN_TIERS, PLAN_LIMITS, TRIAL_DAYS, TRIAL_MS, resolvePlan, getTrialState, getPlanLimits
+// — imported from ./lib/plan
 
 // Hook: returns current usage and limits for the user's plan
 function usePlanLimits() {
@@ -5199,7 +5155,7 @@ function PlanGate({ requires, children, feature = 'this feature' }) {
       <h2 className="text-2xl font-black text-white mb-2">{t("upgrade_to_access")} {feature}</h2>
       <p className="text-slate-400 mb-6 max-w-md">
         This feature requires the <span className="text-blue-400 font-semibold">{planNames[requires] || requires}</span> plan or higher.
-        You're currently on the <span className="text-slate-300 font-semibold capitalize">{plan}</span> plan.
+        You're currently on the <span className="text-slate-300 font-semibold">{getPlanLimits(plan).label || plan}</span> plan.
       </p>
       <button onClick={() => { navigate('/settings'); setTimeout(() => { const el = document.querySelector('[data-tab="billing"]'); if(el) el.click(); }, 100); }}
         className="px-4 md:px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-blue-500/20">
@@ -5217,11 +5173,11 @@ function PlanGate({ requires, children, feature = 'this feature' }) {
 // Controls access to specific modules (Finance Board, People Board, etc.)
 // Checks user.modules array OR falls back to plan tier
 const MODULE_PLANS = {
-  finance:   ['hr_finance', 'pro', 'enterprise', 'scale', 'unlimited'],
-  people:    ['hr_finance', 'pro', 'enterprise', 'scale', 'unlimited'],
-  security:  ['pro', 'enterprise', 'scale', 'unlimited'],
-  ai:        ['pro', 'enterprise', 'scale', 'unlimited'],
-  analytics: ['pro', 'enterprise', 'scale', 'unlimited'],
+  finance:   ['hr_finance', 'pro', 'enterprise', 'scale', 'unlimited', 'growth'],
+  people:    ['hr_finance', 'pro', 'enterprise', 'scale', 'unlimited', 'growth'],
+  security:  ['pro', 'enterprise', 'scale', 'unlimited', 'growth'],
+  ai:        ['pro', 'enterprise', 'scale', 'unlimited', 'growth'],
+  analytics: ['pro', 'enterprise', 'scale', 'unlimited', 'growth'],
 };
 
 function ModuleGate({ module, children, feature = 'this module' }) {
@@ -5289,20 +5245,22 @@ function ModuleGate({ module, children, feature = 'this module' }) {
 function PlanLimitBanner({ resource = 'tools' }) {
   const { plan, limits, usage, pct } = usePlanLimits();
   const navigate = useNavigate();
+  const { language } = useLang();
+  const t = useTranslation(language);
   const isUnlimited = limits[resource] >= 99999;
   if (isUnlimited) return null;
-  
+
   const usageNum = usage[resource];
   const limitNum = limits[resource];
   const percent = pct[resource];
   const isFull = usageNum >= limitNum;
   const isNear = percent >= 80;
-  
+
   if (!isNear && !isFull) return null;
-  
+
   const tone = isFull ? 'red' : 'amber';
   const Icon = AlertTriangle;
-  
+
   return (
     <div className={"rounded-2xl border p-4 lg:p-5 flex items-center gap-4 " + (
       tone === 'red' ? 'border-red-500/30 bg-red-500/5' : 'border-amber-500/30 bg-amber-500/5'
@@ -5313,13 +5271,13 @@ function PlanLimitBanner({ resource = 'tools' }) {
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
           <span className={"text-sm font-semibold " + (tone === 'red' ? 'text-red-400' : 'text-amber-400')}>
-            {isFull ? `${resource} limit reached` : `Approaching ${resource} limit`}
+            {isFull ? `${resource} ${t('plan_limit_reached')}` : `${t('plan_limit_approaching')} ${resource} ${t('plan_limit_reached')}`}
           </span>
           <span className="text-xs text-slate-500">— {limits.label} plan</span>
         </div>
         <div className="text-xs text-slate-400 mb-2">
-          Using <span className="font-semibold text-white">{usageNum}</span> of <span className="font-semibold text-white">{limitNum}</span> {resource}
-          {isFull ? '. Upgrade to add more.' : `. ${limitNum - usageNum} remaining.`}
+          {t('plan_limit_using')} <span className="font-semibold text-white">{usageNum}</span> of <span className="font-semibold text-white">{limitNum}</span> {resource}
+          {isFull ? `. ${t('plan_limit_upgrade_msg')}` : `. ${limitNum - usageNum} ${t('plan_limit_remaining')}.`}
         </div>
         <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden max-w-md">
           <div className={"h-full transition-all " + (tone === 'red' ? 'bg-red-500' : 'bg-amber-500')} style={{width: `${percent}%`}} />
@@ -5329,8 +5287,142 @@ function PlanLimitBanner({ resource = 'tools' }) {
         className={"px-4 py-2 rounded-xl text-sm font-semibold transition-colors flex-shrink-0 " + (
           tone === 'red' ? 'bg-red-600 hover:bg-red-500 text-white' : 'bg-amber-600 hover:bg-amber-500 text-white'
         )}>
-        Upgrade →
+        {t('plan_limit_upgrade_btn')}
       </button>
+    </div>
+  );
+}
+
+function GettingStartedChecklist({ db }) {
+  const navigate = useNavigate();
+  const { language } = useLang();
+  const t = useTranslation(language);
+  const [dismissed, setDismissed] = useState(
+    localStorage.getItem('sg_checklist_dismissed') === 'true'
+  );
+  const [celebrating, setCelebrating] = useState(false);
+
+  const budgetCap = db?.user?.budget_cap || parseInt(localStorage.getItem('sg_budget_cap') || '0') || 0;
+  const teamMembers = (() => { try { return JSON.parse(localStorage.getItem('sg_team_members') || '[]'); } catch { return []; } })();
+
+  const steps = [
+    {
+      id: 'first_tool',
+      icon: '🛠️',
+      title: t('gs_step1_title'),
+      desc: t('gs_step1_desc'),
+      done: (db?.tools || []).filter(t => t.status !== 'archived').length > 0,
+      action: () => navigate('/tools'),
+      cta: t('gs_step1_cta'),
+    },
+    {
+      id: 'add_employee',
+      icon: '👥',
+      title: t('gs_step2_title'),
+      desc: t('gs_step2_desc'),
+      done: (db?.employees || []).length > 0,
+      action: () => navigate('/employees'),
+      cta: t('gs_step2_cta'),
+    },
+    {
+      id: 'budget_cap',
+      icon: '💰',
+      title: t('gs_step3_title'),
+      desc: t('gs_step3_desc'),
+      done: budgetCap > 0,
+      action: () => navigate('/finance'),
+      cta: t('gs_step3_cta'),
+    },
+    {
+      id: 'invite_team',
+      icon: '✉️',
+      title: t('gs_step4_title'),
+      desc: t('gs_step4_desc'),
+      done: teamMembers.length > 0,
+      action: () => { navigate('/settings'); setTimeout(() => { const el = document.querySelector('[data-tab="team"]'); if (el) el.click(); }, 100); },
+      cta: t('gs_step4_cta'),
+    },
+  ];
+
+  const doneCount = steps.filter(s => s.done).length;
+  const allDone = doneCount === steps.length;
+
+  const dismiss = () => {
+    localStorage.setItem('sg_checklist_dismissed', 'true');
+    setDismissed(true);
+  };
+
+  // Auto-dismiss with brief celebration when all steps complete
+  React.useEffect(() => {
+    if (allDone && !dismissed) {
+      setCelebrating(true);
+      const t = setTimeout(() => dismiss(), 4000);
+      return () => clearTimeout(t);
+    }
+  }, [allDone]);
+
+  if (dismissed) return null;
+
+  const pct = Math.round((doneCount / steps.length) * 100);
+
+  return (
+    <div className="rounded-2xl border border-blue-500/20 bg-gradient-to-br from-slate-900 to-blue-950/20 p-5 lg:p-6 mb-6">
+      {celebrating ? (
+        <div className="text-center py-4">
+          <div className="text-3xl mb-2">🎉</div>
+          <div className="text-lg font-bold text-white mb-1">{t('gs_done_title')}</div>
+          <div className="text-sm text-slate-400">{t('gs_done_sub')}</div>
+        </div>
+      ) : (
+        <>
+          <div className="flex items-start justify-between gap-4 mb-4">
+            <div>
+              <div className="flex items-center gap-2 mb-0.5">
+                <span className="text-base font-bold text-white">{t('gs_title')}</span>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 font-semibold">{doneCount}/{steps.length}</span>
+              </div>
+              <div className="text-xs text-slate-500">{t('gs_sub')}</div>
+            </div>
+            <button onClick={dismiss} className="text-slate-600 hover:text-slate-400 transition-colors text-lg leading-none flex-shrink-0" title={t('close')}>✕</button>
+          </div>
+
+          {/* Progress bar */}
+          <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden mb-5">
+            <div className="h-full bg-gradient-to-r from-blue-500 to-emerald-500 rounded-full transition-all duration-500"
+              style={{ width: `${pct}%` }} />
+          </div>
+
+          {/* Steps */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {steps.map((step) => (
+              <div key={step.id} className={`relative flex flex-col gap-2 p-4 rounded-xl border transition-all ${
+                step.done
+                  ? 'border-emerald-500/30 bg-emerald-500/5'
+                  : 'border-slate-700 bg-slate-950/40 hover:border-slate-600'
+              }`}>
+                {step.done && (
+                  <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center">
+                    <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                )}
+                <div className="text-xl">{step.icon}</div>
+                <div className={`text-sm font-semibold ${step.done ? 'text-emerald-300 line-through decoration-emerald-500/50' : 'text-white'}`}>
+                  {step.title}
+                </div>
+                <div className="text-xs text-slate-500 flex-1">{step.desc}</div>
+                {!step.done && (
+                  <button onClick={step.action}
+                    className="mt-1 text-xs text-blue-400 hover:text-blue-300 font-semibold transition-colors text-left">
+                    {step.cta}
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -5433,6 +5525,11 @@ function DashboardPage() {
       {/* Row 4: Spend + Shadow IT + Reviews (intelligence)     */}
       {/* Row 5: Quick Actions (take action)                    */}
       {/* ══════════════════════════════════════════════════════ */}
+
+      {/* ── GETTING STARTED — shown to new real users only ── */}
+      {db && !db.user?.is_demo && db.user?.is_authenticated && (
+        <GettingStartedChecklist db={db} />
+      )}
 
       {/* ── PRIORITY ACTION — the ONE thing to do first ── */}
       {derived.formerAccess > 0 && (
@@ -5704,7 +5801,23 @@ function DashboardPage() {
           });
         });
 
-        // 4. Idle licenses (tools with cost but not used in 60+ days)
+        // 4. Budget cap exceeded
+        const _budgetCap = db?.user?.budget_cap || parseInt(localStorage.getItem('sg_budget_cap') || '0') || 0;
+        const _notifBudget = (() => { try { return JSON.parse(localStorage.getItem('sg_notifications') || '{}'); } catch { return {}; } })().budget ?? true;
+        if (_budgetCap > 0 && _notifBudget && (derived?.spend || 0) > _budgetCap) {
+          const pct = Math.round((derived.spend / _budgetCap) * 100);
+          actions.push({
+            id: 'budget-exceeded',
+            severity: 'high',
+            icon: '💰',
+            title: `Monthly spend is ${pct}% of your budget cap`,
+            reason: `You've set a ${getCurrency(language)}${convertCurrency(_budgetCap, language).toLocaleString()}/mo cap. Current spend is ${getCurrency(language)}${convertCurrency(derived.spend, language).toLocaleString()}.`,
+            action: 'View Finance',
+            link: '/finance',
+          });
+        }
+
+        // 5. Idle licenses (tools with cost but not used in 60+ days)
         const sixtyDaysAgo = Date.now() - (60 * 24 * 60 * 60 * 1000);
         const idleTools = (derived?.tools || []).filter(tool => {
           if (!tool.cost_per_month || tool.cost_per_month <= 0) return false;
@@ -8700,10 +8813,10 @@ function ImportWizard({ defaultKind = null, onDone = null }) {
   const goTo = (n) => { setAnimDir(n > step ? 'forward' : 'back'); setStep(n); };
 
   const KINDS = {
-    company:   { icon: '🏢', label: t('company_data_label'),    desc: 'Employees + Tools in one file — populates everything automatically', example: 'One upload fills all pages', color: 'blue' },
-    tools:     { icon: '🛠️', label: 'SaaS Tools',     desc: 'Name, cost, owner, category — your software inventory', example: 'Slack, Figma, GitHub, Notion…', color: 'emerald' },
-    employees: { icon: '👥', label: 'Employees',       desc: 'Full name, email, department, role, status', example: '230 staff across 8 departments',   color: 'blue' },
-    access:    { icon: '🔑', label: 'Access Records',  desc: 'Who has access to what tool at what level',  example: '1,200 tool-to-person mappings',     color: 'violet' },
+    company:   { icon: '🏢', label: t('company_data_label'),           desc: t('import_kinds_company_desc'),   example: t('import_kinds_company_example'),   color: 'blue' },
+    tools:     { icon: '🛠️', label: t('import_kinds_tools_label'),     desc: t('import_kinds_tools_desc'),     example: t('import_kinds_tools_example'),     color: 'emerald' },
+    employees: { icon: '👥', label: t('employees_import'),             desc: t('import_kinds_employees_desc'), example: t('import_kinds_employees_example'), color: 'blue' },
+    access:    { icon: '🔑', label: t('import_kinds_access_label'),    desc: t('import_kinds_access_desc'),    example: t('import_kinds_access_example'),    color: 'violet' },
   };
 
   const TEMPLATES = {
@@ -8784,7 +8897,7 @@ function ImportWizard({ defaultKind = null, onDone = null }) {
 
   const reset = () => { setStep(0); setKind(null); setText(''); setImported(null); };
 
-  const STEP_LABELS = ['Choose type', 'Get template', 'Upload & preview', 'Done'];
+  const STEP_LABELS = [t('import_step1'), t('import_step2') || 'Get template', t('import_step3'), t('import_step4') || t('done')];
 
   // Smart column detector — scores each kind against pasted headers
   const detectKind = (csvText) => {
@@ -8863,13 +8976,13 @@ function ImportWizard({ defaultKind = null, onDone = null }) {
               <span className="text-2xl mt-0.5">💡</span>
               <div>
                 <div className="font-bold text-white mb-1">{t("hc_fastest_way_to_get_started")}</div>
-                <p className="text-sm text-slate-400">Import your existing data in under 5 minutes. We provide CSV templates for each type — just fill them in, save, and upload. No special format required.</p>
+                <p className="text-sm text-slate-400">{t('import_wizard_info')}</p>
               </div>
             </div>
           </div>
           <div>
             <h2 className="text-xl font-bold text-white mb-1">{t('what_importing')}</h2>
-            <p className="text-slate-400 text-sm mb-4">Each type has its own template with the correct columns pre-configured.</p>
+            <p className="text-slate-400 text-sm mb-4">{t('import_each_type_info')}</p>
             <div className="grid gap-3">
               {Object.entries(KINDS).map(([id, meta]) => (
                 <button key={id} onClick={() => { setKind(id); goTo(1); }}
@@ -8891,11 +9004,11 @@ function ImportWizard({ defaultKind = null, onDone = null }) {
       {/* STEP 1 — Template */}
       {step === 1 && kind && (
         <div className="space-y-5">
-          <button onClick={() => goTo(0)} className="text-sm text-slate-500 hover:text-slate-300 flex items-center gap-1">← Back</button>
+          <button onClick={() => goTo(0)} className="text-sm text-slate-500 hover:text-slate-300 flex items-center gap-1">← {t('back')}</button>
           <div className="flex items-center gap-3">
             <span className="text-4xl">{KINDS[kind].icon}</span>
             <div>
-              <h2 className="text-xl font-bold text-white">Import {KINDS[kind].label}</h2>
+              <h2 className="text-xl font-bold text-white">{t('import_heading')} {KINDS[kind].label}</h2>
               <p className="text-slate-400 text-sm">{KINDS[kind].desc}</p>
             </div>
           </div>
@@ -8910,7 +9023,7 @@ function ImportWizard({ defaultKind = null, onDone = null }) {
                 </span>
               ))}
             </div>
-            <div className="text-xs text-slate-600">* = required. All other columns are optional but recommended.</div>
+            <div className="text-xs text-slate-600">{t('import_required_note')}</div>
           </Card>
 
           {/* Sample data preview */}
@@ -8944,15 +9057,15 @@ function ImportWizard({ defaultKind = null, onDone = null }) {
           <div className="grid sm:grid-cols-2 gap-3">
             <button onClick={() => downloadText(kind + '_template.csv', TEMPLATES[kind])}
               className="flex items-center justify-center gap-2 py-3.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-bold transition-all active:scale-[0.98]">
-              <Download className="h-4 w-4" /> Download CSV Template
+              <Download className="h-4 w-4" /> {t('download_template')}
             </button>
             <button onClick={() => { setText(TEMPLATES[kind]); goTo(2); }}
               className="flex items-center justify-center gap-2 py-3.5 bg-slate-800 hover:bg-slate-700 rounded-xl font-semibold transition-all text-slate-300">
-              Use sample data →
+              {t('import_use_sample')}
             </button>
           </div>
           <div className="text-center">
-            <button onClick={() => goTo(2)} className="text-sm text-emerald-400 hover:underline">I already have a file — skip to upload →</button>
+            <button onClick={() => goTo(2)} className="text-sm text-emerald-400 hover:underline">{t('skip_to_upload')}</button>
           </div>
         </div>
       )}
@@ -8960,7 +9073,7 @@ function ImportWizard({ defaultKind = null, onDone = null }) {
       {/* STEP 2 — Upload */}
       {step === 2 && (
         <div className="space-y-4">
-          <button onClick={() => goTo(kind ? 1 : 0)} className="text-sm text-slate-500 hover:text-slate-300 flex items-center gap-1">← Back</button>
+          <button onClick={() => goTo(kind ? 1 : 0)} className="text-sm text-slate-500 hover:text-slate-300 flex items-center gap-1">← {t('back')}</button>
 
           {/* Smart detection notice */}
           {kind && (
@@ -8973,7 +9086,7 @@ function ImportWizard({ defaultKind = null, onDone = null }) {
 
           <Card className="p-4 md:p-6">
             <h2 className="text-xl font-bold text-white mb-1">{t('upload')}</h2>
-            <p className="text-slate-400 text-sm mb-5">Drag & drop a CSV, or paste the contents below. Type is auto-detected from column headers.</p>
+            <p className="text-slate-400 text-sm mb-5">{t('import_drag_and_drop_desc')}</p>
 
             <div
               onDragOver={e => { e.preventDefault(); setDragOver(true); }}
@@ -8985,9 +9098,9 @@ function ImportWizard({ defaultKind = null, onDone = null }) {
               <input id="csv-import-input" type="file" accept=".csv,.txt,.xlsx,.xls" className="hidden" onChange={e => handleFileUpload(e.target.files[0])} />
               <div className={"text-2xl md:text-5xl mb-3 transition-all " + (dragOver ? 'scale-125' : '')}>{dragOver ? '📂' : '📁'}</div>
               <div className={"font-bold text-lg transition-colors " + (dragOver ? 'text-emerald-400' : 'text-slate-300')}>
-                {dragOver ? 'Release to upload' : 'Drop your CSV here'}
+                {dragOver ? t('import_drag_release') : t('import_drag_drop')}
               </div>
-              <div className="text-sm text-slate-500 mt-1">or click to browse your files</div>
+              <div className="text-sm text-slate-500 mt-1">{t('import_click_browse')}</div>
               <div className="mt-4 flex items-center gap-2 text-xs text-slate-700">
                 <span className="px-2 py-0.5 bg-slate-800 rounded font-mono">CSV</span>
                 <span className="px-2 py-0.5 bg-slate-800 rounded font-mono">TXT</span>
@@ -8998,26 +9111,26 @@ function ImportWizard({ defaultKind = null, onDone = null }) {
 
             <div className="relative">
               <div className="absolute inset-x-0 -top-2.5 flex justify-center">
-                <span className="text-xs text-slate-600 bg-slate-950 px-3">or paste CSV directly — type auto-detected ✨</span>
+                <span className="text-xs text-slate-600 bg-slate-950 px-3">{t('import_paste_or_csv')}</span>
               </div>
               <textarea rows={4}
                 className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 font-mono text-xs text-slate-300 outline-none focus:border-emerald-500 transition-colors resize-none"
                 value={text} onChange={e => handlePaste(e.target.value)}
-                placeholder={"Paste CSV here — column headers are auto-detected…"} />
+                placeholder={t('import_paste_placeholder')} />
             </div>
 
             {liveRows.length > 0 && (
               <div className="flex items-center gap-3 mt-3 text-sm flex-wrap">
-                <span className="text-slate-500">{liveRows.length} rows detected</span>
-                {validCount > 0 && <span className="text-emerald-400 font-semibold">✓ {validCount} valid</span>}
-                {invalidCount > 0 && <span className="text-rose-400 font-semibold">✗ {invalidCount} with errors</span>}
+                <span className="text-slate-500">{liveRows.length} {t('rows_detected')}</span>
+                {validCount > 0 && <span className="text-emerald-400 font-semibold">✓ {validCount} {t('valid')}</span>}
+                {invalidCount > 0 && <span className="text-rose-400 font-semibold">✗ {invalidCount} {t('import_errors_label')}</span>}
               </div>
             )}
           </Card>
 
           {liveRows.length > 0 && kind && (
             <Card>
-              <CardHeader title={t('preview_title')} subtitle={liveRows.length + " rows — review before importing"}
+              <CardHeader title={t('preview_title')} subtitle={liveRows.length + " " + t('import_review_before')}
                 right={<div className="flex gap-2">{validCount > 0 && <Pill tone="green">✓ {validCount} valid</Pill>}{invalidCount > 0 && <Pill tone="rose">✗ {invalidCount} errors</Pill>}</div>}
               />
               <CardBody>
@@ -9027,7 +9140,7 @@ function ImportWizard({ defaultKind = null, onDone = null }) {
                       <tr className="border-b border-slate-800 bg-slate-950/60">
                         <th className="px-3 py-2 text-left text-slate-500 font-semibold w-8">#</th>
                         {cols.map(c => <th key={c} className="px-3 py-2 text-left text-slate-400 font-semibold capitalize">{c.replace(/_/g,' ')}</th>)}
-                        <th className="px-3 py-2 text-left text-slate-500">Status</th>
+                        <th className="px-3 py-2 text-left text-slate-500">{t('status')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -9053,15 +9166,15 @@ function ImportWizard({ defaultKind = null, onDone = null }) {
                     </tbody>
                   </table>
                 </div>
-                  {liveRows.length > 10 && <div className="text-center text-xs text-slate-600 py-2">Showing 10 of {liveRows.length} rows</div>}
+                  {liveRows.length > 10 && <div className="text-center text-xs text-slate-600 py-2">{t('import_showing_of')} {liveRows.length} {t('rows')}</div>}
                 </div>
                 <div className="flex items-center justify-between mt-4">
                   <div className="text-xs text-slate-500">{t('imp_existing_updated')}</div>
                   <button disabled={validCount === 0 || importing} onClick={handleImport}
                     className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 rounded-xl font-bold text-sm transition-all active:scale-[0.98]">
                     {importing
-                      ? <><RefreshCw className="h-4 w-4 animate-spin" /> Importing…</>
-                      : <><Upload className="h-4 w-4" /> Import {validCount} record{validCount !== 1 ? 's' : ''}</>
+                      ? <><RefreshCw className="h-4 w-4 animate-spin" /> {t('importing')}</>
+                      : <><Upload className="h-4 w-4" /> {t('import_heading')} {validCount} record{validCount !== 1 ? 's' : ''}</>
                     }
                   </button>
                 </div>
@@ -9077,16 +9190,16 @@ function ImportWizard({ defaultKind = null, onDone = null }) {
           <div className="text-3xl md:text-6xl mb-4 animate-bounce">🎉</div>
           <h2 className="text-2xl font-black text-white mb-2">{t("import_complete")}</h2>
           <p className="text-slate-400 mb-2">
-            <span className="text-emerald-400 font-bold">{imported.count} {KINDS[imported.kind]?.label}</span> records added to Stacklens.
+            <span className="text-emerald-400 font-bold">{imported.count} {KINDS[imported.kind]?.label}</span> {t('import_records_added')}
           </p>
-          <p className="text-sm text-slate-600 mb-8">Risk insights are being calculated now. Check the dashboard for updates.</p>
+          <p className="text-sm text-slate-600 mb-8">{t('import_risk_insights')}</p>
           <div className="grid sm:grid-cols-2 gap-3 max-w-sm mx-auto">
             <button onClick={reset} className="py-3 bg-slate-800 hover:bg-slate-700 rounded-xl font-semibold text-sm transition-all">
-              Import More
+              {t('import_more')}
             </button>
             <button onClick={() => window.location.href = '/' + (imported.kind === 'employees' ? 'employees' : imported.kind === 'access' ? 'access' : 'tools')}
               className="py-3 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-bold text-sm transition-all">
-              View {KINDS[imported.kind]?.label} →
+              {t('view')} {KINDS[imported.kind]?.label} →
             </button>
           </div>
         </Card>
@@ -10475,7 +10588,8 @@ function BillingPage({ noShell = false }) {
 function IntegrationConnectors() {
   const { language } = useLang();
   const t = useTranslation(language);
-  const [connectedIntegrations, setConnectedIntegrations] = useState(['google-workspace', 'slack']);
+  const _savedConnected = (() => { try { return JSON.parse(localStorage.getItem('sg_connected_integrations') || '["google-workspace","slack"]'); } catch { return ['google-workspace','slack']; } })();
+  const [connectedIntegrations, setConnectedIntegrations] = useState(_savedConnected);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
@@ -10564,11 +10678,11 @@ function IntegrationConnectors() {
   ];
 
   const handleConnect = (integrationId) => {
-    if (connectedIntegrations.includes(integrationId)) {
-      setConnectedIntegrations(connectedIntegrations.filter(id => id !== integrationId));
-    } else {
-      setConnectedIntegrations([...connectedIntegrations, integrationId]);
-    }
+    const next = connectedIntegrations.includes(integrationId)
+      ? connectedIntegrations.filter(id => id !== integrationId)
+      : [...connectedIntegrations, integrationId];
+    setConnectedIntegrations(next);
+    localStorage.setItem('sg_connected_integrations', JSON.stringify(next));
   };
 
   const isConnected = (id) => connectedIntegrations.includes(id);
@@ -10887,6 +11001,24 @@ function SecurityTabContent() {
   const criticalAlerts = alerts.filter(a => a.severity === 'critical');
   const highAlerts = alerts.filter(a => a.severity === 'high');
   const mediumAlerts = alerts.filter(a => a.severity === 'medium');
+
+  const isFr = language === 'fr';
+  const isRealUser = db?.user?.is_authenticated && !db?.user?.is_demo;
+
+  if (isRealUser && tools.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-5">
+          <Shield className="h-8 w-8 text-emerald-400" />
+        </div>
+        <h2 className="text-xl font-bold text-white mb-2">{isFr ? 'Aucun outil à analyser' : 'No tools to analyse yet'}</h2>
+        <p className="text-sm text-slate-400 max-w-sm mb-6">{isFr ? 'Ajoutez vos outils SaaS pour voir votre score de sécurité, les accès à risque et les alertes de conformité.' : 'Add your SaaS tools to see your security score, risk access flags and compliance alerts.'}</p>
+        <Link to="/tools" className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl text-sm font-semibold text-white transition-colors">
+          {isFr ? 'Ajouter des outils →' : 'Add tools →'}
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -11439,9 +11571,41 @@ function SettingsPage() {
   const { language, setLanguage } = useLang();
   const t = useTranslation(language);
   const navigate = useNavigate();
+  const { data: db } = useDbQuery();
+  const qc = useQueryClient();
+  const { isDemo, firebaseUser } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState('general');
   const [saveMsg, setSaveMsg] = useState('');
-  const { data: db } = useDbQuery();
+  const [stripeMsg, setStripeMsg] = useState('');
+
+  // Handle Stripe redirect-back: ?success=true or ?cancelled=true
+  useEffect(() => {
+    const success = searchParams.get('success');
+    const cancelled = searchParams.get('cancelled');
+    if (success === 'true') {
+      setActiveTab('billing');
+      setStripeMsg('success');
+      // Sync plan: refresh custom claims from server, then pull Firestore plan into localStorage
+      if (firebaseUser?.uid) {
+        syncClaimsFromServer().then(() =>
+          getUserPlanFromFirestore(firebaseUser.uid)
+        ).then((planData) => {
+          if (planData) {
+            const cur = loadDb() || seedDbIfEmpty();
+            cur.user = { ...cur.user, ...planData };
+            saveDb(cur);
+            qc.invalidateQueries({ queryKey: ['db'] });
+          }
+        }).catch(() => {});
+      }
+      setSearchParams({}, { replace: true });
+    } else if (cancelled === 'true') {
+      setActiveTab('billing');
+      setStripeMsg('cancelled');
+      setSearchParams({}, { replace: true });
+    }
+  }, []);  // eslint-disable-line react-hooks/exhaustive-deps
   const muts = useDbMutations();
 
   const saved = JSON.parse(localStorage.getItem('sg_general') || '{}');
@@ -11459,29 +11623,68 @@ function SettingsPage() {
   const [deleteEmpsConfirm, setDeleteEmpsConfirm] = useState(false);
   const [deleteAccConfirm, setDeleteAccConfirm] = useState(false);
 
-  const [apiKeys, setApiKeys] = useState([
-    { id: 'key_1', name: 'Production API', created: '2025-12-01', lastUsed: '2026-03-05', prefix: 'sg_live_••••••••••' },
-    { id: 'key_2', name: 'Dev / Testing', created: '2026-01-15', lastUsed: 'Never', prefix: 'sg_test_••••••••••' },
-  ]);
+  const _savedApiKeys = (() => { try { return JSON.parse(localStorage.getItem('sg_api_keys') || '[]'); } catch { return []; } })();
+  const [apiKeys, setApiKeys] = useState(_savedApiKeys);
   const [newKeyName, setNewKeyName] = useState('');
   const [showNewKey, setShowNewKey] = useState(null);
 
-  const _mdb = JSON.parse(localStorage.getItem('accessguard_v1') || '{}')?.user;
-  const [members, setMembers] = useState([
-    {
-      id: 1,
-      name: _mdb?.displayName || _mdb?.email?.split('@')[0] || 'Owner',
-      email: _mdb?.email || '',
-      role: 'Owner',
-      joined: new Date().toISOString().slice(0, 10),
-      avatar: (_mdb?.displayName || _mdb?.email || 'O')[0].toUpperCase(),
+  const saveApiKeys = (next) => { localStorage.setItem('sg_api_keys', JSON.stringify(next)); setApiKeys(next); };
+
+  const _savedNotifs = (() => { try { return JSON.parse(localStorage.getItem('sg_notifications') || '{}'); } catch { return {}; } })();
+  const [notifRenewal,    setNotifRenewal]    = useState(_savedNotifs.renewal    ?? true);
+  const [notifOrphaned,   setNotifOrphaned]   = useState(_savedNotifs.orphaned   ?? true);
+  const [notifHighRisk,   setNotifHighRisk]   = useState(_savedNotifs.highRisk   ?? true);
+  const [notifOffboard,   setNotifOffboard]   = useState(_savedNotifs.offboard   ?? true);
+  const [notifNewTool,    setNotifNewTool]    = useState(_savedNotifs.newTool    ?? true);
+  const [notifCompliance, setNotifCompliance] = useState(_savedNotifs.compliance ?? false);
+  const [notifWeekly,     setNotifWeekly]     = useState(_savedNotifs.weekly     ?? true);
+  const [notifInvoice,    setNotifInvoice]    = useState(_savedNotifs.invoice    ?? false);
+  const [notifBudget,     setNotifBudget]     = useState(_savedNotifs.budget     ?? true);
+
+  const saveNotifications = (patch) => {
+    const next = { renewal: notifRenewal, orphaned: notifOrphaned, highRisk: notifHighRisk,
+      offboard: notifOffboard, newTool: notifNewTool, compliance: notifCompliance,
+      weekly: notifWeekly, invoice: notifInvoice, budget: notifBudget, ...patch };
+    localStorage.setItem('sg_notifications', JSON.stringify(next));
+    const backendChanged = 'renewal' in patch || 'weekly' in patch;
+    if (backendChanged) {
+      const cur = loadDb() || seedDbIfEmpty();
+      cur.user = {
+        ...cur.user,
+        ...('renewal' in patch ? { renewal_alerts: patch.renewal } : {}),
+        ...('weekly'  in patch ? { weekly_summary: patch.weekly  } : {}),
+      };
+      saveDb(cur);
+      if (firebaseUser?.uid) saveUserData(firebaseUser.uid, cur).catch(() => {});
+      qc.invalidateQueries({ queryKey: ['db'] });
     }
-  ]);
+  };
+
+  const _mdb = JSON.parse(localStorage.getItem('accessguard_v1') || '{}')?.user;
+  const _ownerMember = {
+    id: 'owner',
+    name: _mdb?.displayName || _mdb?.email?.split('@')[0] || 'Owner',
+    email: _mdb?.email || '',
+    role: 'Owner',
+    joined: new Date().toISOString().slice(0, 10),
+    avatar: (_mdb?.displayName || _mdb?.email || 'O')[0].toUpperCase(),
+  };
+  const _savedMembers = (() => {
+    try { return JSON.parse(localStorage.getItem('sg_team_members') || '[]'); } catch { return []; }
+  })();
+  const [members, setMembers] = useState([_ownerMember, ..._savedMembers]);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('viewer');
   const [inviteSent, setInviteSent] = useState(false);
+  const [inviteSending, setInviteSending] = useState(false);
   const [showRoleInfo, setShowRoleInfo] = useState(false);
   const myRole = getUserRole();
+
+  const saveMembers = (next) => {
+    const withoutOwner = next.filter(m => m.id !== 'owner');
+    localStorage.setItem('sg_team_members', JSON.stringify(withoutOwner));
+    setMembers([_ownerMember, ...withoutOwner]);
+  };
 
   const save = (key, data) => {
     localStorage.setItem(key, JSON.stringify(data));
@@ -11491,9 +11694,9 @@ function SettingsPage() {
 
   const generateApiKey = () => {
     if (!newKeyName.trim()) return;
-    const key = 'sg_live_' + Math.random().toString(36).slice(2, 18);
+    const key = 'sg_live_' + Math.random().toString(36).slice(2, 18) + Math.random().toString(36).slice(2, 18);
     const newK = { id: 'key_' + Date.now(), name: newKeyName, created: new Date().toISOString().slice(0,10), lastUsed: 'Never', prefix: key.slice(0,16) + '••••' };
-    setApiKeys(prev => [...prev, newK]);
+    saveApiKeys([...apiKeys, newK]);
     setShowNewKey(key);
     setNewKeyName('');
   };
@@ -11519,7 +11722,7 @@ function SettingsPage() {
 
   return (
     <AppShell title={t('settings_title')} right={
-      <div className="flex items-center gap-1 p-1 bg-slate-900 rounded-xl border border-slate-800 overflow-x-auto max-w-full">
+      <div className="flex items-center gap-1 p-1 bg-slate-900 rounded-xl border border-slate-800">
         {coreTabs.map(tab => {
           const Icon = tab.icon;
           return (
@@ -11595,7 +11798,7 @@ function SettingsPage() {
                         <span className={"text-xs font-semibold px-2.5 py-1 rounded-full " + (m.role === 'Owner' ? 'bg-violet-500/15 text-violet-400' : m.role === 'Admin' ? 'bg-blue-500/15 text-blue-400' : 'bg-slate-700 text-slate-400')}>{m.role}</span>
                         <div className="text-xs text-slate-600">{t('joined_label')} {m.joined}</div>
                         {m.role !== 'Owner' && can('invite') && (
-                          <button onClick={() => setMembers(prev => prev.filter(x => x.id !== m.id))} className="text-xs text-rose-500 hover:text-rose-400 transition-colors">{t('remove_member')}</button>
+                          <button onClick={() => saveMembers(members.filter(x => x.id !== m.id))} className="text-xs text-rose-500 hover:text-rose-400 transition-colors">{t('remove_member')}</button>
                         )}
                       </div>
                     ))}
@@ -11603,7 +11806,7 @@ function SettingsPage() {
                 </CardBody>
               </Card>
               <Card>
-                <CardHeader title={t("invite_team") || t("invite_team") || "Invite Team Member"} subtitle={t('invite_sub')} />
+                <CardHeader title={t("invite_team") || "Invite Team Member"} subtitle={t('invite_sub')} />
                 <CardBody>
                   {inviteSent ? (
                     <div className="text-center py-4">
@@ -11627,9 +11830,43 @@ function SettingsPage() {
                         <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-emerald-400 flex-shrink-0"></span><span><span className="text-emerald-400 font-semibold">{t('role_editor')}</span> — {t('role_editor_desc')}</span></div>
                         <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-slate-400 flex-shrink-0"></span><span><span className="text-slate-300 font-semibold">{t('role_viewer')}</span> — {t('role_viewer_desc')}</span></div>
                       </div>
-                      <button onClick={() => { if (inviteEmail) { window.open('mailto:' + inviteEmail + '?subject=Join%20Stacklens&body=You%27ve%20been%20invited%20to%20Stacklens.%20Sign%20in%20at%3A%20https%3A%2F%2Faccessguard-v2.web.app'); setInviteSent(true); } }}
-                        className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-semibold text-sm transition-colors whitespace-nowrap">
-                        {t('send_invite')}
+                      <button onClick={async () => {
+                        if (!inviteEmail || inviteSending) return;
+                        const limit = getPlanLimits(resolvePlan(db?.user)).teamMembers;
+                        if (members.length >= limit) {
+                          toast.error(`Your ${getPlanLimits(resolvePlan(db?.user)).label} plan allows ${limit} team members. Upgrade to add more.`);
+                          return;
+                        }
+                        const newMember = {
+                          id: 'invite_' + Date.now(),
+                          name: inviteEmail.split('@')[0],
+                          email: inviteEmail,
+                          role: inviteRole.charAt(0).toUpperCase() + inviteRole.slice(1),
+                          joined: new Date().toISOString().slice(0, 10),
+                          avatar: inviteEmail[0].toUpperCase(),
+                        };
+                        saveMembers([...members, newMember]);
+                        setInviteSending(true);
+                        try {
+                          await sendInviteEmail({
+                            inviteeEmail: inviteEmail,
+                            inviterName: firebaseUser?.displayName || db?.user?.email?.split('@')[0],
+                            orgName: localStorage.getItem('sg_general') ? JSON.parse(localStorage.getItem('sg_general') || '{}').orgName : 'Stacklens',
+                          });
+                          toast.success('Invite sent!');
+                        } catch {
+                          // Fallback: open mailto if Cloud Function is unavailable
+                          window.open('mailto:' + inviteEmail
+                            + '?subject=' + encodeURIComponent('You\'ve been invited to Stacklens')
+                            + '&body=' + encodeURIComponent('Hi,\n\nYou\'ve been invited to join Stacklens.\n\nSign in at: https://stacklens.fr\n\nStacklens Team'));
+                        } finally {
+                          setInviteSending(false);
+                        }
+                        setInviteSent(true);
+                      }}
+                        disabled={inviteSending}
+                        className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 rounded-xl font-semibold text-sm transition-colors whitespace-nowrap">
+                        {inviteSending ? 'Sending...' : 'Send Invite'}
                       </button>
                     </div>
                   )}
@@ -11688,9 +11925,8 @@ function SettingsPage() {
                     );
                   })}
                 </div>
-              
-              <div className='mt-6'><SlackNotifications /></div>
-</CardBody>
+                <div className='mt-6'><SlackNotifications /></div>
+              </CardBody>
             </Card>
           )}
 
@@ -11771,7 +12007,7 @@ function SettingsPage() {
                           <div>{t('created_label')} {k.created}</div>
                           <div>{t('last_used_label')}: {k.lastUsed}</div>
                         </div>
-                        <button onClick={() => setApiKeys(prev => prev.filter(x => x.id !== k.id))} className="text-xs text-rose-500 hover:text-rose-400 transition-colors flex-shrink-0">{t('revoke')}</button>
+                        <button onClick={() => { if (window.confirm(`Revoke key "${k.name}"? This cannot be undone.`)) saveApiKeys(apiKeys.filter(x => x.id !== k.id)); }} className="text-xs text-rose-500 hover:text-rose-400 transition-colors flex-shrink-0">{t('revoke')}</button>
                       </div>
                     ))}
                   </div>
@@ -11915,17 +12151,39 @@ function SettingsPage() {
 
           {/* ── BILLING ── */}
           {activeTab === 'billing' && (
-            <RoleGate requires="owner" fallback={
-              <Card><CardBody>
-                <div className="text-center py-8">
-                  <div className="text-3xl mb-3">🔒</div>
-                  <h3 className="text-lg font-semibold text-white mb-1">{t('set_owner_access_required')}</h3>
-                  <p className="text-slate-400 text-sm">{t('set_owner_only_billing')}</p>
+            <div className="space-y-4">
+              {stripeMsg === 'success' && (
+                <div className="flex items-start gap-3 rounded-xl border border-green-500/30 bg-green-500/10 px-4 py-3">
+                  <span className="text-lg mt-0.5">🎉</span>
+                  <div>
+                    <p className="text-sm font-semibold text-green-400">{t('stripe_success_title') || 'Subscription activated!'}</p>
+                    <p className="text-xs text-green-300/80 mt-0.5">{t('stripe_success_sub') || 'Your plan is now active. Welcome aboard — your full stack is unlocked.'}</p>
+                  </div>
+                  <button onClick={() => setStripeMsg('')} className="ml-auto text-green-400/60 hover:text-green-400 text-lg leading-none">×</button>
                 </div>
-              </CardBody></Card>
-            }>
-              <BillingPage noShell={true} />
-            </RoleGate>
+              )}
+              {stripeMsg === 'cancelled' && (
+                <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+                  <span className="text-lg mt-0.5">💡</span>
+                  <div>
+                    <p className="text-sm font-semibold text-amber-400">{t('stripe_cancelled_title') || 'Checkout cancelled'}</p>
+                    <p className="text-xs text-amber-300/80 mt-0.5">{t('stripe_cancelled_sub') || "No charge was made. Upgrade whenever you're ready."}</p>
+                  </div>
+                  <button onClick={() => setStripeMsg('')} className="ml-auto text-amber-400/60 hover:text-amber-400 text-lg leading-none">×</button>
+                </div>
+              )}
+              <RoleGate requires="owner" fallback={
+                <Card><CardBody>
+                  <div className="text-center py-8">
+                    <div className="text-3xl mb-3">🔒</div>
+                    <h3 className="text-lg font-semibold text-white mb-1">Owner Access Required</h3>
+                    <p className="text-slate-400 text-sm">Only the account owner can manage billing and subscriptions.</p>
+                  </div>
+                </CardBody></Card>
+              }>
+                <BillingPage noShell={true} />
+              </RoleGate>
+            </div>
           )}
 
           {/* ── INTEGRATIONS ── */}
@@ -13723,6 +13981,63 @@ function SpendTrendChart({ monthlyTrend, byCategory }) {
   );
 }
 
+function BudgetModal({ current, totalSpend, language, onSave, onClear, onClose }) {
+  const t = useTranslation(language);
+  const [value, setValue] = useState(current > 0 ? String(current) : '');
+  const curr = getCurrency(language);
+  const num = Number(value) || 0;
+  const utilization = num > 0 ? Math.round(totalSpend / num * 100) : 0;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={onClose}>
+      <div className="w-full max-w-sm rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-5">
+          <div>
+            <h2 className="text-base font-bold text-white">{t('budget_modal_title')}</h2>
+            <p className="text-xs text-slate-500 mt-0.5">{t('budget_modal_sub')}</p>
+          </div>
+          <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors text-lg leading-none">✕</button>
+        </div>
+
+        <div className="mb-4">
+          <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">{t('budget_modal_cap_label')} ({curr}/month)</label>
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-semibold text-sm">{curr}</span>
+            <input
+              type="number"
+              min="0"
+              step="100"
+              value={value}
+              onChange={e => setValue(e.target.value)}
+              placeholder={t('budget_modal_placeholder')}
+              className="w-full bg-slate-800 border border-slate-700 focus:border-blue-500 rounded-xl px-3 py-2.5 pl-8 text-white text-sm outline-none transition-colors"
+              autoFocus
+            />
+          </div>
+          {num > 0 && (
+            <p className={`text-xs mt-1.5 ${utilization > 100 ? 'text-red-400' : utilization > 75 ? 'text-amber-400' : 'text-emerald-400'}`}>
+              {t('budget_modal_current_spend')} {curr}{convertCurrency(totalSpend, language).toLocaleString()} — {utilization}% {t('budget_modal_of_cap')}
+            </p>
+          )}
+        </div>
+
+        <div className="flex gap-2">
+          <button onClick={() => num > 0 && onSave(num)}
+            disabled={num <= 0}
+            className="flex-1 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold transition-colors">
+            {t('budget_modal_save')}
+          </button>
+          {current > 0 && (
+            <button onClick={onClear} className="px-4 py-2.5 rounded-xl border border-slate-700 hover:border-red-500/50 text-slate-400 hover:text-red-400 text-sm font-semibold transition-colors">
+              {t('remove')}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function FinanceDashboard() {
   const navigate = useNavigate();
   const { language } = useLang();
@@ -13749,7 +14064,14 @@ function FinanceDashboard() {
   const _now = new Date();
   const _trend = Array.from({length:6},(_,i)=>{ const d=new Date(_now.getFullYear(),_now.getMonth()-5+i,1); return {month:_months[d.getMonth()],spend:_fReal?_totalSpend*(0.9+i*0.02):[42100,43800,45200,44600,46900,47850][i]}; });
   const _bills = _fReal ? _tools.filter(t=>t.renewal_date).sort((a,b)=>new Date(a.renewal_date)-new Date(b.renewal_date)).slice(0,5).map(t=>({app:t.name,amount:t.cost_per_month?t.cost_per_month*12:t.cost_monthly?t.cost_monthly*12:(t.cost||0),dueDate:t.renewal_date,status:'pending',category:t.category||'Other'})) : [{app:'Salesforce',amount:12400,dueDate:'2026-03-01',status:'pending',category:'CRM'},{app:'Adobe Creative Cloud',amount:5400,dueDate:'2026-03-20',status:'pending',category:'Design'}];
-  const _financialData = {totalMonthlySpend:_totalSpend,budgetLimit:Math.round(_totalSpend*1.2)||55000,lastMonthSpend:_totalSpend*0.95||45200,upcomingBills:_bills,byCategory:_byCategory,monthlyTrend:_trend,isReal:_fReal,toolCount:_tools.length};
+  // Budget cap — read from db (persisted to Firestore) with localStorage fallback
+  const _savedBudgetCap = db?.user?.budget_cap || parseInt(localStorage.getItem('sg_budget_cap') || '0') || 0;
+  const [budgetCap, setBudgetCap] = useState(_savedBudgetCap);
+  // Keep budgetCap in sync when db hydrates from Firestore
+  React.useEffect(() => {
+    if (db?.user?.budget_cap && db.user.budget_cap !== budgetCap) setBudgetCap(db.user.budget_cap);
+  }, [db?.user?.budget_cap]);
+  const _financialData = {totalMonthlySpend:_totalSpend,budgetLimit:budgetCap||0,lastMonthSpend:_totalSpend*0.95||45200,upcomingBills:_bills,byCategory:_byCategory,monthlyTrend:_trend,isReal:_fReal,toolCount:_tools.filter(t=>t.status!=='archived').length};
 
   const TABS = [
     { id: 'overview',   label: t('fin_tab_overview') || 'Overview' },
@@ -13763,17 +14085,17 @@ function FinanceDashboard() {
   return (
     <PlanGate requires="growth" feature="Finance Dashboard"><AppShell title={t("finance_title") || "Finance"}
       right={
-        <div className="flex gap-1 p-1 bg-slate-900 rounded-xl border border-slate-800">
+        <div className="flex gap-1 p-1 bg-slate-900 rounded-xl border border-slate-800 overflow-x-auto [&::-webkit-scrollbar]:h-0">
           {TABS.map(tab => (
             <button key={tab.id} onClick={() => setFinTab(tab.id)}
-              className={"px-3 py-1.5 rounded-lg text-sm font-semibold transition-all " + (finTab === tab.id ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white')}>
+              className={"px-3 py-1.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap " + (finTab === tab.id ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white')}>
               {tab.label}
             </button>
           ))}
         </div>
       }
     >
-      {finTab === 'overview' && <FinanceOverviewTab financialData={_financialData} showBudgetModal={showBudgetModal} setShowBudgetModal={setShowBudgetModal} selectedBill={selectedBill} setSelectedBill={setSelectedBill} showReclaimModal={showReclaimModal} setShowReclaimModal={setShowReclaimModal} categoryFilter={categoryFilter} setCategoryFilter={setCategoryFilter} setFinTab={setFinTab} />}
+      {finTab === 'overview' && <FinanceOverviewTab financialData={_financialData} showBudgetModal={showBudgetModal} setShowBudgetModal={setShowBudgetModal} budgetCap={budgetCap} setBudgetCap={setBudgetCap} selectedBill={selectedBill} setSelectedBill={setSelectedBill} showReclaimModal={showReclaimModal} setShowReclaimModal={setShowReclaimModal} categoryFilter={categoryFilter} setCategoryFilter={setCategoryFilter} setFinTab={setFinTab} />}
       {finTab === 'cost' && <CostTabContent setFinTab={setFinTab} />}
       {finTab === 'licenses' && <LicenseManagement />}
       {finTab === 'renewals' && <RenewalAlerts />}
@@ -13783,11 +14105,28 @@ function FinanceDashboard() {
   );
 }
 
-function FinanceOverviewTab({ financialData, showBudgetModal, setShowBudgetModal, selectedBill, setSelectedBill, showReclaimModal, setShowReclaimModal, categoryFilter, setCategoryFilter, setFinTab }) {
+function FinanceOverviewTab({ financialData, showBudgetModal, setShowBudgetModal, budgetCap, setBudgetCap, selectedBill, setSelectedBill, showReclaimModal, setShowReclaimModal, categoryFilter, setCategoryFilter, setFinTab }) {
   const { language } = useLang();
   const t = useTranslation(language);
   const navigate = useNavigate();
-  const budgetUtilization = financialData.budgetLimit > 0 ? (financialData.totalMonthlySpend / financialData.budgetLimit * 100) : 0;
+  const { user: firebaseUser } = useAuth();
+  const qc = useQueryClient();
+  const budgetSet = financialData.budgetLimit > 0;
+  const budgetUtilization = budgetSet ? (financialData.totalMonthlySpend / financialData.budgetLimit * 100) : 0;
+  const overBudget = budgetSet && financialData.totalMonthlySpend > financialData.budgetLimit;
+  const _savedNotifs = (() => { try { return JSON.parse(localStorage.getItem('sg_notifications') || '{}'); } catch { return {}; } })();
+  const notifBudget = _savedNotifs.budget ?? true;
+
+  const saveBudgetCap = (cap) => {
+    const numCap = Number(cap) || 0;
+    localStorage.setItem('sg_budget_cap', String(numCap));
+    setBudgetCap(numCap);
+    const cur = loadDb() || seedDbIfEmpty();
+    cur.user = { ...cur.user, budget_cap: numCap };
+    saveDb(cur);
+    if (firebaseUser?.uid) saveUserData(firebaseUser.uid, cur).catch(() => {});
+    qc.invalidateQueries({ queryKey: ['db'] });
+  };
   const savingsVsLastMonth = financialData.lastMonthSpend - financialData.totalMonthlySpend;
   const annualSpend = financialData.totalMonthlySpend * 12;
   const hasRealComparison = financialData.lastMonthSpend > 0 && financialData.totalMonthlySpend > 0;
@@ -13796,12 +14135,53 @@ function FinanceOverviewTab({ financialData, showBudgetModal, setShowBudgetModal
   const topCategory = financialData.byCategory.length > 0 ? [...financialData.byCategory].sort((a,b) => b.spend - a.spend)[0] : null;
   const potentialSavings = Math.round(financialData.totalMonthlySpend * 0.14);
 
+  const isFr = language === 'fr';
+
+  // Empty state for real users with no tools yet
+  if (financialData.isReal && financialData.toolCount === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center mb-5">
+          <DollarSign className="h-8 w-8 text-blue-400" />
+        </div>
+        <h2 className="text-xl font-bold text-white mb-2">{isFr ? 'Aucune donnée financière' : 'No financial data yet'}</h2>
+        <p className="text-sm text-slate-400 max-w-sm mb-6">{isFr ? 'Ajoutez vos outils SaaS avec leurs coûts pour voir vos dépenses, tendances et recommandations d\'optimisation.' : 'Add your SaaS tools with their costs to see spend, trends and savings recommendations.'}</p>
+        <Link to="/tools" className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-xl text-sm font-semibold text-white transition-colors">
+          {isFr ? 'Ajouter des outils →' : 'Add tools →'}
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 w-full">
+      {/* Budget modal */}
+      {showBudgetModal && (
+        <BudgetModal
+          current={budgetCap}
+          totalSpend={financialData.totalMonthlySpend}
+          language={language}
+          onSave={(cap) => { saveBudgetCap(cap); setShowBudgetModal(false); toast.success('Budget cap saved'); }}
+          onClear={() => { saveBudgetCap(0); setShowBudgetModal(false); toast.success('Budget cap removed'); }}
+          onClose={() => setShowBudgetModal(false)}
+        />
+      )}
+
+      {/* Over-budget alert */}
+      {overBudget && notifBudget && (
+        <div className="flex items-center gap-3 px-5 py-3.5 rounded-2xl border border-red-500/40 bg-red-500/10">
+          <AlertTriangle className="h-5 w-5 text-red-400 flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <span className="text-sm font-semibold text-red-300">Monthly spend exceeds your budget cap — </span>
+            <span className="text-sm text-red-400">{getCurrency(language)}{convertCurrency(financialData.totalMonthlySpend, language).toLocaleString()} vs {getCurrency(language)}{convertCurrency(financialData.budgetLimit, language).toLocaleString()} limit ({(budgetUtilization - 100).toFixed(0)}% over)</span>
+          </div>
+          <button onClick={() => setShowBudgetModal(true)} className="text-xs text-red-300 hover:text-red-200 font-semibold flex-shrink-0 underline underline-offset-2">Adjust limit</button>
+        </div>
+      )}
 
       {/* ── Row 1: Hero Metric (Monthly Spend) + Budget Health ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-5">
-        
+
         {/* Hero — Total Monthly Spend */}
         <div className="lg:col-span-2 rounded-2xl border border-blue-500/20 bg-gradient-to-br from-slate-900 to-blue-950/20 p-6 lg:p-8">
           <div className="text-xs font-semibold uppercase tracking-wider text-blue-400 mb-2">{t("finance_monthly_spend")}</div>
@@ -13820,14 +14200,27 @@ function FinanceOverviewTab({ financialData, showBudgetModal, setShowBudgetModal
           {/* Budget bar */}
           <div className="mb-2 flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t("finance_budget_util")}</span>
-            <span className={`text-sm font-bold ${budgetUtilization > 90 ? 'text-red-400' : budgetUtilization > 75 ? 'text-amber-400' : 'text-emerald-400'}`}>
-              {budgetUtilization.toFixed(0)}% of {getCurrency(language)}{convertCurrency(financialData.budgetLimit, language).toLocaleString()}
-            </span>
+            {budgetSet ? (
+              <div className="flex items-center gap-2">
+                <span className={`text-sm font-bold ${budgetUtilization > 100 ? 'text-red-400' : budgetUtilization > 75 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                  {budgetUtilization.toFixed(0)}% of {getCurrency(language)}{convertCurrency(financialData.budgetLimit, language).toLocaleString()}
+                </span>
+                <button onClick={() => setShowBudgetModal(true)} className="text-xs text-slate-500 hover:text-blue-400 underline underline-offset-2 transition-colors">Edit</button>
+              </div>
+            ) : (
+              <button onClick={() => setShowBudgetModal(true)} className="text-xs text-blue-400 hover:text-blue-300 font-semibold transition-colors">+ Set budget cap</button>
+            )}
           </div>
-          <div className="h-3 bg-slate-800 rounded-full overflow-hidden">
-            <div className={`h-full rounded-full transition-all ${budgetUtilization > 90 ? 'bg-red-500' : budgetUtilization > 75 ? 'bg-amber-500' : 'bg-gradient-to-r from-blue-500 to-emerald-500'}`}
-              style={{width: `${Math.min(budgetUtilization, 100)}%`}} />
-          </div>
+          {budgetSet ? (
+            <div className="h-3 bg-slate-800 rounded-full overflow-hidden">
+              <div className={`h-full rounded-full transition-all ${budgetUtilization > 100 ? 'bg-red-500' : budgetUtilization > 75 ? 'bg-amber-500' : 'bg-gradient-to-r from-blue-500 to-emerald-500'}`}
+                style={{width: `${Math.min(budgetUtilization, 100)}%`}} />
+            </div>
+          ) : (
+            <div className="h-3 bg-slate-800 rounded-full overflow-hidden">
+              <div className="h-full w-0 rounded-full bg-slate-700" />
+            </div>
+          )}
         </div>
 
         {/* Side Card — Quick wins */}
@@ -15639,7 +16032,7 @@ function InvoiceManager() {
     }, 1500);
   };
 
-  const _idb = JSON.parse(localStorage.getItem('accessguard_v1') || '{}');
+  const { data: _idb } = useDbQuery();
   const _iReal = _idb?.user?.is_authenticated && !_idb?.user?.is_demo;
   const uploaded = JSON.parse(localStorage.getItem('ag_uploaded_invoices') || '[]');
   const invoices = _iReal ? uploaded : [

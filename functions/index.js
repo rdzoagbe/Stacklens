@@ -48,8 +48,6 @@ async function verifyAuth(req, res) {
 async function verifyAppCheck(req, res) {
   const appCheckToken = req.headers['x-firebase-appcheck'];
   if (!appCheckToken) {
-    // In development (no App Check token), allow through
-    // In production, reject requests without a valid App Check token
     if (process.env.NODE_ENV === 'production' || process.env.FUNCTIONS_EMULATOR !== 'true') {
       res.status(401).json({ error: 'App Check token required' });
       return false;
@@ -64,6 +62,7 @@ async function verifyAppCheck(req, res) {
     return false;
   }
 }
+
 
 async function checkRateLimit(uid, res, limit = RATE_LIMIT, keyPrefix = 'ai') {
   const db = admin.firestore();
@@ -241,8 +240,10 @@ exports.stripeWebhook = onRequest({ secrets: [STRIPE_SECRET_KEY, STRIPE_WEBHOOK_
         }
         if (uid && session.subscription) {
           const sub = await stripe.subscriptions.retrieve(session.subscription);
-          await db.collection('users').doc(uid).set({ plan: getPlanFromSubscription(sub), stripe_subscription_id: sub.id, stripe_customer_id: session.customer, subscription_status: sub.status, plan_updated_at: Date.now() }, { merge: true });
-          console.log(`Plan updated for uid=${uid} to ${getPlanFromSubscription(sub)}`);
+          const plan = getPlanFromSubscription(sub);
+          await db.collection('users').doc(uid).set({ plan, stripe_subscription_id: sub.id, stripe_customer_id: session.customer, subscription_status: sub.status, plan_updated_at: Date.now() }, { merge: true });
+          await admin.auth().setCustomUserClaims(uid, { plan });
+          console.log(`Plan updated for uid=${uid} to ${plan}`);
         } else {
           console.warn('checkout.session.completed: could not find uid for customer', session.customer);
         }
@@ -255,7 +256,11 @@ exports.stripeWebhook = onRequest({ secrets: [STRIPE_SECRET_KEY, STRIPE_WEBHOOK_
           const snap = await db.collection('users').where('stripe_customer_id', '==', sub.customer).limit(1).get();
           if (!snap.empty) uid = snap.docs[0].id;
         }
-        if (uid) await db.collection('users').doc(uid).set({ plan: getPlanFromSubscription(sub), subscription_status: sub.status, plan_updated_at: Date.now() }, { merge: true });
+        if (uid) {
+          const plan = getPlanFromSubscription(sub);
+          await db.collection('users').doc(uid).set({ plan, subscription_status: sub.status, plan_updated_at: Date.now() }, { merge: true });
+          await admin.auth().setCustomUserClaims(uid, { plan });
+        }
         break;
       }
       case 'customer.subscription.deleted': {
@@ -265,7 +270,10 @@ exports.stripeWebhook = onRequest({ secrets: [STRIPE_SECRET_KEY, STRIPE_WEBHOOK_
           const snap = await db.collection('users').where('stripe_customer_id', '==', sub.customer).limit(1).get();
           if (!snap.empty) uid = snap.docs[0].id;
         }
-        if (uid) await db.collection('users').doc(uid).set({ plan: 'free', subscription_status: 'cancelled', stripe_subscription_id: null, plan_updated_at: Date.now() }, { merge: true });
+        if (uid) {
+          await db.collection('users').doc(uid).set({ plan: 'free', subscription_status: 'cancelled', stripe_subscription_id: null, plan_updated_at: Date.now() }, { merge: true });
+          await admin.auth().setCustomUserClaims(uid, { plan: 'free' });
+        }
         break;
       }
     }
@@ -295,9 +303,75 @@ exports.syncuser = onRequest({ cors: true }, async (req, res) => {
   });
 });
 
+// ── /refreshClaims — force-refresh custom claims on client token ──────────
+exports.refreshClaims = onRequest({ cors: true }, async (req, res) => {
+  cors(req, res, async () => {
+    if (req.method === 'OPTIONS') return res.status(204).send('');
+    if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
+    const decoded = await verifyAuth(req, res); if (!decoded) return;
+    // Read current Firestore plan and sync it to claims
+    const snap = await admin.firestore().collection('users').doc(decoded.uid).get();
+    const plan = snap.exists ? (snap.data().plan || 'free') : 'free';
+    await admin.auth().setCustomUserClaims(decoded.uid, { plan });
+    return res.json({ plan });
+  });
+});
+
+// ── /sendInvite — email a team invite link via SendGrid ───────────────────
+const SENDGRID_API_KEY = defineSecret('SENDGRID_API_KEY');
+
+exports.sendInvite = onRequest({ cors: true, secrets: [SENDGRID_API_KEY] }, async (req, res) => {
+  cors(req, res, async () => {
+    if (req.method === 'OPTIONS') return res.status(204).send('');
+    if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
+    const decoded = await verifyAuth(req, res); if (!decoded) return;
+
+    const { inviteeEmail, inviterName, orgName } = req.body;
+    if (!inviteeEmail || !inviteeEmail.includes('@')) {
+      return res.status(400).json({ error: 'Invalid email' });
+    }
+
+    // Rate limit: 20 invites per hour
+    const limited = await checkRateLimit(decoded.uid, res, { maxCalls: 20, windowMs: 60 * 60 * 1000 }, 'invite');
+    if (!limited) return;
+
+    try {
+      const sgMail = require('@sendgrid/mail');
+      sgMail.setApiKey(SENDGRID_API_KEY.value());
+
+      const signupUrl = 'https://stacklens.fr/?signup=true';
+      const from = inviterName || decoded.name || 'Your team';
+      const org  = orgName || 'Stacklens';
+
+      await sgMail.send({
+        to: inviteeEmail,
+        from: { email: 'hello@stacklens.fr', name: 'Stacklens' },
+        subject: `${from} invited you to join ${org} on Stacklens`,
+        html: `<div style="font-family:sans-serif;max-width:560px;margin:0 auto;background:#0f172a;border-radius:12px;overflow:hidden">
+          <div style="padding:24px;background:#1e293b">
+            <h1 style="color:white;margin:0 0 4px;font-size:22px">Stacklens</h1>
+            <p style="color:#94a3b8;margin:0">SaaS Stack Intelligence</p>
+          </div>
+          <div style="padding:28px">
+            <h2 style="color:white;margin:0 0 12px">${from} invited you to ${org}</h2>
+            <p style="color:#94a3b8;margin:0 0 24px">You've been invited to join your team on Stacklens — the platform that gives your team full visibility into your SaaS stack, costs, and access rights.</p>
+            <div style="text-align:center;margin-bottom:24px">
+              <a href="${signupUrl}" style="background:#3b82f6;color:white;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block;font-size:16px">Accept Invitation →</a>
+            </div>
+            <p style="color:#475569;font-size:12px;margin:0">If you weren't expecting this invitation, you can ignore this email.</p>
+          </div>
+        </div>`,
+      });
+      return res.json({ sent: true });
+    } catch (err) {
+      console.error('sendInvite error:', err);
+      return res.status(500).json({ error: 'Failed to send invite' });
+    }
+  });
+});
+
 // ── Renewal Alert Emails (SendGrid) ──────────────────────────────────────
 const { onSchedule } = require('firebase-functions/v2/scheduler');
-const SENDGRID_API_KEY = defineSecret('SENDGRID_API_KEY');
 
 exports.renewalAlerts = onSchedule({
   schedule: 'every 24 hours',
@@ -319,7 +393,6 @@ exports.renewalAlerts = onSchedule({
   const BATCH_SIZE = 100;
 
   while (true) {
-    // Exclude users who explicitly opted out; field absence means opted-in (default on)
     let q = db.collection('userdata').where('user.renewal_alerts', '!=', false).limit(BATCH_SIZE);
     if (lastDoc) q = q.startAfter(lastDoc);
     const snapshot = await q.get();
@@ -355,4 +428,161 @@ exports.renewalAlerts = onSchedule({
   }
 
   console.log('Renewal alerts sent:', sent);
+});
+
+// ── Weekly Summary Email (every Monday 09:00 Europe/Paris) ───────────────
+exports.weeklySummary = onSchedule({
+  schedule: 'every monday 09:00',
+  timeZone: 'Europe/Paris',
+  region: 'us-central1',
+  secrets: [SENDGRID_API_KEY],
+}, async () => {
+  const sgMail = require('@sendgrid/mail');
+  sgMail.setApiKey(SENDGRID_API_KEY.value());
+  const db = admin.firestore();
+  const today = new Date();
+  const in30 = new Date(today); in30.setDate(today.getDate() + 30);
+  const todayStr = today.toISOString().slice(0, 10);
+  const in30Str  = in30.toISOString().slice(0, 10);
+
+  const snapshot = await db.collection('userdata').get();
+  let sent = 0;
+
+  for (const docSnap of snapshot.docs) {
+    const data  = docSnap.data();
+    const email = data?.user?.email;
+    if (!email) continue;
+    // Respect opt-out (default: send)
+    if (data?.user?.weekly_summary === false) continue;
+
+    const tools     = data?.tools     || [];
+    const employees = data?.employees || [];
+    const access    = data?.access    || [];
+
+    // ── Metrics ──────────────────────────────────────────────────────────
+    const activeTools   = tools.filter(t => t.status !== 'decommissioned');
+    const monthlySpend  = activeTools.reduce((s, t) => s + (Number(t.cost_per_month) || 0), 0);
+    const orphaned      = activeTools.filter(t => !t.owner_email).length;
+    const highRisk      = access.filter(a => a.derived_risk_flag === 'high' || a.access_level === 'admin').length;
+    const upcoming      = tools.filter(t => t.renewal_date >= todayStr && t.renewal_date <= in30Str);
+    const activeEmps    = employees.filter(e => e.status === 'active').length;
+
+    // Health score: same formula as the dashboard
+    const healthScore = Math.max(0, Math.round(100 - (highRisk * 10) - (orphaned * 3)));
+    const healthColor = healthScore >= 80 ? '#10b981' : healthScore >= 60 ? '#f59e0b' : '#ef4444';
+    const healthLabel = healthScore >= 80 ? 'Good' : healthScore >= 60 ? 'Fair' : 'Needs attention';
+
+    const fmt = (n) => n.toLocaleString('en-GB', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+
+    // ── Stat cards ────────────────────────────────────────────────────────
+    const statCard = (label, value, sub, color = '#94a3b8') =>
+      `<td style="width:25%;padding:0 6px;text-align:center">
+        <div style="background:#1e293b;border-radius:10px;padding:16px 8px">
+          <div style="font-size:24px;font-weight:800;color:${color}">${value}</div>
+          <div style="font-size:11px;font-weight:600;color:#cbd5e1;margin-top:4px">${label}</div>
+          ${sub ? `<div style="font-size:10px;color:#64748b;margin-top:2px">${sub}</div>` : ''}
+        </div>
+      </td>`;
+
+    // ── Upcoming renewals rows ────────────────────────────────────────────
+    const renewalRows = upcoming.slice(0, 5).map(t => {
+      const days = Math.floor((new Date(t.renewal_date) - today) / 86400000);
+      const c    = days <= 7 ? '#ef4444' : '#f59e0b';
+      const cost = t.cost_per_month ? `€${fmt(t.cost_per_month * 12)}/yr` : '—';
+      return `<tr>
+        <td style="padding:8px;color:#e2e8f0;border-bottom:1px solid #1e293b;font-size:13px">${t.name}</td>
+        <td style="padding:8px;color:#94a3b8;border-bottom:1px solid #1e293b;font-size:13px">${t.renewal_date}</td>
+        <td style="padding:8px;color:${c};border-bottom:1px solid #1e293b;font-size:13px;font-weight:700">${days}d</td>
+        <td style="padding:8px;color:#e2e8f0;border-bottom:1px solid #1e293b;font-size:13px">${cost}</td>
+      </tr>`;
+    }).join('');
+
+    const renewalSection = upcoming.length ? `
+      <h3 style="color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:1px;margin:24px 0 12px">
+        Renewals in the next 30 days
+      </h3>
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr>
+          <th style="padding:6px 8px;text-align:left;color:#3b82f6;font-size:10px;text-transform:uppercase">Tool</th>
+          <th style="padding:6px 8px;text-align:left;color:#3b82f6;font-size:10px;text-transform:uppercase">Date</th>
+          <th style="padding:6px 8px;text-align:left;color:#3b82f6;font-size:10px;text-transform:uppercase">Days</th>
+          <th style="padding:6px 8px;text-align:left;color:#3b82f6;font-size:10px;text-transform:uppercase">Cost</th>
+        </tr></thead>
+        <tbody>${renewalRows}</tbody>
+      </table>
+      ${upcoming.length > 5 ? `<p style="color:#64748b;font-size:12px;margin:8px 0 0">+${upcoming.length - 5} more renewal(s) — <a href="https://stacklens.fr" style="color:#3b82f6">view all</a></p>` : ''}
+    ` : '';
+
+    // ── Alerts section ────────────────────────────────────────────────────
+    const alerts = [];
+    if (orphaned > 0) alerts.push(`⚠️ <strong style="color:#f59e0b">${orphaned} orphaned tool${orphaned > 1 ? 's' : ''}</strong> with no assigned owner`);
+    if (highRisk  > 0) alerts.push(`🔴 <strong style="color:#ef4444">${highRisk} high-risk access record${highRisk > 1 ? 's' : ''}</strong> need review`);
+
+    const alertsSection = alerts.length ? `
+      <h3 style="color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:1px;margin:24px 0 12px">
+        Action needed
+      </h3>
+      <div style="space-y:8px">
+        ${alerts.map(a => `<div style="padding:10px 14px;background:#1e293b;border-left:3px solid #f59e0b;border-radius:6px;margin-bottom:8px;font-size:13px;color:#94a3b8">${a}</div>`).join('')}
+      </div>
+    ` : '';
+
+    const html = `
+<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:600px;margin:0 auto;background:#0f172a;border-radius:14px;overflow:hidden">
+  <!-- Header -->
+  <div style="padding:24px 28px;background:linear-gradient(135deg,#1e293b 0%,#0f172a 100%);border-bottom:1px solid #1e293b">
+    <h1 style="color:white;margin:0 0 2px;font-size:20px;font-weight:800">Stacklens</h1>
+    <p style="color:#64748b;margin:0;font-size:13px">Your weekly SaaS summary</p>
+  </div>
+
+  <!-- Body -->
+  <div style="padding:24px 28px">
+    <p style="color:#94a3b8;font-size:14px;margin:0 0 20px">
+      Here's what's happening across your <strong style="color:white">${activeTools.length} active tools</strong>
+      and <strong style="color:white">${activeEmps} employees</strong>.
+    </p>
+
+    <!-- Stat cards -->
+    <table style="width:100%;border-collapse:collapse;margin-bottom:4px">
+      <tr>
+        ${statCard('Monthly Spend', `€${fmt(monthlySpend)}`, `€${fmt(monthlySpend * 12)}/yr`, '#e2e8f0')}
+        ${statCard('Health Score', `${healthScore}`, healthLabel, healthColor)}
+        ${statCard('Renewals Soon', `${upcoming.length}`, 'next 30 days', upcoming.length > 0 ? '#f59e0b' : '#10b981')}
+        ${statCard('High-Risk Access', `${highRisk}`, 'records', highRisk > 0 ? '#ef4444' : '#10b981')}
+      </tr>
+    </table>
+
+    ${renewalSection}
+    ${alertsSection}
+
+    <!-- CTA -->
+    <div style="text-align:center;margin-top:28px">
+      <a href="https://stacklens.fr" style="display:inline-block;background:#3b82f6;color:white;padding:12px 32px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px">
+        Open Dashboard →
+      </a>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div style="padding:16px 28px;border-top:1px solid #1e293b;text-align:center">
+    <p style="color:#475569;font-size:12px;margin:0">
+      Stacklens &nbsp;·&nbsp;
+      <a href="https://stacklens.fr/settings?tab=notifications" style="color:#475569;text-decoration:underline">Manage notifications</a>
+    </p>
+  </div>
+</div>`;
+
+    try {
+      await sgMail.send({
+        to: email,
+        from: { email: 'hello@stacklens.fr', name: 'Stacklens' },
+        subject: `📊 Your weekly SaaS summary — €${fmt(monthlySpend)}/mo · Score ${healthScore}`,
+        html,
+      });
+      sent++;
+    } catch (err) {
+      console.error('weeklySummary send failed for', email, err?.message);
+    }
+  }
+  console.log('Weekly summaries sent:', sent);
 });
