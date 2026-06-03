@@ -374,13 +374,20 @@ exports.sendInvite = onRequest({ cors: true, secrets: [SENDGRID_API_KEY] }, asyn
 // Privileged operations (extend trial, set plan) for users with is_founder=true.
 // Uses Admin SDK so it bypasses Firestore rules — the caller's founder status is
 // checked server-side before any write.
+const FOUNDER_RATE_LIMIT = { maxCalls: 30, windowMs: 60 * 60 * 1000 };
+const VALID_PLANS = ['free', 'trial', 'starter', 'hr_finance', 'pro', 'enterprise', 'scale'];
+
 exports.founderAdmin = onRequest({ cors: true, timeoutSeconds: 30 }, async (req, res) => {
   cors(req, res, async () => {
     if (req.method === 'OPTIONS') return res.status(204).send('');
     if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
 
+    if (!await verifyAppCheck(req, res)) return;
+
     const decoded = await verifyAuth(req, res);
     if (!decoded) return;
+
+    if (!await checkRateLimit(decoded.uid, res, FOUNDER_RATE_LIMIT, 'founderAdmin')) return;
 
     const db = admin.firestore();
     const callerSnap = await db.collection('users').doc(decoded.uid).get();
@@ -404,7 +411,9 @@ exports.founderAdmin = onRequest({ cors: true, timeoutSeconds: 30 }, async (req,
         return res.json({ ok: true });
       }
       if (action === 'setPlan') {
-        if (typeof plan !== 'string') return res.status(400).json({ error: 'plan required' });
+        if (typeof plan !== 'string' || !VALID_PLANS.includes(plan)) {
+          return res.status(400).json({ error: 'Invalid plan' });
+        }
         await db.collection('users').doc(targetUid).update({ plan });
         return res.json({ ok: true });
       }
