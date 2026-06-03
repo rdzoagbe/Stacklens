@@ -39,6 +39,8 @@ import {
 import { useTranslation } from './translations';
 import { LanguageProvider, LanguageContext, useLang } from './contexts/LangContext';
 import { CurrencyProvider, CurrencyContext, useCurrency, useCurrencyConverter } from './contexts/CurrencyContext';
+import { LS_KEY, CATEGORIES, EMP_DEPARTMENTS, TOOL_STATUS, CRITICALITY, RISK_SCORE, ACCESS_LEVEL, ACCESS_STATUS, RISK_FLAG } from './lib/constants';
+import { PLAN_TIERS, PLAN_LIMITS, TRIAL_DAYS, TRIAL_MS, resolvePlan, getTrialState, getPlanLimits } from './lib/plan';
 import toast, { Toaster } from 'react-hot-toast';
 import { differenceInDays, format, parseISO, subDays } from "date-fns";
 import { AnimatePresence, motion } from "framer-motion"; // eslint-disable-line no-unused-vars
