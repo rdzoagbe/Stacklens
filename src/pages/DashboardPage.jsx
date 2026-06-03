@@ -1,0 +1,1518 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import toast from 'react-hot-toast';
+import {
+  Activity, AlertTriangle, BadgeCheck, Boxes, Check,
+  ChevronRight, Download, GitMerge, RefreshCw, Sparkles,
+  Upload, UserMinus,
+} from 'lucide-react';
+import { callAI } from '../firebase-config';
+import { todayISO, resetDb } from '../lib/db';
+import {
+  computeToolDerivedStatus, computeToolDerivedRisk,
+  computeAccessDerivedRiskFlag, buildRiskAlerts, riskSeverityCounts,
+  getCurrency, convertCurrency, downloadText, parseCsv,
+} from '../lib/dataUtils';
+import { useDbQuery, useDbMutations } from '../hooks/useDbQuery';
+import { useAuth } from '../hooks/useAuth';
+import { useLang } from '../contexts/LangContext';
+import { useTranslation } from '../translations';
+import { Button, Card, CardHeader, CardBody, Pill } from '../components/ui';
+import { RoleGate } from '../components/gates';
+import { AppShell, LangSelectorCompact } from '../components/AppShell';
+
+// ── Directory Sync Widget ────────────────────────────────────────────────────
+
+function WorkspaceConnector() {
+  const { language } = useLang();
+  const t = useTranslation(language);
+  const { firebaseUser } = useAuth();
+  const muts = useDbMutations();
+  const [syncing, setSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState(null);
+  const [activeProvider, setActiveProvider] = useState(null);
+
+  const getToken = (u) => u?.stsTokenManager?.accessToken || null;
+
+  const syncGoogle = async () => {
+    if (!firebaseUser) { setSyncStatus({ type: 'error', msg: 'Sign in with Google first.' }); return; }
+    const token = getToken(firebaseUser);
+    if (!token) { setSyncStatus({ type: 'error', msg: 'No Google access token. Please sign in with Google.' }); return; }
+    setSyncing(true); setActiveProvider('google');
+    setSyncStatus({ type: 'loading', msg: 'Importing from Google Workspace...' });
+    try {
+      const res = await fetch('https://admin.googleapis.com/admin/directory/v1/users?domain=primary&maxResults=500', {
+        headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+      });
+      if (!res.ok) throw new Error(`API ${res.status}: ${res.statusText}`);
+      const data = await res.json();
+      const users = (data.users || []).map(u => ({
+        full_name: u.name?.fullName || '', email: u.primaryEmail,
+        status: u.suspended ? 'offboarded' : 'active',
+        department: u.orgUnitPath?.split('/').pop() || 'general',
+        role: u.isAdmin ? 'Admin' : 'Member',
+        imported_from: 'google_workspace',
+      }));
+      let count = 0;
+      for (const u of users) { try { await muts.createEmployee.mutateAsync(u); count++; } catch {} }
+      setSyncStatus({ type: 'success', msg: `Imported ${count} users from Google Workspace!` });
+      setTimeout(() => window.location.reload(), 2000);
+    } catch (err) {
+      setSyncStatus({ type: 'error', msg: `Sync failed: ${err.message}` });
+    } finally { setSyncing(false); }
+  };
+
+  const syncMicrosoft = async () => {
+    setSyncing(true); setActiveProvider('microsoft');
+    setSyncStatus({ type: 'info', msg: 'Microsoft 365 SSO — connecting...' });
+    const clientId = 'YOUR_AZURE_CLIENT_ID';
+    const redirectUri = encodeURIComponent(window.location.origin + '/auth/callback');
+    const scope = encodeURIComponent('https://graph.microsoft.com/User.Read.All https://graph.microsoft.com/Directory.Read.All');
+    const authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${clientId}&response_type=token&redirect_uri=${redirectUri}&scope=${scope}&response_mode=fragment`;
+    setSyncStatus({ type: 'info', msg: 'Microsoft 365 integration coming soon. Contact us to join the beta.' });
+    setSyncing(false);
+  };
+
+  const providers = [
+    {
+      id: 'google',
+      name: 'Google Workspace',
+      desc: 'Import employees, departments & org structure',
+      icon: '🔵',
+      color: 'blue',
+      action: () => toast.success('Added to the Google Workspace waitlist. We\'ll email you when full sync is ready (target: Q1 2026).', { duration: 5000 }),
+      available: false,
+      badge: 'Q1 2026',
+    },
+    {
+      id: 'microsoft',
+      name: 'Microsoft 365',
+      desc: 'Sync from Azure AD / Entra ID',
+      icon: '🟦',
+      color: 'indigo',
+      action: () => toast.success('Added to the Microsoft 365 waitlist. We\'ll email you when it\'s ready (target: Q2 2026).', { duration: 5000 }),
+      available: false,
+      badge: 'Q2 2026',
+    },
+    {
+      id: 'okta',
+      name: 'Okta',
+      desc: 'Import users from Okta directory',
+      icon: '⚫',
+      color: 'slate',
+      action: () => toast.success('Added to the Okta waitlist. We\'ll email you when it\'s ready (target: Q3 2026).', { duration: 5000 }),
+      available: false,
+      badge: 'Q3 2026',
+    },
+  ];
+
+  return (
+    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 mb-6">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="p-2 bg-blue-500/20 rounded-xl">
+          <svg className="h-5 w-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+        </div>
+        <div>
+          <h3 className="text-base font-bold text-white">Directory Sync</h3>
+          <p className="text-xs text-slate-400">Auto-import employees from your identity provider</p>
+        </div>
+      </div>
+      <div className="space-y-2 mb-4">
+        {providers.map(p => (
+          <button key={p.id}
+            onClick={p.action}
+            disabled={syncing}
+            className={"group relative flex items-center gap-4 p-4 rounded-xl border transition-all text-left w-full " + (p.available ? "border-slate-700 hover:border-" + p.color + "-500/50 hover:bg-slate-800/60 cursor-pointer" : "border-slate-800 opacity-60 cursor-not-allowed")}
+          >
+            <div className={"flex-shrink-0 w-11 h-11 rounded-lg flex items-center justify-center text-xl " + (p.available ? "bg-" + p.color + "-500/15 border border-" + p.color + "-500/20" : "bg-slate-800 border border-slate-800")}>
+              {p.icon}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-0.5">
+                <span className="text-sm font-semibold text-white">{p.name}</span>
+                {p.badge && <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-700 text-slate-300 font-medium uppercase tracking-wide">{p.badge}</span>}
+              </div>
+              <div className="text-xs text-slate-500">{p.desc}</div>
+            </div>
+            <div className="flex-shrink-0">
+              {syncing && activeProvider === p.id ? (
+                <div className="h-5 w-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+              ) : p.available ? (
+                <svg className="h-4 w-4 text-slate-500 group-hover:text-slate-300 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/></svg>
+              ) : (
+                <svg className="h-4 w-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/></svg>
+              )}
+            </div>
+          </button>
+        ))}
+      </div>
+      {syncStatus && (
+        <div className={"flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm " + (syncStatus.type === 'success' ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20' : syncStatus.type === 'error' ? 'bg-red-500/15 text-red-400 border border-red-500/20' : 'bg-blue-500/15 text-blue-400 border border-blue-500/20')}>
+          <span>{syncStatus.type === 'success' ? '✓' : syncStatus.type === 'error' ? '✗' : 'ℹ'}</span>
+          <span>{syncStatus.msg}</span>
+          <button onClick={() => setSyncStatus(null)} className="ml-auto text-slate-500 hover:text-slate-300">✕</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+// ── Getting Started Checklist ─────────────────────────────────────────────────
+
+function GettingStartedChecklist({ db }) {
+  const navigate = useNavigate();
+  const { language } = useLang();
+  const t = useTranslation(language);
+  const [dismissed, setDismissed] = useState(
+    localStorage.getItem('sg_checklist_dismissed') === 'true'
+  );
+  const [celebrating, setCelebrating] = useState(false);
+
+  const budgetCap = db?.user?.budget_cap || parseInt(localStorage.getItem('sg_budget_cap') || '0') || 0;
+  const teamMembers = (() => { try { return JSON.parse(localStorage.getItem('sg_team_members') || '[]'); } catch { return []; } })();
+
+  const steps = [
+    {
+      id: 'first_tool',
+      icon: '🛠️',
+      title: t('gs_step1_title'),
+      desc: t('gs_step1_desc'),
+      done: (db?.tools || []).filter(t => t.status !== 'archived').length > 0,
+      action: () => navigate('/tools'),
+      cta: t('gs_step1_cta'),
+    },
+    {
+      id: 'add_employee',
+      icon: '👥',
+      title: t('gs_step2_title'),
+      desc: t('gs_step2_desc'),
+      done: (db?.employees || []).length > 0,
+      action: () => navigate('/employees'),
+      cta: t('gs_step2_cta'),
+    },
+    {
+      id: 'budget_cap',
+      icon: '💰',
+      title: t('gs_step3_title'),
+      desc: t('gs_step3_desc'),
+      done: budgetCap > 0,
+      action: () => navigate('/finance'),
+      cta: t('gs_step3_cta'),
+    },
+    {
+      id: 'invite_team',
+      icon: '✉️',
+      title: t('gs_step4_title'),
+      desc: t('gs_step4_desc'),
+      done: teamMembers.length > 0,
+      action: () => { navigate('/settings'); setTimeout(() => { const el = document.querySelector('[data-tab="team"]'); if (el) el.click(); }, 100); },
+      cta: t('gs_step4_cta'),
+    },
+  ];
+
+  const doneCount = steps.filter(s => s.done).length;
+  const allDone = doneCount === steps.length;
+
+  const dismiss = () => {
+    localStorage.setItem('sg_checklist_dismissed', 'true');
+    setDismissed(true);
+  };
+
+  React.useEffect(() => {
+    if (allDone && !dismissed) {
+      setCelebrating(true);
+      const t = setTimeout(() => dismiss(), 4000);
+      return () => clearTimeout(t);
+    }
+  }, [allDone]);
+
+  if (dismissed) return null;
+
+  const pct = Math.round((doneCount / steps.length) * 100);
+
+  return (
+    <div className="rounded-2xl border border-blue-500/20 bg-gradient-to-br from-slate-900 to-blue-950/20 p-5 lg:p-6 mb-6">
+      {celebrating ? (
+        <div className="text-center py-4">
+          <div className="text-3xl mb-2">🎉</div>
+          <div className="text-lg font-bold text-white mb-1">{t('gs_done_title')}</div>
+          <div className="text-sm text-slate-400">{t('gs_done_sub')}</div>
+        </div>
+      ) : (
+        <>
+          <div className="flex items-start justify-between gap-4 mb-4">
+            <div>
+              <div className="flex items-center gap-2 mb-0.5">
+                <span className="text-base font-bold text-white">{t('gs_title')}</span>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 font-semibold">{doneCount}/{steps.length}</span>
+              </div>
+              <div className="text-xs text-slate-500">{t('gs_sub')}</div>
+            </div>
+            <button onClick={dismiss} className="text-slate-600 hover:text-slate-400 transition-colors text-lg leading-none flex-shrink-0" title={t('close')}>✕</button>
+          </div>
+
+          <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden mb-5">
+            <div className="h-full bg-gradient-to-r from-blue-500 to-emerald-500 rounded-full transition-all duration-500"
+              style={{ width: `${pct}%` }} />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {steps.map((step) => (
+              <div key={step.id} className={`relative flex flex-col gap-2 p-4 rounded-xl border transition-all ${
+                step.done
+                  ? 'border-emerald-500/30 bg-emerald-500/5'
+                  : 'border-slate-700 bg-slate-950/40 hover:border-slate-600'
+              }`}>
+                {step.done && (
+                  <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center">
+                    <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                )}
+                <div className="text-xl">{step.icon}</div>
+                <div className={`text-sm font-semibold ${step.done ? 'text-emerald-300 line-through decoration-emerald-500/50' : 'text-white'}`}>
+                  {step.title}
+                </div>
+                <div className="text-xs text-slate-500 flex-1">{step.desc}</div>
+                {!step.done && (
+                  <button onClick={step.action}
+                    className="mt-1 text-xs text-blue-400 hover:text-blue-300 font-semibold transition-colors text-left">
+                    {step.cta}
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ── Dashboard Page ────────────────────────────────────────────────────────────
+
+export function DashboardPage() {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+
+  const { language, setLanguage } = useLang();
+  const t = useTranslation(language);
+  const [showImport, setShowImport] = useState(false);
+  const [importKind, setImportKind] = useState(null);
+  const [showImportMenu, setShowImportMenu] = useState(false);
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [showAssignOwner, setShowAssignOwner] = useState(false);
+  const [assignToolId, setAssignToolId] = useState(null);
+  const [assignToolName, setAssignToolName] = useState('');
+  const [orphanedTools] = useState(['GitHub', 'Figma', 'Notion']);
+  const [selectedOwners, setSelectedOwners] = useState({});
+  const { data: db, isLoading } = useDbQuery();
+  const muts = useDbMutations();
+
+  const derived = useMemo(() => {
+    if (!db) return { tools: [], access: [], alerts: [], counts: { critical:0, high:0, medium:0, low:0 }, spend: 0, highRiskTools: 0, formerAccess: 0, activeTools: 0 };
+    const tools = db.tools.map((t) => ({
+      ...t,
+      derived_status: computeToolDerivedStatus(t),
+      derived_risk: computeToolDerivedRisk(t),
+    }));
+    const employeesById = Object.fromEntries(db.employees.map((e) => [e.id, e]));
+    const toolsById = Object.fromEntries(tools.map((t) => [t.id, t]));
+    const access = db.access.map((a) => ({
+      ...a,
+      derived_risk_flag: computeAccessDerivedRiskFlag(a, employeesById, toolsById),
+    }));
+    const alerts = buildRiskAlerts({ ...db, tools, access });
+    const counts = riskSeverityCounts(alerts);
+    const spend = tools.reduce((sum, t) => sum + Number(t.cost_per_month || 0), 0);
+    const highRiskTools = tools.filter((t) => t.derived_risk === "high").length;
+    const formerAccess = access.filter((a) => a.derived_risk_flag === "former_employee").length;
+    return { tools, access, alerts, counts, spend, highRiskTools, formerAccess };
+  }, [db]);
+
+  const markReviewed = (accId) => {
+    muts.updateAccess.mutate(
+      { id: accId, patch: { last_reviewed_date: todayISO(), risk_flag: "none" } },
+      { onSuccess: () => toast.success(t('marked_reviewed')) }
+    );
+  };
+
+  const revokeAccess = (accId) => {
+    muts.updateAccess.mutate(
+      { id: accId, patch: { status: "revoked" } },
+      { onSuccess: () => toast.success(t('revoked')) }
+    );
+  };
+
+  return (
+    <AppShell title={t('dashboard')} right={
+        <div className="flex items-center gap-2">
+          <RoleGate requires="editor">
+            <Button variant="secondary" size="sm" onClick={() => { setImportKind('tools'); setShowImport(true); }}>
+              <Upload className="h-3.5 w-3.5" />Import Data
+            </Button>
+          </RoleGate>
+          <RoleGate requires="admin">
+            <Button variant="secondary" size="sm" onClick={() => { if(window.confirm('This will clear ALL your data (tools, employees, access). Are you sure?')) { resetDb(); } }} title="Reset all data">
+              <RefreshCw className="h-3.5 w-3.5" /> Reset Data
+            </Button>
+          </RoleGate>
+          <LangSelectorCompact />
+        </div>
+      }>
+
+      {/* ── GETTING STARTED — shown to new real users only ── */}
+      {db && !db.user?.is_demo && db.user?.is_authenticated && (
+        <GettingStartedChecklist db={db} />
+      )}
+
+      {/* ── PRIORITY ACTION — the ONE thing to do first ── */}
+      {derived.formerAccess > 0 && (
+        <div className="relative overflow-hidden rounded-2xl border border-rose-500/30 bg-gradient-to-r from-rose-500/10 via-orange-500/5 to-transparent p-5 lg:p-6 mb-6">
+          <div className="absolute top-0 right-0 w-64 h-full bg-gradient-to-l from-rose-500/5 to-transparent pointer-events-none" />
+          <div className="relative flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-6">
+            <div className="flex items-center gap-4 flex-1">
+              <div className="flex-shrink-0 h-14 w-14 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center">
+                <AlertTriangle className="h-7 w-7 text-rose-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-rose-400">Priority · Act now</span>
+                </div>
+                <h2 className="text-xl lg:text-2xl font-bold text-white mb-1">
+                  {derived.formerAccess} ex-{derived.formerAccess === 1 ? 'employee' : 'employees'} can still access your tools
+                </h2>
+                <p className="text-sm text-slate-400">
+                  This is a security risk and probably wasted licence spend. Fix it in one click.
+                </p>
+              </div>
+            </div>
+            <div className="flex-shrink-0">
+              <Button
+                onClick={() => navigate('/offboarding')}
+                className="w-full lg:w-auto !bg-rose-500 hover:!bg-rose-400 !text-white !px-6 !py-3 !font-bold shadow-lg shadow-rose-900/30">
+                Remove their access →
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* When no risks — show a "next step" prompt instead */}
+      {derived.formerAccess === 0 && derived.tools.length === 0 && (
+        <div className="relative overflow-hidden rounded-2xl border border-blue-500/30 bg-gradient-to-r from-blue-500/10 via-indigo-500/5 to-transparent p-5 lg:p-6 mb-6">
+          <div className="relative flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-6">
+            <div className="flex items-center gap-4 flex-1">
+              <div className="flex-shrink-0 h-14 w-14 rounded-xl bg-blue-500/20 border border-blue-500/40 flex items-center justify-center">
+                <Upload className="h-7 w-7 text-blue-400" />
+              </div>
+              <div className="flex-1">
+                <div className="text-[10px] font-bold uppercase tracking-widest text-blue-400 mb-1">Get started · Step 1 of 3</div>
+                <h2 className="text-xl lg:text-2xl font-bold text-white mb-1">Import your team and tools</h2>
+                <p className="text-sm text-slate-400">
+                  Upload a CSV or Excel file with your employees and SaaS tools. Stacklens maps everything in seconds.
+                </p>
+              </div>
+            </div>
+            <div className="flex-shrink-0">
+              <Button
+                onClick={() => { setImportKind('company'); setShowImport(true); }}
+                className="w-full lg:w-auto !bg-blue-500 hover:!bg-blue-400 !text-white !px-6 !py-3 !font-bold">
+                Upload my data →
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Row 1: Directory Sync + Security Score ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5 mb-6">
+
+        <div className="rounded-2xl border border-blue-500/20 bg-gradient-to-br from-slate-900 to-blue-950/20 p-5 lg:p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 bg-blue-500/20 rounded-xl">
+              <Activity className="h-5 w-5 text-blue-400" />
+            </div>
+            <div>
+              <span className="text-base font-semibold text-slate-100 block">Directory Sync</span>
+              <span className="text-xs text-slate-500">Connect your identity provider to auto-import employees & tools</span>
+            </div>
+          </div>
+          <WorkspaceConnector compact={true} />
+        </div>
+
+        {/* Security Score */}
+        {(() => {
+          const totalTools = (derived?.tools || []).length;
+          const totalEmployees = (derived?.access || []).length > 0 ? new Set((derived?.access || []).map(a => a.employee_id)).size : 0;
+          const hasData = totalTools > 0 || totalEmployees > 0;
+          const orphanedToolsCount = (derived?.tools || []).filter(t => !t.owner_email).length;
+          const formerAccess = derived?.formerAccess || 0;
+          const highRiskTools = (derived?.tools || []).filter(t => t.derived_risk === 'high').length;
+
+          const score = hasData ? Math.max(0, Math.min(100, 100 - (orphanedToolsCount * 10) - (highRiskTools * 5) - (formerAccess * 8))) : null;
+          const scoreColor = score === null ? '#475569' : score >= 80 ? '#10b981' : score >= 60 ? '#f59e0b' : '#ef4444';
+          const scoreLabel = score === null ? 'No data' : score >= 80 ? 'Good' : score >= 60 ? 'Needs Work' : 'Critical';
+          const labelBg = score === null ? 'bg-slate-700/40 text-slate-400' : score >= 80 ? 'bg-emerald-500/20 text-emerald-400' : score >= 60 ? 'bg-amber-500/20 text-amber-400' : 'bg-red-500/20 text-red-400';
+
+          const toolsWithMfa = (derived?.tools || []).filter(t => t.mfa_required || t.mfa_enabled).length;
+          const mfaCoverage = totalTools > 0 ? Math.round((toolsWithMfa / totalTools) * 100) : null;
+
+          const ninetyDaysAgo = Date.now() - (90 * 24 * 60 * 60 * 1000);
+          const overdueReviews = (derived?.access || []).filter(a => {
+            if (!a.last_reviewed_date) return true;
+            return new Date(a.last_reviewed_date).getTime() < ninetyDaysAgo;
+          }).length;
+
+          return (
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 lg:p-6">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-base font-semibold text-slate-100">{t('security_score') || 'Security Score'}</span>
+            <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${labelBg}`}>
+              {scoreLabel}
+            </span>
+          </div>
+          <div className="flex items-center gap-6">
+            <div className="relative w-28 h-28 flex-shrink-0">
+              <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
+                <circle cx="50" cy="50" r="40" fill="none" stroke="#1e293b" strokeWidth="8"/>
+                <circle cx="50" cy="50" r="40" fill="none"
+                  stroke={scoreColor}
+                  strokeWidth="8"
+                  strokeDasharray={`${2*Math.PI*40}`}
+                  strokeDashoffset={`${2*Math.PI*40*(1-(score||0)/100)}`}
+                  strokeLinecap="round"/>
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-3xl font-black text-white">{score === null ? '—' : score}</span>
+                <span className="text-xs text-slate-500">/ 100</span>
+              </div>
+            </div>
+            <div className="flex-1 space-y-2">
+              {[
+                {label:'MFA coverage', value: mfaCoverage === null ? '—' : `${mfaCoverage}%`, color: mfaCoverage === null ? 'text-slate-500' : mfaCoverage >= 80 ? 'text-emerald-400' : 'text-amber-400'},
+                {label:'Access reviews', value: !hasData ? '—' : overdueReviews > 0 ? `${overdueReviews} overdue` : 'On track', color: !hasData ? 'text-slate-500' : overdueReviews > 0 ? 'text-red-400' : 'text-emerald-400'},
+                {label:'Ex-employees with access', value:`${formerAccess} active`, color: formerAccess > 0 ? 'text-red-400' : 'text-emerald-400'},
+                {label:'Tools without owners', value:`${orphanedToolsCount}`, color: orphanedToolsCount > 0 ? 'text-amber-400' : 'text-emerald-400'},
+              ].map((row,i)=>(
+                <div key={i} className="flex items-center justify-between py-1 text-sm">
+                  <span className="text-slate-400">{row.label}</span>
+                  <span className={`font-semibold ${row.color}`}>{row.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <Link to="/security" className="block mt-4">
+            <Button variant="secondary" className="w-full text-sm">{hasData ? 'Review my security score →' : 'Set up to see your score →'}</Button>
+          </Link>
+        </div>
+          );
+        })()}
+      </div>
+
+      {/* ── Row 2: KPI Strip ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-5 mb-6">
+        {[
+          { label: t('security_alerts') || 'Security Alerts', value: derived?.alerts?.length || 0, sub: `${derived?.counts?.critical||0} critical · ${derived?.counts?.high||0} high`, color: 'border-l-red-500', vcolor: 'text-red-400', link: '/security' },
+          { label: 'Wasted Spend', value: getCurrency(language) + convertCurrency(Math.round((derived?.spend||0)*0.14), language).toLocaleString(), sub: 'Idle licenses detected', color: 'border-l-amber-500', vcolor: 'text-amber-400', link: '/tools' },
+          { label: t('monthly_spend') || 'Monthly Spend', value: getCurrency(language) + convertCurrency(derived?.spend||0, language).toLocaleString(), sub: getCurrency(language) + convertCurrency((derived?.spend||0)*12, language).toLocaleString() + '/yr', color: 'border-l-emerald-500', vcolor: 'text-emerald-400', link: '/finance' },
+        ].map((kpi, i) => (
+          <Link key={i} to={kpi.link}>
+            <div className={`rounded-2xl border border-slate-800 bg-slate-900/60 p-5 lg:p-6 border-l-4 ${kpi.color} hover:border-slate-700 hover:bg-slate-900/80 transition-all cursor-pointer group`}>
+              <div className="flex items-center justify-between">
+                <div className="text-[11px] text-slate-500 uppercase tracking-wider font-semibold mb-2">{kpi.label}</div>
+                <ChevronRight className="h-4 w-4 text-slate-600 group-hover:text-slate-400 transition-colors" />
+              </div>
+              <div className={`text-3xl lg:text-4xl font-black ${kpi.vcolor}`}>{kpi.value}</div>
+              <div className="text-sm text-slate-500 mt-1.5">{kpi.sub}</div>
+            </div>
+          </Link>
+        ))}
+      </div>
+
+      {/* ── Action Inbox ── */}
+      {(() => {
+        const actions = [];
+
+        const formerWithAccess = (derived?.access || []).filter(a => a.derived_risk_flag === 'former_employee' && a.status === 'active');
+        formerWithAccess.forEach(a => {
+          actions.push({
+            id: 'former-' + a.id,
+            severity: 'critical',
+            icon: '🔴',
+            title: `${a.employee_name || 'Ex-employee'} still has access to ${a.tool_name || 'a tool'}`,
+            reason: 'This employee has left the company but their access has not been revoked.',
+            action: 'Revoke access',
+            onAction: () => { muts.updateAccess.mutate({ id: a.id, patch: { status: 'revoked' } }, { onSuccess: () => toast.success(t('revoked')) }); },
+            link: '/offboarding',
+          });
+        });
+
+        const unownedTools = (derived?.tools || []).filter(t => !t.owner_email);
+        unownedTools.slice(0, 5).forEach(t => {
+          actions.push({
+            id: 'noowner-' + t.id,
+            severity: 'high',
+            icon: '🟡',
+            title: `${t.name} has no assigned owner`,
+            reason: `No one is responsible for managing this tool. Cost: ${getCurrency(language)}${convertCurrency(t.cost_per_month || 0, language).toLocaleString()}/mo.`,
+            action: 'Assign owner',
+            toolId: t.id,
+            toolName: t.name,
+            needsOwner: true,
+            link: '/tools',
+          });
+        });
+
+        const highRiskNoMfa = (derived?.tools || []).filter(t => t.derived_risk === 'high' && !t.mfa_required && !t.mfa_enabled);
+        highRiskNoMfa.slice(0, 3).forEach(t => {
+          actions.push({
+            id: 'mfa-' + t.id,
+            severity: 'high',
+            icon: '🛡️',
+            title: `${t.name} is high risk with no MFA`,
+            reason: `Risk: ${t.derived_risk}. Last used: ${t.last_used_date || 'unknown'}. Owner: ${t.owner_email || 'none'}. No multi-factor authentication enabled.`,
+            action: 'Review',
+            link: '/security',
+          });
+        });
+
+        const _budgetCap = db?.user?.budget_cap || parseInt(localStorage.getItem('sg_budget_cap') || '0') || 0;
+        const _notifBudget = (() => { try { return JSON.parse(localStorage.getItem('sg_notifications') || '{}'); } catch { return {}; } })().budget ?? true;
+        if (_budgetCap > 0 && _notifBudget && (derived?.spend || 0) > _budgetCap) {
+          const pct = Math.round((derived.spend / _budgetCap) * 100);
+          actions.push({
+            id: 'budget-exceeded',
+            severity: 'high',
+            icon: '💰',
+            title: `Monthly spend is ${pct}% of your budget cap`,
+            reason: `You've set a ${getCurrency(language)}${convertCurrency(_budgetCap, language).toLocaleString()}/mo cap. Current spend is ${getCurrency(language)}${convertCurrency(derived.spend, language).toLocaleString()}.`,
+            action: 'View Finance',
+            link: '/finance',
+          });
+        }
+
+        const sixtyDaysAgo = Date.now() - (60 * 24 * 60 * 60 * 1000);
+        const idleTools = (derived?.tools || []).filter(t => {
+          if (!t.cost_per_month || t.cost_per_month <= 0) return false;
+          if (!t.last_used_date) return true;
+          return new Date(t.last_used_date).getTime() < sixtyDaysAgo;
+        });
+        idleTools.slice(0, 3).forEach(t => {
+          actions.push({
+            id: 'idle-' + t.id,
+            severity: 'medium',
+            icon: '💸',
+            title: `${t.name} — ${getCurrency(language)}${convertCurrency(t.cost_per_month || 0, language).toLocaleString()}/mo possibly wasted`,
+            reason: `Last used: ${t.last_used_date || 'never'}. Consider cancelling or reassigning this license.`,
+            action: 'Review tool',
+            link: '/tools',
+          });
+        });
+
+        if (actions.length === 0) return null;
+
+        const order = { critical: 0, high: 1, medium: 2 };
+        actions.sort((a, b) => (order[a.severity] || 3) - (order[b.severity] || 3));
+
+        return (
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 lg:p-6 mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-red-500/20 rounded-lg">
+                  <AlertTriangle className="h-4 w-4 text-red-400" />
+                </div>
+                <span className="text-base font-semibold text-slate-100">{t('action_inbox') || 'Action inbox'}</span>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 font-semibold">{actions.length}</span>
+              </div>
+              <span className="text-xs text-slate-500">{t('action_inbox_sub') || 'Items needing your attention'}</span>
+            </div>
+            <div className="space-y-2.5">
+              {actions.slice(0, 8).map((item) => (
+                <div key={item.id} className={`flex items-start gap-3 rounded-xl p-3.5 border transition-colors ${
+                  item.severity === 'critical' ? 'bg-red-500/5 border-red-500/20 hover:border-red-500/40' :
+                  item.severity === 'high' ? 'bg-amber-500/5 border-amber-500/20 hover:border-amber-500/40' :
+                  'bg-slate-950/40 border-slate-800 hover:border-slate-700'
+                }`}>
+                  <span className="text-sm mt-0.5 flex-shrink-0">{item.icon}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-semibold text-slate-100">{item.title}</div>
+                    <div className="text-xs text-slate-500 mt-0.5 line-clamp-2">{item.reason}</div>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {item.needsOwner ? (
+                      <button onClick={() => { setAssignToolId(item.toolId); setAssignToolName(item.toolName); setShowAssignOwner(true); }}
+                        className="px-3 py-1.5 rounded-lg bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 text-xs font-semibold transition-colors">
+                        {item.action}
+                      </button>
+                    ) : item.onAction ? (
+                      <button onClick={item.onAction}
+                        className="px-3 py-1.5 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 text-xs font-semibold transition-colors">
+                        {item.action}
+                      </button>
+                    ) : (
+                      <Link to={item.link}>
+                        <span className="px-3 py-1.5 rounded-lg bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 text-xs font-semibold transition-colors inline-block">
+                          {item.action}
+                        </span>
+                      </Link>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+            {actions.length > 8 && (
+              <div className="mt-3 text-center">
+                <Link to="/security" className="text-xs text-blue-400 hover:text-blue-300">View all {actions.length} items →</Link>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* ── Row 3: Critical Alerts + AI Recommendations ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 lg:gap-5 mb-6">
+        <div className="lg:col-span-3 rounded-2xl border border-slate-800 bg-slate-900/60 p-5 lg:p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <div className="h-2.5 w-2.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-base font-semibold text-slate-100">{t('critical_alerts') || 'Critical Alerts'}</span>
+            </div>
+            <Pill tone="blue" icon={Sparkles}>{t('live')}</Pill>
+          </div>
+          <div className="space-y-2.5">
+            {derived?.alerts?.length ? derived.alerts.slice(0,4).map((a) => (
+              <div key={a.id} className={`flex items-start gap-3 rounded-xl p-3.5 border transition-colors hover:border-slate-700 ${a.severity === 'critical' ? 'bg-red-500/5 border-red-500/20' : 'bg-slate-950/40 border-slate-800'}`}>
+                <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${a.severity === 'critical' ? 'bg-red-400' : 'bg-amber-400'}`} />
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-semibold text-slate-100">{a.title}</div>
+                  <div className="text-sm text-slate-500 mt-0.5 line-clamp-2">{a.body}</div>
+                </div>
+                <Link to={a.action.to} className="text-sm text-blue-400 hover:text-blue-300 flex-shrink-0 font-medium mt-0.5">Fix →</Link>
+              </div>
+            )) : (
+              <div className="flex items-center gap-3 rounded-xl p-4 bg-emerald-500/5 border border-emerald-500/20">
+                <BadgeCheck className="h-5 w-5 text-emerald-400 flex-shrink-0" />
+                <div className="text-sm text-emerald-400 font-semibold">All clear — no critical issues</div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="lg:col-span-2 rounded-2xl border border-blue-500/20 bg-gradient-to-br from-slate-900 to-blue-950/20 p-5 lg:p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-purple-500/20 rounded-lg">
+                <Sparkles className="h-4 w-4 text-purple-400" />
+              </div>
+              <span className="text-base font-semibold text-slate-100">AI Recommendations</span>
+            </div>
+            <span className="text-xs text-slate-500">Powered by Claude</span>
+          </div>
+          <AIRecommendations tools={derived?.tools||[]} employees={db?.employees||[]} access={db?.access||[]} compact={true} />
+        </div>
+      </div>
+
+      {/* ── Row 4: Spend + Shadow IT + Overdue Reviews ── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-5 mb-6">
+
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 lg:p-6">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-base font-semibold text-slate-100">{t('spend_trend') || 'Spend by Category'}</span>
+            <span className="text-xs text-slate-500">Monthly</span>
+          </div>
+          {(derived?.tools||[]).length === 0 ? (
+            <div className="text-center py-6 mb-4">
+              <div className="text-3xl mb-2 opacity-40">💸</div>
+              <div className="text-sm text-slate-400 mb-1">No spend data yet</div>
+              <div className="text-xs text-slate-600">Import your tools to see spending</div>
+            </div>
+          ) : (
+            <div className="space-y-3 mb-4">
+              {Object.entries((derived?.tools||[]).reduce((acc,t)=>{const c=t.category||'other';acc[c]=(acc[c]||0)+(t.cost_per_month||0);return acc},{})).sort((a,b)=>b[1]-a[1]).slice(0,4).map(([cat,spend],i)=>(
+                <div key={i} className="space-y-1.5">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-400 capitalize">{cat}</span>
+                    <span className="text-slate-200 font-medium">{getCurrency(language)}{convertCurrency(spend||0,language).toLocaleString()}</span>
+                  </div>
+                  <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+                    <div className="h-full bg-blue-500 rounded-full" style={{width:`${Math.min(100,Math.round((spend/(derived?.spend||1))*100))}%`}} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          <Link to="/finance">
+            <Button variant="secondary" className="w-full text-sm">Dig into the numbers →</Button>
+          </Link>
+        </div>
+
+        <div className="rounded-2xl border border-purple-500/20 bg-purple-500/5 p-5 lg:p-6">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-base font-semibold text-slate-100">Shadow IT Detected</span>
+            <span className="text-xs px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 font-semibold">New</span>
+          </div>
+          {(() => {
+            const shadowTools = (derived?.tools||[]).filter(t => t.is_shadow || t.tag === 'shadow' || t.status === 'unsanctioned' || t.discovery_source === 'detected').slice(0, 3);
+            if (shadowTools.length === 0) {
+              return (
+                <div className="text-center py-6 mb-4">
+                  <div className="text-3xl mb-2 opacity-40">🔍</div>
+                  <div className="text-sm text-slate-400 mb-1">No shadow IT detected yet</div>
+                  <div className="text-xs text-slate-600">Import your tools to start scanning</div>
+                </div>
+              );
+            }
+            return (
+              <div className="space-y-2.5 mb-4">
+                {shadowTools.map((app, i) => (
+                  <div key={i} className="flex items-center gap-3 p-3 rounded-xl border border-slate-800 bg-slate-900/50">
+                    <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-sm font-bold text-slate-300 flex-shrink-0">{(app.name||'?')[0]}</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold text-slate-200 truncate">{app.name}</div>
+                      <div className="text-xs text-slate-500">{app.user_count || 0} employees</div>
+                    </div>
+                    <span className="text-xs font-semibold text-amber-400">Unsanctioned</span>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+          <Button variant="secondary" className="w-full text-sm" onClick={()=>toast(t('shadow_it_coming_soon') || (language === 'fr' ? 'Rapport Shadow IT bientôt disponible !' : 'Shadow IT report coming soon!'), { icon: '🔜' })}>See what's behind this →</Button>
+        </div>
+
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 lg:p-6">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-base font-semibold text-slate-100">{t('overdue_reviews') || 'Overdue Reviews'}</span>
+            <span className="text-sm text-slate-500">{(derived?.access||[]).filter(a=>a.status==='active').length} pending</span>
+          </div>
+          {(derived?.access||[]).filter(a=>a.status==='active').length === 0 ? (
+            <div className="text-center py-6 mb-4">
+              <div className="text-3xl mb-2 opacity-40">📋</div>
+              <div className="text-sm text-slate-400 mb-1">No reviews pending</div>
+              <div className="text-xs text-slate-600">Import access records to start reviews</div>
+            </div>
+          ) : (
+            <div className="space-y-2.5">
+              {(derived?.access||[]).filter(a=>a.status==='active').slice(0,3).map((a)=>(
+                <div key={a.id} className="flex items-center gap-3 p-3 rounded-xl border border-slate-800 bg-slate-950/30">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                    {(a.employee_name||'?').charAt(0)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-semibold text-slate-200 truncate">{a.tool_name}</div>
+                    <div className="text-xs text-slate-500 truncate">{a.employee_name}</div>
+                  </div>
+                  <div className="flex gap-1.5">
+                    <button onClick={()=>markReviewed(a.id)} className="px-2.5 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700 text-xs transition-colors">✓</button>
+                    <button onClick={()=>revokeAccess(a.id)} className="px-2.5 py-1.5 rounded-lg border border-red-800 bg-red-900/30 text-red-400 hover:bg-red-900/50 text-xs transition-colors">✕</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          <Link to="/access" className="block mt-4">
+            <Button variant="secondary" className="w-full text-sm">Review pending access →</Button>
+          </Link>
+        </div>
+      </div>
+
+      {/* ── Row 5: Quick Actions ── */}
+      <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 lg:p-6">
+        <div className="flex items-center justify-between mb-4">
+          <span className="text-base font-semibold text-slate-100">{t('quick_actions') || 'Quick Actions'}</span>
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+          <Link to="/offboarding" className="w-full">
+            <Button variant="secondary" className="w-full justify-start text-sm py-3"><UserMinus className="h-4 w-4" />{t('revoke_departing_access') || 'Revoke Departing Access'}</Button>
+          </Link>
+          <Link to="/access" className="w-full">
+            <Button className="w-full justify-start text-sm py-3"><GitMerge className="h-4 w-4" />{t('review_admin_access') || 'Review Admin Access'}</Button>
+          </Link>
+          <Link to="/tools" className="w-full">
+            <Button variant="secondary" className="w-full justify-start text-sm py-3"><Boxes className="h-4 w-4" />{t('assign_owners') || 'Assign Tool Owners'}</Button>
+          </Link>
+          <Link to="/licenses" className="w-full">
+            <Button variant="secondary" className="w-full justify-start text-sm py-3"><Activity className="h-4 w-4" />{t('reclaim_licenses') || 'Reclaim Idle Licenses'}</Button>
+          </Link>
+        </div>
+      </div>
+
+      {showImport && importKind && (<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={()=>setShowImport(false)}><div className="bg-slate-950 border border-slate-700 rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto relative" onClick={e=>e.stopPropagation()}><button onClick={()=>setShowImport(false)} className="absolute top-4 right-4 w-8 h-8 bg-slate-800 rounded-lg text-slate-400 hover:text-white">x</button><ImportWizard defaultKind={importKind} onDone={()=>{setShowImport(false);setImportKind(null);}} /></div></div>)}
+
+      {/* ── Assign Owner Modal ── */}
+      {showAssignOwner && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={() => setShowAssignOwner(false)}>
+          <div className="bg-slate-950 border border-slate-700 rounded-2xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-white mb-1">Assign tool owner</h3>
+            <p className="text-sm text-slate-400 mb-4">Who should own {assignToolName}?</p>
+            <div className="space-y-2 max-h-[50vh] overflow-y-auto">
+              {(db?.employees || []).filter(e => e.status === 'active').map(emp => (
+                <button key={emp.id}
+                  onClick={() => {
+                    if (assignToolId) {
+                      muts.updateTool.mutate(
+                        { id: assignToolId, patch: { owner_email: emp.email, owner_name: emp.full_name } },
+                        { onSuccess: () => { toast.success(`${emp.full_name} is now the owner of ${assignToolName}`); setShowAssignOwner(false); } }
+                      );
+                    }
+                  }}
+                  className="w-full flex items-center gap-3 p-3 rounded-xl border border-slate-800 bg-slate-950/30 hover:bg-slate-900/60 hover:border-slate-700 transition-colors text-left"
+                >
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
+                    {(emp.full_name || '?')[0]}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-semibold text-slate-200 truncate">{emp.full_name}</div>
+                    <div className="text-xs text-slate-500 truncate">{emp.email} · {emp.department || 'No dept'}</div>
+                  </div>
+                </button>
+              ))}
+              {(db?.employees || []).filter(e => e.status === 'active').length === 0 && (
+                <div className="text-center py-6 text-sm text-slate-500">{t("assign_no_active_employees") || "No active employees. Import your team first."}</div>
+              )}
+            </div>
+            <div className="mt-4 flex justify-end">
+              <Button variant="secondary" onClick={() => setShowAssignOwner(false)}>Cancel</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+    </AppShell>
+  );
+}
+
+// ── AI Recommendations ────────────────────────────────────────────────────────
+
+const AI_RECS_CACHE_KEY = 'ag_ai_recs_cache';
+const AI_RECS_CACHE_TTL = 30 * 60 * 1000;
+
+function getCachedAIRecs() {
+  try {
+    const cached = JSON.parse(localStorage.getItem(AI_RECS_CACHE_KEY) || '{}');
+    if (cached.data && Date.now() - cached.ts < AI_RECS_CACHE_TTL) return cached.data;
+  } catch {}
+  return null;
+}
+function setCachedAIRecs(data) {
+  try { localStorage.setItem(AI_RECS_CACHE_KEY, JSON.stringify({ data, ts: Date.now() })); } catch {}
+}
+
+function AIRecommendations({ tools, employees, access }) {
+  const { language } = useLang();
+  const t = useTranslation(language);
+  const { data: db } = useDbQuery();
+  const [loading, setLoading] = React.useState(false);
+  const [recs, setRecs] = React.useState(null);
+  const [expanded, setExpanded] = React.useState(false);
+
+  const generateRecs = async () => {
+    setLoading(true);
+    try {
+      const today = new Date();
+      const offboarded = (employees || []).filter(e => e.status === 'offboarded' || e.status === 'offboarding');
+      const orphaned = (tools || []).filter(t => !t.owner_email);
+      const unused = (tools || []).filter(t => {
+        if (!t.last_used_date) return false;
+        const days = Math.floor((today - new Date(t.last_used_date)) / 86400000);
+        return days > 90;
+      });
+      const formerWithAccess = offboarded.filter(e =>
+        (access || []).some(a => a.employee_email === e.email && a.status === 'active')
+      );
+
+      const prompt = `You are an IT security analyst. Analyze this SaaS data and give 3-5 specific, actionable recommendations.
+
+Company data:
+- Total tools: ${(tools || []).length}
+- Total employees: ${(employees || []).length}
+- Former employees with active access: ${formerWithAccess.map(e => e.full_name).join(', ') || 'None'}
+- Tools without owners (no owner): ${orphaned.map(t => t.name).join(', ') || 'None'}
+- Unused 90+ days: ${unused.map(t => t.name).join(', ') || 'None'}
+- Monthly spend: ${getCurrency(language)}${(tools || []).reduce((s, t) => s + (t.cost_per_month || 0), 0).toLocaleString()}
+
+Return JSON array of recommendations:
+[{"priority": "high|medium|low", "title": "...", "description": "...", "action": "...", "savings": "optional $X/mo"}]
+Return ONLY the JSON array, no markdown.`;
+
+      const aiData = await callAI({ messages: [{ role: 'user', content: prompt }], max_tokens: 1000 });
+      const rawText = aiData?.content?.[0]?.text || aiData?.text || '';
+      const text = rawText.replace(/```json?\n?/g, '').replace(/```/g, '').trim();
+      setRecs(JSON.parse(text));
+    } catch(e) {
+      console.error('AI recs failed:', e);
+      setRecs([
+        { priority: 'high', title: 'Former employees with active access', description: `${(employees||[]).filter(e=>e.status==='offboarded').length} offboarded employees may still have tool access`, action: 'Review Offboarding', savings: null },
+        { priority: 'medium', title: 'Tools without owners detected', description: `${(tools||[]).filter(t=>!t.owner_email).length} tools have no owner assigned`, action: 'Assign Owners', savings: null },
+        { priority: 'low', title: 'Unused tool licenses', description: `${(tools||[]).filter(t=>t.last_used_date && Math.floor((new Date()-new Date(t.last_used_date))/86400000)>90).length} tools unused for 90+ days`, action: 'Review Tools', savings: null },
+      ]);
+    } finally { setLoading(false); }
+  };
+
+  React.useEffect(() => { if (tools?.length > 0) generateRecs(); }, []);
+
+  return (
+    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 mb-6">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-purple-500/20 rounded-xl">
+            <svg className="h-5 w-5 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+          </div>
+          <div>
+            <h3 className="text-base font-bold text-white">AI Access Recommendations</h3>
+            <p className="text-xs text-slate-400">Powered by Claude AI</p>
+          </div>
+        </div>
+        <button onClick={generateRecs} disabled={loading}
+          className="text-xs px-3 py-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 rounded-lg border border-purple-500/20 transition-colors">
+          {loading ? 'Analysing...' : 'Refresh'}
+        </button>
+      </div>
+      {loading && <div className="flex items-center gap-2 text-slate-400 text-sm"><div className="h-4 w-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin"/><span>Analysing your access data...</span></div>}
+      {recs && (
+        <div className="space-y-3">
+          {(expanded ? recs : recs.slice(0,3)).map((rec, i) => (
+            <div key={i} className={"flex items-start gap-3 p-3 rounded-xl border " + (rec.priority === 'high' ? 'bg-red-500/5 border-red-500/20' : rec.priority === 'medium' ? 'bg-amber-500/5 border-amber-500/20' : 'bg-blue-500/5 border-blue-500/20')}>
+              <div className={"w-2 h-2 rounded-full mt-1.5 flex-shrink-0 " + (rec.priority === 'high' ? 'bg-red-400' : rec.priority === 'medium' ? 'bg-amber-400' : 'bg-blue-400')} />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm font-semibold text-white">{rec.title}</span>
+                  {rec.savings && <span className="text-xs text-emerald-400 font-semibold">{rec.savings}</span>}
+                </div>
+                <p className="text-xs text-slate-400 mt-0.5">{rec.description}</p>
+              </div>
+              <span className={"text-xs px-2 py-0.5 rounded-full flex-shrink-0 " + (rec.priority === 'high' ? 'bg-red-500/20 text-red-400' : rec.priority === 'medium' ? 'bg-amber-500/20 text-amber-400' : 'bg-blue-500/20 text-blue-400')}>{rec.priority}</span>
+            </div>
+          ))}
+          {recs.length > 3 && (
+            <button onClick={() => setExpanded(e => !e)} className="text-xs text-slate-400 hover:text-slate-200 transition-colors">
+              {expanded ? 'Show less' : `Show ${recs.length - 3} more recommendations`}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Slack Notifications ───────────────────────────────────────────────────────
+
+export function SlackNotifications() {
+  const [webhook, setWebhook] = React.useState(localStorage.getItem('slack_webhook') || '');
+  const [saved, setSaved] = React.useState(false);
+  const [testing, setTesting] = React.useState(false);
+
+  const save = () => {
+    localStorage.setItem('slack_webhook', webhook);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  const test = async () => {
+    if (!webhook) return;
+    setTesting(true);
+    try {
+      await fetch(webhook, {
+        method: 'POST',
+        body: JSON.stringify({ text: '✅ Stacklens connected! You will receive alerts for security risks, renewals and offboarding.' })
+      });
+      toast.success('Test message sent to Slack!');
+    } catch(e) {
+      toast.error('Failed to send. Check your webhook URL.');
+    } finally { setTesting(false); }
+  };
+
+  return (
+    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="p-2 bg-emerald-500/20 rounded-xl text-xl">💬</div>
+        <div>
+          <h3 className="text-base font-bold text-white">Slack Notifications</h3>
+          <p className="text-xs text-slate-400">Get alerts for risks, renewals & offboarding</p>
+        </div>
+      </div>
+      <div className="space-y-3">
+        <div>
+          <label className="text-xs text-slate-400 mb-1 block">Slack Webhook URL</label>
+          <input
+            value={webhook}
+            onChange={e => setWebhook(e.target.value)}
+            placeholder="https://hooks.slack.com/services/..."
+            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-emerald-500 transition-colors"
+          />
+          <p className="text-xs text-slate-500 mt-1">
+            <a href="https://api.slack.com/apps" target="_blank" rel="noreferrer" className="text-blue-400 hover:underline">Create a Slack App</a> → Incoming Webhooks → Add New Webhook
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={save} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold rounded-xl transition-colors">
+            {saved ? '✓ Saved!' : 'Save'}
+          </button>
+          {webhook && (
+            <button onClick={test} disabled={testing} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-semibold rounded-xl transition-colors">
+              {testing ? 'Sending...' : 'Test Connection'}
+            </button>
+          )}
+        </div>
+        <div className="pt-2 border-t border-slate-800">
+          <p className="text-xs text-slate-500 mb-2">You will receive alerts for:</p>
+          <div className="grid grid-cols-2 gap-1">
+            {['🚨 High risk tools', '👤 Former employee access', '🔔 Renewals in 30 days', '⚡ Offboarding needed'].map(a => (
+              <div key={a} className="text-xs text-slate-400 flex items-center gap-1">{a}</div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── License Benchmarking ──────────────────────────────────────────────────────
+
+function LicenseBenchmark({ tools }) {
+  const { language } = useLang();
+  const BENCHMARKS = {
+    'slack': { avg: 8.75, name: 'Slack' },
+    'github': { avg: 21, name: 'GitHub' },
+    'figma': { avg: 45, name: 'Figma' },
+    'notion': { avg: 16, name: 'Notion' },
+    'salesforce': { avg: 150, name: 'Salesforce' },
+    'hubspot': { avg: 45, name: 'HubSpot' },
+    'zoom': { avg: 15, name: 'Zoom' },
+    'jira': { avg: 10, name: 'Jira' },
+    'datadog': { avg: 35, name: 'Datadog' },
+    'adobe': { avg: 80, name: 'Adobe CC' },
+  };
+
+  const comparisons = (tools || []).map(tool => {
+    const key = tool.name.toLowerCase().replace(/[^a-z]/g, '');
+    const bench = Object.entries(BENCHMARKS).find(([k]) => key.includes(k));
+    if (!bench || !tool.cost_per_month) return null;
+    const perUser = tool.cost_per_month;
+    const diff = ((perUser - bench[1].avg) / bench[1].avg * 100).toFixed(0);
+    return { name: tool.name, yourCost: perUser, avgCost: bench[1].avg, diff: Number(diff) };
+  }).filter(Boolean);
+
+  if (!comparisons.length) return null;
+
+  return (
+    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 mb-6">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="p-2 bg-blue-500/20 rounded-xl">
+          <svg className="h-5 w-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+        </div>
+        <div>
+          <h3 className="text-base font-bold text-white">License Benchmarking</h3>
+          <p className="text-xs text-slate-400">Your costs vs industry average</p>
+        </div>
+      </div>
+      <div className="space-y-2">
+        {comparisons.slice(0,5).map((c, i) => (
+          <div key={i} className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-800/50">
+            <span className="text-sm text-white w-24 truncate">{c.name}</span>
+            <div className="flex-1">
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-slate-400">You: {getCurrency(language)}{convertCurrency(c.yourCost, language)}</span>
+                <span className="text-slate-600">vs</span>
+                <span className="text-slate-400">Avg: {getCurrency(language)}{convertCurrency(c.avgCost, language)}</span>
+              </div>
+            </div>
+            <span className={"text-xs font-bold px-2 py-0.5 rounded-full " + (c.diff > 20 ? 'bg-red-500/20 text-red-400' : c.diff < -10 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700 text-slate-400')}>
+              {c.diff > 0 ? '+' : ''}{c.diff}%
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Import Wizard ─────────────────────────────────────────────────────────────
+
+export function ImportWizard({ defaultKind = null, onDone = null }) {
+  const { language } = useLang();
+  const t = useTranslation(language);
+  const muts = useDbMutations();
+  const [step, setStep] = useState(defaultKind ? 2 : 0);
+  const [kind, setKind] = useState(defaultKind);
+  const [text, setText] = useState('');
+  const [imported, setImported] = useState(null);
+  const [importing, setImporting] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const [animDir, setAnimDir] = useState('forward');
+
+  const goTo = (n) => { setAnimDir(n > step ? 'forward' : 'back'); setStep(n); };
+
+  const KINDS = {
+    company:   { icon: '🏢', label: t('company_data_label'),           desc: t('import_kinds_company_desc'),   example: t('import_kinds_company_example'),   color: 'blue' },
+    tools:     { icon: '🛠️', label: t('import_kinds_tools_label'),     desc: t('import_kinds_tools_desc'),     example: t('import_kinds_tools_example'),     color: 'emerald' },
+    employees: { icon: '👥', label: t('employees_import'),             desc: t('import_kinds_employees_desc'), example: t('import_kinds_employees_example'), color: 'blue' },
+    access:    { icon: '🔑', label: t('import_kinds_access_label'),    desc: t('import_kinds_access_desc'),    example: t('import_kinds_access_example'),    color: 'violet' },
+  };
+
+  const TEMPLATES = {
+    company:   'employee_name,employee_email,department,role,employee_status,start_date,tool_name,tool_category,tool_cost_monthly,tool_url,tool_status,tool_criticality,renewal_date,access_level\nAlice Martin,alice@co.com,engineering,Engineer,active,2023-01-15,GitHub,engineering,320,https://github.com,active,high,2026-11-15,admin\nAlice Martin,alice@co.com,engineering,Engineer,active,2023-01-15,Slack,communication,240,https://slack.com,active,high,2026-12-01,member\nBob Johnson,bob@co.com,sales,Manager,active,2022-06-01,Salesforce,sales,1200,https://salesforce.com,active,high,2027-01-01,admin',
+    tools:     'name,category,owner_email,owner_name,criticality,url,status,cost_per_month\nSlack,communication,jane@co.com,Jane Smith,high,https://slack.com,active,299\nNotion,productivity,tom@co.com,Tom Brown,medium,https://notion.so,active,120\nFigma,design,amy@co.com,Amy Lee,high,https://figma.com,active,75',
+    employees: 'full_name,email,department,role,status,start_date\nJane Smith,jane@co.com,Engineering,Engineer,active,2025-01-01\nTom Brown,tom@co.com,Marketing,Manager,active,2024-06-15\nAmy Lee,amy@co.com,Design,Designer,active,2025-03-01',
+    access:    'tool_name,employee_email,access_level,granted_date,status\nSlack,jane@co.com,admin,2025-01-01,active\nNotion,tom@co.com,editor,2025-02-01,active\nFigma,amy@co.com,owner,2025-03-01,active',
+  };
+
+  const COLS     = { company: ['employee_name','employee_email','department','tool_name','tool_category','access_level'], tools: ['name','category','status','criticality','cost_per_month','owner_name'], employees: ['full_name','email','department','role','status'], access: ['tool_name','employee_email','access_level','status'] };
+  const REQUIRED = { company: ['employee_name','employee_email','tool_name'], tools: ['name'], employees: ['full_name','email'], access: ['tool_name','employee_email'] };
+
+  const liveRows = React.useMemo(() => { if (!text.trim()) return []; try { return parseCsv(text); } catch { return []; } }, [text]);
+  const cols = kind ? COLS[kind] : [];
+  const isRowValid = (row) => kind ? REQUIRED[kind].every(k => row[k]?.trim()) : false;
+  const validCount   = liveRows.filter(isRowValid).length;
+  const invalidCount = liveRows.length - validCount;
+
+  const handleFileUpload = async (file) => {
+    if (!file) return;
+    const name = file.name.toLowerCase();
+    let csv;
+    if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
+      if (!window.XLSX) {
+        await new Promise((res, rej) => {
+          const s = document.createElement('script');
+          s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+          s.onload = res; s.onerror = rej;
+          document.head.appendChild(s);
+        });
+      }
+      const ab = await file.arrayBuffer();
+      const wb = window.XLSX.read(ab, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      csv = window.XLSX.utils.sheet_to_csv(ws);
+    } else {
+      csv = await new Promise((res) => {
+        const reader = new FileReader();
+        reader.onload = (e) => res(e.target.result);
+        reader.readAsText(file);
+      });
+    }
+    setText(csv);
+    const detected = detectKind(csv);
+    if (detected) {
+      setKind(detected);
+      toast.success('Detected: ' + (KINDS[detected]?.label || detected));
+    }
+    goTo(2);
+  };
+
+  const handleImport = async () => {
+    if (!liveRows.length || !kind) return;
+    setImporting(true);
+    try {
+      await muts.bulkImport.mutateAsync({ kind, records: liveRows });
+      await new Promise(r => setTimeout(r, 1500));
+      setImported({ count: liveRows.length, kind });
+      if (onDone) setTimeout(onDone, 2000);
+      goTo(3);
+    } finally { setImporting(false); }
+  };
+
+  const reset = () => { setStep(0); setKind(null); setText(''); setImported(null); };
+
+  const STEP_LABELS = [t('import_step1'), t('import_step2') || 'Get template', t('import_step3'), t('import_step4') || t('done')];
+
+  const detectKind = (csvText) => {
+    const firstLine = csvText.split('\n')[0].toLowerCase();
+    const scores = { company: 0, tools: 0, employees: 0, access: 0 };
+
+    const hasEmployeeFields = firstLine.includes('employee_name') || firstLine.includes('employee_email');
+    const hasToolFields = firstLine.includes('tool_name') || firstLine.includes('tool_category') || firstLine.includes('tool_cost');
+    const hasAccessLevel = firstLine.includes('access_level');
+
+    if (hasEmployeeFields && hasToolFields) {
+      scores.company += 10;
+      if (hasAccessLevel) scores.company += 3;
+    }
+
+    if (firstLine.includes('cost_per_month') || (firstLine.match(/(^|,)name(,|$)/) && !hasEmployeeFields && !hasToolFields)) {
+      scores.tools += 5;
+    }
+
+    if ((firstLine.includes('full_name') || firstLine.includes('department')) && !hasToolFields) {
+      scores.employees += 5;
+    }
+
+    if (firstLine.includes('tool_name') && firstLine.includes('access_level') && !firstLine.includes('tool_category') && !firstLine.includes('tool_cost')) {
+      scores.access += 5;
+    }
+
+    const best = Object.entries(scores).sort((a,b) => b[1] - a[1])[0];
+    return best[1] > 0 ? best[0] : null;
+  };
+
+  const handlePaste = (val) => {
+    setText(val);
+    const detected = detectKind(val);
+    if (detected && detected !== kind) {
+      setKind(detected);
+      toast.success('Detected type: ' + KINDS[detected].label + ' — smart detection! ✨');
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Animated step progress */}
+      <div className="flex items-center mb-8">
+        {STEP_LABELS.map((label, i) => {
+          const done = step > i;
+          const active = step === i;
+          return (
+            <React.Fragment key={label}>
+              <div className="flex flex-col items-center">
+                <div className={
+                  "h-10 w-10 rounded-full flex items-center justify-center font-bold text-sm transition-all duration-300 " +
+                  (done ? 'bg-emerald-500 text-white scale-90' : active ? 'bg-blue-600 text-white ring-4 ring-blue-600/25 scale-110' : 'bg-slate-800 text-slate-500')
+                }>
+                  {done ? '✓' : i + 1}
+                </div>
+                <div className={"text-[10px] mt-1.5 font-semibold whitespace-nowrap transition-colors " + (active ? 'text-white' : done ? 'text-emerald-400' : 'text-slate-600')}>{label}</div>
+              </div>
+              {i < STEP_LABELS.length - 1 && (
+                <div className={"flex-1 h-0.5 mx-3 mb-5 transition-all duration-500 " + (step > i ? 'bg-emerald-500' : 'bg-slate-800')} />
+              )}
+            </React.Fragment>
+          );
+        })}
+      </div>
+
+      {/* STEP 0 — Choose what to import */}
+      {step === 0 && (
+        <div className="space-y-4">
+          <div className="rounded-2xl bg-gradient-to-r from-blue-500/10 to-emerald-500/5 border border-blue-500/20 p-5">
+            <div className="flex items-start gap-3">
+              <span className="text-2xl mt-0.5">💡</span>
+              <div>
+                <div className="font-bold text-white mb-1">{t("hc_fastest_way_to_get_started")}</div>
+                <p className="text-sm text-slate-400">{t('import_wizard_info')}</p>
+              </div>
+            </div>
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-white mb-1">{t('what_importing')}</h2>
+            <p className="text-slate-400 text-sm mb-4">{t('import_each_type_info')}</p>
+            <div className="grid gap-3">
+              {Object.entries(KINDS).map(([id, meta]) => (
+                <button key={id} onClick={() => { setKind(id); goTo(1); }}
+                  className={"flex items-center gap-4 p-5 rounded-2xl border transition-all text-left hover:scale-[1.01] active:scale-[0.99] " + (kind === id ? 'border-' + meta.color + '-500/40 bg-' + meta.color + '-500/5' : 'border-slate-800 bg-slate-900/40 hover:border-slate-700')}>
+                  <div className="text-4xl flex-shrink-0">{meta.icon}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-bold text-white text-lg">{meta.label}</div>
+                    <div className="text-sm text-slate-400">{meta.desc}</div>
+                    <div className="text-xs text-slate-600 mt-0.5">e.g. {meta.example}</div>
+                  </div>
+                  <ChevronRight className="h-5 w-5 text-slate-600 flex-shrink-0" />
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* STEP 1 — Template */}
+      {step === 1 && kind && (
+        <div className="space-y-5">
+          <button onClick={() => goTo(0)} className="text-sm text-slate-500 hover:text-slate-300 flex items-center gap-1">← {t('back')}</button>
+          <div className="flex items-center gap-3">
+            <span className="text-4xl">{KINDS[kind].icon}</span>
+            <div>
+              <h2 className="text-xl font-bold text-white">{t('import_heading')} {KINDS[kind].label}</h2>
+              <p className="text-slate-400 text-sm">{KINDS[kind].desc}</p>
+            </div>
+          </div>
+
+          <Card className="p-5">
+            <div className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">{t('template_columns')}</div>
+            <div className="flex flex-wrap gap-2 mb-3">
+              {TEMPLATES[kind].split('\n')[0].split(',').map(col => (
+                <span key={col} className={"text-xs px-2.5 py-1 rounded-full font-mono " + (REQUIRED[kind].includes(col) ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20' : 'bg-slate-800 text-slate-400')}>
+                  {col}{REQUIRED[kind].includes(col) ? ' *' : ''}
+                </span>
+              ))}
+            </div>
+            <div className="text-xs text-slate-600">{t('import_required_note')}</div>
+          </Card>
+
+          <Card className="p-0 overflow-hidden">
+            <div className="px-5 py-3 border-b border-slate-800 flex items-center justify-between">
+              <div className="text-sm font-bold text-white">{t('preview_title')}</div>
+              <span className="text-xs text-slate-500">{t("hc_this_is_what_your_csv_should_look_l")}</span>
+            </div>
+            <div className="overflow-x-auto w-full">
+              <table className="text-xs w-full">
+                <thead>
+                  <tr className="border-b border-slate-800 bg-slate-950/60">
+                    {TEMPLATES[kind].split('\n')[0].split(',').map(col => (
+                      <th key={col} className="text-left py-2.5 px-4 text-slate-500 font-semibold whitespace-nowrap">{col}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {TEMPLATES[kind].split('\n').slice(1).map((row, i) => (
+                    <tr key={i} className="border-b border-slate-800/50 hover:bg-slate-800/30">
+                      {row.split(',').map((cell, j) => (
+                        <td key={j} className="py-2.5 px-4 text-slate-300 whitespace-nowrap">{cell}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+
+          <div className="grid sm:grid-cols-2 gap-3">
+            <button onClick={() => downloadText(kind + '_template.csv', TEMPLATES[kind])}
+              className="flex items-center justify-center gap-2 py-3.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-bold transition-all active:scale-[0.98]">
+              <Download className="h-4 w-4" /> {t('download_template')}
+            </button>
+            <button onClick={() => { setText(TEMPLATES[kind]); goTo(2); }}
+              className="flex items-center justify-center gap-2 py-3.5 bg-slate-800 hover:bg-slate-700 rounded-xl font-semibold transition-all text-slate-300">
+              {t('import_use_sample')}
+            </button>
+          </div>
+          <div className="text-center">
+            <button onClick={() => goTo(2)} className="text-sm text-emerald-400 hover:underline">{t('skip_to_upload')}</button>
+          </div>
+        </div>
+      )}
+
+      {/* STEP 2 — Upload */}
+      {step === 2 && (
+        <div className="space-y-4">
+          <button onClick={() => goTo(kind ? 1 : 0)} className="text-sm text-slate-500 hover:text-slate-300 flex items-center gap-1">← {t('back')}</button>
+
+          {kind && (
+            <div className="flex items-center gap-2 text-xs text-slate-500 bg-slate-900/60 border border-slate-800 rounded-xl px-4 py-2.5">
+              <span className="text-lg">{KINDS[kind].icon}</span>
+              <span>{t('import_as_label')} <span className="text-white font-semibold">{KINDS[kind].label}</span></span>
+              <button onClick={() => goTo(0)} className="ml-auto text-blue-400 hover:text-blue-300 font-semibold">{t('back')}</button>
+            </div>
+          )}
+
+          <Card className="p-4 md:p-6">
+            <h2 className="text-xl font-bold text-white mb-1">{t('upload')}</h2>
+            <p className="text-slate-400 text-sm mb-5">{t('import_drag_and_drop_desc')}</p>
+
+            <div
+              onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={e => { e.preventDefault(); setDragOver(false); handleFileUpload(e.dataTransfer.files[0]); }}
+              onClick={() => document.getElementById('csv-import-input').click()}
+              className={"relative rounded-2xl border-2 border-dashed flex flex-col items-center justify-center py-14 mb-5 cursor-pointer transition-all duration-200 " + (dragOver ? 'border-emerald-400 bg-emerald-500/10 scale-[1.01]' : 'border-slate-700 hover:border-slate-500 bg-slate-900/40')}
+            >
+              <input id="csv-import-input" type="file" accept=".csv,.txt,.xlsx,.xls" className="hidden" onChange={e => handleFileUpload(e.target.files[0])} />
+              <div className={"text-2xl md:text-5xl mb-3 transition-all " + (dragOver ? 'scale-125' : '')}>{dragOver ? '📂' : '📁'}</div>
+              <div className={"font-bold text-lg transition-colors " + (dragOver ? 'text-emerald-400' : 'text-slate-300')}>
+                {dragOver ? t('import_drag_release') : t('import_drag_drop')}
+              </div>
+              <div className="text-sm text-slate-500 mt-1">{t('import_click_browse')}</div>
+              <div className="mt-4 flex items-center gap-2 text-xs text-slate-700">
+                <span className="px-2 py-0.5 bg-slate-800 rounded font-mono">CSV</span>
+                <span className="px-2 py-0.5 bg-slate-800 rounded font-mono">TXT</span>
+              </div>
+            </div>
+
+            <div className="relative">
+              <div className="absolute inset-x-0 -top-2.5 flex justify-center">
+                <span className="text-xs text-slate-600 bg-slate-950 px-3">{t('import_paste_or_csv')}</span>
+              </div>
+              <textarea rows={4}
+                className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 font-mono text-xs text-slate-300 outline-none focus:border-emerald-500 transition-colors resize-none"
+                value={text} onChange={e => handlePaste(e.target.value)}
+                placeholder={t('import_paste_placeholder')} />
+            </div>
+
+            {liveRows.length > 0 && (
+              <div className="flex items-center gap-3 mt-3 text-sm flex-wrap">
+                <span className="text-slate-500">{liveRows.length} {t('rows_detected')}</span>
+                {validCount > 0 && <span className="text-emerald-400 font-semibold">✓ {validCount} {t('valid')}</span>}
+                {invalidCount > 0 && <span className="text-rose-400 font-semibold">✗ {invalidCount} {t('import_errors_label')}</span>}
+              </div>
+            )}
+          </Card>
+
+          {liveRows.length > 0 && kind && (
+            <Card>
+              <CardHeader title={t('preview_title')} subtitle={liveRows.length + " " + t('import_review_before')}
+                right={<div className="flex gap-2">{validCount > 0 && <Pill tone="green">✓ {validCount} valid</Pill>}{invalidCount > 0 && <Pill tone="rose">✗ {invalidCount} errors</Pill>}</div>}
+              />
+              <CardBody>
+                <div className="overflow-x-auto w-full">
+                <div className="overflow-x-auto w-full"><table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-slate-800 bg-slate-950/60">
+                        <th className="px-3 py-2 text-left text-slate-500 font-semibold w-8">#</th>
+                        {cols.map(c => <th key={c} className="px-3 py-2 text-left text-slate-400 font-semibold capitalize">{c.replace(/_/g,' ')}</th>)}
+                        <th className="px-3 py-2 text-left text-slate-500">{t('status')}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {liveRows.slice(0, 10).map((row, i) => {
+                        const valid = isRowValid(row);
+                        return (
+                          <tr key={i} className={"border-b border-slate-800/60 " + (valid ? '' : 'bg-rose-500/5')}>
+                            <td className="px-3 py-2 text-slate-500">{i+1}</td>
+                            {cols.map(c => (
+                              <td key={c} className={"px-3 py-2 " + (!row[c]?.trim() && REQUIRED[kind].includes(c) ? 'text-rose-400' : 'text-slate-300')}>
+                                {row[c] || <span className="text-slate-700 italic">—</span>}
+                              </td>
+                            ))}
+                            <td className="px-3 py-2">
+                              {valid
+                                ? <span className="text-emerald-400 flex items-center gap-1"><Check className="h-3 w-3" /> OK</span>
+                                : <span className="text-rose-400 flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> Missing</span>
+                              }
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                  {liveRows.length > 10 && <div className="text-center text-xs text-slate-600 py-2">{t('import_showing_of')} {liveRows.length} {t('rows')}</div>}
+                </div>
+                <div className="flex items-center justify-between mt-4">
+                  <div className="text-xs text-slate-500">{t('import_not_duplicated')}</div>
+                  <button disabled={validCount === 0 || importing} onClick={handleImport}
+                    className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 rounded-xl font-bold text-sm transition-all active:scale-[0.98]">
+                    {importing
+                      ? <><RefreshCw className="h-4 w-4 animate-spin" /> {t('importing')}</>
+                      : <><Upload className="h-4 w-4" /> {t('import_heading')} {validCount} record{validCount !== 1 ? 's' : ''}</>
+                    }
+                  </button>
+                </div>
+              </CardBody>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {/* STEP 3 — Success */}
+      {step === 3 && imported && (
+        <Card className="p-10 text-center">
+          <div className="text-3xl md:text-6xl mb-4 animate-bounce">🎉</div>
+          <h2 className="text-2xl font-black text-white mb-2">{t("import_complete")}</h2>
+          <p className="text-slate-400 mb-2">
+            <span className="text-emerald-400 font-bold">{imported.count} {KINDS[imported.kind]?.label}</span> {t('import_records_added')}
+          </p>
+          <p className="text-sm text-slate-600 mb-8">{t('import_risk_insights')}</p>
+          <div className="grid sm:grid-cols-2 gap-3 max-w-sm mx-auto">
+            <button onClick={reset} className="py-3 bg-slate-800 hover:bg-slate-700 rounded-xl font-semibold text-sm transition-all">
+              {t('import_more')}
+            </button>
+            <button onClick={() => window.location.href = '/' + (imported.kind === 'employees' ? 'employees' : imported.kind === 'access' ? 'access' : 'tools')}
+              className="py-3 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-bold text-sm transition-all">
+              {t('view')} {KINDS[imported.kind]?.label} →
+            </button>
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+}
