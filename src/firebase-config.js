@@ -19,6 +19,7 @@ import {
   GoogleAuthProvider,
   OAuthProvider,
   signOut,
+  deleteUser,
   onAuthStateChanged,
   sendSignInLinkToEmail,
   isSignInWithEmailLink,
@@ -29,10 +30,15 @@ import {
   getFirestore,
   doc,
   getDoc,
+  getDocs,
   setDoc,
   addDoc,
+  updateDoc,
   collection,
+  query,
+  orderBy,
   serverTimestamp,
+  Timestamp,
 } from 'firebase/firestore';
 import { getAnalytics, isSupported, setConsent as firebaseSetConsent } from 'firebase/analytics';
 import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
@@ -131,13 +137,32 @@ async function getToken() {
 // AI PROXY — Anthropic calls go through Cloud Function only
 // ============================================================================
 export async function callAI({ messages, system, max_tokens = 2000 }) {
+  const workerUrl    = import.meta.env.VITE_WORKER_URL;
+  const workerSecret = import.meta.env.VITE_WORKER_SECRET;
+
+  // Use Cloudflare Worker proxy when configured (API key stays server-side)
+  if (workerUrl && workerSecret) {
+    const res = await fetch(workerUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': `Bearer ${workerSecret}`,
+      },
+      body: JSON.stringify({ messages, system, max_tokens }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'AI call failed');
+    return data;
+  }
+
+  // Fallback: GCP Cloud Function (requires billing enabled)
   const token = await getToken();
   if (!token) throw new Error('Not authenticated');
 
   const res = await fetch(`${FUNCTIONS_BASE}/ai`, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json',
+      'Content-Type':  'application/json',
       'Authorization': `Bearer ${token}`,
     },
     body: JSON.stringify({ messages, system, max_tokens }),
@@ -211,6 +236,19 @@ export async function syncUserProfile(user) {
 // ============================================================================
 // AUTHENTICATION
 // ============================================================================
+export async function signInWithGoogleWorkspace() {
+  const provider = new GoogleAuthProvider();
+  provider.addScope('https://www.googleapis.com/auth/admin.directory.user.readonly');
+  provider.setCustomParameters({ prompt: 'select_account' });
+  try {
+    const result = await signInWithPopup(auth, provider);
+    const credential = GoogleAuthProvider.credentialFromResult(result);
+    return { accessToken: credential?.accessToken || null, error: null };
+  } catch (error) {
+    return { accessToken: null, error: error.message };
+  }
+}
+
 export async function signInWithGoogle() {
   try {
     const result = await signInWithPopup(auth, googleProvider);
@@ -288,17 +326,13 @@ export { auth, firestoreDb as db, analytics };
 // ============================================================================
 // STRIPE BILLING HELPERS
 // ============================================================================
-// Force-refresh the Firebase ID token so new custom claims (plan) take effect immediately.
-// Call this after a successful Stripe checkout.
 export async function refreshClaims() {
   if (!auth.currentUser) return null;
-  // forceRefresh=true fetches a new token with up-to-date custom claims
-  const token = await auth.currentUser.getIdToken(true);
+  await auth.currentUser.getIdToken(true);
   const result = await auth.currentUser.getIdTokenResult();
   return result.claims;
 }
 
-// Tell the server to sync Firestore plan → custom claims (use after Stripe redirect).
 export async function syncClaimsFromServer() {
   try {
     const token = await getToken();
@@ -309,13 +343,11 @@ export async function syncClaimsFromServer() {
     });
     if (!res.ok) return null;
     const data = await res.json();
-    // Force local token refresh so getIdTokenResult picks up the new claim
     await auth.currentUser?.getIdToken(true);
     return data.plan;
   } catch { return null; }
 }
 
-// Send a team invite email via SendGrid Cloud Function.
 export async function sendInviteEmail({ inviteeEmail, inviterName, orgName }) {
   const token = await getToken();
   if (!token) throw new Error('Not authenticated');
@@ -442,10 +474,74 @@ export async function logLegalAcceptance(uid, email, planId) {
 }
 
 // ============================================================================
+// FOUNDER ADMIN — read all users, extend trials
+// ============================================================================
+export async function loadAllUsersAdmin() {
+  try {
+    const snap = await getDocs(query(collection(firestoreDb, 'users'), orderBy('trial_started_at', 'desc')));
+    return snap.docs.map(d => ({ uid: d.id, ...d.data() }));
+  } catch (err) {
+    console.error('loadAllUsersAdmin:', err);
+    throw err;
+  }
+}
+
+export async function founderExtendTrial(targetUid, extraDays = 7) {
+  try {
+    const newStartMs = Date.now() - (7 - extraDays) * 24 * 60 * 60 * 1000;
+    await updateDoc(doc(firestoreDb, 'users', targetUid), {
+      plan: 'trial',
+      trial_started_at: Timestamp.fromMillis(newStartMs),
+    });
+  } catch (err) {
+    console.error('founderExtendTrial:', err);
+    throw err;
+  }
+}
+
+export async function founderSetPlan(targetUid, plan) {
+  try {
+    await updateDoc(doc(firestoreDb, 'users', targetUid), { plan });
+  } catch (err) {
+    console.error('founderSetPlan:', err);
+    throw err;
+  }
+}
+
+// ============================================================================
 // 7-DAY TRIAL — start trial for a new user
 // Sets plan='trial' and trial_started_at on /users/{uid}.
 // Best-effort: silently fails if Firestore rules reject (Cloud Function may have already set it).
 // ============================================================================
+export async function saveReport(token, payload) {
+  try {
+    await setDoc(doc(firestoreDb, 'reports', token), payload);
+  } catch (err) {
+    console.error('saveReport:', err);
+    throw err;
+  }
+}
+
+export async function getReport(token) {
+  try {
+    const snap = await getDoc(doc(firestoreDb, 'reports', token));
+    return snap.exists() ? snap.data() : null;
+  } catch (err) {
+    console.error('getReport:', err);
+    return null;
+  }
+}
+
+export async function deleteReport(token) {
+  try {
+    const { deleteDoc } = await import('firebase/firestore');
+    await deleteDoc(doc(firestoreDb, 'reports', token));
+  } catch (err) {
+    console.error('deleteReport:', err);
+    throw err;
+  }
+}
+
 export async function startTrial(uid) {
   try {
     await setDoc(
@@ -457,8 +553,21 @@ export async function startTrial(uid) {
       { merge: true }
     );
   } catch (e) {
-    // Likely a rules rejection — that's OK, the user is just on free tier
     console.warn('startTrial failed (continuing on free):', e?.message);
   }
+}
+
+export async function deleteAccount() {
+  const user = auth.currentUser;
+  if (!user) throw new Error('Not authenticated');
+  const uid = user.uid;
+  // Delete auth account first — if this fails with auth/requires-recent-login,
+  // Firestore data is still intact and the user can re-authenticate and retry.
+  await deleteUser(user);
+  const { deleteDoc } = await import('firebase/firestore');
+  await deleteDoc(doc(firestoreDb, 'userdata', uid));
+  await deleteDoc(doc(firestoreDb, 'users', uid));
+  localStorage.removeItem('saasguard_db');
+  localStorage.removeItem('accessguard_v1');
 }
 
