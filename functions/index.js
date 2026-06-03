@@ -370,6 +370,61 @@ exports.sendInvite = onRequest({ cors: true, secrets: [SENDGRID_API_KEY] }, asyn
   });
 });
 
+// ── /founderAdmin ─────────────────────────────────────────────────────────
+// Privileged operations (extend trial, set plan) for users with is_founder=true.
+// Uses Admin SDK so it bypasses Firestore rules — the caller's founder status is
+// checked server-side before any write.
+const FOUNDER_RATE_LIMIT = { maxCalls: 30, windowMs: 60 * 60 * 1000 };
+const VALID_PLANS = ['free', 'trial', 'starter', 'hr_finance', 'pro', 'enterprise', 'scale'];
+
+exports.founderAdmin = onRequest({ cors: true, timeoutSeconds: 30 }, async (req, res) => {
+  cors(req, res, async () => {
+    if (req.method === 'OPTIONS') return res.status(204).send('');
+    if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
+
+    if (!await verifyAppCheck(req, res)) return;
+
+    const decoded = await verifyAuth(req, res);
+    if (!decoded) return;
+
+    if (!await checkRateLimit(decoded.uid, res, FOUNDER_RATE_LIMIT, 'founderAdmin')) return;
+
+    const db = admin.firestore();
+    const callerSnap = await db.collection('users').doc(decoded.uid).get();
+    if (!callerSnap.exists || !callerSnap.data().is_founder) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    const { action, targetUid, plan, extraDays } = req.body;
+    if (!targetUid || typeof targetUid !== 'string') {
+      return res.status(400).json({ error: 'targetUid required' });
+    }
+
+    try {
+      if (action === 'extendTrial') {
+        const days = typeof extraDays === 'number' ? extraDays : 7;
+        const newStartMs = Date.now() - (7 - days) * 24 * 60 * 60 * 1000;
+        await db.collection('users').doc(targetUid).update({
+          plan: 'trial',
+          trial_started_at: admin.firestore.Timestamp.fromMillis(newStartMs),
+        });
+        return res.json({ ok: true });
+      }
+      if (action === 'setPlan') {
+        if (typeof plan !== 'string' || !VALID_PLANS.includes(plan)) {
+          return res.status(400).json({ error: 'Invalid plan' });
+        }
+        await db.collection('users').doc(targetUid).update({ plan });
+        return res.json({ ok: true });
+      }
+      return res.status(400).json({ error: 'Unknown action' });
+    } catch (err) {
+      console.error('founderAdmin error:', err);
+      return res.status(500).json({ error: 'Internal error' });
+    }
+  });
+});
+
 // ── Renewal Alert Emails (SendGrid) ──────────────────────────────────────
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 
