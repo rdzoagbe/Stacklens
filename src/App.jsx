@@ -37,6 +37,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { useTranslation } from './translations';
+import { LanguageProvider, LanguageContext, useLang } from './contexts/LangContext';
 import toast, { Toaster } from 'react-hot-toast';
 import { differenceInDays, format, parseISO, subDays } from "date-fns";
 import { AnimatePresence, motion } from "framer-motion"; // eslint-disable-line no-unused-vars
