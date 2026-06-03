@@ -45,23 +45,6 @@ async function verifyAuth(req, res) {
   catch { res.status(401).json({ error: 'Invalid auth token' }); return null; }
 }
 
-async function verifyAppCheck(req, res) {
-  const appCheckToken = req.headers['x-firebase-appcheck'];
-  if (!appCheckToken) {
-    if (process.env.NODE_ENV === 'production' || process.env.FUNCTIONS_EMULATOR !== 'true') {
-      res.status(401).json({ error: 'App Check token required' });
-      return false;
-    }
-    return true;
-  }
-  try {
-    await admin.appCheck().verifyToken(appCheckToken);
-    return true;
-  } catch {
-    res.status(401).json({ error: 'Invalid App Check token' });
-    return false;
-  }
-}
 
 
 async function checkRateLimit(uid, res, limit = RATE_LIMIT, keyPrefix = 'ai') {
@@ -142,7 +125,6 @@ exports.ai = onRequest({ secrets: [ANTHROPIC_API_KEY], cors: true, timeoutSecond
   cors(req, res, async () => {
     if (req.method === 'OPTIONS') return res.status(204).send('');
     if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
-    if (!await verifyAppCheck(req, res)) return;
     const decoded = await verifyAuth(req, res); if (!decoded) return;
     const allowed = await checkRateLimit(decoded.uid, res); if (!allowed) return;
     const sanitized = sanitizeMessages(req.body.messages);
@@ -169,7 +151,6 @@ exports.createCheckout = onRequest({ secrets: [STRIPE_SECRET_KEY], cors: true, t
   cors(req, res, async () => {
     if (req.method === 'OPTIONS') return res.status(204).send('');
     if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
-    if (!await verifyAppCheck(req, res)) return;
     const decoded = await verifyAuth(req, res); if (!decoded) return;
     const allowed = await checkRateLimit(decoded.uid, res, CHECKOUT_RATE_LIMIT, 'checkout'); if (!allowed) return;
     const { priceId } = req.body;
@@ -381,8 +362,6 @@ exports.founderAdmin = onRequest({ cors: true, timeoutSeconds: 30 }, async (req,
   cors(req, res, async () => {
     if (req.method === 'OPTIONS') return res.status(204).send('');
     if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
-
-    if (!await verifyAppCheck(req, res)) return;
 
     const decoded = await verifyAuth(req, res);
     if (!decoded) return;
