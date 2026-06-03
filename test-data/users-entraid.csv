@@ -1,16 +1,16 @@
-UserPrincipalName,DisplayName,FirstName,LastName,JobTitle,Department,UsageLocation,PhoneNumber,StreetAddress,City,State,Country,PostalCode,Manager
-alice.martin@nexustech.io,Alice Martin,Alice,Martin,Chief Technology Officer,Engineering,FR,+33 6 10 11 12 13,12 Rue de Rivoli,Paris,Île-de-France,France,75001,
-bob.chen@nexustech.io,Bob Chen,Bob,Chen,Senior Software Engineer,Engineering,FR,+33 6 20 21 22 23,12 Rue de Rivoli,Paris,Île-de-France,France,75001,alice.martin@nexustech.io
-claire.dubois@nexustech.io,Claire Dubois,Claire,Dubois,Software Engineer,Engineering,FR,+33 6 30 31 32 33,12 Rue de Rivoli,Paris,Île-de-France,France,75001,alice.martin@nexustech.io
-david.nguyen@nexustech.io,David Nguyen,David,Nguyen,Frontend Developer,Engineering,FR,+33 6 40 41 42 43,12 Rue de Rivoli,Paris,Île-de-France,France,75001,alice.martin@nexustech.io
-emma.leroy@nexustech.io,Emma Leroy,Emma,Leroy,DevOps Engineer,Engineering,FR,+33 6 50 51 52 53,12 Rue de Rivoli,Paris,Île-de-France,France,75001,alice.martin@nexustech.io
-francois.bernard@nexustech.io,François Bernard,François,Bernard,VP Marketing,Marketing,FR,+33 6 60 61 62 63,12 Rue de Rivoli,Paris,Île-de-France,France,75001,
-grace.smith@nexustech.io,Grace Smith,Grace,Smith,Content Marketing Manager,Marketing,FR,+33 6 70 71 72 73,12 Rue de Rivoli,Paris,Île-de-France,France,75001,francois.bernard@nexustech.io
-hugo.petit@nexustech.io,Hugo Petit,Hugo,Petit,Product Designer,Marketing,FR,+33 6 80 81 82 83,12 Rue de Rivoli,Paris,Île-de-France,France,75001,francois.bernard@nexustech.io
-isabelle.moreau@nexustech.io,Isabelle Moreau,Isabelle,Moreau,VP Sales,Sales,FR,+33 6 90 91 92 93,12 Rue de Rivoli,Paris,Île-de-France,France,75001,
-julien.garcia@nexustech.io,Julien Garcia,Julien,Garcia,Account Executive,Sales,FR,+33 6 01 02 03 04,12 Rue de Rivoli,Paris,Île-de-France,France,75001,isabelle.moreau@nexustech.io
-karen.wilson@nexustech.io,Karen Wilson,Karen,Wilson,Sales Development Rep,Sales,FR,+33 6 11 12 13 14,12 Rue de Rivoli,Paris,Île-de-France,France,75001,isabelle.moreau@nexustech.io
-lucas.thomas@nexustech.io,Lucas Thomas,Lucas,Thomas,HR Manager,Human Resources,FR,+33 6 22 23 24 25,12 Rue de Rivoli,Paris,Île-de-France,France,75001,
-marie.robert@nexustech.io,Marie Robert,Marie,Robert,HR Business Partner,Human Resources,FR,+33 6 33 34 35 36,12 Rue de Rivoli,Paris,Île-de-France,France,75001,lucas.thomas@nexustech.io
-nicolas.laurent@nexustech.io,Nicolas Laurent,Nicolas,Laurent,CFO,Finance,FR,+33 6 44 45 46 47,12 Rue de Rivoli,Paris,Île-de-France,France,75001,
-olivia.simon@nexustech.io,Olivia Simon,Olivia,Simon,Financial Analyst,Finance,FR,+33 6 55 56 57 58,12 Rue de Rivoli,Paris,Île-de-France,France,75001,nicolas.laurent@nexustech.io
+Name [displayName] Required,User name [userPrincipalName] Required,Initial password [passwordProfile] Required,Account enabled (true/false) [accountEnabled],First name [givenName],Last name [surname],Job title [jobTitle],Department [department],Usage location [usageLocation],Street address [streetAddress],State or province [state],Country or region [country],Office [officeLocation],City [city],ZIP or postal code [postalCode],Business phone [businessPhones],Mobile phone [mobilePhone]
+Alice Martin,alice.martin@nexustech.io,Welcome2024!,true,Alice,Martin,Chief Technology Officer,Engineering,FR,12 Rue de Rivoli,Île-de-France,France,HQ,Paris,75001,+33 1 40 00 10 00,+33 6 10 11 12 13
+Bob Chen,bob.chen@nexustech.io,Welcome2024!,true,Bob,Chen,Senior Software Engineer,Engineering,FR,12 Rue de Rivoli,Île-de-France,France,HQ,Paris,75001,+33 1 40 00 10 01,+33 6 20 21 22 23
+Claire Dubois,claire.dubois@nexustech.io,Welcome2024!,true,Claire,Dubois,Software Engineer,Engineering,FR,12 Rue de Rivoli,Île-de-France,France,HQ,Paris,75001,+33 1 40 00 10 02,+33 6 30 31 32 33
+David Nguyen,david.nguyen@nexustech.io,Welcome2024!,true,David,Nguyen,Frontend Developer,Engineering,FR,12 Rue de Rivoli,Île-de-France,France,HQ,Paris,75001,+33 1 40 00 10 03,+33 6 40 41 42 43
+Emma Leroy,emma.leroy@nexustech.io,Welcome2024!,true,Emma,Leroy,DevOps Engineer,Engineering,FR,12 Rue de Rivoli,Île-de-France,France,HQ,Paris,75001,+33 1 40 00 10 04,+33 6 50 51 52 53
+François Bernard,francois.bernard@nexustech.io,Welcome2024!,true,François,Bernard,VP Marketing,Marketing,FR,12 Rue de Rivoli,Île-de-France,France,HQ,Paris,75001,+33 1 40 00 10 05,+33 6 60 61 62 63
+Grace Smith,grace.smith@nexustech.io,Welcome2024!,true,Grace,Smith,Content Marketing Manager,Marketing,FR,12 Rue de Rivoli,Île-de-France,France,HQ,Paris,75001,+33 1 40 00 10 06,+33 6 70 71 72 73
+Hugo Petit,hugo.petit@nexustech.io,Welcome2024!,true,Hugo,Petit,Product Designer,Marketing,FR,12 Rue de Rivoli,Île-de-France,France,HQ,Paris,75001,+33 1 40 00 10 07,+33 6 80 81 82 83
+Isabelle Moreau,isabelle.moreau@nexustech.io,Welcome2024!,true,Isabelle,Moreau,VP Sales,Sales,FR,12 Rue de Rivoli,Île-de-France,France,HQ,Paris,75001,+33 1 40 00 10 08,+33 6 90 91 92 93
+Julien Garcia,julien.garcia@nexustech.io,Welcome2024!,true,Julien,Garcia,Account Executive,Sales,FR,12 Rue de Rivoli,Île-de-France,France,HQ,Paris,75001,+33 1 40 00 10 09,+33 6 01 02 03 04
+Karen Wilson,karen.wilson@nexustech.io,Welcome2024!,true,Karen,Wilson,Sales Development Rep,Sales,FR,12 Rue de Rivoli,Île-de-France,France,HQ,Paris,75001,+33 1 40 00 10 10,+33 6 11 12 13 14
+Lucas Thomas,lucas.thomas@nexustech.io,Welcome2024!,true,Lucas,Thomas,HR Manager,Human Resources,FR,12 Rue de Rivoli,Île-de-France,France,HQ,Paris,75001,+33 1 40 00 10 11,+33 6 22 23 24 25
+Marie Robert,marie.robert@nexustech.io,Welcome2024!,true,Marie,Robert,HR Business Partner,Human Resources,FR,12 Rue de Rivoli,Île-de-France,France,HQ,Paris,75001,+33 1 40 00 10 12,+33 6 33 34 35 36
+Nicolas Laurent,nicolas.laurent@nexustech.io,Welcome2024!,true,Nicolas,Laurent,CFO,Finance,FR,12 Rue de Rivoli,Île-de-France,France,HQ,Paris,75001,+33 1 40 00 10 13,+33 6 44 45 46 47
+Olivia Simon,olivia.simon@nexustech.io,Welcome2024!,true,Olivia,Simon,Financial Analyst,Finance,FR,12 Rue de Rivoli,Île-de-France,France,HQ,Paris,75001,+33 1 40 00 10 14,+33 6 55 56 57 58
