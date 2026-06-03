@@ -38,7 +38,6 @@ import {
   query,
   orderBy,
   serverTimestamp,
-  Timestamp,
 } from 'firebase/firestore';
 import { getAnalytics, isSupported, setConsent as firebaseSetConsent } from 'firebase/analytics';
 import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
@@ -137,29 +136,13 @@ async function getToken() {
 // AI PROXY — Anthropic calls go through Cloud Function only
 // ============================================================================
 export async function callAI({ messages, system, max_tokens = 2000 }) {
-  const workerUrl    = import.meta.env.VITE_WORKER_URL;
-  const workerSecret = import.meta.env.VITE_WORKER_SECRET;
-
-  // Use Cloudflare Worker proxy when configured (API key stays server-side)
-  if (workerUrl && workerSecret) {
-    const res = await fetch(workerUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type':  'application/json',
-        'Authorization': `Bearer ${workerSecret}`,
-      },
-      body: JSON.stringify({ messages, system, max_tokens }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'AI call failed');
-    return data;
-  }
-
-  // Fallback: GCP Cloud Function (requires billing enabled)
   const token = await getToken();
   if (!token) throw new Error('Not authenticated');
 
-  const res = await fetch(`${FUNCTIONS_BASE}/ai`, {
+  // Use Cloudflare Worker when VITE_WORKER_URL is set; fall back to Cloud Function
+  const url = import.meta.env.VITE_WORKER_URL || `${FUNCTIONS_BASE}/ai`;
+
+  const res = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type':  'application/json',
@@ -167,7 +150,6 @@ export async function callAI({ messages, system, max_tokens = 2000 }) {
     },
     body: JSON.stringify({ messages, system, max_tokens }),
   });
-
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'AI call failed');
   return data;
@@ -487,25 +469,27 @@ export async function loadAllUsersAdmin() {
 }
 
 export async function founderExtendTrial(targetUid, extraDays = 7) {
-  try {
-    const newStartMs = Date.now() - (7 - extraDays) * 24 * 60 * 60 * 1000;
-    await updateDoc(doc(firestoreDb, 'users', targetUid), {
-      plan: 'trial',
-      trial_started_at: Timestamp.fromMillis(newStartMs),
-    });
-  } catch (err) {
-    console.error('founderExtendTrial:', err);
-    throw err;
-  }
+  const token = await getToken();
+  if (!token) throw new Error('Not authenticated');
+  const res = await fetch(`${FUNCTIONS_BASE}/founderAdmin`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    body: JSON.stringify({ action: 'extendTrial', targetUid, extraDays }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'founderAdmin failed');
 }
 
 export async function founderSetPlan(targetUid, plan) {
-  try {
-    await updateDoc(doc(firestoreDb, 'users', targetUid), { plan });
-  } catch (err) {
-    console.error('founderSetPlan:', err);
-    throw err;
-  }
+  const token = await getToken();
+  if (!token) throw new Error('Not authenticated');
+  const res = await fetch(`${FUNCTIONS_BASE}/founderAdmin`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    body: JSON.stringify({ action: 'setPlan', targetUid, plan }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'founderAdmin failed');
 }
 
 // ============================================================================

@@ -5,8 +5,14 @@
  * Deploy to Cloudflare Workers (free tier: 100k requests/day).
  *
  * Required secrets (set via `wrangler secret put`):
- *   ANTHROPIC_API_KEY  — your Anthropic key
- *   APP_SECRET         — a random string you also put in VITE_WORKER_SECRET
+ *   ANTHROPIC_API_KEY    — your Anthropic key
+ *
+ * Required vars (set in wrangler.toml or `wrangler secret put`):
+ *   FIREBASE_PROJECT_ID  — Firebase project ID (e.g. accessguard-v2)
+ *
+ * Authentication: callers send a Firebase ID token in Authorization: Bearer <token>.
+ * The Worker verifies the token against Google's public JWK endpoint — no shared
+ * secret required.
  */
 
 const ALLOWED_ORIGINS = [
@@ -37,6 +43,52 @@ function json(data, status, origin) {
   });
 }
 
+const GOOGLE_JWK_URL = 'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';
+
+function base64urlDecode(str) {
+  return atob(str.replace(/-/g, '+').replace(/_/g, '/'));
+}
+
+async function verifyFirebaseToken(token, projectId) {
+  const parts = token.split('.');
+  if (parts.length !== 3) return null;
+  const [headerB64, payloadB64, sigB64] = parts;
+
+  let header, payload;
+  try {
+    header  = JSON.parse(base64urlDecode(headerB64));
+    payload = JSON.parse(base64urlDecode(payloadB64));
+  } catch {
+    return null;
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  if (payload.exp < now)                                              return null;
+  if (payload.iat > now + 60)                                         return null;
+  if (payload.iss !== `https://securetoken.google.com/${projectId}`) return null;
+  if (payload.aud !== projectId)                                      return null;
+  if (!payload.sub)                                                   return null;
+
+  const jwkRes = await fetch(GOOGLE_JWK_URL);
+  if (!jwkRes.ok) return null;
+  const { keys } = await jwkRes.json();
+  const jwk = keys.find(k => k.kid === header.kid);
+  if (!jwk) return null;
+
+  const cryptoKey = await crypto.subtle.importKey(
+    'jwk',
+    jwk,
+    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+    false,
+    ['verify'],
+  );
+
+  const sigBytes  = Uint8Array.from(base64urlDecode(sigB64), c => c.charCodeAt(0));
+  const dataBytes = new TextEncoder().encode(`${headerB64}.${payloadB64}`);
+  const valid = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', cryptoKey, sigBytes, dataBytes);
+  return valid ? payload : null;
+}
+
 function sanitizeMessages(messages) {
   if (!Array.isArray(messages) || messages.length > MAX_MESSAGES) return null;
   return messages.map(m => ({
@@ -57,12 +109,12 @@ export default {
       return json({ error: 'POST only' }, 405, origin);
     }
 
-    // Verify shared secret
+    // Verify Firebase ID token
     const authHeader = request.headers.get('Authorization') || '';
     const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
-    if (!token || token !== env.APP_SECRET) {
-      return json({ error: 'Unauthorized' }, 401, origin);
-    }
+    if (!token) return json({ error: 'Unauthorized' }, 401, origin);
+    const firebasePayload = await verifyFirebaseToken(token, env.FIREBASE_PROJECT_ID);
+    if (!firebasePayload) return json({ error: 'Unauthorized' }, 401, origin);
 
     let body;
     try {
