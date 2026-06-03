@@ -166,7 +166,7 @@ $AccessRecords = @(
 )
 
 # Tag added to every app's Notes so we can find/remove them later
-$ScriptTag = "[Stacklens-TestData]"
+$ScriptTag = "Stacklens-TestData"
 
 #endregion
 
