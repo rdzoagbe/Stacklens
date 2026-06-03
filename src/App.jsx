@@ -1250,7 +1250,7 @@ function getRiskEvidence(tool) {
   } else {
     reasons.push({ key: 'evidence_no_usage_data', fallback: 'No usage data available' });
   }
-  if (tool.cost_per_month > 100) reasons.push({ key: 'evidence_high_cost', fallback: `High cost: €${tool.cost_per_month}/mo` });
+  if (tool.cost_per_month && tool.cost_per_month > 100) reasons.push({ key: 'evidence_high_cost', fallback: `High cost: €${tool.cost_per_month}/mo` });
   if (tool.criticality === 'high') reasons.push({ key: 'evidence_business_critical', fallback: 'Tagged as business-critical' });
   return reasons;
 }
@@ -1841,8 +1841,8 @@ function useDbMutations() {
         }
 
         if (kind === "access") {
-          const toolsByName = Object.fromEntries(db.tools.map((t) => [t.name.toLowerCase(), t]));
-          const empByEmail = Object.fromEntries(db.employees.map((e) => [e.email.toLowerCase(), e]));
+          const toolsByName = Object.fromEntries(db.tools.filter(t => t?.name).map((t) => [t.name.toLowerCase(), t]));
+          const empByEmail = Object.fromEntries(db.employees.filter(e => e?.email).map((e) => [e.email.toLowerCase(), e]));
           db.access = [
             ...records
               .map((r) => {
@@ -3457,7 +3457,7 @@ function OnboardingPage() {
               </div>
               <div className="space-y-2">
                 {teamEmails.map((email, idx) => (
-                  <div key={idx} className="flex gap-2">
+                  <div key={email || `email-${idx}`} className="flex gap-2">
                     <input value={email} onChange={e => {
                         const next = [...teamEmails]; next[idx] = e.target.value; setTeamEmails(next);
                       }}
@@ -4823,8 +4823,8 @@ function WorkspaceConnector({ compact = false }) {
   return (
     <>
     {cancelledProvider && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-        <div className="bg-slate-900 border border-amber-500/40 rounded-2xl w-full max-w-md p-6 shadow-2xl">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={() => setCancelledProvider(null)}>
+        <div className="bg-slate-900 border border-amber-500/40 rounded-2xl w-full max-w-md p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
           <div className="flex items-start gap-4 mb-5">
             <div className="p-2.5 rounded-xl bg-amber-500/10 flex-shrink-0">
               <AlertTriangle className="h-6 w-6 text-amber-400" />
@@ -5379,7 +5379,7 @@ function DashboardPage() {
     const highRiskTools = tools.filter((t) => t.derived_risk === "high").length;
     const formerAccess = access.filter((a) => a.derived_risk_flag === "former_employee").length;
     return { tools, access, alerts, counts, spend, highRiskTools, formerAccess };
-  }, [db]);
+  }, [db, t]);
 
   const markReviewed = (accId) => {
     muts.updateAccess.mutate(
@@ -6275,6 +6275,19 @@ function ToolsPage() {
   const unassignedCount = tools.filter(t => !t.owner_email).length;
   const employees = db?.employees || [];
 
+  if (isLoading) return (
+    <AppShell title={t("nav_tools")}>
+      <div className="space-y-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => <div key={i} className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 h-24 animate-pulse" />)}
+        </div>
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 space-y-3">
+          {[...Array(8)].map((_, i) => <SkeletonRow key={i} cols={6} />)}
+        </div>
+      </div>
+    </AppShell>
+  );
+
   return (
     <AppShell
       title={t("nav_tools")}
@@ -6804,6 +6817,19 @@ function EmployeesPage() {
   const activeCount = employees.filter(e => e.status === 'active').length;
   const offboardingCount = employees.filter(e => e.status === 'offboarding').length;
 
+  if (isLoading) return (
+    <AppShell title={t('nav_employees')}>
+      <div className="space-y-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => <div key={i} className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 h-24 animate-pulse" />)}
+        </div>
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 space-y-3">
+          {[...Array(8)].map((_, i) => <SkeletonRow key={i} cols={5} />)}
+        </div>
+      </div>
+    </AppShell>
+  );
+
   return (
     <AppShell
       title={t('nav_employees')}
@@ -7285,7 +7311,18 @@ function AccessPage() {
     return { access, highRisk, needsReview, matrix, toolMatrix, allTools: [...allTools].sort() };
   }, [db]);
 
-  if (isLoading || !derived) return <div className="flex items-center justify-center h-screen"><div className="text-white">{t('loading')}</div></div>;
+  if (isLoading || !derived) return (
+    <AppShell title={t('nav_access')}>
+      <div className="space-y-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => <div key={i} className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 h-24 animate-pulse" />)}
+        </div>
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 space-y-3">
+          {[...Array(8)].map((_, i) => <SkeletonRow key={i} cols={5} />)}
+        </div>
+      </div>
+    </AppShell>
+  );
 
   // Filter logic
   const filteredAccess = derived.access.filter(a => {
@@ -7940,7 +7977,7 @@ function LicenseBenchmark({ tools }) {
   };
 
   const comparisons = (tools || []).map(tool => {
-    const key = tool.name.toLowerCase().replace(/[^a-z]/g, '');
+    const key = (tool?.name || '').toLowerCase().replace(/[^a-z]/g, '');
     const bench = Object.entries(BENCHMARKS).find(([k]) => key.includes(k));
     if (!bench || !tool.cost_per_month) return null;
     const perUser = tool.cost_per_month;
@@ -10388,8 +10425,8 @@ function BillingPage({ noShell = false }) {
 
       {/* Enterprise Contact Modal */}
       {showContactModal && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-6">
-          <div className="bg-slate-900 rounded-3xl border border-white/10 p-8 max-w-md w-full">
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-6" onClick={() => setShowContactModal(false)}>
+          <div className="bg-slate-900 rounded-3xl border border-white/10 p-8 max-w-md w-full" onClick={e => e.stopPropagation()}>
             <h3 className="text-2xl font-bold mb-2">{t('talk_to_sales')}</h3>
             <p className="text-slate-400 text-sm mb-6">{t('plan_enterprise_tag')}</p>
             {contactSent ? (
@@ -11762,6 +11799,26 @@ function SettingsPage() {
               <Card>
                 <CardHeader title={t('export_data')} subtitle={t('export_data_sub')} />
                 <CardBody>
+                  {/* Single "Export everything" button — GDPR Art. 20 */}
+                  <button onClick={() => {
+                    if (!db) return;
+                    const exportCsv = (key, rows) => {
+                      if (!rows.length) return;
+                      const cols = Object.keys(rows[0]);
+                      const csv = [cols.join(','), ...rows.map(r => cols.map(c => JSON.stringify(r[c] ?? '')).join(','))].join('\n');
+                      const a = document.createElement('a'); a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+                      a.download = `stacklens-${key}-${todayISO()}.csv`; a.click();
+                    };
+                    setTimeout(() => exportCsv('tools', db.tools || []), 0);
+                    setTimeout(() => exportCsv('employees', db.employees || []), 300);
+                    setTimeout(() => exportCsv('access', db.access || []), 600);
+                    setTimeout(() => exportCsv('audit_log', db.audit_log || []), 900);
+                    toast.success(t('export_all_started') || 'Exporting 4 files…');
+                  }} className="w-full flex items-center justify-center gap-2 mb-4 py-3 bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/30 rounded-xl text-emerald-400 font-semibold text-sm transition-colors">
+                    <Download className="h-4 w-4" />
+                    {t('export_all_data') || 'Export all my data (GDPR Art. 20)'}
+                  </button>
+
                   <div className="grid sm:grid-cols-3 gap-3">
                     {[
                       { label: t('export_tools_label'), desc: t('export_tools_desc'), icon: Boxes, key: 'tools' },
@@ -12168,8 +12225,8 @@ function ShareReportModal({ onClose, db, user }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{background:'rgba(2,6,23,0.85)', backdropFilter:'blur(12px)'}}>
-      <div className="relative w-full max-w-md bg-slate-900 border border-slate-700/60 rounded-3xl shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{background:'rgba(2,6,23,0.85)', backdropFilter:'blur(12px)'}} onClick={onClose}>
+      <div className="relative w-full max-w-md bg-slate-900 border border-slate-700/60 rounded-3xl shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-emerald-500/60 to-transparent" />
         <button onClick={onClose} className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-all z-10">✕</button>
 
