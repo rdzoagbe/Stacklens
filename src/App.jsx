@@ -7,13 +7,10 @@ import {
   Link,
   useLocation,
   useNavigate,
+  useParams,
   useSearchParams,
 } from "react-router-dom";
-import { signInWithGoogle, handleRedirectResult, signOutUser, onAuthChange, sendMagicLink, completeMagicLinkSignIn, callAI, loadUserData, saveUserData, syncUserProfile, getUserPlanFromFirestore, registerWithEmail, signInWithEmail, resetPassword, resendEmailVerification, createBillingPortal, createCheckoutSession, logConsent, startTrial, logLegalAcceptance, syncClaimsFromServer, sendInviteEmail } from './firebase-config';
-import { PLAN_TIERS, PLAN_LIMITS, TRIAL_DAYS, TRIAL_MS, resolvePlan, getTrialState, getPlanLimits } from './lib/plan';
-import { LS_KEY, CATEGORIES, EMP_DEPARTMENTS, TOOL_STATUS, CRITICALITY, RISK_SCORE, ACCESS_LEVEL, ACCESS_STATUS, RISK_FLAG } from './lib/constants';
-import { LanguageContext, LanguageProvider, useLang } from './contexts/LangContext';
-import { CurrencyContext, CurrencyProvider, useCurrency, useCurrencyConverter } from './contexts/CurrencyContext';
+import { signInWithGoogle, signInWithGoogleWorkspace, handleRedirectResult, signOutUser, onAuthChange, sendMagicLink, completeMagicLinkSignIn, callAI, loadUserData, saveUserData, syncUserProfile, getUserPlanFromFirestore, registerWithEmail, signInWithEmail, resetPassword, createBillingPortal, createCheckoutSession, logConsent, startTrial, logLegalAcceptance, loadAllUsersAdmin, founderExtendTrial, founderSetPlan, signInWithMicrosoft, saveReport, getReport, deleteReport, resendEmailVerification, deleteAccount } from './firebase-config';
 
 // ── Compatibility stubs (migrated to Firestore) ──────────────
 async function getUserProfile(uid) {
@@ -105,6 +102,7 @@ import {
   DollarSign,
   Mail,
   Eye,
+  Share2,
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, CartesianGrid, PieChart as RPieChart, Pie, Cell } from 'recharts';
 
@@ -1110,6 +1108,53 @@ function seedDbIfEmpty() {
   return db;
 }
 
+// Load sample data for an authenticated user — keeps their auth info,
+// populates tools/employees/access with demo data, marks with _is_sample flag
+function loadSampleDataForUser() {
+  const existing = loadDb();
+  const now = new Date();
+  const d = (daysAgo) => format(subDays(now, daysAgo), "yyyy-MM-dd");
+
+  const employees = [
+    { id: uid("emp"), full_name: "Amina Dupont",  email: "amina.dupont@acme.com",  department: "security",     role: "Security Lead",       status: "active",      start_date: d(420), end_date: "" },
+    { id: uid("emp"), full_name: "Lucas Martin",  email: "lucas.martin@acme.com",  department: "engineering",  role: "Platform Engineer",   status: "active",      start_date: d(210), end_date: "" },
+    { id: uid("emp"), full_name: "Chloé Bernard", email: "chloe.bernard@acme.com", department: "finance",      role: "Controller",          status: "offboarding", start_date: d(680), end_date: d(3) },
+    { id: uid("emp"), full_name: "Noah Petit",    email: "noah.petit@acme.com",    department: "marketing",    role: "Growth Manager",      status: "offboarded",  start_date: d(980), end_date: d(35) },
+    { id: uid("emp"), full_name: "Sara Kim",      email: "sara.kim@acme.com",      department: "design",       role: "Product Designer",    status: "active",      start_date: d(150), end_date: "" },
+    { id: uid("emp"), full_name: "James Okafor",  email: "james.okafor@acme.com",  department: "sales",        role: "Account Executive",   status: "active",      start_date: d(320), end_date: "" },
+  ];
+  const tools = [
+    { id: uid("tool"), name: "Slack",       category: "communication", owner_email: "amina.dupont@acme.com",  owner_name: "Amina Dupont",  criticality: "high",   url: "https://slack.com",        status: "active",   last_used_date: d(1),   cost_per_month: 240, cost_monthly: 240, cost: 240, risk_score: "low",    notes: "SSO enabled" },
+    { id: uid("tool"), name: "GitHub",      category: "engineering",   owner_email: "lucas.martin@acme.com",  owner_name: "Lucas Martin",  criticality: "high",   url: "https://github.com",       status: "active",   last_used_date: d(0),   cost_per_month: 320, cost_monthly: 320, cost: 320, risk_score: "medium", notes: "Review admin access quarterly" },
+    { id: uid("tool"), name: "Figma",       category: "design",        owner_email: "",                       owner_name: "",              criticality: "medium",  url: "https://figma.com",        status: "orphaned", last_used_date: d(16),  cost_per_month: 180, cost_monthly: 180, cost: 180, risk_score: "high",   notes: "Owner missing" },
+    { id: uid("tool"), name: "HubSpot",     category: "sales",         owner_email: "noah.petit@acme.com",    owner_name: "Noah Petit",    criticality: "medium",  url: "https://hubspot.com",      status: "unused",   last_used_date: d(120), cost_per_month: 600, cost_monthly: 600, cost: 600, risk_score: "high",   notes: "Unused > 90 days" },
+    { id: uid("tool"), name: "Notion",      category: "productivity",  owner_email: "sara.kim@acme.com",      owner_name: "Sara Kim",      criticality: "medium",  url: "https://notion.so",        status: "active",   last_used_date: d(2),   cost_per_month: 96,  cost_monthly: 96,  cost: 96,  risk_score: "low",    notes: "" },
+    { id: uid("tool"), name: "Salesforce",  category: "sales",         owner_email: "james.okafor@acme.com",  owner_name: "James Okafor",  criticality: "high",   url: "https://salesforce.com",   status: "active",   last_used_date: d(4),   cost_per_month: 1200,cost_monthly:1200,cost:1200, risk_score: "medium", notes: "Enterprise contract" },
+    { id: uid("tool"), name: "Zoom",        category: "communication", owner_email: "amina.dupont@acme.com",  owner_name: "Amina Dupont",  criticality: "medium",  url: "https://zoom.us",          status: "active",   last_used_date: d(1),   cost_per_month: 150, cost_monthly: 150, cost: 150, risk_score: "low",    notes: "" },
+    { id: uid("tool"), name: "Jira",        category: "engineering",   owner_email: "lucas.martin@acme.com",  owner_name: "Lucas Martin",  criticality: "high",   url: "https://atlassian.com",    status: "active",   last_used_date: d(0),   cost_per_month: 280, cost_monthly: 280, cost: 280, risk_score: "low",    notes: "" },
+  ];
+  const access = [
+    { id: uid("acc"), tool_id: tools[0].id, tool_name: tools[0].name, employee_id: employees[0].id, employee_name: employees[0].full_name, employee_email: employees[0].email, access_level: "admin",   granted_date: d(300), last_accessed_date: d(1),  last_reviewed_date: d(200), status: "active", risk_flag: "needs_review" },
+    { id: uid("acc"), tool_id: tools[1].id, tool_name: tools[1].name, employee_id: employees[1].id, employee_name: employees[1].full_name, employee_email: employees[1].email, access_level: "admin",   granted_date: d(190), last_accessed_date: d(0),  last_reviewed_date: d(210), status: "active", risk_flag: "excessive_admin" },
+    { id: uid("acc"), tool_id: tools[2].id, tool_name: tools[2].name, employee_id: employees[1].id, employee_name: employees[1].full_name, employee_email: employees[1].email, access_level: "viewer",  granted_date: d(60),  last_accessed_date: d(20), last_reviewed_date: d(60),  status: "active", risk_flag: "orphaned" },
+    { id: uid("acc"), tool_id: tools[3].id, tool_name: tools[3].name, employee_id: employees[3].id, employee_name: employees[3].full_name, employee_email: employees[3].email, access_level: "admin",   granted_date: d(400), last_accessed_date: d(200),last_reviewed_date: d(300), status: "active", risk_flag: "former_employee" },
+    { id: uid("acc"), tool_id: tools[3].id, tool_name: tools[3].name, employee_id: employees[2].id, employee_name: employees[2].full_name, employee_email: employees[2].email, access_level: "billing", granted_date: d(120), last_accessed_date: d(80), last_reviewed_date: d(20),  status: "active", risk_flag: "needs_review" },
+    { id: uid("acc"), tool_id: tools[4].id, tool_name: tools[4].name, employee_id: employees[4].id, employee_name: employees[4].full_name, employee_email: employees[4].email, access_level: "editor",  granted_date: d(140), last_accessed_date: d(2),  last_reviewed_date: d(140), status: "active", risk_flag: "none" },
+    { id: uid("acc"), tool_id: tools[5].id, tool_name: tools[5].name, employee_id: employees[5].id, employee_name: employees[5].full_name, employee_email: employees[5].email, access_level: "admin",   granted_date: d(310), last_accessed_date: d(4),  last_reviewed_date: d(310), status: "active", risk_flag: "excessive_admin" },
+  ];
+
+  const newDb = {
+    ...(existing || {}),
+    user: existing?.user || {},
+    tools,
+    employees,
+    access,
+    _is_sample_data: true,
+  };
+  saveDb(newDb);
+  return newDb;
+}
+
 
 async function resetDb() {
   // Clear ALL user data — local AND Firestore
@@ -1190,7 +1235,7 @@ function getRiskEvidence(tool) {
   } else {
     reasons.push({ key: 'evidence_no_usage_data', fallback: 'No usage data available' });
   }
-  if (tool.cost_per_month > 100) reasons.push({ key: 'evidence_high_cost', fallback: `High cost: €${tool.cost_per_month}/mo` });
+  if (tool.cost_per_month && tool.cost_per_month > 100) reasons.push({ key: 'evidence_high_cost', fallback: `High cost: €${tool.cost_per_month}/mo` });
   if (tool.criticality === 'high') reasons.push({ key: 'evidence_business_critical', fallback: 'Tagged as business-critical' });
   return reasons;
 }
@@ -1224,7 +1269,9 @@ function computeAccessDerivedRiskFlag(accessRow, employeesById, toolsById) {
   return "none";
 }
 
-function buildRiskAlerts(db) {
+function buildRiskAlerts(db, tr) {
+  // tr: optional translation function. Falls back to English when absent (e.g. PDF export).
+  const L = (key, fallback) => (tr ? tr(key) : fallback);
   const employeesById = Object.fromEntries(db.employees.map((e) => [e.id, e]));
 
   const orphanedTools = db.tools.filter((t) => !t.owner_email);
@@ -1253,9 +1300,9 @@ function buildRiskAlerts(db) {
     alerts.push({
       id: "orphaned_tools",
       severity: "critical",
-      title: "Tools without owners detected",
-      body: `${orphanedTools.length} tool(s) have no owner assigned.`,
-      action: { label: "Review Tools", to: "/tools", icon: Boxes },
+      title: L("alert_orphaned_title", "Tools without owners detected"),
+      body: L("alert_orphaned_body", "{n} tool(s) have no owner assigned.").replace("{n}", orphanedTools.length),
+      action: { label: L("alert_orphaned_action", "Review Tools"), to: "/tools", icon: Boxes },
     });
   }
 
@@ -1263,9 +1310,9 @@ function buildRiskAlerts(db) {
     alerts.push({
       id: "former_employee_access",
       severity: "critical",
-      title: "Former employees still have access",
-      body: `${formerEmployeeAccess.length} active access record(s) belong to offboarded employees.`,
-      action: { label: "Offboarding", to: "/offboarding", icon: UserMinus },
+      title: L("alert_former_title", "Former employees still have access"),
+      body: L("alert_former_body", "{n} active access record(s) belong to offboarded employees.").replace("{n}", formerEmployeeAccess.length),
+      action: { label: L("alert_former_action", "Offboarding"), to: "/offboarding", icon: UserMinus },
     });
   }
 
@@ -1273,9 +1320,9 @@ function buildRiskAlerts(db) {
     alerts.push({
       id: "admin_overdue_review",
       severity: "high",
-      title: "Admin access overdue for review",
-      body: `${adminOverdueReview.length} admin access record(s) have not been reviewed in 6+ months.`,
-      action: { label: 'Access Map', to: '/access', icon: GitMerge },
+      title: L("alert_admin_title", "Admin access overdue for review"),
+      body: L("alert_admin_body", "{n} admin access record(s) have not been reviewed in 6+ months.").replace("{n}", adminOverdueReview.length),
+      action: { label: L("alert_admin_action", "Access Map"), to: '/access', icon: GitMerge },
     });
   }
 
@@ -1283,9 +1330,9 @@ function buildRiskAlerts(db) {
     alerts.push({
       id: "tools_unused_90",
       severity: "high",
-      title: "Tools unused for 90+ days",
-      body: `${toolsUnused90.length} tool(s) have not been used in 90+ days.`,
-      action: { label: "Audit Export", to: "/audit", icon: Download },
+      title: L("alert_unused_title", "Tools unused for 90+ days"),
+      body: L("alert_unused_body", "{n} tool(s) have not been used in 90+ days.").replace("{n}", toolsUnused90.length),
+      action: { label: L("alert_unused_action", "Audit Export"), to: "/audit", icon: Download },
     });
   }
 
@@ -1299,9 +1346,9 @@ function buildRiskAlerts(db) {
     alerts.push({
       id: "needs_review",
       severity: "medium",
-      title: "Access records need review",
-      body: `${needsReview.length} access record(s) are due for annual review.`,
-      action: { label: "Review Access", to: "/access", icon: GitMerge },
+      title: L("alert_review_title", "Access records need review"),
+      body: L("alert_review_body", "{n} access record(s) are due for annual review.").replace("{n}", needsReview.length),
+      action: { label: L("alert_review_action", "Review Access"), to: "/access", icon: GitMerge },
     });
   }
 
@@ -1310,9 +1357,9 @@ function buildRiskAlerts(db) {
     alerts.push({
       id: "spend_watch",
       severity: "medium",
-      title: "Monthly spend exceeds threshold",
-      body: `Current tool spend is ${getCurrency(localStorage.getItem("language") || "en")}${Math.round(spend)} / month.`,
-      action: { label: "Tools", to: "/tools", icon: Boxes },
+      title: L("alert_spend_title", "Monthly spend exceeds threshold"),
+      body: L("alert_spend_body", "Current tool spend is {amount} / month.").replace("{amount}", `${getCurrency(localStorage.getItem("language") || "en")}${Math.round(spend)}`),
+      action: { label: L("alert_spend_action", "Tools"), to: "/tools", icon: Boxes },
     });
   }
 
@@ -1349,6 +1396,18 @@ function useDbQuery() {
   });
 }
 
+function appendAuditEntry(db, action, details) {
+  if (!db.audit_log) db.audit_log = [];
+  db.audit_log.unshift({
+    id: uid('log'),
+    ts: new Date().toISOString(),
+    action,
+    actor: db.user?.email || db.user?.displayName || 'unknown',
+    ...details,
+  });
+  if (db.audit_log.length > 500) db.audit_log = db.audit_log.slice(0, 500);
+}
+
 function useDbMutations() {
   const qc = useQueryClient();
 
@@ -1376,7 +1435,9 @@ function useDbMutations() {
         throw new Error(`PLAN_LIMIT:You've reached your ${limits.label} plan limit of ${limits.tools} tools. Upgrade to add more.`);
       }
       setDb((db) => {
-        db.tools.unshift({ ...tool, id: uid("tool") });
+        const newTool = { ...tool, id: uid("tool") };
+        db.tools.unshift(newTool);
+        appendAuditEntry(db, 'add_tool', { target: tool.name });
         return db;
       });
     },
@@ -1406,8 +1467,10 @@ function useDbMutations() {
   const deleteTool = useMutation({
     mutationFn: async (id) => {
       setDb((db) => {
+        const tool = db.tools.find((t) => t.id === id);
         db.tools = db.tools.filter((t) => t.id !== id);
         db.access = db.access.filter((a) => a.tool_id !== id);
+        appendAuditEntry(db, 'delete_tool', { target: tool?.name || id });
         return db;
       });
     },
@@ -1426,6 +1489,7 @@ function useDbMutations() {
       }
       setDb((db) => {
         db.employees.unshift({ ...emp, id: uid("emp") });
+        appendAuditEntry(db, 'add_employee', { target: emp.full_name, dept: emp.department });
         return db;
       });
     },
@@ -1491,6 +1555,7 @@ function useDbMutations() {
               : t
           );
         }
+        appendAuditEntry(db, 'delete_employee', { target: emp?.full_name || id, dept: emp?.department });
         return db;
       });
     },
@@ -1512,7 +1577,13 @@ function useDbMutations() {
   const updateAccess = useMutation({
     mutationFn: async ({ id, patch }) => {
       setDb((db) => {
+        const before = db.access.find((a) => a.id === id);
         db.access = db.access.map((a) => (a.id === id ? { ...a, ...patch } : a));
+        if (patch.status === 'revoked') {
+          appendAuditEntry(db, 'revoke_access', { target: before?.employee_name, tool: before?.tool_name, access_level: before?.access_level });
+        } else if (patch.access_level) {
+          appendAuditEntry(db, 'change_access_level', { target: before?.employee_name, tool: before?.tool_name, from: before?.access_level, to: patch.access_level });
+        }
         return db;
       });
     },
@@ -1523,7 +1594,9 @@ function useDbMutations() {
   const deleteAccess = useMutation({
     mutationFn: async (id) => {
       setDb((db) => {
+        const record = db.access.find((a) => a.id === id);
         db.access = db.access.filter((a) => a.id !== id);
+        appendAuditEntry(db, 'revoke_access', { target: record?.employee_name, tool: record?.tool_name, access_level: record?.access_level });
         return db;
       });
     },
@@ -1759,8 +1832,8 @@ function useDbMutations() {
         }
 
         if (kind === "access") {
-          const toolsByName = Object.fromEntries(db.tools.map((t) => [t.name.toLowerCase(), t]));
-          const empByEmail = Object.fromEntries(db.employees.map((e) => [e.email.toLowerCase(), e]));
+          const toolsByName = Object.fromEntries(db.tools.filter(t => t?.name).map((t) => [t.name.toLowerCase(), t]));
+          const empByEmail = Object.fromEntries(db.employees.filter(e => e?.email).map((e) => [e.email.toLowerCase(), e]));
           db.access = [
             ...records
               .map((r) => {
@@ -1793,6 +1866,11 @@ function useDbMutations() {
     onSuccess: invalidate,
   });
 
+  const updateDb = (patch) => {
+    setDb((db) => ({ ...db, ...patch }));
+    invalidate();
+  };
+
   return {
     createTool,
     updateTool,
@@ -1806,6 +1884,7 @@ function useDbMutations() {
     setPlan,
     setAuth,
     bulkImport,
+    updateDb,
   };
 }
 
@@ -1974,7 +2053,8 @@ function useAuth() {
           localStorage.setItem('accessguard_v1', JSON.stringify(db2));
         }
       } catch(e) {}
-      window.location.replace('/dashboard');
+      const done = localStorage.getItem('sg_onboarded_' + googleUser.uid) === 'true';
+      window.location.replace(done ? '/dashboard' : '/onboarding');
     }
     return googleUser;
   };
@@ -1999,6 +2079,33 @@ function useAuth() {
   const endDemo = () => setUser({ is_demo: false });
 
   return { user, isAuthed, isDemo, login, logout, startDemo, endDemo, firebaseUser, loading };
+}
+
+function useIdleTimer(enabled) {
+  const navigate = useNavigate();
+  useEffect(() => {
+    if (!enabled) return;
+    const savedSec = JSON.parse(localStorage.getItem('sg_security') || '{}');
+    const minutes = parseInt(savedSec.timeout || '60', 10);
+    if (!minutes || minutes <= 0) return;
+    const ms = minutes * 60 * 1000;
+    let timer;
+    const reset = () => {
+      clearTimeout(timer);
+      timer = setTimeout(async () => {
+        await signOutUser();
+        navigate('/', { replace: true });
+        toast(minutes + ' min idle — signed out for security');
+      }, ms);
+    };
+    const events = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart'];
+    events.forEach(e => window.addEventListener(e, reset, { passive: true }));
+    reset();
+    return () => {
+      clearTimeout(timer);
+      events.forEach(e => window.removeEventListener(e, reset));
+    };
+  }, [enabled, navigate]);
 }
 
 function EmailVerificationWall({ email }) {
@@ -2057,6 +2164,7 @@ function RequireAuth({ children }) {
   const t = useTranslation(language);
   const { isAuthed, isDemo, loading, firebaseUser } = useAuth();
   const location = useLocation();
+  useIdleTimer(!!(isAuthed && !isDemo && firebaseUser));
 
   if (loading) return <div className="flex items-center justify-center h-screen bg-slate-950"><div className="text-white text-sm">{t('loading')}</div></div>;
 
@@ -2093,50 +2201,56 @@ function CategoryIcon({ category }) {
 }
 
 function StatusBadge({ status }) {
+  const { language } = useLang();
+  const t = useTranslation(language);
   const m = {
-    active: { tone: "green", icon: BadgeCheck, label: "Active" },
-    orphaned: { tone: "rose", icon: AlertTriangle, label: "Orphaned" },
-    unused: { tone: "amber", icon: CalendarClock, label: "Unused" },
-    decommissioned: { tone: "slate", icon: BadgeX, label: "Decommissioned" },
-    revoked: { tone: "slate", icon: BadgeX, label: "Revoked" },
-    pending_revocation: { tone: "amber", icon: RefreshCw, label: "Pending" },
-    offboarding: { tone: "amber", icon: RefreshCw, label: "Offboarding" },
-    offboarded: { tone: "slate", icon: BadgeX, label: "Offboarded" },
+    active: { tone: "green", icon: BadgeCheck, key: "active" },
+    orphaned: { tone: "rose", icon: AlertTriangle, key: "orphaned" },
+    unused: { tone: "amber", icon: CalendarClock, key: "unused" },
+    decommissioned: { tone: "slate", icon: BadgeX, key: "decommissioned" },
+    revoked: { tone: "slate", icon: BadgeX, key: "revoked" },
+    pending_revocation: { tone: "amber", icon: RefreshCw, key: "pending" },
+    offboarding: { tone: "amber", icon: RefreshCw, key: "offboarding" },
+    offboarded: { tone: "slate", icon: BadgeX, key: "offboarded" },
   };
-  const v = m[status] || { tone: "slate", icon: Info, label: String(status || "-") };
+  const v = m[status];
   return (
-    <Pill tone={v.tone} icon={v.icon}>
-      {v.label}
+    <Pill tone={v?.tone || "slate"} icon={v?.icon || Info}>
+      {v ? t(v.key) : String(status || "-")}
     </Pill>
   );
 }
 
 function RiskBadge({ risk }) {
+  const { language } = useLang();
+  const t = useTranslation(language);
   const m = {
-    low: { tone: "green", icon: BadgeCheck, label: "Low" },
-    medium: { tone: "amber", icon: AlertTriangle, label: "Medium" },
-    high: { tone: "rose", icon: AlertTriangle, label: "High" },
-    critical: { tone: "rose", icon: AlertTriangle, label: "Critical" },
+    low: { tone: "green", icon: BadgeCheck, key: "low" },
+    medium: { tone: "amber", icon: AlertTriangle, key: "medium" },
+    high: { tone: "rose", icon: AlertTriangle, key: "high" },
+    critical: { tone: "rose", icon: AlertTriangle, key: "critical" },
   };
-  const v = m[risk] || { tone: "slate", icon: Info, label: String(risk || "-") };
+  const v = m[risk];
   return (
-    <Pill tone={v.tone} icon={v.icon}>
-      {v.label}
+    <Pill tone={v?.tone || "slate"} icon={v?.icon || Info}>
+      {v ? t(v.key) : String(risk || "-")}
     </Pill>
   );
 }
 
 function AccessLevelBadge({ level }) {
+  const { language } = useLang();
+  const t = useTranslation(language);
   const m = {
-    admin: { tone: "rose", icon: Lock, label: "Admin" },
-    editor: { tone: "blue", icon: Pencil, label: "Editor" },
-    viewer: { tone: "slate", icon: BadgeCheck, label: "Viewer" },
-    billing: { tone: "purple", icon: CreditCard, label: "Billing" },
+    admin: { tone: "rose", icon: Lock, key: "admin" },
+    editor: { tone: "blue", icon: Pencil, key: "editor" },
+    viewer: { tone: "slate", icon: BadgeCheck, key: "viewer" },
+    billing: { tone: "purple", icon: CreditCard, key: "billing" },
   };
-  const v = m[level] || { tone: "slate", icon: Info, label: String(level || "-") };
+  const v = m[level];
   return (
-    <Pill tone={v.tone} icon={v.icon}>
-      {v.label}
+    <Pill tone={v?.tone || "slate"} icon={v?.icon || Info}>
+      {v ? t(v.key) : String(level || "-")}
     </Pill>
   );
 }
@@ -2162,25 +2276,50 @@ function RiskFlagBadge({ flag }) {
 const NAV = [
   { to: "/dashboard",    tKey: "nav_dashboard",    icon: LayoutDashboard },
   { separator: true,     tKey: "nav_access_identity" },
-  { to: "/tools",        tKey: "nav_tools",         icon: Boxes },
-  { to: "/employees",    tKey: "nav_employees",      icon: Users },
-  { to: "/access",       tKey: "nav_access",         icon: GitMerge },
-  { to: "/offboarding",  tKey: "nav_offboarding",    icon: UserMinus },
+  { to: "/tools",        tKey: "nav_tools",         icon: Boxes,       badgeKey: "tools" },
+  { to: "/employees",    tKey: "nav_employees",      icon: Users,       badgeKey: "offboarding" },
+  { to: "/access",       tKey: "nav_access",         icon: GitMerge,    badgeKey: "access" },
+  { to: "/offboarding",  tKey: "nav_offboarding",    icon: UserMinus,   badgeKey: "offboarding" },
   { separator: true,     tKey: "nav_security" },
-  { to: "/security",     tKey: "nav_security",       icon: Shield },
+  { to: "/security",     tKey: "nav_security",       icon: Shield,      badgeKey: "security" },
   { separator: true,     tKey: "nav_finance_section" },
   { to: "/finance",      tKey: "nav_finance",        icon: BarChart3 },
   { separator: true,     tKey: "nav_platform" },
   { to: "/settings",     tKey: "nav_settings",       icon: Settings },
 ];
 
+function useSidebarBadges() {
+  const { data: db } = useDbQuery();
+  return useMemo(() => {
+    if (!db) return {};
+    const employeesById = Object.fromEntries((db.employees || []).map(e => [e.id, e]));
+    const toolsById = Object.fromEntries((db.tools || []).map(t => [t.id, t]));
+    const activeAccess = (db.access || []).filter(a => a.status === 'active');
+
+    const highRiskAccess = activeAccess.filter(a => {
+      const flag = computeAccessDerivedRiskFlag(a, employeesById, toolsById);
+      return flag === 'former_employee' || flag === 'excessive_admin';
+    }).length;
+
+    const highRiskTools = (db.tools || []).filter(t => computeToolDerivedRisk(t) === 'high').length;
+    const noOwnerTools = (db.tools || []).filter(t => !t.owner_email).length;
+    const offboardingQueue = (db.employees || []).filter(e => e.status === 'offboarding').length;
+
+    return {
+      security: highRiskAccess + highRiskTools,
+      access: highRiskAccess,
+      offboarding: offboardingQueue,
+      tools: noOwnerTools,
+    };
+  }, [db]);
+}
+
 function Sidebar({ collapsed, setCollapsed }) {
   const location = useLocation();
   const { language } = useLang();
   const t = useTranslation(language);
+  const badges = useSidebarBadges();
 
-  
-  
   return (
     <div
       className={cx(
@@ -2254,10 +2393,12 @@ function Sidebar({ collapsed, setCollapsed }) {
           
           const active = location.pathname.startsWith(item.to);
           const Icon = item.icon;
+          const badgeCount = item.badgeKey ? (badges[item.badgeKey] || 0) : 0;
           return (
             <Link
               key={item.to}
               to={item.to}
+              title={collapsed ? t(item.tKey) + (badgeCount > 0 ? ` (${badgeCount})` : '') : undefined}
               className={cx(
                 "mb-1 flex items-center gap-3 rounded-2xl px-3 py-2.5 text-[14px] transition",
                 active
@@ -2265,8 +2406,24 @@ function Sidebar({ collapsed, setCollapsed }) {
                   : "text-slate-300 hover:bg-slate-900/60"
               )}
             >
-              <Icon className="h-4 w-4" />
-              {!collapsed ? <span>{t(item.tKey)}</span> : null}
+              <div className="relative flex-shrink-0">
+                <Icon className="h-4 w-4" />
+                {badgeCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 min-w-[14px] h-[14px] flex items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white px-0.5 leading-none">
+                    {badgeCount > 99 ? '99+' : badgeCount}
+                  </span>
+                )}
+              </div>
+              {!collapsed ? (
+                <span className="flex-1 flex items-center justify-between">
+                  {t(item.tKey)}
+                  {badgeCount > 0 && (
+                    <span className="ml-auto rounded-full bg-red-500/20 text-red-400 text-[10px] font-bold px-1.5 py-0.5 leading-none">
+                      {badgeCount > 99 ? '99+' : badgeCount}
+                    </span>
+                  )}
+                </span>
+              ) : null}
             </Link>
           );
         })}
@@ -2317,16 +2474,6 @@ function SidebarFooter({ collapsed }) {
 
   return (
     <div className="border-t border-slate-800 p-3">
-      {user?.is_founder && !collapsed && (
-        <div className="mb-2 px-2 py-1 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[10px] font-bold uppercase tracking-wider text-center">
-          ⚡ Founder mode
-        </div>
-      )}
-      {user?.is_founder && collapsed && (
-        <div className="mb-2 flex justify-center" title="Founder mode active">
-          <span className="text-amber-400 text-base">⚡</span>
-        </div>
-      )}
       <div
         className={cx(
           "flex items-center gap-3 rounded-2xl bg-slate-900/40 p-3",
@@ -2334,7 +2481,7 @@ function SidebarFooter({ collapsed }) {
         )}
       >
         {/* User Photo or Avatar */}
-        <div className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-700 bg-slate-950/30 overflow-hidden">
+        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-slate-700 bg-slate-950/30 overflow-hidden">
           {photoURL ? (
             <img src={photoURL} alt={displayName} className="w-full h-full object-cover" />
           ) : (
@@ -2343,7 +2490,12 @@ function SidebarFooter({ collapsed }) {
         </div>
         {!collapsed ? (
           <div className="min-w-0 flex-1">
-            <div className="truncate text-xs font-medium text-slate-100">{displayName}</div>
+            <div className="flex items-center gap-1.5">
+              <div className="truncate text-xs font-medium text-slate-100">{displayName}</div>
+              {user?.is_founder && (
+                <span className="flex-shrink-0 text-amber-400 text-[10px] font-bold">⚡</span>
+              )}
+            </div>
             <div className="mt-0.5 text-xs text-slate-500">
               {jobTitle && companyName ? (
                 <span className="text-slate-400">{jobTitle} at {companyName}</span>
@@ -2356,27 +2508,44 @@ function SidebarFooter({ collapsed }) {
             </div>
           </div>
         ) : null}
+        {collapsed && user?.is_founder && (
+          <div className="absolute -top-1 -right-1 text-amber-400 text-[10px]">⚡</div>
+        )}
       </div>
-      
+
       {!collapsed ? (
-        <div className="mt-3 flex gap-2">
-          <Button
-            variant="secondary"
-            className="w-full"
-            onClick={() => {
-              if (isDemo) endDemo();
-              logout();
-            }}
-          >
-            <BadgeX className="h-4 w-4" />
-            {isDemo ? "Exit Demo" : "Logout"}
-          </Button>
-          <Button variant="ghost" className="w-full" onClick={() => { navigate('/settings'); setTimeout(() => { const el = document.querySelector('[data-tab="billing"]'); if(el) el.click(); }, 100); }}>
-              <ExternalLink className="h-4 w-4" />
-              {(() => { const _p = JSON.parse(localStorage.getItem('accessguard_v1') || '{}')?.user?.plan || 'free'; return _p === 'free' || _p === 'trial' ? 'Trial' : (getPlanLimits(_p).label || (_p.charAt(0).toUpperCase() + _p.slice(1))); })()}
-          </Button>
+        <div className="mt-2 space-y-1.5">
+          {user?.is_founder && (
+            <a href="/founder-admin"
+              className="flex items-center gap-2 w-full px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-semibold hover:bg-amber-500/20 transition-colors">
+              <span>⚡</span>
+              <span>Founder Admin</span>
+            </a>
+          )}
+          <div className="flex gap-2">
+            <Button
+              variant="secondary"
+              className="w-full"
+              onClick={() => {
+                if (isDemo) endDemo();
+                logout();
+              }}
+            >
+              <BadgeX className="h-4 w-4" />
+              {isDemo ? "Exit Demo" : "Logout"}
+            </Button>
+            <Button variant="ghost" className="w-full" onClick={() => { navigate('/settings'); setTimeout(() => { const el = document.querySelector('[data-tab="billing"]'); if(el) el.click(); }, 100); }}>
+                <ExternalLink className="h-4 w-4" />
+                {(() => { const _p = JSON.parse(localStorage.getItem('accessguard_v1') || '{}')?.user?.plan || 'free'; return _p === 'free' || _p === 'trial' ? 'Trial' : (_p.charAt(0).toUpperCase() + _p.slice(1)); })()}
+            </Button>
+          </div>
         </div>
       ) : null}
+      {collapsed && user?.is_founder && (
+        <div className="mt-2 flex justify-center">
+          <a href="/founder-admin" title="Founder Admin" className="text-amber-400 text-base hover:text-amber-300 transition-colors">⚡</a>
+        </div>
+      )}
     </div>
   );
 }
@@ -2661,12 +2830,14 @@ function TrialExpiredBanner() {
 function DemoBanner() {
   const { isDemo } = useAuth();
   const navigate = useNavigate();
+  const { language } = useLang();
+  const t = useTranslation(language);
   if (!isDemo) return null;
   return (
     <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm px-4 py-2.5 flex items-center justify-between">
       <div className="flex items-center gap-2">
         <span className="text-base">🎯</span>
-        <span className="font-semibold">You're in Demo Mode</span>
+        <span className="font-semibold">{t('ui_demo_mode')}</span>
         <span className="text-blue-200 hidden sm:inline">— Explore with sample data. Sign up for real data.</span>
       </div>
       <div className="flex items-center gap-2">
@@ -2807,15 +2978,15 @@ function AppShell({ subtitle, title, right, children }) {
               <div className="flex items-center gap-1">
                 <span>© {new Date().getFullYear()} Stacklens</span>
                 <span className="hidden sm:inline">·</span>
-                <span className="hidden sm:inline">SaaS management for SMBs</span>
+                <span className="hidden sm:inline">{t('ui_saas_for_smbs')}</span>
               </div>
               <div className="flex items-center gap-4">
-                <Link to="/contact" className="hover:text-slate-300 transition-colors">Contact</Link>
-                <Link to="/privacy" className="hover:text-slate-300 transition-colors">Privacy</Link>
-                <Link to="/terms" className="hover:text-slate-300 transition-colors">Terms</Link>
-                <Link to="/legal" className="hover:text-slate-300 transition-colors">Legal</Link>
-                <Link to="/security-info" className="hover:text-slate-300 transition-colors">Security</Link>
-                <Link to="/about" className="hover:text-slate-300 transition-colors">About</Link>
+                <Link to="/contact" className="hover:text-slate-300 transition-colors">{t('ui_contact')}</Link>
+                <Link to="/privacy" className="hover:text-slate-300 transition-colors">{t('footer_privacy_policy')}</Link>
+                <Link to="/terms" className="hover:text-slate-300 transition-colors">{t('footer_terms_of_service')}</Link>
+                <Link to="/legal" className="hover:text-slate-300 transition-colors">{t('ui_legal')}</Link>
+                <Link to="/security-info" className="hover:text-slate-300 transition-colors">{t('nav_security')}</Link>
+                <Link to="/about" className="hover:text-slate-300 transition-colors">{t('ui_about')}</Link>
               </div>
             </div>
           </footer>
@@ -2892,7 +3063,9 @@ function toCsv(rows, columns) {
 }
 
 function parseCsv(text) {
-  const lines = text.split(/\r?\n/).filter((l) => l.trim().length);
+  // Strip UTF-8 BOM that Excel adds when saving as CSV
+  const clean = text.replace(/^﻿/, '');
+  const lines = clean.split(/\r?\n/).filter((l) => l.trim().length);
   if (!lines.length) return [];
   const headers = splitCsvLine(lines[0]).map((h) => h.trim());
   return lines.slice(1).map((line) => {
@@ -3131,233 +3304,341 @@ function OnboardingPage() {
   const navigate = useNavigate();
   const { user, firebaseUser } = useAuth();
   const { language } = useLang();
-  const t = useTranslation(language);
+  const qc = useQueryClient();
+  const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
-    workEmail: firebaseUser?.email || '',
-    fullName: firebaseUser?.displayName || '',
     companyName: '',
     jobTitle: '',
     companySize: '',
-    numTools: 50
   });
+  const [teamEmails, setTeamEmails] = useState(['']);
+  const [directoryChoice, setDirectoryChoice] = useState(null); // null | 'google' | 'microsoft' | 'okta'
+  const [dirSyncDone, setDirSyncDone] = useState(false);
+  const [tourSlide, setTourSlide] = useState(0);
+
+  const firstName = firebaseUser?.displayName?.split(' ')[0] || user?.email?.split('@')[0] || 'there';
 
   // If no user, redirect to home
   useEffect(() => {
-    if (!firebaseUser) {
-      navigate('/', { replace: true });
-    }
+    if (!firebaseUser) { navigate('/', { replace: true }); return; }
+    const key = 'sg_onboarded_' + firebaseUser.uid;
+    if (localStorage.getItem(key) === 'true') { navigate('/dashboard', { replace: true }); }
   }, [firebaseUser, navigate]);
 
-  // Check if user already completed onboarding (localStorage is instant, no Firestore race)
-  useEffect(() => {
-    if (firebaseUser) {
-      const onboardingKey = 'sg_onboarded_' + firebaseUser.uid;
-      if (localStorage.getItem(onboardingKey) === 'true') {
-        navigate('/dashboard', { replace: true });
-        return;
-      }
-      // Fallback: also check Firestore in case they signed in on another device
-      getUserProfile(firebaseUser.uid).then(({ user: userData }) => {
-        if (userData?.onboardingCompleted) {
-          localStorage.setItem(onboardingKey, 'true');
-          navigate('/dashboard', { replace: true });
-        }
-      });
-    }
-  }, [firebaseUser, navigate]);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const completeOnboardingAndGo = async (goToImport = false) => {
     setLoading(true);
-
     try {
-      // Save onboarding data to Firestore
-      const { success, error } = await completeOnboarding(firebaseUser.uid, {
-        ...formData,
-        onboardingCompleted: true,
-        onboardingDate: new Date().toISOString()
-      });
-
-      if (success) {
-        // Mark onboarding done in localStorage so redirect handler works instantly next time
+      if (firebaseUser) {
+        await completeOnboarding(firebaseUser.uid, {
+          ...formData,
+          onboardingCompleted: true,
+          onboardingDate: new Date().toISOString(),
+          pendingTeamInvites: teamEmails.filter(e => e.trim()),
+        });
         localStorage.setItem('sg_onboarded_' + firebaseUser.uid, 'true');
-        navigate('/dashboard', { replace: true });
-      } else {
-        // Firestore save failed — still let them in, flag locally
-        localStorage.setItem('sg_onboarded_' + firebaseUser.uid, 'true');
-        navigate('/dashboard', { replace: true });
       }
-    } catch (error) {
-      console.error('Onboarding error:', error);
-      toast.error('Something went wrong. Please try again.');
-    } finally {
-      setLoading(false);
-    }
+    } catch(e) {
+      if (firebaseUser) localStorage.setItem('sg_onboarded_' + firebaseUser.uid, 'true');
+    } finally { setLoading(false); }
+    navigate(goToImport ? '/import' : '/dashboard', { replace: true });
   };
 
+  const TOTAL_STEPS = 5; // 0=welcome, 1=profile, 2=team, 3=directory, 4=tour
+
+  const tourSlides = [
+    {
+      icon: '📊',
+      title: 'Your SaaS Dashboard',
+      desc: 'See all your tools, costs, and usage in one place. Spot redundancies and unused licenses instantly.',
+    },
+    {
+      icon: '👥',
+      title: 'People & Access',
+      desc: 'Track which employees have access to which tools. Offboard leavers in seconds — no more orphaned accounts.',
+    },
+    {
+      icon: '💶',
+      title: 'Finance & Renewals',
+      desc: 'Never miss a renewal. Get alerts 30 days before contracts expire and track your full SaaS spend.',
+    },
+  ];
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-4 md:p-6">
-      <div className="w-full max-w-2xl">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-3 mb-6">
-            <RDLogo size="lg" onClick={() => window.location.href = "/dashboard"} />
-            <div className="text-xl md:text-3xl font-black bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
-              Stacklens
-            </div>
-          </div>
-          <h1 className="text-2xl md:text-4xl font-black text-white mb-3">{t('tell_us_about_yourself')}</h1>
-          <p className="text-xl text-slate-400">{t('personalize_experience')}</p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-4">
+      <div className="w-full max-w-lg">
+        {/* Logo */}
+        <div className="flex items-center justify-center gap-3 mb-8">
+          <RDLogo size="md" />
+          <div className="text-xl font-black bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">Stacklens</div>
         </div>
 
-        {/* Onboarding Form */}
-        <div className="rounded-3xl border border-white/10 bg-slate-900/60 backdrop-blur-xl p-8 md:p-12">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Work Email */}
-            <div>
-              <label className="block text-sm font-semibold text-slate-300 mb-3">
-                Work Email
-              </label>
-              <input
-                type="email"
-                value={formData.workEmail}
-                onChange={(e) => setFormData({ ...formData, workEmail: e.target.value })}
-                className="w-full px-6 py-4 bg-slate-950 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-lg focus:border-blue-500 focus:outline-none transition-colors"
-                placeholder="you@company.com"
-                required
-                disabled
-              />
-            </div>
+        {/* Progress bar */}
+        <div className="flex gap-1 mb-8">
+          {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
+            <div key={i} className={"flex-1 h-1 rounded-full transition-all duration-300 " + (i <= step ? 'bg-emerald-500' : 'bg-slate-700')} />
+          ))}
+        </div>
 
-            {/* Full Name */}
-            <div>
-              <label className="block text-sm font-semibold text-slate-300 mb-3">
-                Full Name
-              </label>
-              <input
-                type="text"
-                value={formData.fullName}
-                onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                className="w-full px-6 py-4 bg-slate-950 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-lg focus:border-blue-500 focus:outline-none transition-colors"
-                placeholder="John Doe"
-                required
-              />
-            </div>
+        <div className="rounded-3xl border border-white/10 bg-slate-900/60 backdrop-blur-xl p-8">
 
-            {/* Company Name */}
-            <div>
-              <label className="block text-sm font-semibold text-slate-300 mb-3">
-                Company Name
-              </label>
-              <input
-                type="text"
-                value={formData.companyName}
-                onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
-                className="w-full px-6 py-4 bg-slate-950 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-lg focus:border-blue-500 focus:outline-none transition-colors"
-                placeholder="Acme Corporation"
-                required
-              />
+          {/* STEP 0 — Welcome */}
+          {step === 0 && (
+            <div className="text-center space-y-6">
+              <div className="text-5xl">👋</div>
+              <div>
+                <h1 className="text-3xl font-black text-white mb-2">Welcome, {firstName}!</h1>
+                <p className="text-slate-400 text-sm leading-relaxed">
+                  Stacklens helps you track your SaaS tools, manage team access, and cut wasted spend.<br/>
+                  This takes about 2 minutes to set up.
+                </p>
+              </div>
+              <button onClick={() => setStep(1)}
+                className="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded-2xl transition-all shadow-lg shadow-emerald-500/20">
+                Let's get started →
+              </button>
+              <button onClick={() => completeOnboardingAndGo(false)} className="text-sm text-slate-500 hover:text-slate-300 transition-colors">
+                Skip setup, go to dashboard
+              </button>
             </div>
+          )}
 
-            {/* Job Title */}
-            <div>
-              <label className="block text-sm font-semibold text-slate-300 mb-3">
-                Job Title
-              </label>
-              <select
-                value={formData.jobTitle}
-                onChange={(e) => setFormData({ ...formData, jobTitle: e.target.value })}
-                className="w-full px-6 py-4 bg-slate-950 border border-slate-700 rounded-xl text-white text-lg focus:border-blue-500 focus:outline-none transition-colors"
-                required
-              >
-                <option value="">{t('select_role')}</option>
-                <option value="CTO">CTO</option>
-                <option value="VP of IT">{t("hc_vp_of_it")}</option>
-                <option value="IT Manager">{t("hc_it_manager")}</option>
-                <option value="IT Director">{t("hc_it_director")}</option>
-                <option value="CEO">CEO</option>
-                <option value="CFO">CFO</option>
-                <option value="Operations Manager">{t("hc_operations_manager")}</option>
-                <option value="Security Manager">{t("hc_security_manager")}</option>
-                <option value="Other">Other</option>
-              </select>
+          {/* STEP 1 — Profile */}
+          {step === 1 && (
+            <div className="space-y-5">
+              <div>
+                <h2 className="text-xl font-black text-white mb-1">{t('ob_about_company')}</h2>
+                <p className="text-slate-500 text-sm">{t('ob_personalise')}</p>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">{t('ob_company_name')}</label>
+                <input value={formData.companyName} onChange={e => setFormData(p => ({ ...p, companyName: e.target.value }))}
+                  placeholder={t('ob_company_name')}
+                  className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:border-emerald-500 transition-colors" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">{t('ob_your_role')}</label>
+                <select value={formData.jobTitle} onChange={e => setFormData(p => ({ ...p, jobTitle: e.target.value }))}
+                  className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:border-emerald-500 transition-colors">
+                  <option value="">{t('ob_select_role')}</option>
+                  {['CTO','VP of IT','IT Manager','IT Director','CEO','CFO','Operations Manager','Security Manager','Other'].map(r => (
+                    <option key={r} value={r}>{r}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">{t('ob_company_size')}</label>
+                <select value={formData.companySize} onChange={e => setFormData(p => ({ ...p, companySize: e.target.value }))}
+                  className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:border-emerald-500 transition-colors">
+                  <option value="">{t('ob_select_size')}</option>
+                  {['1-50','51-200','201-500','501-1000','1000+'].map(s => (
+                    <option key={s} value={s}>{s} employees</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button onClick={() => setStep(0)} className="px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-semibold rounded-xl transition-colors">
+                  ← Back
+                </button>
+                <button onClick={() => setStep(2)}
+                  className="flex-1 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded-xl transition-all">
+                  Continue →
+                </button>
+              </div>
+              <button onClick={() => setStep(2)} className="w-full text-center text-sm text-slate-500 hover:text-slate-300 transition-colors">
+                Skip this step
+              </button>
             </div>
+          )}
 
-            {/* Company Size */}
-            <div>
-              <label className="block text-sm font-semibold text-slate-300 mb-3">
-                Company Size
-              </label>
-              <select
-                value={formData.companySize}
-                onChange={(e) => setFormData({ ...formData, companySize: e.target.value })}
-                className="w-full px-6 py-4 bg-slate-950 border border-slate-700 rounded-xl text-white text-lg focus:border-blue-500 focus:outline-none transition-colors"
-                required
-              >
-                <option value="">{t('select_company_size')}</option>
-                <option value="1-50">1-50 employees</option>
-                <option value="51-200">51-200 employees</option>
-                <option value="201-500">201-500 employees</option>
-                <option value="501-1000">501-1,000 employees</option>
-                <option value="1000+">1,000+ employees</option>
-              </select>
+          {/* STEP 2 — Team members */}
+          {step === 2 && (
+            <div className="space-y-6">
+              <div>
+                <div className="text-4xl mb-3">👥</div>
+                <h2 className="text-xl font-black text-white mb-1">{t('ob_invite_team_q')}</h2>
+                <p className="text-slate-400 text-sm">{t('ob_invite_team_body')}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <button onClick={() => setStep('2-yes')}
+                  className="py-4 rounded-2xl border-2 border-emerald-500/50 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 font-bold text-sm transition-all">
+                  ✅ Yes, invite team
+                </button>
+                <button onClick={() => setStep(3)}
+                  className="py-4 rounded-2xl border border-slate-700 bg-slate-800/60 hover:bg-slate-800 text-slate-400 font-semibold text-sm transition-all">
+                  Skip for now
+                </button>
+              </div>
+              <button onClick={() => setStep(1)} className="text-sm text-slate-500 hover:text-slate-300 transition-colors">
+                ← Back
+              </button>
             </div>
+          )}
 
-            {/* Number of SaaS Tools */}
-            <div>
-              <label className="block text-sm font-semibold text-slate-300 mb-3">
-                Estimated Number of SaaS Tools
-              </label>
-              <input
-                type="range"
-                min="5"
-                max="200"
-                value={formData.numTools}
-                onChange={(e) => setFormData({ ...formData, numTools: parseInt(e.target.value) })}
-                className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
-              />
-              <div className="mt-3 text-center text-2xl font-bold text-white">{formData.numTools} tools</div>
+          {/* STEP 2-yes — Email invite form */}
+          {step === '2-yes' && (
+            <div className="space-y-5">
+              <div>
+                <h2 className="text-xl font-black text-white mb-1">{t('ob_invite_your_team')}</h2>
+                <p className="text-slate-400 text-sm">Enter email addresses — we'll send them an invite.</p>
+              </div>
+              <div className="space-y-2">
+                {teamEmails.map((email, idx) => (
+                  <div key={email || `email-${idx}`} className="flex gap-2">
+                    <input value={email} onChange={e => {
+                        const next = [...teamEmails]; next[idx] = e.target.value; setTeamEmails(next);
+                      }}
+                      type="email" placeholder={`colleague${idx + 1}@company.com`}
+                      className="flex-1 px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:border-emerald-500 transition-colors" />
+                    {teamEmails.length > 1 && (
+                      <button onClick={() => setTeamEmails(teamEmails.filter((_, i) => i !== idx))}
+                        className="px-3 py-2.5 bg-slate-800 hover:bg-red-500/20 border border-slate-700 text-slate-400 hover:text-red-400 rounded-xl text-sm transition-colors">✕</button>
+                    )}
+                  </div>
+                ))}
+                {teamEmails.length < 5 && (
+                  <button onClick={() => setTeamEmails([...teamEmails, ''])}
+                    className="w-full py-2 border border-dashed border-slate-600 hover:border-emerald-500/50 text-slate-500 hover:text-emerald-400 text-sm rounded-xl transition-colors">
+                    + Add another
+                  </button>
+                )}
+              </div>
+              <div className="flex gap-3">
+                <button onClick={() => setStep(2)} className="px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-semibold rounded-xl transition-colors">
+                  ← Back
+                </button>
+                <button onClick={() => { setStep(3); toast.success(t('toast_team_invites_saved')); }}
+                  className="flex-1 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded-xl transition-all">
+                  Save invites & continue →
+                </button>
+              </div>
             </div>
+          )}
 
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full px-8 py-5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 rounded-xl text-white font-bold text-xl transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
-            >
-              {loading ? (
-                <>
-                  <RefreshCw className="w-6 h-6 animate-spin" />
-                  Setting up your workspace...
-                </>
-              ) : (
-                <>
-                  Continue to Dashboard
-                  <ChevronRight className="w-6 h-6" />
-                </>
-              )}
+          {/* STEP 3 — Directory sync */}
+          {step === 3 && (
+            <div className="space-y-6">
+              <div>
+                <div className="text-4xl mb-3">📂</div>
+                <h2 className="text-xl font-black text-white mb-1">{t('ob_import_directory_q')}</h2>
+                <p className="text-slate-400 text-sm">Connect Google Workspace, Microsoft 365, or Okta to auto-import your employees.</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <button onClick={() => setStep('3-yes')}
+                  className="py-4 rounded-2xl border-2 border-blue-500/50 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 font-bold text-sm transition-all">
+                  ✅ Yes, connect it
+                </button>
+                <button onClick={() => setStep(4)}
+                  className="py-4 rounded-2xl border border-slate-700 bg-slate-800/60 hover:bg-slate-800 text-slate-400 font-semibold text-sm transition-all">
+                  Skip for now
+                </button>
+              </div>
+              <button onClick={() => setStep(2)} className="text-sm text-slate-500 hover:text-slate-300 transition-colors">
+                ← Back
+              </button>
+            </div>
+          )}
+
+          {/* STEP 3-yes — Directory provider picker */}
+          {step === '3-yes' && (
+            <div className="space-y-5">
+              <div>
+                <h2 className="text-xl font-black text-white mb-1">{t('ob_choose_directory')}</h2>
+                <p className="text-slate-400 text-sm">You can always add more from Settings → Integrations.</p>
+              </div>
+              <div className="space-y-2">
+                {[
+                  { id: 'google', name: 'Google Workspace', sub: 'Import employees from G Suite / Cloud Identity',
+                    logo: <svg className="w-5 h-5" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>,
+                  },
+                  { id: 'microsoft', name: 'Microsoft 365', sub: 'Import from Azure AD / Entra ID',
+                    logo: <div className="w-5 h-5 grid grid-cols-2 gap-0.5"><div className="bg-[#F25022] rounded-sm"/><div className="bg-[#7FBA00] rounded-sm"/><div className="bg-[#00A4EF] rounded-sm"/><div className="bg-[#FFB900] rounded-sm"/></div>,
+                  },
+                  { id: 'okta', name: 'Okta', sub: 'Import from Okta Universal Directory',
+                    logo: <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-[8px] font-black text-white">OK</div>,
+                  },
+                ].map(p => (
+                  <button key={p.id} onClick={() => setDirectoryChoice(p.id)}
+                    className={"w-full flex items-center gap-3 p-4 rounded-2xl border transition-all " +
+                      (directoryChoice === p.id ? 'border-blue-500 bg-blue-500/10' : 'border-slate-700 bg-slate-800/60 hover:border-slate-600')}>
+                    <div className="w-9 h-9 rounded-xl bg-slate-900 border border-slate-700 flex items-center justify-center flex-shrink-0">{p.logo}</div>
+                    <div className="text-left">
+                      <div className="text-sm font-semibold text-white">{p.name}</div>
+                      <div className="text-xs text-slate-500">{p.sub}</div>
+                    </div>
+                    {directoryChoice === p.id && <div className="ml-auto text-blue-400 text-lg">✓</div>}
+                  </button>
+                ))}
+              </div>
+              <div className="flex gap-3">
+                <button onClick={() => setStep(3)} className="px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-semibold rounded-xl transition-colors">
+                  ← Back
+                </button>
+                <button
+                  onClick={() => {
+                    if (!directoryChoice) { toast.error(t('toast_select_provider')); return; }
+                    setStep(4);
+                    toast.success(t('toast_directory_connecting'));
+                  }}
+                  disabled={!directoryChoice}
+                  className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:opacity-40 text-white font-bold rounded-xl transition-all">
+                  Select & continue →
+                </button>
+              </div>
+              <button onClick={() => setStep(4)} className="w-full text-center text-sm text-slate-500 hover:text-slate-300 transition-colors">
+                Skip for now
+              </button>
+            </div>
+          )}
+
+          {/* STEP 4 — Quick tour */}
+          {step === 4 && (
+            <div className="space-y-6">
+              <div className="text-center">
+                <div className="text-5xl mb-3">{tourSlides[tourSlide].icon}</div>
+                <h2 className="text-xl font-black text-white mb-2">{tourSlides[tourSlide].title}</h2>
+                <p className="text-slate-400 text-sm leading-relaxed">{tourSlides[tourSlide].desc}</p>
+              </div>
+              {/* Slide dots */}
+              <div className="flex justify-center gap-2">
+                {tourSlides.map((_, i) => (
+                  <button key={i} onClick={() => setTourSlide(i)}
+                    className={"w-2 h-2 rounded-full transition-all " + (i === tourSlide ? 'bg-emerald-400 w-5' : 'bg-slate-600')} />
+                ))}
+              </div>
+              <div className="flex gap-3">
+                {tourSlide > 0 && (
+                  <button onClick={() => setTourSlide(p => p - 1)}
+                    className="px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-semibold rounded-xl transition-colors">
+                    ←
+                  </button>
+                )}
+                {tourSlide < tourSlides.length - 1 ? (
+                  <button onClick={() => setTourSlide(p => p + 1)}
+                    className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 font-semibold rounded-xl transition-all">
+                    Next →
+                  </button>
+                ) : (
+                  <button onClick={() => completeOnboardingAndGo(directoryChoice !== null)}
+                    disabled={loading}
+                    className="flex-1 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-50 text-white font-bold rounded-xl transition-all shadow-lg">
+                    {loading ? 'Setting up…' : directoryChoice ? 'Go to dashboard & connect directory →' : 'Go to dashboard →'}
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+        </div>
+
+        {/* Skip all escape hatch (except on tour slide) */}
+        {step !== 4 && step !== 0 && (
+          <div className="text-center mt-4">
+            <button onClick={() => completeOnboardingAndGo(false)} className="text-xs text-slate-600 hover:text-slate-400 transition-colors">
+              Skip everything and go to dashboard
             </button>
-
-            {/* Terms */}
-            <p className="text-center text-sm text-slate-500 mt-6">
-              By continuing, you agree to our{' '}
-              <Link to="/terms" className="text-blue-400 hover:underline">{t("hc_terms_of_service")}</Link>
-              {' '}and{' '}
-              <Link to="/privacy" className="text-blue-400 hover:underline">{t("hc_privacy_policy")}</Link>
-            </p>
-          </form>
-        </div>
-
-        {/* Skip Option (for demo) */}
-        <div className="text-center mt-6">
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="text-slate-500 hover:text-slate-300 text-sm transition-colors"
-          >
-            Skip for now →
-          </button>
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -3481,7 +3762,7 @@ function TrialPage() {
       setShowAuth(false);
       toast.success(t('magic_link_sent'));
     } else {
-      toast.error(t('could_not_send_email') + ' ' + error + '. ' + (language === 'fr' ? 'Essayez plutôt la connexion Google.' : 'Try Google sign-in instead.'));
+      toast.error(t('could_not_send_email') + ' ' + error + '. ' + t('lp_try_google_instead'));
     }
     
     setLoading(false);
@@ -3504,24 +3785,24 @@ function TrialPage() {
               <div className="text-xl font-bold text-white">Stacklens</div>
             </div>
             <div className="hidden md:flex items-center gap-8">
-              <a href="#pricing" className="text-sm text-slate-400 hover:text-white transition-colors">Pricing</a>
-              <a href="#faq" className="text-sm text-slate-400 hover:text-white transition-colors">FAQ</a>
+              <a href="#pricing" className="text-sm text-slate-400 hover:text-white transition-colors">{t('lp_nav_pricing')}</a>
+              <a href="#faq" className="text-sm text-slate-400 hover:text-white transition-colors">{t('lp_nav_faq')}</a>
               <LangSelectorCompact />
               <button
                 onClick={() => setShowAuth(true)}
                 className="text-sm text-slate-400 hover:text-white transition-colors">
-                Sign in
+                {t('sign_in')}
               </button>
               <button
                 onClick={() => { trackEvent('cta_click', { location: 'nav' }); setShowAuth(true); }}
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-semibold text-white transition-colors">
-                Start free
+                {t('start_free')}
               </button>
             </div>
             <button
               onClick={() => setShowAuth(true)}
               className="md:hidden px-4 py-2 bg-blue-600 rounded-lg text-sm font-semibold">
-              Start free
+              {t('start_free')}
             </button>
           </div>
         </div>
@@ -3531,29 +3812,29 @@ function TrialPage() {
       <section className="relative z-10 pt-20 pb-24 px-6">
         <div className="max-w-4xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-slate-800 bg-slate-900/60 mb-8">
-            <span className="text-xs font-medium text-slate-400">🇪🇺 EU-hosted · GDPR-native · Built for European SMBs</span>
+            <span className="text-xs font-medium text-slate-400">{t('lp_eu_badge')}</span>
           </div>
           <h1 className="text-5xl md:text-6xl lg:text-7xl font-black tracking-tight text-white mb-6 leading-[1.05]">
-            Stop SaaS drift
+            {t('lp_hero_title_1')}
             <br />
-            <span className="bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400 bg-clip-text text-transparent">before it costs you.</span>
+            <span className="bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400 bg-clip-text text-transparent">{t('lp_hero_title_2')}</span>
           </h1>
           <p className="text-lg md:text-xl text-slate-400 max-w-2xl mx-auto mb-10 leading-relaxed">
-            You're the one person chasing invoices, renewals, and zombie accounts across 80+ tools. Stacklens gives you the visibility to find what's wasted, who still has access, and what's about to auto-renew — in 5 minutes, not 5 days.
+            {t('lp_hero_subtitle')}
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-6">
             <button
               onClick={() => { trackEvent('cta_click', { location: 'hero_primary' }); setShowAuth(true); }}
               className="px-8 py-4 bg-blue-600 hover:bg-blue-500 rounded-xl text-base font-semibold text-white transition-all hover:scale-[1.02] shadow-lg shadow-blue-900/40">
-              Start free — no credit card
+              {t('lp_hero_cta_primary')}
             </button>
             <button
               onClick={() => { trackEvent('cta_click', { location: 'hero_demo' }); startDemo(); navigate('/dashboard'); }}
               className="px-8 py-4 border border-slate-700 hover:border-slate-600 hover:bg-slate-900/60 rounded-xl text-base font-semibold text-slate-300 transition-all">
-              Try the live demo →
+              {t('lp_hero_cta_demo')}
             </button>
           </div>
-          <p className="text-xs text-slate-500">Free forever · 10 tools, 25 employees · No credit card · Cancel anytime</p>
+          <p className="text-xs text-slate-500">{t('lp_hero_free_note')}</p>
         </div>
       </section>
 
@@ -3561,34 +3842,34 @@ function TrialPage() {
       <section className="relative z-10 py-20 px-6 border-t border-slate-900">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-14">
-            <h2 className="text-3xl md:text-4xl font-bold text-white mb-3">5 minutes from signup to insight</h2>
+            <h2 className="text-3xl md:text-4xl font-bold text-white mb-3">{t('lp_how_heading')}</h2>
             <p className="text-slate-500">{t('hero_no_integrations')}</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
               {
                 step: '01',
-                title: 'Import your data',
-                desc: 'Upload a CSV or Excel file with your tools and employees. Stacklens maps everything automatically.',
-                detail: '5-minute setup',
+                title: t('lp_step1_title'),
+                desc: t('lp_step1_desc'),
+                detail: t('lp_step1_detail'),
                 color: 'from-blue-500/20 to-blue-600/10',
                 border: 'border-blue-500/30',
                 icon: '📤',
               },
               {
                 step: '02',
-                title: 'See what\'s wrong',
-                desc: 'Instantly find idle licenses, ex-employees with active access, tools without owners, and upcoming renewals.',
-                detail: 'Example: "8 Notion seats unused — €192/mo wasted"',
+                title: t('lp_step2_title'),
+                desc: t('lp_step2_desc'),
+                detail: t('lp_step2_detail'),
                 color: 'from-amber-500/20 to-amber-600/10',
                 border: 'border-amber-500/30',
                 icon: '🔍',
               },
               {
                 step: '03',
-                title: 'Take action',
-                desc: 'Revoke access, reassign licenses, set renewal alerts. One click per action, not a 3-week project.',
-                detail: 'Example: "3 ex-employees still have Slack access — revoke now"',
+                title: t('lp_step3_title'),
+                desc: t('lp_step3_desc'),
+                detail: t('lp_step3_detail'),
                 color: 'from-emerald-500/20 to-emerald-600/10',
                 border: 'border-emerald-500/30',
                 icon: '✅',
@@ -3596,7 +3877,7 @@ function TrialPage() {
             ].map((s, i) => (
               <div key={i} className={`rounded-2xl border ${s.border} bg-gradient-to-br ${s.color} p-6`}>
                 <div className="text-3xl mb-4">{s.icon}</div>
-                <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Step {s.step}</div>
+                <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">{t('lp_step_label')} {s.step}</div>
                 <h3 className="text-xl font-bold text-white mb-2">{s.title}</h3>
                 <p className="text-sm text-slate-400 mb-4 leading-relaxed">{s.desc}</p>
                 <p className="text-xs text-slate-500 italic">{s.detail}</p>
@@ -3614,58 +3895,58 @@ function TrialPage() {
               <span className="text-xs font-semibold uppercase tracking-wider text-blue-400">{t('what_stacklens_finds')}</span>
             </div>
             <h2 className="text-3xl md:text-5xl font-bold text-white leading-tight max-w-3xl mx-auto">
-              The problems hiding in <span className="text-blue-400">your SaaS stack</span>
+              {t('lp_finds_heading_1')} <span className="text-blue-400">{t('lp_finds_heading_2')}</span>
             </h2>
-            <p className="text-slate-500 mt-4 max-w-xl mx-auto">These are real examples of what Stacklens surfaces in the first 5 minutes after import.</p>
+            <p className="text-slate-500 mt-4 max-w-xl mx-auto">{t('lp_finds_subtitle')}</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {[
               {
                 icon: '💸',
-                title: '8 Notion seats unused',
-                sub: '€192/month wasted on licenses nobody logs into',
-                action: 'Cancel or reassign →',
+                title: t('lp_find1_title'),
+                sub: t('lp_find1_sub'),
+                action: t('lp_find1_action'),
                 color: 'border-amber-500/30',
                 bg: 'bg-amber-500/5',
               },
               {
                 icon: '🔴',
-                title: '3 ex-employees still have Slack access',
-                sub: 'Left the company 4 months ago, admin access still active',
-                action: 'Revoke access →',
+                title: t('lp_find2_title'),
+                sub: t('lp_find2_sub'),
+                action: t('lp_find2_action'),
                 color: 'border-red-500/30',
                 bg: 'bg-red-500/5',
               },
               {
                 icon: '📅',
-                title: 'Salesforce auto-renews in 30 days',
-                sub: '€14,400/year contract — last chance to renegotiate',
-                action: 'Set reminder →',
+                title: t('lp_find3_title'),
+                sub: t('lp_find3_sub'),
+                action: t('lp_find3_action'),
                 color: 'border-blue-500/30',
                 bg: 'bg-blue-500/5',
               },
               {
                 icon: '👻',
-                title: 'Shadow IT: 14 employees using ChatGPT Plus',
-                sub: 'Unapproved tool adopted by engineering — no security review',
-                action: 'Review tool →',
+                title: t('lp_find4_title'),
+                sub: t('lp_find4_sub'),
+                action: t('lp_find4_action'),
                 color: 'border-purple-500/30',
                 bg: 'bg-purple-500/5',
               },
               {
                 icon: '🔓',
-                title: 'GitHub has no MFA enforced',
-                sub: 'High-risk tool with source code access — MFA not required',
-                action: 'Enable MFA →',
+                title: t('lp_find5_title'),
+                sub: t('lp_find5_sub'),
+                action: t('lp_find5_action'),
                 color: 'border-red-500/30',
                 bg: 'bg-red-500/5',
               },
               {
                 icon: '🏚️',
-                title: 'Figma has no assigned owner',
-                sub: 'Nobody is responsible for this €480/month tool',
-                action: 'Assign owner →',
+                title: t('lp_find6_title'),
+                sub: t('lp_find6_sub'),
+                action: t('lp_find6_action'),
                 color: 'border-amber-500/30',
                 bg: 'bg-amber-500/5',
               },
@@ -3687,7 +3968,7 @@ function TrialPage() {
             <button
               onClick={() => { trackEvent('cta_click', { location: 'outcomes' }); setShowAuth(true); }}
               className="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl text-sm font-semibold text-white transition-all">
-              Find what's hiding in your stack →
+              {t('lp_finds_cta')}
             </button>
           </div>
         </div>
@@ -3698,13 +3979,13 @@ function TrialPage() {
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">{t('accidental_saas_owner')}</h2>
           <p className="text-slate-400 max-w-2xl mx-auto mb-10">
-            You didn't sign up to manage 80+ SaaS tools. But someone has to chase the renewals, clean up the zombie accounts, and answer "how much are we spending on software?" — and that someone is you.
+            {t('lp_who_subtitle')}
           </p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
-              { role: 'IT Manager', pain: 'Tracking access across 80+ tools with a spreadsheet that was last updated 3 months ago.' },
-              { role: 'Finance / Ops', pain: 'Chasing invoices from 40 different vendors with no central view of what you\'re actually paying.' },
-              { role: 'Founder / CEO', pain: 'Knowing you\'re overspending on SaaS but having no idea where the waste is.' },
+              { role: t('lp_who_role1'), pain: t('lp_who_pain1') },
+              { role: t('lp_who_role2'), pain: t('lp_who_pain2') },
+              { role: t('lp_who_role3'), pain: t('lp_who_pain3') },
             ].map((p, i) => (
               <div key={i} className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6 text-left">
                 <div className="text-sm font-bold text-blue-400 mb-2">{p.role}</div>
@@ -3724,11 +4005,11 @@ function TrialPage() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             {[
-              { name: 'Free', price: '€0', sub: 'Forever', features: ['10 tools', '25 employees', 'Shadow IT discovery', 'Basic alerts'], cta: 'Start free', highlight: false },
-              { name: 'Starter', price: '€29', sub: '/month', features: ['100 tools', '250 employees', 'Renewal alerts', 'CSV import', '5 team seats'], cta: 'Start trial', highlight: false },
-              { name: 'HR & Finance', price: '€49', sub: '/month', features: ['Finance Board', 'People & HR Board', 'Access tracking', 'Offboarding queue', '10 team seats'], cta: 'Start trial', highlight: false, badge: 'NEW' },
-              { name: 'Pro', price: '€79', sub: '/month', features: ['500 tools', '1,500 employees', 'AI recommendations', 'Full security suite', '15 team seats'], cta: 'Start trial', highlight: true },
-              { name: 'Enterprise', price: '€299', sub: '/month', features: ['Unlimited everything', 'SSO / SAML', 'API access', 'Dedicated support'], cta: 'Contact sales', highlight: false },
+              { id: 'free', name: t('lp_plan_free'), price: '€0', sub: t('lp_plan_free_sub'), features: [t('lp_feat_10_tools'), t('lp_feat_25_employees'), t('lp_feat_shadow_it'), t('lp_feat_basic_alerts')], cta: t('start_free'), highlight: false },
+              { id: 'starter', name: t('lp_plan_starter'), price: '€29', sub: t('lp_plan_starter_sub'), features: [t('lp_feat_100_tools'), t('lp_feat_250_employees'), t('lp_feat_renewal_alerts'), t('lp_feat_csv_import'), t('lp_feat_5_seats')], cta: t('start_trial'), highlight: false },
+              { id: 'hr_finance', name: t('lp_plan_hrfin'), price: '€49', sub: t('lp_plan_hrfin_sub'), features: [t('lp_feat_finance_board'), t('lp_feat_people_board'), t('lp_feat_access_tracking'), t('lp_feat_offboarding'), t('lp_feat_10_seats')], cta: t('start_trial'), highlight: false, badge: 'NEW' },
+              { id: 'pro', name: t('lp_plan_pro'), price: '€79', sub: t('lp_plan_pro_sub'), features: [t('lp_feat_500_tools'), t('lp_feat_1500_employees'), t('lp_feat_ai_recs'), t('lp_feat_full_security'), t('lp_feat_15_seats')], cta: t('start_trial'), highlight: true },
+              { id: 'enterprise', name: t('lp_plan_enterprise'), price: '€299', sub: t('lp_plan_enterprise_sub'), features: [t('lp_feat_unlimited'), t('lp_feat_sso_saml'), t('lp_feat_api_access'), t('lp_feat_dedicated_support')], cta: t('contact_sales'), highlight: false },
             ].map((p, i) => (
               <div
                 key={i}
@@ -3739,7 +4020,7 @@ function TrialPage() {
                 )}>
                 {p.highlight && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-blue-500 text-[10px] font-bold text-white uppercase tracking-wider">
-                    Most popular
+                    {t('most_popular')}
                   </div>
                 )}
                 {p.badge && !p.highlight && (
@@ -3762,8 +4043,8 @@ function TrialPage() {
                 </ul>
                 <button
                   onClick={() => {
-                    trackEvent('cta_click', { location: 'pricing_' + p.name.toLowerCase() });
-                    if (p.name === 'Enterprise') {
+                    trackEvent('cta_click', { location: 'pricing_' + p.id });
+                    if (p.id === 'enterprise') {
                       window.location.href = '/contact?subject=enterprise';
                     } else {
                       setShowAuth(true);
@@ -3780,7 +4061,7 @@ function TrialPage() {
             ))}
           </div>
           <p className="text-center text-xs text-slate-500 mt-8">
-            Free plan available now. Paid plans include EU data hosting, GDPR compliance, and unlimited contract analyses.
+            {t('lp_pricing_footnote')}
           </p>
         </div>
       </section>
@@ -3794,30 +4075,12 @@ function TrialPage() {
           </div>
           <div className="space-y-3">
             {[
-              {
-                q: 'How is this different from Zylo, Torii, or Lumos?',
-                a: 'Those are excellent products built for enterprises with €30-50K budgets and dedicated procurement teams. Stacklens does the core 80% — visibility, waste detection, renewal alerts — at 1/20th the price. We do not do SCIM or PAM. If you need those, talk to them. If you just need to see what you are paying for, talk to us.',
-              },
-              {
-                q: 'Where is my data stored?',
-                a: 'Google Cloud, europe-west1 (Belgium). Your data never leaves the EU. Each customer gets isolated Firestore databases — no shared infrastructure. GDPR-native, not GDPR-bolted-on.',
-              },
-              {
-                q: 'Do I need to give you admin access to my Google Workspace?',
-                a: 'No. CSV import works for everything. The OAuth-based admin sync is optional and coming Q2 2026. For now you can paste a list of tools manually or upload a CSV from your accounting system.',
-              },
-              {
-                q: 'Do I need a credit card to try it?',
-                a: 'No. The free tier requires no credit card and lasts forever for small teams. Paid tiers offer 7-day trials with no credit card upfront.',
-              },
-              {
-                q: 'How long does setup take?',
-                a: 'About 5 minutes. Sign up, upload a CSV (or add a few tools manually), invite your team. Most customers see their first savings opportunity within 10 minutes.',
-              },
-              {
-                q: 'What if I want to cancel?',
-                a: 'Click "Cancel subscription" in Settings. No retention emails. No "are you sure?" dialogs. Your data stays accessible for 30 days, then is deleted.',
-              },
+              { q: t('lp_faq_q1'), a: t('lp_faq_a1') },
+              { q: t('lp_faq_q2'), a: t('lp_faq_a2') },
+              { q: t('lp_faq_q3'), a: t('lp_faq_a3') },
+              { q: t('lp_faq_q4'), a: t('lp_faq_a4') },
+              { q: t('lp_faq_q5'), a: t('lp_faq_a5') },
+              { q: t('lp_faq_q6'), a: t('lp_faq_a6') },
             ].map((f, i) => (
               <details
                 key={i}
@@ -3838,14 +4101,14 @@ function TrialPage() {
         <div className="max-w-2xl mx-auto text-center">
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">{t('get_started_in_minutes')}</h2>
           <p className="text-slate-400 mb-8">
-            Free forever for up to 10 tools. No credit card. No demo call. Just sign up and start.
+            {t('lp_final_subtitle')}
           </p>
           <button
             onClick={() => { trackEvent('cta_click', { location: 'final' }); setShowAuth(true); }}
             className="px-10 py-4 bg-blue-600 hover:bg-blue-500 rounded-xl text-base font-semibold text-white transition-all hover:scale-[1.02] shadow-lg shadow-blue-900/40">
-            Create my free account
+            {t('lp_final_cta')}
           </button>
-          <p className="mt-4 text-xs text-slate-500">7-day trial of Pro features included. Downgrade anytime.</p>
+          <p className="mt-4 text-xs text-slate-500">{t('lp_final_note')}</p>
         </div>
       </section>
 
@@ -3861,52 +4124,52 @@ function TrialPage() {
                 <div className="text-base font-bold text-white">Stacklens</div>
               </div>
               <p className="text-sm text-slate-400 leading-relaxed mb-4">
-                Complete SaaS management platform for European SMBs.
+                {t('lp_footer_tagline')}
               </p>
-              <div className="text-xs text-slate-500">🇪🇺 Built in France · Hosted in EU</div>
+              <div className="text-xs text-slate-500">{t('lp_footer_built_eu')}</div>
             </div>
 
             {/* Product */}
             <div>
-              <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">Product</div>
+              <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">{t('lp_footer_product')}</div>
               <ul className="space-y-3 text-sm">
-                <li><a href="#pricing" onClick={(e) => { e.preventDefault(); document.getElementById('pricing')?.scrollIntoView({behavior:'smooth'}); }} className="text-slate-300 hover:text-white transition-colors">Pricing</a></li>
-                <li><a href="#faq" onClick={(e) => { e.preventDefault(); document.getElementById('faq')?.scrollIntoView({behavior:'smooth'}); }} className="text-slate-300 hover:text-white transition-colors">FAQ</a></li>
-                <li><button onClick={() => { startDemo(); navigate('/dashboard'); }} className="text-slate-300 hover:text-white transition-colors text-left">Live demo</button></li>
-                <li><button onClick={() => setShowAuth(true)} className="text-slate-300 hover:text-white transition-colors text-left">Sign in</button></li>
+                <li><a href="#pricing" onClick={(e) => { e.preventDefault(); document.getElementById('pricing')?.scrollIntoView({behavior:'smooth'}); }} className="text-slate-300 hover:text-white transition-colors">{t('lp_nav_pricing')}</a></li>
+                <li><a href="#faq" onClick={(e) => { e.preventDefault(); document.getElementById('faq')?.scrollIntoView({behavior:'smooth'}); }} className="text-slate-300 hover:text-white transition-colors">{t('lp_nav_faq')}</a></li>
+                <li><button onClick={() => { startDemo(); navigate('/dashboard'); }} className="text-slate-300 hover:text-white transition-colors text-left">{t('lp_footer_live_demo')}</button></li>
+                <li><button onClick={() => setShowAuth(true)} className="text-slate-300 hover:text-white transition-colors text-left">{t('sign_in')}</button></li>
               </ul>
             </div>
 
             {/* Company */}
             <div>
-              <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">Company</div>
+              <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">{t('lp_footer_company')}</div>
               <ul className="space-y-3 text-sm">
-                <li><Link to="/about" className="text-slate-300 hover:text-white transition-colors">About</Link></li>
-                <li><Link to="/contact" className="text-slate-300 hover:text-white transition-colors">Contact</Link></li>
-                <li><a href="mailto:hello@stacklens.fr" className="text-slate-300 hover:text-white transition-colors">Contact</a></li>
-                <li><Link to="/contact?subject=sales" className="text-slate-300 hover:text-white transition-colors">Sales</Link></li>
-                <li><a href="mailto:hello@stacklens.fr" className="text-slate-300 hover:text-white transition-colors">Support</a></li>
+                <li><Link to="/about" className="text-slate-300 hover:text-white transition-colors">{t('lp_footer_about')}</Link></li>
+                <li><Link to="/contact" className="text-slate-300 hover:text-white transition-colors">{t('lp_footer_contact')}</Link></li>
+                <li><a href="mailto:hello@stacklens.fr" className="text-slate-300 hover:text-white transition-colors">{t('lp_footer_contact')}</a></li>
+                <li><Link to="/contact?subject=sales" className="text-slate-300 hover:text-white transition-colors">{t('lp_footer_sales')}</Link></li>
+                <li><a href="mailto:hello@stacklens.fr" className="text-slate-300 hover:text-white transition-colors">{t('lp_footer_support')}</a></li>
               </ul>
             </div>
 
             {/* Legal */}
             <div>
-              <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">Legal</div>
+              <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">{t('lp_footer_legal')}</div>
               <ul className="space-y-3 text-sm">
                 <li><Link to="/privacy" className="text-slate-300 hover:text-white transition-colors">{t('footer_privacy_policy')}</Link></li>
                 <li><Link to="/terms" className="text-slate-300 hover:text-white transition-colors">{t('footer_terms_of_service')}</Link></li>
                 <li><Link to="/legal" className="text-slate-300 hover:text-white transition-colors">{t('footer_legal_mentions')}</Link></li>
                 <li><Link to="/dpa" className="text-slate-300 hover:text-white transition-colors">{language === 'fr' ? 'DPA (RGPD)' : 'DPA (GDPR)'}</Link></li>
                 <li><Link to="/sub-processors" className="text-slate-300 hover:text-white transition-colors">{language === 'fr' ? 'Sous-traitants' : 'Sub-processors'}</Link></li>
-                <li><Link to="/security-info" className="text-slate-300 hover:text-white transition-colors">Security</Link></li>
-                <li><Link to="/about" className="text-slate-300 hover:text-white transition-colors">GDPR</Link></li>
+                <li><Link to="/security-info" className="text-slate-300 hover:text-white transition-colors">{t('lp_footer_security')}</Link></li>
+                <li><Link to="/about" className="text-slate-300 hover:text-white transition-colors">{language === 'fr' ? 'RGPD' : 'GDPR'}</Link></li>
                 <li>
                   <button
                     type="button"
                     onClick={() => { if (_openCookieBanner) _openCookieBanner(); }}
                     className="text-slate-300 hover:text-white transition-colors text-sm text-left"
                   >
-                    Manage cookies
+                    {t('lp_footer_manage_cookies')}
                   </button>
                 </li>
               </ul>
@@ -3916,10 +4179,10 @@ function TrialPage() {
           {/* Bottom bar */}
           <div className="pt-8 border-t border-slate-800/60 flex flex-col md:flex-row items-center justify-between gap-4 md:pr-20">
             <div className="text-xs text-slate-500">
-              © 2026 Stacklens. All rights reserved.
+              {t('lp_footer_rights')}
             </div>
             <div className="flex items-center gap-4 text-xs text-slate-500">
-              <span>🇫🇷 Made in Paris</span>
+              <span>{t('lp_footer_made_paris')}</span>
               <span className="text-slate-700">·</span>
               <a href="mailto:hello@stacklens.fr" className="hover:text-white transition-colors">hello@stacklens.fr</a>
             </div>
@@ -3928,16 +4191,16 @@ function TrialPage() {
       </footer>
 
       {/* ══════════════════════════════════════════════════════
-           UNIFIED AUTH MODAL — Create Account / Sign In / SSO
+           UNIFIED AUTH MODAL — SSO-first redesign
           ══════════════════════════════════════════════════════ */}
       {showAuth && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{background:'rgba(2,6,23,0.85)', backdropFilter:'blur(12px)'}}>
+          style={{background:'rgba(2,6,23,0.88)', backdropFilter:'blur(14px)'}}>
           <div className="relative w-full max-w-md bg-slate-900 border border-slate-700/60 rounded-3xl shadow-2xl overflow-hidden"
-            style={{boxShadow:'0 0 80px rgba(59,130,246,0.15)'}}>
+            style={{boxShadow:'0 0 100px rgba(59,130,246,0.18)'}}>
 
             {/* Subtle top glow bar */}
-            <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-blue-500/60 to-transparent" />
+            <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-blue-500/70 to-transparent" />
 
             {/* Close button */}
             <button onClick={() => { setShowAuth(false); setAuthError(''); setMagicSent(false); }}
@@ -3945,10 +4208,10 @@ function TrialPage() {
               ✕
             </button>
 
-            {/* Header */}
-            <div className="px-4 md:px-8 pt-8 pb-0">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg">
+            <div className="px-6 md:px-8 pt-8 pb-8">
+              {/* Header */}
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg flex-shrink-0">
                   <Shield className="w-5 h-5 text-white" />
                 </div>
                 <div>
@@ -3960,53 +4223,112 @@ function TrialPage() {
               {/* Tab switcher */}
               <div className="flex gap-1 p-1 bg-slate-800/80 rounded-2xl border border-slate-700/50 mb-6">
                 {[
-                  { id: 'signin',  label: 'Sign In' },
-                  { id: 'create',  label: 'Create Account' },
-                  { id: 'sso',     label: 'SSO' },
+                  { id: 'signin', label: t('lp_auth_tab_signin') },
+                  { id: 'create', label: t('lp_auth_tab_create') },
                 ].map(tab => (
                   <button key={tab.id} onClick={() => { setAuthTab(tab.id); setAuthError(''); setMagicSent(false); }}
                     className={"flex-1 py-2 rounded-xl text-sm font-semibold transition-all duration-200 " +
-                      (authTab === tab.id
-                        ? "bg-blue-600 text-white shadow-md"
-                        : "text-slate-400 hover:text-slate-200")}>
+                      (authTab === tab.id ? "bg-blue-600 text-white shadow-md" : "text-slate-400 hover:text-slate-200")}>
                     {tab.label}
                   </button>
                 ))}
               </div>
-            </div>
 
-            {/* Tab content */}
-            <div className="px-4 md:px-8 pb-8">
+              {magicSent ? (
+                /* ── Magic link sent state (shared between both tabs) ── */
+                <div className="text-center py-6 space-y-4">
+                  <div className="w-16 h-16 mx-auto rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
+                    <Mail className="w-8 h-8 text-blue-400" />
+                  </div>
+                  <div>
+                    <div className="text-white font-bold text-lg mb-1">{t("hc_check_your_inbox")}</div>
+                    <div className="text-slate-400 text-sm">{t("hc_we_sent_a_magic_link_to")}</div>
+                    <div className="text-blue-400 font-semibold text-sm mt-1">{authEmail}</div>
+                  </div>
+                  <div className="text-slate-500 text-xs">{t('lp_auth_magic_hint')}</div>
+                  <button onClick={() => setMagicSent(false)} className="text-sm text-slate-400 hover:text-white transition-colors underline underline-offset-2">
+                    {t('lp_auth_use_different')}
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {authError && <div className="text-rose-400 text-xs px-1 pb-1">{authError}</div>}
 
-              {/* ── SIGN IN TAB ── */}
-              {authTab === 'signin' && (
-                <div className="space-y-4">
-                  {!magicSent ? (
+                  {/* ── SSO buttons — always visible at the top ── */}
+                  <button onClick={() => handleSSOClick({ id: 'google', live: true })}
+                    disabled={loading}
+                    className="w-full py-3.5 bg-white hover:bg-slate-100 disabled:opacity-50 rounded-2xl text-slate-900 font-bold text-sm transition-all flex items-center justify-center gap-3 shadow-sm">
+                    <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+                    {t('lp_auth_continue_google')}
+                  </button>
+
+                  <button onClick={async () => {
+                      setLoading(true); setAuthError('');
+                      const { user, error } = await signInWithMicrosoft();
+                      if (error) {
+                        const msg = error.includes('auth/popup-blocked') ? t('lp_err_popup_blocked')
+                          : error.includes('auth/account-exists') ? t('lp_err_account_exists')
+                          : t('lp_err_ms_failed');
+                        setAuthError(msg); setLoading(false); return;
+                      }
+                      if (user) {
+                        const cur = seedDbIfEmpty();
+                        cur.user = { ...cur.user, is_authenticated: true, is_demo: false, email: user.email, displayName: user.displayName || user.email?.split('@')[0], uid: user.uid };
+                        saveDb(cur);
+                        const done = localStorage.getItem('sg_onboarded_' + user.uid) === 'true';
+                        window.location.replace(done ? '/dashboard' : '/onboarding');
+                      }
+                      setLoading(false);
+                    }}
+                    disabled={loading}
+                    className="w-full py-3.5 bg-[#2F2F2F] hover:bg-[#3D3D3D] disabled:opacity-50 border border-slate-700/50 rounded-2xl text-white font-bold text-sm transition-all flex items-center justify-center gap-3">
+                    <div className="w-5 h-5 grid grid-cols-2 gap-[3px] flex-shrink-0">
+                      <div className="bg-[#F25022] rounded-[2px]"/><div className="bg-[#7FBA00] rounded-[2px]"/>
+                      <div className="bg-[#00A4EF] rounded-[2px]"/><div className="bg-[#FFB900] rounded-[2px]"/>
+                    </div>
+                    {t('lp_auth_continue_microsoft')}
+                  </button>
+
+                  {/* Legal footer — always visible above email divider */}
+                  <p className="text-center text-[10px] text-slate-600 leading-relaxed -mt-1">
+                    {t('lp_auth_agree_1')}{' '}
+                    <Link to="/terms" className="text-slate-500 hover:text-white underline" onClick={() => setShowAuth(false)}>{t('lp_auth_agree_terms')}</Link>
+                    {' '}{t('lp_auth_agree_and')}{' '}
+                    <Link to="/privacy" className="text-slate-500 hover:text-white underline" onClick={() => setShowAuth(false)}>{t('hc_privacy_policy')}</Link>
+                  </p>
+
+                  {/* Divider */}
+                  <div className="flex items-center gap-3 py-1">
+                    <div className="flex-1 h-px bg-slate-700/80" />
+                    <span className="text-xs text-slate-500 font-medium">{t('lp_auth_or_email')}</span>
+                    <div className="flex-1 h-px bg-slate-700/80" />
+                  </div>
+
+                  {/* ── SIGN IN — email fields ── */}
+                  {authTab === 'signin' && (
                     <>
                       <div>
-                        <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">{t("hc_work_email")}</label>
+                        <label className="block text-[11px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">{t("hc_work_email")}</label>
                         <input type="email" value={authEmail} onChange={e => setAuthEmail(e.target.value)}
                           placeholder="you@company.com"
                           className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" />
                       </div>
                       <div>
-                        <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">Password</label>
+                        <label className="block text-[11px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">{t('lp_auth_password')}</label>
                         <div className="relative">
                           <input type={showPassword ? 'text' : 'password'} value={authPassword} onChange={e => setAuthPassword(e.target.value)}
                             placeholder="••••••••"
                             className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all pr-12" />
                           <button type="button" onClick={() => setShowPassword(v => !v)}
                             className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 text-xs">
-                            {showPassword ? 'Hide' : 'Show'}
+                            {showPassword ? t('lp_auth_hide') : t('lp_auth_show')}
                           </button>
                         </div>
                       </div>
-                      {authError && <div className="text-rose-400 text-xs px-1">{authError}</div>}
                       <button onClick={async () => {
                           setLoading(true); setAuthError('');
-                          // Email/password sign-in via Google (same account) or magic link fallback
-                          if (!authEmail) { setAuthError('Enter your email.'); setLoading(false); return; }
-                          if (!authPassword) { setAuthError('Enter your password.'); setLoading(false); return; }
+                          if (!authEmail) { setAuthError(t('lp_err_enter_email')); setLoading(false); return; }
+                          if (!authPassword) { setAuthError(t('lp_err_enter_password')); setLoading(false); return; }
                           const { user, error } = await signInWithEmail(authEmail, authPassword);
                           if (error) {
                             setAuthError(error.replace('Firebase: ','').replace('(auth/wrong-password).','— wrong password').replace('(auth/user-not-found).','— no account found').replace('(auth/invalid-credential).','— invalid email or password'));
@@ -4016,109 +4338,62 @@ function TrialPage() {
                             const cur = seedDbIfEmpty();
                             cur.user = { ...cur.user, is_authenticated: true, is_demo: false, email: user.email, displayName: user.displayName || authEmail.split('@')[0], uid: user.uid };
                             saveDb(cur);
-                            window.location.replace('/dashboard');
+                            const done = localStorage.getItem('sg_onboarded_' + user.uid) === 'true';
+                            window.location.replace(done ? '/dashboard' : '/onboarding');
                           }
                           setLoading(false);
                         }}
                         disabled={loading || !authEmail || !authPassword}
                         className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl text-white font-bold text-sm transition-all shadow-lg shadow-blue-500/20">
-                        {loading ? 'Signing in…' : 'Sign In'}
+                        {loading ? t('lp_auth_signing_in') : t('lp_auth_signin_email')}
                       </button>
-                      <button onClick={async()=>{if(!authEmail){setAuthError('Enter email first.');return;}const{error}=await resetPassword(authEmail);if(!error)toast.success(t('password_reset_sent'));else setAuthError(error);}} className="w-full text-xs text-slate-500 hover:text-slate-300 transition-colors mt-1 text-center block">{t('forgot_password')}</button>
-
-                      {/* Divider */}
-                      <div className="flex items-center gap-3 my-1">
-                        <div className="flex-1 h-px bg-slate-700" />
-                        <span className="text-xs text-slate-500">or</span>
-                        <div className="flex-1 h-px bg-slate-700" />
+                      <div className="flex items-center justify-between gap-4">
+                        <button onClick={async () => {
+                            if (!authEmail) { setAuthError(t('lp_err_enter_email_first')); return; }
+                            setLoading(true); setAuthError('');
+                            const { error } = await sendMagicLink(authEmail);
+                            if (!error) { setMagicSent(true); }
+                            else { setAuthError(t('lp_err_could_not_send_link') + ' ' + error); }
+                            setLoading(false);
+                          }}
+                          disabled={loading}
+                          className="text-xs text-slate-500 hover:text-blue-400 transition-colors flex items-center gap-1.5">
+                          <Mail className="w-3.5 h-3.5" />
+                          {t('lp_auth_send_magic')}
+                        </button>
+                        <button onClick={async () => { if (!authEmail) { setAuthError(t('lp_err_enter_email_first2')); return; } const { error } = await resetPassword(authEmail); if (!error) toast.success(t('password_reset_sent')); else setAuthError(error); }}
+                          className="text-xs text-slate-500 hover:text-slate-300 transition-colors">
+                          {t('forgot_password')}
+                        </button>
                       </div>
-
-                      {/* Magic link */}
-                      <button onClick={async () => {
-                          if (!authEmail) { setAuthError('Enter your email above first.'); return; }
-                          setLoading(true); setAuthError('');
-                          const { error } = await sendMagicLink(authEmail);
-                          if (!error) { setMagicSent(true); }
-                          else { setAuthError('Could not send link: ' + error); }
-                          setLoading(false);
-                        }}
-                        disabled={loading}
-                        className="w-full py-3 bg-slate-800 hover:bg-slate-700 border border-slate-600 hover:border-blue-500/50 rounded-xl text-slate-300 hover:text-white font-semibold text-sm transition-all flex items-center justify-center gap-2">
-                        <Mail className="w-4 h-4" />
-                        Send Magic Link to this Email
-                      </button>
-
-                      {/* Google */}
-                      <button onClick={() => handleSSOClick({ id: 'google', live: true })}
-                        disabled={loading}
-                        className="w-full py-3 bg-white hover:bg-slate-100 rounded-xl text-slate-900 font-bold text-sm transition-all flex items-center justify-center gap-3 shadow-sm">
-                        <svg className="w-4 h-4" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-                        Continue with Google
-                      </button>
                     </>
-                  ) : (
-                    /* Magic link sent state */
-                    <div className="text-center py-6 space-y-4">
-                      <div className="w-16 h-16 mx-auto rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
-                        <Mail className="w-8 h-8 text-blue-400" />
-                      </div>
-                      <div>
-                        <div className="text-white font-bold text-lg mb-1">{t("hc_check_your_inbox")}</div>
-                        <div className="text-slate-400 text-sm">{t("hc_we_sent_a_magic_link_to")}</div>
-                        <div className="text-blue-400 font-semibold text-sm mt-1">{authEmail}</div>
-                      </div>
-                      <div className="text-slate-500 text-xs">Click the link in the email to sign in instantly — no password needed.</div>
-                      <button onClick={() => setMagicSent(false)} className="text-sm text-slate-400 hover:text-white transition-colors underline underline-offset-2">
-                        ← Use a different email
-                      </button>
-                    </div>
                   )}
-                </div>
-              )}
 
-              {/* ── CREATE ACCOUNT TAB ── */}
-              {authTab === 'create' && (
-                <div className="space-y-4">
-                  {!magicSent ? (
+                  {/* ── CREATE ACCOUNT — email fields ── */}
+                  {authTab === 'create' && (
                     <>
                       <div>
-                        <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">{t("hc_full_name")}</label>
+                        <label className="block text-[11px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">{t("hc_full_name")}</label>
                         <input type="text" value={authName} onChange={e => setAuthName(e.target.value)}
-                          placeholder="Jane Smith"
+                          placeholder={t('lp_auth_name_placeholder')}
                           className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" />
                       </div>
                       <div>
-                        <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">{t("hc_work_email")}</label>
+                        <label className="block text-[11px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">{t("hc_work_email")}</label>
                         <input type="email" value={authEmail} onChange={e => setAuthEmail(e.target.value)}
                           placeholder="you@company.com"
                           className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" />
                       </div>
-
-                      {authError && <div className="text-rose-400 text-xs px-1">{authError}</div>}
-
-                      {/* Password field for registration */}
                       <div>
-                        <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">Password</label>
+                        <label className="block text-[11px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">{t('lp_auth_password')}</label>
                         <input type="password" value={authPassword} onChange={e => setAuthPassword(e.target.value)}
-                          placeholder="Min. 8 characters"
+                          placeholder={t('lp_auth_password_min')}
                           className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" />
                       </div>
-                      {/* Terms acceptance — required at signup, proof of consent (LCEN + RGPD) */}
-                      <label className="flex items-start gap-2 cursor-pointer group mt-1">
-                        <input type="checkbox" id="signup-terms"
-                          className="mt-0.5 w-4 h-4 rounded border-slate-600 bg-slate-800 text-blue-500 flex-shrink-0"
-                          onChange={e => { const btn = document.getElementById('signup-btn'); if (btn) btn.disabled = !e.target.checked; }} />
-                        <span className="text-xs text-slate-400 leading-relaxed">
-                          {language === 'fr'
-                            ? <>{`J'accepte les `}<Link to="/terms" target="_blank" className="text-blue-400 hover:text-blue-300 underline">{`CGU`}</Link>{` et la `}<Link to="/privacy" target="_blank" className="text-blue-400 hover:text-blue-300 underline">{`Politique de confidentialité`}</Link></>
-                            : <>{'I agree to the '}<Link to="/terms" target="_blank" className="text-blue-400 hover:text-blue-300 underline">{'Terms of Service'}</Link>{' and '}<Link to="/privacy" target="_blank" className="text-blue-400 hover:text-blue-300 underline">{'Privacy Policy'}</Link></>
-                          }
-                        </span>
-                      </label>
                       <button id="signup-btn" onClick={async () => {
-                          if (!authName) { setAuthError('Please enter your name.'); return; }
-                          if (!authEmail) { setAuthError('Please enter your email.'); return; }
-                          if (!authPassword || authPassword.length < 8) { setAuthError('Password must be at least 8 characters.'); return; }
+                          if (!authName) { setAuthError(t('lp_err_enter_name')); return; }
+                          if (!authEmail) { setAuthError(t('lp_err_enter_email2')); return; }
+                          if (!authPassword || authPassword.length < 8) { setAuthError(t('lp_err_password_8')); return; }
                           setLoading(true); setAuthError('');
                           const { user, error } = await registerWithEmail(authEmail, authPassword, authName);
                           if (error) {
@@ -4130,92 +4405,35 @@ function TrialPage() {
                             const cur = seedDbIfEmpty();
                             cur.user = { ...cur.user, is_authenticated: true, is_demo: false, email: user.email, displayName: authName, uid: user.uid };
                             saveDb(cur);
-                            window.location.replace('/dashboard');
+                            window.location.replace('/onboarding');
                           }
                           setLoading(false);
                         }}
                         disabled={loading || !authEmail || !authName || !authPassword}
-                        className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl text-white font-bold text-sm transition-all shadow-lg flex items-center justify-center gap-2">
-                        {loading ? 'Creating account…' : 'Create Account'}
+                        className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl text-white font-bold text-sm transition-all shadow-lg">
+                        {loading ? t('lp_auth_creating') : t('lp_auth_create_email')}
                       </button>
-
-                      <div className="flex items-center gap-3 my-1">
-                        <div className="flex-1 h-px bg-slate-700" />
-                        <span className="text-xs text-slate-500">or sign up with</span>
-                        <div className="flex-1 h-px bg-slate-700" />
-                      </div>
-
-                      <button onClick={() => handleSSOClick({ id: 'google', live: true })}
-                        disabled={loading}
-                        className="w-full py-3 bg-white hover:bg-slate-100 rounded-xl text-slate-900 font-bold text-sm transition-all flex items-center justify-center gap-3 shadow-sm">
-                        <svg className="w-4 h-4" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-                        Sign Up with Google
-                      </button>
-
-                      <p className="text-center text-[11px] text-slate-600 leading-relaxed">
-                        By creating an account you agree to our{' '}
-                        <Link to="/terms" className="text-slate-400 hover:text-white underline" onClick={() => setShowAuth(false)}>Terms</Link>
-                        {' '}and{' '}
+                      <p className="text-center text-[11px] text-slate-600 leading-relaxed pt-1">
+                        {t('lp_auth_agree_1')}{' '}
+                        <Link to="/terms" className="text-slate-400 hover:text-white underline" onClick={() => setShowAuth(false)}>{t('lp_auth_agree_terms')}</Link>
+                        {' '}{t('lp_auth_agree_and')}{' '}
                         <Link to="/privacy" className="text-slate-400 hover:text-white underline" onClick={() => setShowAuth(false)}>{t("hc_privacy_policy")}</Link>
                       </p>
                     </>
-                  ) : (
-                    <div className="text-center py-6 space-y-4">
-                      <div className="w-16 h-16 mx-auto rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
-                        <Mail className="w-8 h-8 text-emerald-400" />
-                      </div>
-                      <div>
-                        <div className="text-white font-bold text-lg mb-1">Almost there, {authName.split(' ')[0]}!</div>
-                        <div className="text-slate-400 text-sm">{t("hc_your_activation_link_is_on_its_way_")}</div>
-                        <div className="text-emerald-400 font-semibold text-sm mt-1">{authEmail}</div>
-                      </div>
-                      <div className="text-slate-500 text-xs px-4">{t('click_link_activate')}</div>
-                      <button onClick={() => { setMagicSent(false); setAuthName(''); setAuthEmail(''); }} className="text-sm text-slate-400 hover:text-white transition-colors underline underline-offset-2">
-                        ← Start over
-                      </button>
-                    </div>
                   )}
                 </div>
               )}
 
-              {/* ── SSO TAB ── */}
-              {authTab === 'sso' && (
-                <div className="space-y-3">
-                  <p className="text-xs text-slate-500 mb-4">Enterprise SSO — sign in with your company identity provider.</p>
-                  {[
-                    { id: 'google',    name: 'Google Workspace', sub: 'G Suite / Google Cloud Identity', live: true,  logo: <svg className="w-5 h-5" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg> },
-                    { id: 'microsoft', name: 'Microsoft 365',    sub: 'Azure AD / Entra ID',            live: false, logo: <div className="w-5 h-5 grid grid-cols-2 gap-0.5"><div className="bg-[#F25022] rounded-sm"/><div className="bg-[#7FBA00] rounded-sm"/><div className="bg-[#00A4EF] rounded-sm"/><div className="bg-[#FFB900] rounded-sm"/></div> },
-                    { id: 'okta',      name: 'Okta',             sub: 'Enterprise SSO via Okta',         live: false, logo: <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-[9px] font-black text-white">OK</div> },
-                    { id: 'saml',      name: 'SAML 2.0',         sub: 'Custom SAML identity provider',   live: false, logo: <div className="w-5 h-5 rounded bg-slate-600 flex items-center justify-center"><Lock className="w-3 h-3 text-slate-300" /></div> },
-                  ].map(p => (
-                    <button key={p.id}
-                      onClick={() => p.live ? handleSSOClick({ id: p.id, live: true }) : toast.info(p.name + ' SSO is coming soon. Use Google or magic link for now.')}
-                      className={"w-full flex items-center justify-between p-4 rounded-2xl border transition-all group " +
-                        (p.live ? "border-slate-700 bg-slate-800/60 hover:bg-slate-800 hover:border-blue-500/40" : "border-slate-800 bg-slate-800/20 opacity-50 cursor-not-allowed")}>
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-slate-900 border border-slate-700 flex items-center justify-center flex-shrink-0">{p.logo}</div>
-                        <div className="text-left">
-                          <div className={"text-sm font-semibold " + (p.live ? "text-white" : "text-slate-500")}>{p.name}</div>
-                          <div className="text-xs text-slate-600">{p.sub}</div>
-                        </div>
-                      </div>
-                      {p.live
-                        ? <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-blue-400 transition-colors" />
-                        : <span className="text-[9px] font-bold text-slate-600 bg-slate-900 border border-slate-700 px-2 py-0.5 rounded-full uppercase tracking-widest">Soon</span>}
-                    </button>
-                  ))}
+              {/* ── Demo link ── */}
+              {!magicSent && (
+                <div className="mt-5 pt-5 border-t border-slate-800">
+                  <button onClick={() => { setShowAuth(false); startDemo(); navigate('/dashboard'); }}
+                    className="w-full py-2.5 rounded-xl border border-emerald-600/30 bg-emerald-600/5 hover:bg-emerald-600/10 text-emerald-400 hover:text-emerald-300 text-sm font-semibold transition-all flex items-center justify-center gap-2">
+                    <Play className="w-3.5 h-3.5" />
+                    {t('lp_auth_try_demo')}
+                  </button>
                 </div>
               )}
-
-              {/* ── Demo + divider ── */}
-              <div className="mt-6 pt-5 border-t border-slate-800">
-                <button onClick={() => { setShowAuth(false); startDemo(); navigate('/dashboard'); }}
-                  className="w-full py-2.5 rounded-xl border border-emerald-600/30 bg-emerald-600/5 hover:bg-emerald-600/10 text-emerald-400 hover:text-emerald-300 text-sm font-semibold transition-all flex items-center justify-center gap-2">
-                  <Play className="w-3.5 h-3.5" />
-                  Try Live Demo — No Account Needed
-                </button>
-              </div>
-
             </div>
           </div>
         </div>
@@ -4285,7 +4503,7 @@ function ExecutivePageWrapper() {
     tools: db.tools.map(t => ({ ...t, derived_risk: computeToolDerivedRisk(t) })),
     employees: db.employees || [],
     access: db.access || [],
-    alerts: buildRiskAlerts({ tools: db.tools, access: db.access || [], employees: db.employees || [] })
+    alerts: buildRiskAlerts({ tools: db.tools, access: db.access || [], employees: db.employees || [] }, t)
   };
   
   return (
@@ -4299,115 +4517,432 @@ function ExecutivePageWrapper() {
 // GOOGLE WORKSPACE SYNC BUTTON
 // ============================================================================
 
-function WorkspaceConnector() {
+const OKTA_CLIENT_ID  = import.meta.env.VITE_OKTA_CLIENT_ID  || '6a09e0ebf5aaa66d02e605a6';
+const AZURE_CLIENT_ID = import.meta.env.VITE_AZURE_CLIENT_ID || '5270e1b9-2a70-48d6-b0e1-cd5f22904968';
+
+function WorkspaceConnector({ compact = false }) {
   const { language } = useLang();
   const t = useTranslation(language);
-  const { firebaseUser } = useAuth();
   const muts = useDbMutations();
-  const [syncing, setSyncing] = useState(false);
-  const [syncStatus, setSyncStatus] = useState(null);
-  const [activeProvider, setActiveProvider] = useState(null);
+  const [syncing, setSyncing] = useState(null);
+  const [status, setStatus]   = useState(null);
+  const [oktaStep, setOktaStep]     = useState(null);
+  const [oktaDomain, setOktaDomain] = useState('');
+  const [cancelledProvider, setCancelledProvider] = useState(null); // 'google' | 'microsoft' | 'okta'
 
-  const getToken = (u) => u?.stsTokenManager?.accessToken || null;
+  // Auto-dismiss success/error status after 6s; clear stale loading if syncing stops
+  React.useEffect(() => {
+    if (!status) return;
+    if (status.type === 'loading' && !syncing) { setStatus(null); return; }
+    if (status.type !== 'loading') {
+      const t = setTimeout(() => setStatus(null), 6000);
+      return () => clearTimeout(t);
+    }
+  }, [status, syncing]);
+
+  // Handle Microsoft 365 PKCE callback
+  useEffect(() => {
+    const params   = new URLSearchParams(window.location.search);
+    const urlError = params.get('error');
+    const urlState = params.get('state');
+
+    // Detect OAuth cancellation from Microsoft / Okta redirect
+    if (urlError === 'access_denied' || urlError === 'login_required') {
+      const msState   = sessionStorage.getItem('ms_state');
+      const oktaState = sessionStorage.getItem('okta_state');
+      if (msState && urlState === msState) {
+        sessionStorage.removeItem('ms_state');
+        sessionStorage.removeItem('ms_code_verifier');
+        window.history.replaceState({}, '', window.location.pathname);
+        setCancelledProvider('microsoft');
+        return;
+      }
+      if (oktaState && urlState === oktaState) {
+        sessionStorage.removeItem('okta_state');
+        sessionStorage.removeItem('okta_code_verifier');
+        window.history.replaceState({}, '', window.location.pathname);
+        setCancelledProvider('okta');
+        return;
+      }
+    }
+
+    const code     = params.get('code');
+    const msState  = sessionStorage.getItem('ms_state');
+    if (!code || !msState || urlState !== msState) return;
+
+    const verifier = sessionStorage.getItem('ms_code_verifier');
+    if (!verifier) return;
+
+    sessionStorage.removeItem('ms_state');
+    sessionStorage.removeItem('ms_code_verifier');
+    window.history.replaceState({}, '', window.location.pathname);
+
+    setSyncing('microsoft');
+    setStatus({ type: 'loading', msg: 'Completing Microsoft 365 connection…' });
+
+    (async () => {
+      try {
+        const tokenRes = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            grant_type:    'authorization_code',
+            client_id:     AZURE_CLIENT_ID,
+            code,
+            redirect_uri:  window.location.origin,
+            code_verifier: verifier,
+            scope:         'https://graph.microsoft.com/User.Read.All offline_access openid',
+          }),
+        });
+        const tokenData = await tokenRes.json();
+        if (!tokenRes.ok) throw new Error(tokenData.error_description || 'Token exchange failed');
+
+        setStatus({ type: 'loading', msg: 'Importing users from Microsoft 365…' });
+        const usersRes = await fetch(
+          'https://graph.microsoft.com/v1.0/users?$top=999&$select=displayName,mail,userPrincipalName,jobTitle,department,accountEnabled',
+          { headers: { Authorization: `Bearer ${tokenData.access_token}`, Accept: 'application/json' } }
+        );
+        if (!usersRes.ok) throw new Error('Failed to fetch users — ensure User.Read.All permission is granted in Azure');
+        const msUsers = (await usersRes.json()).value || [];
+
+        let count = 0;
+        for (const u of msUsers) {
+          const email = u.mail || u.userPrincipalName;
+          if (!email) continue;
+          try {
+            await muts.createEmployee.mutateAsync({
+              full_name:     u.displayName || email,
+              email,
+              department:    u.department || 'general',
+              role:          u.jobTitle || 'Member',
+              status:        u.accountEnabled ? 'active' : 'offboarded',
+              imported_from: 'microsoft365',
+            });
+            count++;
+          } catch {}
+        }
+        setStatus({ type: 'success', msg: `Imported ${count} employees from Microsoft 365!` });
+      } catch (err) {
+        setStatus({ type: 'error', msg: `Microsoft sync failed: ${err.message}` });
+      } finally {
+        setSyncing(null);
+      }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Handle Okta PKCE callback when redirected back from Okta
+  useEffect(() => {
+    const params      = new URLSearchParams(window.location.search);
+    const code        = params.get('code');
+    const urlState    = params.get('state');
+    const storedState = sessionStorage.getItem('okta_state');
+    if (!code || !storedState || urlState !== storedState) return;
+
+    const domain   = sessionStorage.getItem('okta_domain');
+    const verifier = sessionStorage.getItem('okta_code_verifier');
+    if (!domain || !verifier) return;
+
+    sessionStorage.removeItem('okta_state');
+    sessionStorage.removeItem('okta_code_verifier');
+    sessionStorage.removeItem('okta_domain');
+    window.history.replaceState({}, '', window.location.pathname);
+
+    setSyncing('okta');
+    setStatus({ type: 'loading', msg: 'Completing Okta connection…' });
+
+    (async () => {
+      try {
+        const tokenRes = await fetch(`https://${domain}/oauth2/v1/token`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            grant_type:    'authorization_code',
+            client_id:     OKTA_CLIENT_ID,
+            code,
+            redirect_uri:  window.location.origin,
+            code_verifier: verifier,
+          }),
+        });
+        const tokenData = await tokenRes.json();
+        if (!tokenRes.ok) throw new Error(tokenData.error_description || 'Token exchange failed');
+
+        setStatus({ type: 'loading', msg: 'Importing users from Okta…' });
+        const usersRes = await fetch(
+          `https://${domain}/api/v1/users?limit=200&filter=status+eq+"ACTIVE"`,
+          { headers: { Authorization: `Bearer ${tokenData.access_token}`, Accept: 'application/json' } }
+        );
+        if (!usersRes.ok) throw new Error('Failed to fetch Okta users — ensure API Access Management is enabled');
+        const oktaUsers = await usersRes.json();
+
+        let count = 0;
+        for (const u of oktaUsers) {
+          try {
+            await muts.createEmployee.mutateAsync({
+              full_name:       `${u.profile.firstName} ${u.profile.lastName}`.trim(),
+              email:           u.profile.email,
+              department:      u.profile.department || 'general',
+              role:            u.profile.userType || 'Member',
+              status:          'active',
+              imported_from:   'okta',
+            });
+            count++;
+          } catch {}
+        }
+        setStatus({ type: 'success', msg: `Imported ${count} employees from Okta!` });
+      } catch (err) {
+        setStatus({ type: 'error', msg: `Okta sync failed: ${err.message}` });
+      } finally {
+        setSyncing(null);
+      }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const syncGoogle = async () => {
-    if (!firebaseUser) { setSyncStatus({ type: 'error', msg: 'Sign in with Google first.' }); return; }
-    const token = getToken(firebaseUser);
-    if (!token) { setSyncStatus({ type: 'error', msg: 'No Google access token. Please sign in with Google.' }); return; }
-    setSyncing(true); setActiveProvider('google');
-    setSyncStatus({ type: 'loading', msg: 'Importing from Google Workspace...' });
+    setSyncing('google');
+    setStatus({ type: 'loading', msg: 'Requesting Google Workspace access…' });
     try {
-      const res = await fetch('https://admin.googleapis.com/admin/directory/v1/users?domain=primary&maxResults=500', {
-        headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
-      });
-      if (!res.ok) throw new Error(`API ${res.status}: ${res.statusText}`);
-      const data = await res.json();
-      const users = (data.users || []).map(u => ({
-        full_name: u.name?.fullName || '', email: u.primaryEmail,
-        status: u.suspended ? 'offboarded' : 'active',
-        department: u.orgUnitPath?.split('/').pop() || 'general',
-        role: u.isAdmin ? 'Admin' : 'Member',
-        imported_from: 'google_workspace',
-      }));
+      const { accessToken, error } = await signInWithGoogleWorkspace();
+      if (error || !accessToken) throw new Error(error || 'Could not get Google access token');
+
+      setStatus({ type: 'loading', msg: 'Importing users from Google Workspace…' });
+      const res = await fetch(
+        'https://admin.googleapis.com/admin/directory/v1/users?customer=my_customer&maxResults=500&orderBy=email',
+        { headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' } }
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error?.message || `API error ${res.status} — make sure you are a Google Workspace admin`);
+      }
+      const data  = await res.json();
+      const users = data.users || [];
       let count = 0;
-      for (const u of users) { try { await muts.createEmployee.mutateAsync(u); count++; } catch {} }
-      setSyncStatus({ type: 'success', msg: `Imported ${count} users from Google Workspace!` });
-      setTimeout(() => window.location.reload(), 2000);
+      for (const u of users) {
+        try {
+          await muts.createEmployee.mutateAsync({
+            full_name:     u.name?.fullName || u.primaryEmail,
+            email:         u.primaryEmail,
+            status:        u.suspended ? 'offboarded' : 'active',
+            department:    u.orgUnitPath?.split('/').filter(Boolean).pop() || 'general',
+            role:          u.isAdmin ? 'Admin' : 'Member',
+            imported_from: 'google_workspace',
+          });
+          count++;
+        } catch {}
+      }
+      setStatus({ type: 'success', msg: `Imported ${count} employees from Google Workspace!` });
     } catch (err) {
-      setSyncStatus({ type: 'error', msg: `Sync failed: ${err.message}` });
-    } finally { setSyncing(false); }
+      const cancelled = err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request' || err.message?.includes('closed');
+      if (cancelled) {
+        setStatus(null);
+        setCancelledProvider('google');
+      } else {
+        setStatus({ type: 'error', msg: `Google sync failed: ${err.message}` });
+      }
+    } finally {
+      setSyncing(null);
+    }
   };
 
-  const syncMicrosoft = async () => {
-    setSyncing(true); setActiveProvider('microsoft');
-    setSyncStatus({ type: 'info', msg: 'Microsoft 365 SSO — connecting...' });
-    // Microsoft OAuth flow
-    const clientId = 'YOUR_AZURE_CLIENT_ID';
-    const redirectUri = encodeURIComponent(window.location.origin + '/auth/callback');
-    const scope = encodeURIComponent('https://graph.microsoft.com/User.Read.All https://graph.microsoft.com/Directory.Read.All');
-    const authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${clientId}&response_type=token&redirect_uri=${redirectUri}&scope=${scope}&response_mode=fragment`;
-    // For now show coming soon
-    setSyncStatus({ type: 'info', msg: 'Microsoft 365 integration coming soon. Contact us to join the beta.' });
-    setSyncing(false);
+  const connectMicrosoft = async () => {
+    const arr      = new Uint8Array(32);
+    crypto.getRandomValues(arr);
+    const verifier  = btoa(String.fromCharCode(...arr)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+    const hash      = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
+    const challenge = btoa(String.fromCharCode(...new Uint8Array(hash))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+    const stateArr  = new Uint8Array(16);
+    crypto.getRandomValues(stateArr);
+    const state = btoa(String.fromCharCode(...stateArr)).replace(/[+/=]/g, '');
+
+    sessionStorage.setItem('ms_code_verifier', verifier);
+    sessionStorage.setItem('ms_state', state);
+
+    const params = new URLSearchParams({
+      client_id:             AZURE_CLIENT_ID,
+      response_type:         'code',
+      redirect_uri:          window.location.origin,
+      scope:                 'https://graph.microsoft.com/User.Read.All offline_access openid',
+      state,
+      code_challenge:        challenge,
+      code_challenge_method: 'S256',
+    });
+    window.location.href = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params}`;
+  };
+
+  const connectOkta = async () => {
+    const domain = oktaDomain.trim().replace(/^https?:\/\//, '').replace(/\/$/, '');
+    if (!domain) return;
+
+    const arr      = new Uint8Array(32);
+    crypto.getRandomValues(arr);
+    const verifier = btoa(String.fromCharCode(...arr)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+    const hash     = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
+    const challenge = btoa(String.fromCharCode(...new Uint8Array(hash))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+
+    const stateArr = new Uint8Array(16);
+    crypto.getRandomValues(stateArr);
+    const state = btoa(String.fromCharCode(...stateArr)).replace(/[+/=]/g, '');
+
+    sessionStorage.setItem('okta_code_verifier', verifier);
+    sessionStorage.setItem('okta_state', state);
+    sessionStorage.setItem('okta_domain', domain);
+
+    const params = new URLSearchParams({
+      client_id:             OKTA_CLIENT_ID,
+      response_type:         'code',
+      scope:                 'openid profile email okta.users.read',
+      redirect_uri:          window.location.origin,
+      state,
+      code_challenge:        challenge,
+      code_challenge_method: 'S256',
+    });
+    window.location.href = `https://${domain}/oauth2/v1/authorize?${params}`;
   };
 
   const providers = [
     {
-      id: 'google',
-      name: 'Google Workspace',
-      desc: 'Import employees, departments & org structure',
-      icon: '🔵',
-      color: 'blue',
-      action: () => toast.success('Added to the Google Workspace waitlist. We\'ll email you when full sync is ready (target: Q1 2026).', { duration: 5000 }),
-      available: false,
-      badge: 'Q1 2026',
+      id:        'google',
+      name:      'Google Workspace',
+      desc:      'Import employees, departments & org structure',
+      available: true,
+      badge:     null,
+      logo: (
+        <svg viewBox="0 0 24 24" className="w-5 h-5">
+          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+        </svg>
+      ),
+      action: syncGoogle,
     },
     {
-      id: 'microsoft',
-      name: 'Microsoft 365',
-      desc: 'Sync from Azure AD / Entra ID',
-      icon: '🟦',
-      color: 'indigo',
-      action: () => toast.success('Added to the Microsoft 365 waitlist. We\'ll email you when it\'s ready (target: Q2 2026).', { duration: 5000 }),
-      available: false,
-      badge: 'Q2 2026',
+      id:        'microsoft',
+      name:      'Microsoft 365',
+      desc:      'Sync from Azure AD / Entra ID',
+      available: true,
+      badge:     null,
+      logo: (
+        <div className="w-5 h-5 grid grid-cols-2 gap-0.5">
+          <div className="bg-[#F25022] rounded-sm"/><div className="bg-[#7FBA00] rounded-sm"/>
+          <div className="bg-[#00A4EF] rounded-sm"/><div className="bg-[#FFB900] rounded-sm"/>
+        </div>
+      ),
+      action: connectMicrosoft,
     },
     {
-      id: 'okta',
-      name: 'Okta',
-      desc: 'Import users from Okta directory',
-      icon: '⚫',
-      color: 'slate',
-      action: () => toast.success('Added to the Okta waitlist. We\'ll email you when it\'s ready (target: Q3 2026).', { duration: 5000 }),
-      available: false,
-      badge: 'Q3 2026',
+      id:        'okta',
+      name:      'Okta',
+      desc:      'Import users from Okta directory',
+      available: true,
+      badge:     null,
+      logo: (
+        <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center">
+          <span className="text-[9px] font-black text-white">OK</span>
+        </div>
+      ),
+      action: () => setOktaStep('domain'),
     },
   ];
 
+  const providerName = cancelledProvider === 'google' ? 'Google Workspace' : cancelledProvider === 'microsoft' ? 'Microsoft 365' : 'Okta';
+  const retryAction  = cancelledProvider === 'google' ? syncGoogle : cancelledProvider === 'microsoft' ? connectMicrosoft : () => setOktaStep('domain');
+
   return (
+    <>
+    {cancelledProvider && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={() => setCancelledProvider(null)}>
+        <div className="bg-slate-900 border border-amber-500/40 rounded-2xl w-full max-w-md p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+          <div className="flex items-start gap-4 mb-5">
+            <div className="p-2.5 rounded-xl bg-amber-500/10 flex-shrink-0">
+              <AlertTriangle className="h-6 w-6 text-amber-400" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-white mb-1">{t('ds_sync_not_completed')}</h3>
+              <p className="text-sm text-slate-400">
+                The {providerName} authorisation was cancelled before completing. Your directory was <strong className="text-white">not synced</strong> and no employees were imported.
+              </p>
+            </div>
+          </div>
+          <p className="text-sm text-slate-400 mb-6">{t('ds_sync_try_again_q')}</p>
+          <div className="flex gap-3">
+            <button
+              onClick={() => { setCancelledProvider(null); retryAction(); }}
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold text-sm text-white transition-colors"
+            >
+              <RefreshCw className="h-4 w-4" /> Try Again
+            </button>
+            <button
+              onClick={() => setCancelledProvider(null)}
+              className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl font-semibold text-sm text-slate-300 transition-colors"
+            >
+              Cancel Sync
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 mb-6">
       <div className="flex items-center gap-3 mb-4">
         <div className="p-2 bg-blue-500/20 rounded-xl">
-          <svg className="h-5 w-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+          <svg className="h-5 w-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z"/>
+          </svg>
         </div>
         <div>
-          <h3 className="text-base font-bold text-white">Directory Sync</h3>
-          <p className="text-xs text-slate-400">Auto-import employees from your identity provider</p>
+          <h3 className="text-base font-bold text-white">{t('ds_directory_sync')}</h3>
+          <p className="text-xs text-slate-400">{t('ds_auto_import_idp')}</p>
         </div>
       </div>
+
+      {oktaStep === 'domain' && (
+        <div className="mb-4 p-4 bg-slate-800 rounded-xl border border-slate-700">
+          <p className="text-sm font-semibold text-white mb-1">{t('ds_connect_okta')}</p>
+          <p className="text-xs text-slate-400 mb-3">Enter your Okta organization domain. You'll be redirected to authorize Stacklens to read your directory.</p>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              placeholder="company.okta.com"
+              value={oktaDomain}
+              onChange={e => setOktaDomain(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && connectOkta()}
+              className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+            />
+            <button
+              onClick={connectOkta}
+              disabled={!oktaDomain.trim()}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition-colors"
+            >
+              Authorize →
+            </button>
+            <button onClick={() => { setOktaStep(null); setOktaDomain(''); }} className="px-3 py-2 text-slate-400 hover:text-white text-sm rounded-lg transition-colors">
+              Cancel
+            </button>
+          </div>
+          <p className="text-xs text-slate-500 mt-2">Stacklens only reads user directory data — no write access.</p>
+        </div>
+      )}
+
       <div className="space-y-2 mb-4">
         {providers.map(p => (
-          <button key={p.id}
+          <button
+            key={p.id}
             onClick={p.action}
-            disabled={syncing}
-            className={"group relative flex items-center gap-4 p-4 rounded-xl border transition-all text-left w-full " + (p.available ? "border-slate-700 hover:border-" + p.color + "-500/50 hover:bg-slate-800/60 cursor-pointer" : "border-slate-800 opacity-60 cursor-not-allowed")}
+            disabled={syncing !== null}
+            className={cx(
+              "group relative flex items-center gap-4 p-4 rounded-xl border transition-all text-left w-full",
+              p.available
+                ? "border-slate-700 hover:border-blue-500/40 hover:bg-slate-800/60 cursor-pointer"
+                : "border-slate-800 opacity-50 cursor-not-allowed"
+            )}
           >
-            {/* Provider icon — larger and more prominent */}
-            <div className={"flex-shrink-0 w-11 h-11 rounded-lg flex items-center justify-center text-xl " + (p.available ? "bg-" + p.color + "-500/15 border border-" + p.color + "-500/20" : "bg-slate-800 border border-slate-800")}>
-              {p.icon}
+            <div className={cx(
+              "flex-shrink-0 w-11 h-11 rounded-lg flex items-center justify-center",
+              p.available ? "bg-slate-700/60 border border-slate-600/40" : "bg-slate-800 border border-slate-800"
+            )}>
+              {p.logo}
             </div>
-
-            {/* Name + description — full width, no truncation needed */}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-0.5">
                 <span className="text-sm font-semibold text-white">{p.name}</span>
@@ -4415,28 +4950,41 @@ function WorkspaceConnector() {
               </div>
               <div className="text-xs text-slate-500">{p.desc}</div>
             </div>
-
-            {/* Right-side action indicator */}
             <div className="flex-shrink-0">
-              {syncing && activeProvider === p.id ? (
+              {syncing === p.id ? (
                 <div className="h-5 w-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
               ) : p.available ? (
-                <svg className="h-4 w-4 text-slate-500 group-hover:text-slate-300 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/></svg>
+                <svg className="h-4 w-4 text-slate-500 group-hover:text-blue-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/>
+                </svg>
               ) : (
-                <svg className="h-4 w-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/></svg>
+                <svg className="h-4 w-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
               )}
             </div>
           </button>
         ))}
       </div>
-      {syncStatus && (
-        <div className={"flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm " + (syncStatus.type === 'success' ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20' : syncStatus.type === 'error' ? 'bg-red-500/15 text-red-400 border border-red-500/20' : 'bg-blue-500/15 text-blue-400 border border-blue-500/20')}>
-          <span>{syncStatus.type === 'success' ? '✓' : syncStatus.type === 'error' ? '✗' : 'ℹ'}</span>
-          <span>{syncStatus.msg}</span>
-          <button onClick={() => setSyncStatus(null)} className="ml-auto text-slate-500 hover:text-slate-300">✕</button>
+
+      {status && (
+        <div className={cx(
+          "flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm",
+          status.type === 'success' ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20' :
+          status.type === 'error'   ? 'bg-red-500/15 text-red-400 border border-red-500/20' :
+                                      'bg-blue-500/15 text-blue-400 border border-blue-500/20'
+        )}>
+          {status.type === 'loading' && <div className="h-3.5 w-3.5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin flex-shrink-0" />}
+          {status.type === 'success' && <span>✓</span>}
+          {status.type === 'error'   && <span>✗</span>}
+          <span className="flex-1">{status.msg}</span>
+          {status.type !== 'loading' && (
+            <button onClick={() => setStatus(null)} className="ml-auto text-slate-500 hover:text-slate-300 flex-shrink-0">✕</button>
+          )}
         </div>
       )}
     </div>
+    </>
   );
 }
 
@@ -4890,6 +5438,7 @@ function DashboardPage() {
   const [showImport, setShowImport] = useState(false);
   const [importKind, setImportKind] = useState(null);
   const [showImportMenu, setShowImportMenu] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
 
   
   // ADD THESE LINES:
@@ -4901,6 +5450,8 @@ function DashboardPage() {
   const [selectedOwners, setSelectedOwners] = useState({});
   const { data: db, isLoading } = useDbQuery();
   const muts = useDbMutations();
+  const qc = useQueryClient();
+  const [resetConfirm, setResetConfirm] = useState(false);
 
   const derived = useMemo(() => {
     if (!db) return { tools: [], access: [], alerts: [], counts: { critical:0, high:0, medium:0, low:0 }, spend: 0, highRiskTools: 0, formerAccess: 0, activeTools: 0 };
@@ -4915,25 +5466,25 @@ function DashboardPage() {
       ...a,
       derived_risk_flag: computeAccessDerivedRiskFlag(a, employeesById, toolsById),
     }));
-    const alerts = buildRiskAlerts({ ...db, tools, access });
+    const alerts = buildRiskAlerts({ ...db, tools, access }, t);
     const counts = riskSeverityCounts(alerts);
     const spend = tools.reduce((sum, t) => sum + Number(t.cost_per_month || 0), 0);
     const highRiskTools = tools.filter((t) => t.derived_risk === "high").length;
     const formerAccess = access.filter((a) => a.derived_risk_flag === "former_employee").length;
     return { tools, access, alerts, counts, spend, highRiskTools, formerAccess };
-  }, [db]);
+  }, [db, t]);
 
   const markReviewed = (accId) => {
     muts.updateAccess.mutate(
       { id: accId, patch: { last_reviewed_date: todayISO(), risk_flag: "none" } },
-      { onSuccess: () => toast.success('Marked as reviewed') }
+      { onSuccess: () => toast.success(t('toast_marked_reviewed')) }
     );
   };
 
   const revokeAccess = (accId) => {
     muts.updateAccess.mutate(
       { id: accId, patch: { status: "revoked" } },
-      { onSuccess: () => toast.success('Access revoked') }
+      { onSuccess: () => toast.success(t('toast_access_revoked')) }
     );
   };
 
@@ -4942,13 +5493,26 @@ function DashboardPage() {
         <div className="flex items-center gap-2">
           <RoleGate requires="editor">
             <Button variant="secondary" size="sm" onClick={() => { setImportKind('tools'); setShowImport(true); }}>
-              <Upload className="h-3.5 w-3.5" />Import Data
+              <Upload className="h-3.5 w-3.5" />{t('import_data')}
             </Button>
           </RoleGate>
+          <Button variant="secondary" size="sm" onClick={() => printExecutiveSummary(db, { ...derived, alerts: buildRiskAlerts({ ...(db || {}), tools: derived.tools, access: derived.access }) })} title={t('dl_download_pdf_report')}>
+            <FileText className="h-3.5 w-3.5" />{t('dl_pdf_report')}
+          </Button>
+          <Button variant="secondary" size="sm" onClick={() => setShowShareModal(true)} title={t('dl_share_readonly')}>
+            <Share2 className="h-3.5 w-3.5" />{t('dl_share_report')}
+          </Button>
           <RoleGate requires="admin">
-            <Button variant="secondary" size="sm" onClick={() => { if(window.confirm('This will clear ALL your data (tools, employees, access). Are you sure?')) { resetDb(); } }} title="Reset all data">
-              <RefreshCw className="h-3.5 w-3.5" /> Reset Data
-            </Button>
+            {resetConfirm ? (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-400">{t('dl_reset_confirm')}</span>
+                <ConfirmButtons onConfirm={() => { resetDb(); setResetConfirm(false); }} onCancel={() => setResetConfirm(false)} />
+              </div>
+            ) : (
+              <Button variant="secondary" size="sm" onClick={() => setResetConfirm(true)} title={t('dl_reset_all_data')}>
+                <RefreshCw className="h-3.5 w-3.5" /> {t('reset_data')}
+              </Button>
+            )}
           </RoleGate>
           <LangSelectorCompact />
         </div>
@@ -4979,13 +5543,13 @@ function DashboardPage() {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-rose-400">Priority · Act now</span>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-rose-400">{t('ui_priority_act_now')}</span>
                 </div>
                 <h2 className="text-xl lg:text-2xl font-bold text-white mb-1">
-                  {derived.formerAccess} ex-{derived.formerAccess === 1 ? 'employee' : 'employees'} can still access your tools
+                  {derived.formerAccess} {derived.formerAccess === 1 ? t('ui_ex_employee') : t('ui_ex_employees')} {t('ui_can_still_access')}
                 </h2>
                 <p className="text-sm text-slate-400">
-                  This is a security risk and probably wasted licence spend. Fix it in one click.
+                  {t('ui_priority_risk_body')}
                 </p>
               </div>
             </div>
@@ -4993,36 +5557,85 @@ function DashboardPage() {
               <Button
                 onClick={() => navigate('/offboarding')}
                 className="w-full lg:w-auto !bg-rose-500 hover:!bg-rose-400 !text-white !px-6 !py-3 !font-bold shadow-lg shadow-rose-900/30">
-                Remove their access →
+                {t('ui_remove_their_access')}
               </Button>
             </div>
           </div>
         </div>
       )}
 
-      {/* When no risks — show a "next step" prompt instead */}
-      {derived.formerAccess === 0 && derived.tools.length === 0 && (
-        <div className="relative overflow-hidden rounded-2xl border border-blue-500/30 bg-gradient-to-r from-blue-500/10 via-indigo-500/5 to-transparent p-5 lg:p-6 mb-6">
-          <div className="relative flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-6">
-            <div className="flex items-center gap-4 flex-1">
-              <div className="flex-shrink-0 h-14 w-14 rounded-xl bg-blue-500/20 border border-blue-500/40 flex items-center justify-center">
-                <Upload className="h-7 w-7 text-blue-400" />
+      {/* Sample data active banner */}
+      {db?._is_sample_data && (
+        <div className="flex items-center justify-between gap-3 px-4 py-3 mb-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-sm">
+          <div className="flex items-center gap-2 text-amber-300">
+            <span>⚡</span>
+            <span className="font-semibold">{t('dl_sample_data_active')}</span>
+            <span className="text-amber-400/70 hidden sm:inline">{t('dl_sample_example_data')}</span>
+          </div>
+          <button
+            onClick={async () => {
+              const existing = loadDb();
+              const cleared = { ...existing, tools: [], employees: [], access: [], _is_sample_data: false };
+              saveDb(cleared);
+              qc.invalidateQueries({ queryKey: ['db'] });
+              if (_firestoreUid) { try { await saveUserData(_firestoreUid, cleared); } catch(e) {} }
+              toast.success(t('toast_sample_cleared'));
+            }}
+            className="text-xs font-semibold text-amber-300 hover:text-white border border-amber-500/40 hover:border-amber-400 px-3 py-1.5 rounded-lg transition-all whitespace-nowrap">
+            {t('dl_clear_import_real')}
+          </button>
+        </div>
+      )}
+
+      {/* Empty state — two clear paths */}
+      {derived.tools.length === 0 && !db?._is_sample_data && (
+        <div className="mb-6">
+          <div className="text-center mb-6 pt-4">
+            <div className="text-4xl mb-3">🔍</div>
+            <h2 className="text-2xl font-bold text-white mb-2">{t('dl_welcome_stacklens')}</h2>
+            <p className="text-slate-400 text-sm max-w-md mx-auto">{t('dl_dashboard_empty')}</p>
+          </div>
+          <div className="grid sm:grid-cols-2 gap-4 max-w-2xl mx-auto">
+            {/* Option 1 — sample data */}
+            <button
+              onClick={() => {
+                loadSampleDataForUser();
+                qc.invalidateQueries({ queryKey: ['db'] });
+                toast.success(t('toast_sample_loaded'));
+              }}
+              className="group flex flex-col items-start gap-3 p-6 rounded-2xl border border-indigo-500/30 bg-indigo-500/5 hover:bg-indigo-500/10 hover:border-indigo-500/50 transition-all text-left">
+              <div className="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-xl">✨</div>
+              <div>
+                <div className="font-bold text-white mb-1">{t('dl_explore_sample')}</div>
+                <div className="text-xs text-slate-400 leading-relaxed">{t('dl_explore_sample_desc')}</div>
               </div>
-              <div className="flex-1">
-                <div className="text-[10px] font-bold uppercase tracking-widest text-blue-400 mb-1">Get started · Step 1 of 3</div>
-                <h2 className="text-xl lg:text-2xl font-bold text-white mb-1">Import your team and tools</h2>
-                <p className="text-sm text-slate-400">
-                  Upload a CSV or Excel file with your employees and SaaS tools. Stacklens maps everything in seconds.
-                </p>
+              <div className="mt-auto text-xs font-semibold text-indigo-400 group-hover:text-indigo-300 transition-colors">{t('dl_load_instantly')}</div>
+            </button>
+
+            {/* Option 2 — real import */}
+            <button
+              onClick={() => { setImportKind('company'); setShowImport(true); }}
+              className="group flex flex-col items-start gap-3 p-6 rounded-2xl border border-blue-500/30 bg-blue-500/5 hover:bg-blue-500/10 hover:border-blue-500/50 transition-all text-left">
+              <div className="w-10 h-10 rounded-xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-xl">📂</div>
+              <div>
+                <div className="font-bold text-white mb-1">{t('dl_import_real_data')}</div>
+                <div className="text-xs text-slate-400 leading-relaxed">{t('dl_import_real_desc')}</div>
               </div>
-            </div>
-            <div className="flex-shrink-0">
-              <Button
-                onClick={() => { setImportKind('company'); setShowImport(true); }}
-                className="w-full lg:w-auto !bg-blue-500 hover:!bg-blue-400 !text-white !px-6 !py-3 !font-bold">
-                Upload my data →
-              </Button>
-            </div>
+              <div className="mt-auto text-xs font-semibold text-blue-400 group-hover:text-blue-300 transition-colors">{t('dl_upload_file_arrow')}</div>
+            </button>
+          </div>
+
+          {/* What you'll see */}
+          <div className="mt-6 max-w-2xl mx-auto grid grid-cols-3 gap-3">
+            {[
+              { icon: '💸', label: t('dl_monthly_saas_spend') },
+              { icon: '⚠️', label: t('dl_security_risk_alerts') },
+              { icon: '🔑', label: t('dl_access_control_map') },
+            ].map(({ icon, label }) => (
+              <div key={label} className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-slate-900/60 border border-slate-800 text-xs text-slate-400">
+                <span>{icon}</span>{label}
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -5038,8 +5651,8 @@ function DashboardPage() {
               <Activity className="h-5 w-5 text-blue-400" />
             </div>
             <div>
-              <span className="text-base font-semibold text-slate-100 block">Directory Sync</span>
-              <span className="text-xs text-slate-500">Connect your identity provider to auto-import employees & tools</span>
+              <span className="text-base font-semibold text-slate-100 block">{t('dl_directory_sync')}</span>
+              <span className="text-xs text-slate-500">{t('dl_directory_sync_desc')}</span>
             </div>
           </div>
           <WorkspaceConnector compact={true} />
@@ -5057,7 +5670,7 @@ function DashboardPage() {
           // Real security score: 100 minus penalties
           const score = hasData ? Math.max(0, Math.min(100, 100 - (orphanedTools * 10) - (highRiskTools * 5) - (formerAccess * 8))) : null;
           const scoreColor = score === null ? '#475569' : score >= 80 ? '#10b981' : score >= 60 ? '#f59e0b' : '#ef4444';
-          const scoreLabel = score === null ? 'No data' : score >= 80 ? 'Good' : score >= 60 ? 'Needs Work' : 'Critical';
+          const scoreLabel = score === null ? t('dl_no_data') : score >= 80 ? t('dl_good') : score >= 60 ? t('dl_needs_work') : t('dl_critical');
           const labelBg = score === null ? 'bg-slate-700/40 text-slate-400' : score >= 80 ? 'bg-emerald-500/20 text-emerald-400' : score >= 60 ? 'bg-amber-500/20 text-amber-400' : 'bg-red-500/20 text-red-400';
 
           // MFA coverage: % of tools with MFA enabled
@@ -5097,10 +5710,10 @@ function DashboardPage() {
             </div>
             <div className="flex-1 space-y-2">
               {[
-                {label:'MFA coverage', value: mfaCoverage === null ? '—' : `${mfaCoverage}%`, color: mfaCoverage === null ? 'text-slate-500' : mfaCoverage >= 80 ? 'text-emerald-400' : 'text-amber-400'},
-                {label:'Access reviews', value: !hasData ? '—' : overdueReviews > 0 ? `${overdueReviews} overdue` : 'On track', color: !hasData ? 'text-slate-500' : overdueReviews > 0 ? 'text-red-400' : 'text-emerald-400'},
-                {label:'Ex-employees with access', value:`${formerAccess} active`, color: formerAccess > 0 ? 'text-red-400' : 'text-emerald-400'},
-                {label:'Tools without owners', value:`${orphanedTools}`, color: orphanedTools > 0 ? 'text-amber-400' : 'text-emerald-400'},
+                {label:t('dl_mfa_coverage'), value: mfaCoverage === null ? '—' : `${mfaCoverage}%`, color: mfaCoverage === null ? 'text-slate-500' : mfaCoverage >= 80 ? 'text-emerald-400' : 'text-amber-400'},
+                {label:t('dl_access_reviews'), value: !hasData ? '—' : overdueReviews > 0 ? `${overdueReviews} ${t('dl_overdue')}` : t('dl_on_track'), color: !hasData ? 'text-slate-500' : overdueReviews > 0 ? 'text-red-400' : 'text-emerald-400'},
+                {label:t('dl_ex_employees_access'), value:`${formerAccess} ${t('dl_active_suffix')}`, color: formerAccess > 0 ? 'text-red-400' : 'text-emerald-400'},
+                {label:t('dl_tools_without_owners'), value:`${orphanedTools}`, color: orphanedTools > 0 ? 'text-amber-400' : 'text-emerald-400'},
               ].map((row,i)=>(
                 <div key={i} className="flex items-center justify-between py-1 text-sm">
                   <span className="text-slate-400">{row.label}</span>
@@ -5110,7 +5723,7 @@ function DashboardPage() {
             </div>
           </div>
           <Link to="/security" className="block mt-4">
-            <Button variant="secondary" className="w-full text-sm">{hasData ? 'Review my security score →' : 'Set up to see your score →'}</Button>
+            <Button variant="secondary" className="w-full text-sm">{hasData ? t('dl_review_my_score') : t('dl_set_up_score')}</Button>
           </Link>
         </div>
           );
@@ -5122,7 +5735,7 @@ function DashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-5 mb-6">
         {[
           { label: t('security_alerts') || 'Security Alerts', value: derived?.alerts?.length || 0, sub: `${derived?.counts?.critical||0} critical · ${derived?.counts?.high||0} high`, color: 'border-l-red-500', vcolor: 'text-red-400', link: '/security' },
-          { label: 'Wasted Spend', value: getCurrency(language) + convertCurrency(Math.round((derived?.spend||0)*0.14), language).toLocaleString(), sub: 'Idle licenses detected', color: 'border-l-amber-500', vcolor: 'text-amber-400', link: '/tools' },
+          { label: t('dl_wasted_spend'), value: getCurrency(language) + convertCurrency(Math.round((derived?.spend||0)*0.14), language).toLocaleString(), sub: t('dl_idle_licenses'), color: 'border-l-amber-500', vcolor: 'text-amber-400', link: '/tools' },
           { label: t('monthly_spend') || 'Monthly Spend', value: getCurrency(language) + convertCurrency(derived?.spend||0, language).toLocaleString(), sub: getCurrency(language) + convertCurrency((derived?.spend||0)*12, language).toLocaleString() + '/yr', color: 'border-l-emerald-500', vcolor: 'text-emerald-400', link: '/finance' },
         ].map((kpi, i) => (
           <Link key={i} to={kpi.link}>
@@ -5150,41 +5763,41 @@ function DashboardPage() {
             id: 'former-' + a.id,
             severity: 'critical',
             icon: '🔴',
-            title: `${a.employee_name || 'Ex-employee'} still has access to ${a.tool_name || 'a tool'}`,
-            reason: 'This employee has left the company but their access has not been revoked.',
-            action: 'Revoke access',
-            onAction: () => { muts.updateAccess.mutate({ id: a.id, patch: { status: 'revoked' } }, { onSuccess: () => toast.success('Access revoked') }); },
+            title: `${a.employee_name || t('ui_ex_employee')} ${t('action_still_has_access')} ${a.tool_name || 'a tool'}`,
+            reason: t('action_former_reason'),
+            action: t('action_revoke_access'),
+            onAction: () => { muts.updateAccess.mutate({ id: a.id, patch: { status: 'revoked' } }, { onSuccess: () => toast.success(t('toast_access_revoked')) }); },
             link: '/offboarding',
           });
         });
 
         // 2. Tools with no owner
-        const unownedTools = (derived?.tools || []).filter(t => !t.owner_email);
-        unownedTools.slice(0, 5).forEach(t => {
+        const unownedTools = (derived?.tools || []).filter(tool => !tool.owner_email);
+        unownedTools.slice(0, 5).forEach(tool => {
           actions.push({
-            id: 'noowner-' + t.id,
+            id: 'noowner-' + tool.id,
             severity: 'high',
             icon: '🟡',
-            title: `${t.name} has no assigned owner`,
-            reason: `No one is responsible for managing this tool. Cost: ${getCurrency(language)}${convertCurrency(t.cost_per_month || 0, language).toLocaleString()}/mo.`,
-            action: 'Assign owner',
-            toolId: t.id,
-            toolName: t.name,
+            title: `${tool.name} ${t('action_no_owner')}`,
+            reason: t('action_no_owner_reason').replace('{cost}', `${getCurrency(language)}${convertCurrency(tool.cost_per_month || 0, language).toLocaleString()}`),
+            action: t('action_assign_owner'),
+            toolId: tool.id,
+            toolName: tool.name,
             needsOwner: true,
             link: '/tools',
           });
         });
 
         // 3. High-risk tools without MFA
-        const highRiskNoMfa = (derived?.tools || []).filter(t => t.derived_risk === 'high' && !t.mfa_required && !t.mfa_enabled);
-        highRiskNoMfa.slice(0, 3).forEach(t => {
+        const highRiskNoMfa = (derived?.tools || []).filter(tool => tool.derived_risk === 'high' && !tool.mfa_required && !tool.mfa_enabled);
+        highRiskNoMfa.slice(0, 3).forEach(tool => {
           actions.push({
-            id: 'mfa-' + t.id,
+            id: 'mfa-' + tool.id,
             severity: 'high',
             icon: '🛡️',
-            title: `${t.name} is high risk with no MFA`,
-            reason: `Risk: ${t.derived_risk}. Last used: ${t.last_used_date || 'unknown'}. Owner: ${t.owner_email || 'none'}. No multi-factor authentication enabled.`,
-            action: 'Review',
+            title: `${tool.name} ${t('action_high_risk_no_mfa')}`,
+            reason: t('action_mfa_reason').replace('{risk}', tool.derived_risk || '').replace('{date}', tool.last_used_date || t('unknown')),
+            action: t('action_review'),
             link: '/security',
           });
         });
@@ -5207,19 +5820,19 @@ function DashboardPage() {
 
         // 5. Idle licenses (tools with cost but not used in 60+ days)
         const sixtyDaysAgo = Date.now() - (60 * 24 * 60 * 60 * 1000);
-        const idleTools = (derived?.tools || []).filter(t => {
-          if (!t.cost_per_month || t.cost_per_month <= 0) return false;
-          if (!t.last_used_date) return true;
-          return new Date(t.last_used_date).getTime() < sixtyDaysAgo;
+        const idleTools = (derived?.tools || []).filter(tool => {
+          if (!tool.cost_per_month || tool.cost_per_month <= 0) return false;
+          if (!tool.last_used_date) return true;
+          return new Date(tool.last_used_date).getTime() < sixtyDaysAgo;
         });
-        idleTools.slice(0, 3).forEach(t => {
+        idleTools.slice(0, 3).forEach(tool => {
           actions.push({
-            id: 'idle-' + t.id,
+            id: 'idle-' + tool.id,
             severity: 'medium',
             icon: '💸',
-            title: `${t.name} — ${getCurrency(language)}${convertCurrency(t.cost_per_month || 0, language).toLocaleString()}/mo possibly wasted`,
-            reason: `Last used: ${t.last_used_date || 'never'}. Consider cancelling or reassigning this license.`,
-            action: 'Review tool',
+            title: `${tool.name} — ${getCurrency(language)}${convertCurrency(tool.cost_per_month || 0, language).toLocaleString()}/mo ${t('action_possibly_wasted')}`,
+            reason: t('action_idle_reason').replace('{date}', tool.last_used_date || t('never')),
+            action: t('action_review_tool'),
             link: '/tools',
           });
         });
@@ -5278,7 +5891,7 @@ function DashboardPage() {
             </div>
             {actions.length > 8 && (
               <div className="mt-3 text-center">
-                <Link to="/security" className="text-xs text-blue-400 hover:text-blue-300">View all {actions.length} items →</Link>
+                <Link to="/security" className="text-xs text-blue-400 hover:text-blue-300">{t('dl_view_all_items')} {actions.length} {t('dl_items_arrow')}</Link>
               </div>
             )}
           </div>
@@ -5304,12 +5917,12 @@ function DashboardPage() {
                   <div className="text-sm font-semibold text-slate-100">{a.title}</div>
                   <div className="text-sm text-slate-500 mt-0.5 line-clamp-2">{a.body}</div>
                 </div>
-                <Link to={a.action.to} className="text-sm text-blue-400 hover:text-blue-300 flex-shrink-0 font-medium mt-0.5">Fix →</Link>
+                <Link to={a.action.to} className="text-sm text-blue-400 hover:text-blue-300 flex-shrink-0 font-medium mt-0.5">{t('dl_fix_arrow')}</Link>
               </div>
             )) : (
               <div className="flex items-center gap-3 rounded-xl p-4 bg-emerald-500/5 border border-emerald-500/20">
                 <BadgeCheck className="h-5 w-5 text-emerald-400 flex-shrink-0" />
-                <div className="text-sm text-emerald-400 font-semibold">All clear — no critical issues</div>
+                <div className="text-sm text-emerald-400 font-semibold">{t('dl_all_clear_no_critical')}</div>
               </div>
             )}
           </div>
@@ -5321,9 +5934,9 @@ function DashboardPage() {
               <div className="p-1.5 bg-purple-500/20 rounded-lg">
                 <Sparkles className="h-4 w-4 text-purple-400" />
               </div>
-              <span className="text-base font-semibold text-slate-100">AI Recommendations</span>
+              <span className="text-base font-semibold text-slate-100">{t('dl_ai_recommendations')}</span>
             </div>
-            <span className="text-xs text-slate-500">Powered by Claude</span>
+            <span className="text-xs text-slate-500">{t('dl_powered_by_claude')}</span>
           </div>
           <AIRecommendations tools={derived?.tools||[]} employees={db?.employees||[]} access={db?.access||[]} compact={true} />
         </div>
@@ -5336,13 +5949,13 @@ function DashboardPage() {
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 lg:p-6">
           <div className="flex items-center justify-between mb-4">
             <span className="text-base font-semibold text-slate-100">{t('spend_trend') || 'Spend by Category'}</span>
-            <span className="text-xs text-slate-500">Monthly</span>
+            <span className="text-xs text-slate-500">{t('monthly')}</span>
           </div>
           {(derived?.tools||[]).length === 0 ? (
             <div className="text-center py-6 mb-4">
               <div className="text-3xl mb-2 opacity-40">💸</div>
-              <div className="text-sm text-slate-400 mb-1">No spend data yet</div>
-              <div className="text-xs text-slate-600">Import your tools to see spending</div>
+              <div className="text-sm text-slate-400 mb-1">{t('dl_no_spend_data')}</div>
+              <div className="text-xs text-slate-600">{t('dl_import_tools_spending')}</div>
             </div>
           ) : (
             <div className="space-y-3 mb-4">
@@ -5360,14 +5973,14 @@ function DashboardPage() {
             </div>
           )}
           <Link to="/finance">
-            <Button variant="secondary" className="w-full text-sm">Dig into the numbers →</Button>
+            <Button variant="secondary" className="w-full text-sm">{t('dl_dig_into_numbers')}</Button>
           </Link>
         </div>
 
         <div className="rounded-2xl border border-purple-500/20 bg-purple-500/5 p-5 lg:p-6">
           <div className="flex items-center justify-between mb-4">
-            <span className="text-base font-semibold text-slate-100">Shadow IT Detected</span>
-            <span className="text-xs px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 font-semibold">New</span>
+            <span className="text-base font-semibold text-slate-100">{t('dl_shadow_it_detected')}</span>
+            <span className="text-xs px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 font-semibold">{t('badge_new')}</span>
           </div>
           {(() => {
             // Real shadow IT detection: tools tagged as 'shadow' or marked 'unsanctioned'
@@ -5376,8 +5989,8 @@ function DashboardPage() {
               return (
                 <div className="text-center py-6 mb-4">
                   <div className="text-3xl mb-2 opacity-40">🔍</div>
-                  <div className="text-sm text-slate-400 mb-1">No shadow IT detected yet</div>
-                  <div className="text-xs text-slate-600">Import your tools to start scanning</div>
+                  <div className="text-sm text-slate-400 mb-1">{t('dl_no_shadow_it')}</div>
+                  <div className="text-xs text-slate-600">{t('dl_import_tools_scan')}</div>
                 </div>
               );
             }
@@ -5390,25 +6003,25 @@ function DashboardPage() {
                       <div className="text-sm font-semibold text-slate-200 truncate">{app.name}</div>
                       <div className="text-xs text-slate-500">{app.user_count || 0} employees</div>
                     </div>
-                    <span className="text-xs font-semibold text-amber-400">Unsanctioned</span>
+                    <span className="text-xs font-semibold text-amber-400">{t('dl_unsanctioned')}</span>
                   </div>
                 ))}
               </div>
             );
           })()}
-          <Button variant="secondary" className="w-full text-sm" onClick={()=>toast(t('shadow_it_coming_soon') || (language === 'fr' ? 'Rapport Shadow IT bientôt disponible !' : 'Shadow IT report coming soon!'), { icon: '🔜' })}>See what's behind this →</Button>
+          <Button variant="secondary" className="w-full text-sm" onClick={()=>toast(t('dl_shadow_report_soon'), { icon: '🔜' })}>{t('dl_see_behind')}</Button>
         </div>
 
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 lg:p-6">
           <div className="flex items-center justify-between mb-4">
             <span className="text-base font-semibold text-slate-100">{t('overdue_reviews') || 'Overdue Reviews'}</span>
-            <span className="text-sm text-slate-500">{(derived?.access||[]).filter(a=>a.status==='active').length} pending</span>
+            <span className="text-sm text-slate-500">{(derived?.access||[]).filter(a=>a.status==='active').length} {t('dl_pending_suffix')}</span>
           </div>
           {(derived?.access||[]).filter(a=>a.status==='active').length === 0 ? (
             <div className="text-center py-6 mb-4">
               <div className="text-3xl mb-2 opacity-40">📋</div>
-              <div className="text-sm text-slate-400 mb-1">No reviews pending</div>
-              <div className="text-xs text-slate-600">Import access records to start reviews</div>
+              <div className="text-sm text-slate-400 mb-1">{t('dl_no_reviews_pending')}</div>
+              <div className="text-xs text-slate-600">{t('dl_import_access_reviews')}</div>
             </div>
           ) : (
             <div className="space-y-2.5">
@@ -5430,7 +6043,7 @@ function DashboardPage() {
             </div>
           )}
           <Link to="/access" className="block mt-4">
-            <Button variant="secondary" className="w-full text-sm">Review pending access →</Button>
+            <Button variant="secondary" className="w-full text-sm">{t('dl_review_pending_access')}</Button>
           </Link>
         </div>
       </div>
@@ -5460,12 +6073,12 @@ function DashboardPage() {
       {/* ── Assign Owner Modal ── */}
       <Modal
         open={showAssignOwner}
-        title="Assign tool owner"
-        subtitle={`Who should own ${assignToolName}?`}
+        title={t('dl_assign_tool_owner')}
+        subtitle={`${t('dl_who_should_own')} ${assignToolName}?`}
         onClose={() => setShowAssignOwner(false)}
         footer={
           <div className="flex justify-end">
-            <Button variant="secondary" onClick={() => setShowAssignOwner(false)}>Cancel</Button>
+            <Button variant="secondary" onClick={() => setShowAssignOwner(false)}>{t('cancel')}</Button>
           </div>
         }
       >
@@ -5476,7 +6089,7 @@ function DashboardPage() {
                 if (assignToolId) {
                   muts.updateTool.mutate(
                     { id: assignToolId, patch: { owner_email: emp.email, owner_name: emp.full_name } },
-                    { onSuccess: () => { toast.success(`${emp.full_name} is now the owner of ${assignToolName}`); setShowAssignOwner(false); } }
+                    { onSuccess: () => { toast.success(`${emp.full_name} ${t('assign_is_now_owner')} ${assignToolName}`); setShowAssignOwner(false); } }
                   );
                 }
               }}
@@ -5487,15 +6100,19 @@ function DashboardPage() {
               </div>
               <div className="min-w-0 flex-1">
                 <div className="text-sm font-semibold text-slate-200 truncate">{emp.full_name}</div>
-                <div className="text-xs text-slate-500 truncate">{emp.email} · {emp.department || 'No dept'}</div>
+                <div className="text-xs text-slate-500 truncate">{emp.email} · {emp.department || t('no_dept')}</div>
               </div>
             </button>
           ))}
           {(db?.employees || []).filter(e => e.status === 'active').length === 0 && (
-            <div className="text-center py-6 text-sm text-slate-500">{t("assign_no_active_employees") || "No active employees. Import your team first."}</div>
+            <div className="text-center py-6 text-sm text-slate-500">{t("assign_no_active_employees")}</div>
           )}
         </div>
       </Modal>
+
+      {showShareModal && (
+        <ShareReportModal onClose={() => setShowShareModal(false)} db={db} user={user} />
+      )}
 
     </AppShell>
   );
@@ -5585,7 +6202,7 @@ function ToolForm({ initial, employees, onSubmit, onClose }) {
           </Select>
         </div>
         <div>
-          <div className="mb-1 text-xs font-semibold text-slate-400">Status</div>
+          <div className="mb-1 text-xs font-semibold text-slate-400">{t('th_status')}</div>
           <Select value={form.status} onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}>
             {TOOL_STATUS.map((s) => (
               <option key={s} value={s}>
@@ -5608,7 +6225,7 @@ function ToolForm({ initial, employees, onSubmit, onClose }) {
 
       <div className="grid gap-3 md:grid-cols-3">
         <div className="md:col-span-2">
-          <div className="mb-1 text-xs font-semibold text-slate-400">URL</div>
+          <div className="mb-1 text-xs font-semibold text-slate-400">{t('th_url')}</div>
           <Input value={form.url} onChange={(e) => setForm((f) => ({ ...f, url: e.target.value }))} />
         </div>
         <div>
@@ -5624,7 +6241,7 @@ function ToolForm({ initial, employees, onSubmit, onClose }) {
 
       <div className="grid gap-3 md:grid-cols-2">
         <div>
-          <div className="mb-1 text-xs font-semibold text-slate-400">Cost / month</div>
+          <div className="mb-1 text-xs font-semibold text-slate-400">{t('fl_cost_per_month')}</div>
           <Input
             type="number"
             value={form.cost_per_month}
@@ -5632,7 +6249,7 @@ function ToolForm({ initial, employees, onSubmit, onClose }) {
           />
         </div>
         <div>
-          <div className="mb-1 text-xs font-semibold text-slate-400">Notes</div>
+          <div className="mb-1 text-xs font-semibold text-slate-400">{t('fl_notes')}</div>
           <Input value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} />
         </div>
       </div>
@@ -5650,10 +6267,30 @@ function ToolForm({ initial, employees, onSubmit, onClose }) {
   );
 }
 
+// Inline confirm: replaces ugly window.confirm with a small in-place "Sure? ✓ ✗" UI
+function useConfirm() {
+  const [pendingId, setPendingId] = useState(null);
+  return {
+    isPending: (id) => pendingId === id,
+    ask: (id) => setPendingId(id),
+    cancel: () => setPendingId(null),
+    reset: () => setPendingId(null),
+  };
+}
+function ConfirmButtons({ onConfirm, onCancel }) {
+  return (
+    <div className="flex gap-1 items-center">
+      <button onClick={onCancel} className="p-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white transition-colors text-xs font-bold" title="Cancel">✗</button>
+      <button onClick={onConfirm} className="p-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white transition-colors text-xs font-bold" title="Confirm">✓</button>
+    </div>
+  );
+}
+
 function ToolsPage() {
   const { data: db, isLoading } = useDbQuery();
   const { language, setLanguage } = useLang();
   const t = useTranslation(language);
+  const tr = t;
   const muts = useDbMutations();
 
   const [q, setQ] = useState("");
@@ -5661,14 +6298,29 @@ function ToolsPage() {
   const [status, setStatus] = useState("");
   const [risk, setRisk] = useState("");
   const [page, setPage] = useState(0);
+  const [sortField, setSortField] = useState('name');
+  const [sortDir, setSortDir] = useState('asc');
+  const toggleSort = (field) => { if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc'); else { setSortField(field); setSortDir('asc'); } };
   const PAGE_SIZE = 25;
+  const searchRef = useRef(null);
+  useEffect(() => {
+    const handler = (e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); searchRef.current?.focus(); searchRef.current?.select(); } };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [expandedTool, setExpandedTool] = useState(null);
   const [showToolOwnerModal, setShowToolOwnerModal] = useState(false);
+  const deleteConfirm = useConfirm();
+  const revokeConfirm = useConfirm();
+  const [editingCost, setEditingCost] = useState(null);
+  const [costValue, setCostValue] = useState('');
   const [ownerToolId, setOwnerToolId] = useState(null);
   const [ownerToolName, setOwnerToolName] = useState('');
+  const [onlyUnassigned, setOnlyUnassigned] = useState(false);
+  const navigate = useNavigate();
 
   // Get employees who have access to a specific tool (for drill-down)
   const getToolEmployees = (toolId, toolName) => {
@@ -5702,12 +6354,20 @@ function ToolsPage() {
         if (cat && t.category !== cat) return false;
         if (status && t.derived_status !== status) return false;
         if (risk && t.derived_risk !== risk) return false;
+        if (onlyUnassigned && t.owner_email) return false;
         return true;
       })
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [tools, q, cat, status, risk]);
+      .sort((a, b) => {
+        let av, bv;
+        if (sortField === 'cost') { av = a.cost_per_month || 0; bv = b.cost_per_month || 0; return sortDir === 'asc' ? av - bv : bv - av; }
+        if (sortField === 'risk') { const o = { high: 0, medium: 1, low: 2 }; av = o[a.derived_risk] ?? 3; bv = o[b.derived_risk] ?? 3; return sortDir === 'asc' ? av - bv : bv - av; }
+        if (sortField === 'status') { av = a.derived_status || ''; bv = b.derived_status || ''; }
+        else { av = a.name || ''; bv = b.name || ''; }
+        return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+      });
+  }, [tools, q, cat, status, risk, onlyUnassigned, sortField, sortDir]);
 
-  React.useEffect(() => { setPage(0); }, [q, cat, status, risk]);
+  React.useEffect(() => { setPage(0); }, [q, cat, status, risk, onlyUnassigned]);
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
@@ -5729,6 +6389,19 @@ function ToolsPage() {
   const unassignedCount = tools.filter(t => !t.owner_email).length;
   const employees = db?.employees || [];
 
+  if (isLoading) return (
+    <AppShell title={t("nav_tools")}>
+      <div className="space-y-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => <div key={i} className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 h-24 animate-pulse" />)}
+        </div>
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 space-y-3">
+          {[...Array(8)].map((_, i) => <SkeletonRow key={i} cols={6} />)}
+        </div>
+      </div>
+    </AppShell>
+  );
+
   return (
     <AppShell
       title={t("nav_tools")}
@@ -5749,25 +6422,29 @@ function ToolsPage() {
 
         {/* ── Row 1: KPI strip ── */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 lg:gap-5">
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-blue-500">
+          <div className={`rounded-2xl border bg-slate-900/60 p-5 border-l-4 border-l-blue-500 cursor-pointer hover:border-slate-600 transition-all ${!risk && !status && !cat && !onlyUnassigned ? 'border-blue-500/60 ring-1 ring-blue-500/30' : 'border-slate-800'}`}
+            onClick={() => { setRisk(''); setStatus(''); setCat(''); setQ(''); setOnlyUnassigned(false); }}>
             <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t("kpi_total_tools")}</div>
             <div className="text-3xl font-black text-white">{tools.length}</div>
-            <div className="text-sm text-slate-500">{tools.filter(t => t.derived_status === 'active').length} active</div>
+            <div className="text-sm text-slate-500">{tools.filter(t => t.derived_status === 'active').length} {tr('active')}</div>
           </div>
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-emerald-500">
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-emerald-500 cursor-pointer hover:border-slate-600 transition-all"
+            onClick={() => navigate('/finance')}>
             <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t("kpi_monthly_spend")}</div>
             <div className="text-3xl font-black text-emerald-400">{getCurrency(language)}{convertCurrency(Math.round(totalCost), language).toLocaleString()}</div>
             <div className="text-sm text-slate-500">{getCurrency(language)}{convertCurrency(Math.round(totalCost*12), language).toLocaleString()}/yr</div>
           </div>
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-red-500 cursor-pointer hover:border-slate-700 transition-colors" onClick={() => setRisk('high')}>
+          <div className={`rounded-2xl border bg-slate-900/60 p-5 border-l-4 border-l-red-500 cursor-pointer hover:border-slate-600 transition-all ${risk === 'high' ? 'border-red-500/60 ring-1 ring-red-500/30' : 'border-slate-800'}`}
+            onClick={() => { setRisk(risk === 'high' ? '' : 'high'); setOnlyUnassigned(false); }}>
             <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t("kpi_high_risk")}</div>
             <div className="text-3xl font-black text-red-400">{highRiskCount}</div>
             <div className="text-sm text-slate-500">{t("sub_click_to_filter")}</div>
           </div>
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-amber-500">
+          <div className={`rounded-2xl border bg-slate-900/60 p-5 border-l-4 border-l-amber-500 cursor-pointer hover:border-slate-600 transition-all ${onlyUnassigned ? 'border-amber-500/60 ring-1 ring-amber-500/30' : 'border-slate-800'}`}
+            onClick={() => { setOnlyUnassigned(v => !v); setRisk(''); }}>
             <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t("kpi_unassigned")}</div>
             <div className="text-3xl font-black text-amber-400">{unassignedCount}</div>
-            <div className="text-sm text-slate-500">{t("sub_no_owner")}</div>
+            <div className="text-sm text-slate-500">{t("sub_click_to_filter")}</div>
           </div>
         </div>
 
@@ -5781,7 +6458,7 @@ function ToolsPage() {
             <div className="flex flex-wrap gap-2">
               <button onClick={() => setCat('')}
                 className={"px-3 py-1.5 rounded-full text-xs font-semibold transition-all " + (!cat ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700')}>
-                All ({tools.length})
+                {tr('all_filter')} ({tools.length})
               </button>
               {catStats.map(([name, stats]) => (
                 <button key={name} onClick={() => setCat(name)}
@@ -5798,8 +6475,9 @@ function ToolsPage() {
           <div className="p-4 border-b border-slate-800 flex flex-col sm:flex-row gap-3 items-center">
             <div className="relative flex-1 w-full">
               <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
-              <input className="w-full pl-9 pr-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-600 outline-none focus:border-blue-500 transition-colors"
+              <input ref={searchRef} className="w-full pl-9 pr-16 py-2 bg-slate-800 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-600 outline-none focus:border-blue-500 transition-colors"
                 placeholder={t("search_placeholder_tools")} value={q} onChange={(e) => setQ(e.target.value)} />
+              <kbd className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 hidden sm:flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-mono text-slate-500 bg-slate-700 rounded border border-slate-600">⌘K</kbd>
             </div>
             <select value={status} onChange={(e) => setStatus(e.target.value)}
               className="bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-300 outline-none">
@@ -5811,14 +6489,24 @@ function ToolsPage() {
               <option value="">{t("all_risk")}</option>
               {RISK_SCORE.map((r) => <option key={r} value={r}>{r}</option>)}
             </select>
-            <span className="text-xs text-slate-500 whitespace-nowrap">{filtered.length} found</span>
+            <span className="text-xs text-slate-500 whitespace-nowrap">{filtered.length} {tr('found_count')}</span>
           </div>
 
           {isLoading ? (
             <div className="p-6 space-y-2"><SkeletonRow cols={6} /><SkeletonRow cols={6} /><SkeletonRow cols={6} /></div>
           ) : filtered.length === 0 ? (
             <div className="p-12">
-              <EmptyState icon={Boxes} title="No tools found" body="Try adjusting your filters or add new tools." />
+              <EmptyState icon={Boxes} title={tools.length === 0 ? t('no_tools_found') : t('no_results')} body={tools.length === 0 ? t('no_tools_body') : t('try_adjusting_filters')}
+                action={tools.length === 0 ? (
+                  <button onClick={() => setOpen(true)} className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-semibold transition-colors">
+                    <Plus className="h-4 w-4" />{t('add_tool')}
+                  </button>
+                ) : (
+                  <button onClick={() => { setQ(''); setRisk(''); setStatus(''); setCat(''); setOnlyUnassigned(false); }} className="inline-flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-xl text-sm font-semibold transition-colors">
+                    {t('clear_filter')}
+                  </button>
+                )}
+              />
             </div>
           ) : (
             <>
@@ -5826,13 +6514,13 @@ function ToolsPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-slate-800 bg-slate-950/50">
-                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Tool</th>
-                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">Owner</th>
-                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden lg:table-cell">Last Used</th>
-                      <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Risk</th>
-                      <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden sm:table-cell">Status</th>
-                      <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Cost/mo</th>
-                      <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Actions</th>
+                      {[['name', t('tool_name'), 'left'], ['', t('th_owner'), 'left hidden md:table-cell'], ['', t('th_last_used'), 'left hidden lg:table-cell'], ['risk', t('th_risk'), 'center'], ['status', t('th_status'), 'center hidden sm:table-cell'], ['cost', t('th_cost_mo'), 'right']].map(([field, label, align]) => (
+                        <th key={label} className={`py-3 px-4 text-xs font-semibold uppercase tracking-wider ${align.includes('center') ? 'text-center' : align.includes('right') ? 'text-right' : 'text-left'} ${align.includes('hidden') ? align.split(' ').filter(c=>c.startsWith('hidden')||c.startsWith('md')||c.startsWith('lg')||c.startsWith('sm')).join(' ') : ''} ${field ? 'cursor-pointer select-none hover:text-slate-300' : ''} text-slate-500 transition-colors`}
+                          onClick={() => field && toggleSort(field)}>
+                          <span className="inline-flex items-center gap-1">{label}{field && (sortField === field ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ' ↕')}</span>
+                        </th>
+                      ))}
+                      <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('th_actions')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -5856,24 +6544,40 @@ function ToolsPage() {
                               <div className="text-sm text-slate-300 truncate">{t.owner_name || '—'}</div>
                               <div className="text-xs text-slate-500 truncate">{t.owner_email}</div>
                             </div>
-                          ) : <button onClick={(ev) => { ev.stopPropagation(); setOwnerToolId(t.id); setOwnerToolName(t.name); setShowToolOwnerModal(true); }} className="text-xs text-amber-400 hover:text-amber-300 underline underline-offset-2 transition-colors">Assign owner</button>}
+                          ) : <button onClick={(ev) => { ev.stopPropagation(); setOwnerToolId(t.id); setOwnerToolName(t.name); setShowToolOwnerModal(true); }} className="text-xs text-amber-400 hover:text-amber-300 underline underline-offset-2 transition-colors">{tr('tools_assign_owner')}</button>}
                         </td>
                         <td className="py-3 px-4 text-sm text-slate-400 hidden lg:table-cell">{t.last_used_date || '—'}</td>
                         <td className="py-3 px-4 text-center"><RiskBadge risk={t.derived_risk} /></td>
                         <td className="py-3 px-4 text-center hidden sm:table-cell"><StatusBadge status={t.derived_status} /></td>
-                        <td className="py-3 px-4 text-right text-sm font-semibold text-white whitespace-nowrap">
-                          {getCurrency(language)}{convertCurrency(t.cost_per_month || 0, language).toLocaleString()}
+                        <td className="py-3 px-4 text-right whitespace-nowrap" onClick={(ev) => ev.stopPropagation()}>
+                          {editingCost === t.id ? (
+                            <input autoFocus type="number" min="0" value={costValue}
+                              className="w-24 text-right bg-slate-700 border border-blue-500 text-white text-sm rounded-lg px-2 py-1 focus:outline-none"
+                              onChange={e => setCostValue(e.target.value)}
+                              onBlur={() => { muts.updateTool.mutate({ id: t.id, patch: { cost_per_month: Number(costValue) } }); setEditingCost(null); }}
+                              onKeyDown={e => { if (e.key === 'Enter') { muts.updateTool.mutate({ id: t.id, patch: { cost_per_month: Number(costValue) } }); setEditingCost(null); } if (e.key === 'Escape') setEditingCost(null); }} />
+                          ) : (
+                            <span className="text-sm font-semibold text-white cursor-pointer hover:text-blue-400 transition-colors" title={tr('edit') + ' cost'}
+                              onClick={() => { setEditingCost(t.id); setCostValue(String(t.cost_per_month || 0)); }}>
+                              {getCurrency(language)}{convertCurrency(t.cost_per_month || 0, language).toLocaleString()}
+                              <span className="ml-1 text-slate-600 text-[10px]">✎</span>
+                            </span>
+                          )}
                         </td>
                         <td className="py-3 px-4 text-right">
                           <div className="flex gap-1 justify-end" onClick={(ev) => ev.stopPropagation()}>
                             <button onClick={() => { setEditing(t); setOpen(true); }}
-                              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors" title="Edit">
+                              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors" title={tr('edit')}>
                               <Pencil className="h-3.5 w-3.5" />
                             </button>
-                            <button onClick={() => { if (window.confirm(`Delete ${t.name}?`)) { muts.deleteTool.mutate(t.id); toast.success(`${t.name} deleted!`); } }}
-                              className="p-1.5 rounded-lg bg-slate-800 hover:bg-red-600/20 text-slate-400 hover:text-red-400 transition-colors" title="Delete">
+                            {deleteConfirm.isPending(t.id) ? (
+                              <ConfirmButtons onConfirm={() => { muts.deleteTool.mutate(t.id); toast.success(`${t.name} ${tr('toast_deleted')}`); deleteConfirm.reset(); }} onCancel={deleteConfirm.cancel} />
+                            ) : (
+                            <button onClick={() => deleteConfirm.ask(t.id)}
+                              className="p-1.5 rounded-lg bg-slate-800 hover:bg-red-600/20 text-slate-400 hover:text-red-400 transition-colors" title={tr('delete')}>
                               <Trash2 className="h-3.5 w-3.5" />
                             </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -5891,13 +6595,13 @@ function ToolsPage() {
                                     <div className="flex items-center gap-2 mb-2">
                                       <AlertTriangle className={`h-3.5 w-3.5 ${t.derived_risk === 'high' ? 'text-red-400' : 'text-amber-400'}`} />
                                       <span className={`text-xs font-semibold ${t.derived_risk === 'high' ? 'text-red-400' : 'text-amber-400'}`}>
-                                        Why this tool is {t.derived_risk} risk
+                                        {tr('why_risk_label') || `Why this tool is ${t.derived_risk} risk`}
                                       </span>
                                     </div>
                                     <div className="flex flex-wrap gap-1.5">
                                       {evidence.map((r, j) => (
                                         <span key={j} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-800 text-[10px] text-slate-400 border border-slate-700">
-                                          {t(r.key) || r.fallback}
+                                          {tr(r.key) || r.fallback}
                                         </span>
                                       ))}
                                     </div>
@@ -5905,13 +6609,13 @@ function ToolsPage() {
                                 );
                               })()}
                               <div className="flex items-center justify-between mb-3">
-                                <h4 className="text-sm font-semibold text-purple-400">Employees using {t.name} ({getToolEmployees(t.id, t.name).length})</h4>
-                                <Link to="/employees" className="text-xs text-slate-500 hover:text-purple-400 transition-colors">{t("drill_view_all_employees") || "View all employees"} →</Link>
+                                <h4 className="text-sm font-semibold text-purple-400">{tr('drill_employees_using')} {t.name} ({getToolEmployees(t.id, t.name).length})</h4>
+                                <Link to="/employees" className="text-xs text-slate-500 hover:text-purple-400 transition-colors">{tr("drill_view_all_employees")} →</Link>
                               </div>
                               {(() => {
                                 const toolEmps = getToolEmployees(t.id, t.name);
                                 if (toolEmps.length === 0) return (
-                                  <div className="text-center py-4 text-sm text-slate-500">{t("drill_no_employees") || "No employees currently assigned to this tool"}</div>
+                                  <div className="text-center py-4 text-sm text-slate-500">{tr("drill_no_employees")}</div>
                                 );
                                 return (
                                   <div className="grid gap-2">
@@ -5933,10 +6637,14 @@ function ToolsPage() {
                                             emp.employee_status === 'offboarding' ? 'bg-amber-500/20 text-amber-400' :
                                             'bg-slate-700 text-slate-400'
                                           )}>{emp.employee_status}</span>
-                                          <button onClick={(ev) => { ev.stopPropagation(); if(window.confirm(`Revoke ${emp.employee_name}'s access to ${t.name}?`)) muts.deleteAccess.mutate(emp.id); }}
-                                            className="p-1 rounded-lg bg-slate-800 hover:bg-red-600/20 text-slate-500 hover:text-red-400 transition-colors" title="Revoke access">
+                                          {revokeConfirm.isPending(emp.id) ? (
+                                            <ConfirmButtons onConfirm={() => { muts.deleteAccess.mutate(emp.id); revokeConfirm.reset(); }} onCancel={revokeConfirm.cancel} />
+                                          ) : (
+                                          <button onClick={(ev) => { ev.stopPropagation(); revokeConfirm.ask(emp.id); }}
+                                            className="p-1 rounded-lg bg-slate-800 hover:bg-red-600/20 text-slate-500 hover:text-red-400 transition-colors" title={tr('revoke_access_btn')}>
                                             <X className="h-3.5 w-3.5" />
                                           </button>
+                                          )}
                                         </div>
                                       </div>
                                     ))}
@@ -5957,27 +6665,27 @@ function ToolsPage() {
               {totalPages > 1 && (
                 <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-slate-800 bg-slate-950/30">
                   <span className="text-xs text-slate-500">
-                    Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, filtered.length)} of {filtered.length}
+                    {tr('page_showing')} {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, filtered.length)} {tr('page_of')} {filtered.length}
                   </span>
                   <div className="flex items-center gap-1">
                     <button onClick={() => setPage(0)} disabled={page === 0}
                       className="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-400 text-xs hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
-                      « {t("page_first").replace("« ", "")}
+                      {tr("page_first")}
                     </button>
                     <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}
                       className="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-400 text-xs hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
-                      {t("page_prev")}
+                      {tr("page_prev")}
                     </button>
                     <span className="px-3 py-1 text-xs text-slate-300 font-semibold">
-                      Page {page + 1} / {totalPages}
+                      {tr('page_label')} {page + 1} / {totalPages}
                     </span>
                     <button onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1}
                       className="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-400 text-xs hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
-                      {t("page_next")}
+                      {tr("page_next")}
                     </button>
                     <button onClick={() => setPage(totalPages - 1)} disabled={page >= totalPages - 1}
                       className="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-400 text-xs hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
-                      {t("page_last")}
+                      {tr("page_last")}
                     </button>
                   </div>
                 </div>
@@ -5987,7 +6695,7 @@ function ToolsPage() {
         </div>
       </div>
 
-      <Modal open={open} title={editing ? "Edit tool" : t('add_tool_btn')} subtitle={t('tool_inventory_sub')} onClose={() => setOpen(false)}>
+      <Modal open={open} title={editing ? tr('edit_tool_btn') : tr('add_tool_btn')} subtitle={tr('tool_inventory_sub')} onClose={() => setOpen(false)}>
         <ToolForm
           initial={editing}
           employees={employees}
@@ -6002,12 +6710,12 @@ function ToolsPage() {
       {/* ── Assign Owner Modal (Tools page) ── */}
       <Modal
         open={showToolOwnerModal}
-        title="Assign tool owner"
-        subtitle={`Who should own ${ownerToolName}?`}
+        title={t('dl_assign_tool_owner')}
+        subtitle={`${t('dl_who_should_own')} ${ownerToolName}?`}
         onClose={() => setShowToolOwnerModal(false)}
         footer={
           <div className="flex justify-end">
-            <Button variant="secondary" onClick={() => setShowToolOwnerModal(false)}>Cancel</Button>
+            <Button variant="secondary" onClick={() => setShowToolOwnerModal(false)}>{t('cancel')}</Button>
           </div>
         }
       >
@@ -6018,7 +6726,7 @@ function ToolsPage() {
                 if (ownerToolId) {
                   muts.updateTool.mutate(
                     { id: ownerToolId, patch: { owner_email: emp.email, owner_name: emp.full_name } },
-                    { onSuccess: () => { toast.success(`${emp.full_name} is now the owner of ${ownerToolName}`); setShowToolOwnerModal(false); } }
+                    { onSuccess: () => { toast.success(`${emp.full_name} ${t('assign_is_now_owner')} ${ownerToolName}`); setShowToolOwnerModal(false); } }
                   );
                 }
               }}
@@ -6029,12 +6737,12 @@ function ToolsPage() {
               </div>
               <div className="min-w-0 flex-1">
                 <div className="text-sm font-semibold text-slate-200 truncate">{emp.full_name}</div>
-                <div className="text-xs text-slate-500 truncate">{emp.email} · {emp.department || 'No dept'}</div>
+                <div className="text-xs text-slate-500 truncate">{emp.email} · {emp.department || t('no_dept')}</div>
               </div>
             </button>
           ))}
           {employees.filter(e => e.status === 'active').length === 0 && (
-            <div className="text-center py-6 text-sm text-slate-500">No active employees. Import your team first.</div>
+            <div className="text-center py-6 text-sm text-slate-500">{t("assign_no_active_employees")}</div>
           )}
         </div>
       </Modal>
@@ -6076,7 +6784,7 @@ function EmployeeForm({ initial, onSubmit, onClose }) {
           <Input value={form.full_name} onChange={(e) => setForm((f) => ({ ...f, full_name: e.target.value }))} />
         </div>
         <div>
-          <div className="mb-1 text-xs font-semibold text-slate-400">Email</div>
+          <div className="mb-1 text-xs font-semibold text-slate-400">{t('th_email')}</div>
           <Input value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
         </div>
       </div>
@@ -6093,11 +6801,11 @@ function EmployeeForm({ initial, onSubmit, onClose }) {
           </Select>
         </div>
         <div>
-          <div className="mb-1 text-xs font-semibold text-slate-400">Role</div>
+          <div className="mb-1 text-xs font-semibold text-slate-400">{t('employee_role')}</div>
           <Input value={form.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))} />
         </div>
         <div>
-          <div className="mb-1 text-xs font-semibold text-slate-400">Status</div>
+          <div className="mb-1 text-xs font-semibold text-slate-400">{t('th_status')}</div>
           <Select value={form.status} onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}>
             {['active','offboarding','offboarded'].map((s) => (
               <option key={s} value={s}>
@@ -6137,6 +6845,7 @@ function EmployeesPage() {
   const { data: db, isLoading } = useDbQuery();
   const { language, setLanguage } = useLang();
   const t = useTranslation(language);
+  const tr = t;
   const muts = useDbMutations();
 
   const [q, setQ] = useState("");
@@ -6144,10 +6853,15 @@ function EmployeesPage() {
   const [status, setStatus] = useState("");
   const [page, setPage] = useState(0);
   const PAGE_SIZE = 25;
+  const [sortField, setSortField] = useState('name');
+  const [sortDir, setSortDir] = useState('asc');
+  const toggleSort = (field) => { if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc'); else { setSortField(field); setSortDir('asc'); } };
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [expandedEmployee, setExpandedEmployee] = useState(null);
+  const deleteConfirm = useConfirm();
+  const revokeConfirm = useConfirm();
 
   const toolCounts = useMemo(() => {
     const m = new Map();
@@ -6186,8 +6900,15 @@ function EmployeesPage() {
       if (dept && e.department !== dept) return false;
       if (status && e.status !== status) return false;
       return true;
+    }).sort((a, b) => {
+      let av, bv;
+      if (sortField === 'dept') { av = a.department || ''; bv = b.department || ''; }
+      else if (sortField === 'role') { av = a.role || ''; bv = b.role || ''; }
+      else if (sortField === 'status') { av = a.status || ''; bv = b.status || ''; }
+      else { av = a.full_name || ''; bv = b.full_name || ''; }
+      return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
     });
-  }, [employees, q, dept, status]);
+  }, [employees, q, dept, status, sortField, sortDir]);
 
   // Reset page when filters change
   React.useEffect(() => { setPage(0); }, [q, dept, status]);
@@ -6210,6 +6931,19 @@ function EmployeesPage() {
   const activeCount = employees.filter(e => e.status === 'active').length;
   const offboardingCount = employees.filter(e => e.status === 'offboarding').length;
 
+  if (isLoading) return (
+    <AppShell title={t('nav_employees')}>
+      <div className="space-y-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => <div key={i} className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 h-24 animate-pulse" />)}
+        </div>
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 space-y-3">
+          {[...Array(8)].map((_, i) => <SkeletonRow key={i} cols={5} />)}
+        </div>
+      </div>
+    </AppShell>
+  );
+
   return (
     <AppShell
       title={t('nav_employees')}
@@ -6228,20 +6962,23 @@ function EmployeesPage() {
 
         {/* ── Row 1: Compact KPI strip ── */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 lg:gap-5">
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-blue-500">
+          <div className={`rounded-2xl border bg-slate-900/60 p-5 border-l-4 border-l-blue-500 cursor-pointer hover:border-slate-600 transition-all ${!status ? 'border-blue-500/60 ring-1 ring-blue-500/30' : 'border-slate-800'}`}
+            onClick={() => { setStatus(''); setDept(''); setQ(''); }}>
             <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t("kpi_total")}</div>
             <div className="text-3xl font-black text-white">{employees.length}</div>
             <div className="text-sm text-slate-500">{t("sub_all_employees")}</div>
           </div>
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-emerald-500">
+          <div className={`rounded-2xl border bg-slate-900/60 p-5 border-l-4 border-l-emerald-500 cursor-pointer hover:border-slate-600 transition-all ${status === 'active' ? 'border-emerald-500/60 ring-1 ring-emerald-500/30' : 'border-slate-800'}`}
+            onClick={() => setStatus(status === 'active' ? '' : 'active')}>
             <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t("kpi_active")}</div>
             <div className="text-3xl font-black text-emerald-400">{activeCount}</div>
-            <div className="text-sm text-slate-500">{t("sub_currently_working")}</div>
+            <div className="text-sm text-slate-500">{t("sub_click_to_filter")}</div>
           </div>
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-amber-500">
+          <div className={`rounded-2xl border bg-slate-900/60 p-5 border-l-4 border-l-amber-500 cursor-pointer hover:border-slate-600 transition-all ${status === 'offboarding' ? 'border-amber-500/60 ring-1 ring-amber-500/30' : 'border-slate-800'}`}
+            onClick={() => setStatus(status === 'offboarding' ? '' : 'offboarding')}>
             <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t("kpi_offboarding")}</div>
             <div className="text-3xl font-black text-amber-400">{offboardingCount}</div>
-            <div className="text-sm text-slate-500">{t("sub_in_transition")}</div>
+            <div className="text-sm text-slate-500">{t("sub_click_to_filter")}</div>
           </div>
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-purple-500">
             <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t("kpi_departments")}</div>
@@ -6258,9 +6995,9 @@ function EmployeesPage() {
               {dept && <button onClick={() => setDept('')} className="text-xs text-blue-400 hover:text-blue-300">{t("clear_filter")}</button>}
             </div>
             <div className="flex flex-wrap gap-2">
-              <button onClick={() => setDept('')} 
+              <button onClick={() => setDept('')}
                 className={"px-3 py-1.5 rounded-full text-xs font-semibold transition-all " + (!dept ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700')}>
-                All ({employees.length})
+                {tr('all_filter')} ({employees.length})
               </button>
               {deptStats.map(([name, stats]) => (
                 <button key={name} onClick={() => setDept(name)}
@@ -6283,11 +7020,11 @@ function EmployeesPage() {
             <select value={status} onChange={(e) => setStatus(e.target.value)}
               className="bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-300 outline-none">
               <option value="">{t("all_status")}</option>
-              <option value="active">Active</option>
-              <option value="offboarding">Offboarding</option>
-              <option value="offboarded">Offboarded</option>
+              <option value="active">{t('emp_status_active')}</option>
+              <option value="offboarding">{t('emp_status_offboarding')}</option>
+              <option value="offboarded">{t('emp_status_offboarded')}</option>
             </select>
-            <span className="text-xs text-slate-500 whitespace-nowrap">{filtered.length} found</span>
+            <span className="text-xs text-slate-500 whitespace-nowrap">{filtered.length} {tr('found_count')}</span>
           </div>
 
           {/* ── Compact table ── */}
@@ -6297,7 +7034,19 @@ function EmployeesPage() {
             </div>
           ) : filtered.length === 0 ? (
             <div className="p-12">
-              <EmptyState icon={Users} title="No employees found" body="Try adjusting your filters or add new employees." />
+              <EmptyState icon={Users}
+                title={employees.length === 0 ? t('no_employees_found') : t('no_results')}
+                body={employees.length === 0 ? t('empty_employees') : t('try_adjusting_filters')}
+                action={employees.length === 0 ? (
+                  <button onClick={() => setOpen(true)} className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-semibold transition-colors">
+                    <Plus className="h-4 w-4" />{t('add_employee')}
+                  </button>
+                ) : (
+                  <button onClick={() => { setQ(''); setStatus(''); setDept(''); }} className="inline-flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-xl text-sm font-semibold transition-colors">
+                    {t('clear_filter')}
+                  </button>
+                )}
+              />
             </div>
           ) : (
             <>
@@ -6305,12 +7054,18 @@ function EmployeesPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-slate-800 bg-slate-950/50">
-                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Employee</th>
-                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">Department</th>
-                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden lg:table-cell">Role</th>
-                      <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden sm:table-cell">Tools</th>
-                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
-                      <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Actions</th>
+                      {[['name', t('th_employee'), ''], ['dept', t('th_department'), 'hidden md:table-cell'], ['role', t('employee_role'), 'hidden lg:table-cell']].map(([field, label, extra]) => (
+                        <th key={field} className={`text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer select-none hover:text-slate-300 transition-colors ${extra}`}
+                          onClick={() => toggleSort(field)}>
+                          {label}{sortField === field ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ' ↕'}
+                        </th>
+                      ))}
+                      <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden sm:table-cell">{t('th_tools')}</th>
+                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer select-none hover:text-slate-300 transition-colors"
+                        onClick={() => toggleSort('status')}>
+                        {t('th_status')}{sortField === 'status' ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ' ↕'}
+                      </th>
+                      <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('th_actions')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -6347,18 +7102,22 @@ function EmployeesPage() {
                         <td className="py-3 px-4 text-right">
                           <div className="flex gap-1 justify-end" onClick={(ev) => ev.stopPropagation()}>
                             <button onClick={() => { setEditing(e); setOpen(true); }}
-                              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors" title="Edit">
+                              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors" title={t('edit')}>
                               <Pencil className="h-3.5 w-3.5" />
                             </button>
                             <Link to={`/offboarding?employee=${encodeURIComponent(e.id)}`}>
-                              <button className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-amber-400 transition-colors" title="Offboard">
+                              <button className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-amber-400 transition-colors" title={t('nav_offboarding')}>
                                 <UserMinus className="h-3.5 w-3.5" />
                               </button>
                             </Link>
-                            <button onClick={() => { if (window.confirm(`Delete ${e.full_name}?`)) muts.deleteEmployee.mutate(e.id); }}
-                              className="p-1.5 rounded-lg bg-slate-800 hover:bg-red-600/20 text-slate-400 hover:text-red-400 transition-colors" title="Delete">
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
+                            {deleteConfirm.isPending(e.id) ? (
+                              <ConfirmButtons onConfirm={() => { muts.deleteEmployee.mutate(e.id); deleteConfirm.reset(); }} onCancel={deleteConfirm.cancel} />
+                            ) : (
+                              <button onClick={() => deleteConfirm.ask(e.id)}
+                                className="p-1.5 rounded-lg bg-slate-800 hover:bg-red-600/20 text-slate-400 hover:text-red-400 transition-colors" title={t('delete')}>
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -6368,51 +7127,55 @@ function EmployeesPage() {
                           <td colSpan="6" className="p-0">
                             <div className="bg-slate-950/80 border-y border-blue-500/20 px-6 py-4">
                               <div className="flex items-center justify-between mb-3">
-                                <h4 className="text-sm font-semibold text-blue-400">{e.full_name}'s tools ({toolCounts.get(e.id) || 0})</h4>
-                                <Link to={`/tools`} className="text-xs text-slate-500 hover:text-blue-400 transition-colors">{t("drill_view_all_tools") || "View all tools"} →</Link>
+                                <h4 className="text-sm font-semibold text-blue-400">{e.full_name}{tr('drill_tools_for')} ({toolCounts.get(e.id) || 0})</h4>
+                                <Link to={`/tools`} className="text-xs text-slate-500 hover:text-blue-400 transition-colors">{tr("drill_view_all_tools")} →</Link>
                               </div>
                               {(() => {
                                 const empTools = getEmployeeTools(e.id);
                                 if (empTools.length === 0) return (
-                                  <div className="text-center py-4 text-sm text-slate-500">'{t("drill_no_active_tools") || "No active tools assigned to this employee"}'</div>
+                                  <div className="text-center py-4 text-sm text-slate-500">{tr("drill_no_active_tools")}</div>
                                 );
                                 return (
                                   <div className="grid gap-2">
-                                    {empTools.map((t, i) => {
-                                      const toolObj = (db?.tools || []).find(x => x.id === t.tool_id || x.name === t.tool_name);
+                                    {empTools.map((tool, i) => {
+                                      const toolObj = (db?.tools || []).find(x => x.id === tool.tool_id || x.name === tool.tool_name);
                                       const evidence = toolObj ? getRiskEvidence(toolObj) : [];
                                       return (
                                       <div key={i} className="rounded-xl border border-slate-800 bg-slate-900/50 hover:border-slate-700 transition-colors">
                                         <div className="flex items-center gap-3 p-3">
                                           <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-sm font-bold text-slate-300 flex-shrink-0">
-                                            {(t.tool_name || '?')[0]}
+                                            {(tool.tool_name || '?')[0]}
                                           </div>
                                           <div className="flex-1 min-w-0">
-                                            <div className="text-sm font-semibold text-slate-200 truncate">{t.tool_name}</div>
+                                            <div className="text-sm font-semibold text-slate-200 truncate">{tool.tool_name}</div>
                                             <div className="text-xs text-slate-500">
-                                              {t.last_used ? `Last used ${t.last_used}` : 'No usage data'}
-                                              {t.cost > 0 && ` · €${t.cost}/mo`}
+                                              {tool.last_used ? `${tr('drill_last_used')} ${tool.last_used}` : tr('drill_no_usage')}
+                                              {tool.cost > 0 && ` · €${tool.cost}/mo`}
                                             </div>
                                           </div>
                                           <div className="flex items-center gap-2 flex-shrink-0">
-                                            {t.mfa && <span className="px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 text-[10px] font-semibold">MFA</span>}
+                                            {tool.mfa && <span className="px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 text-[10px] font-semibold">MFA</span>}
                                             <span className={"px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase " + (
-                                              t.risk === 'high' ? 'bg-red-500/20 text-red-400' :
-                                              t.risk === 'medium' ? 'bg-amber-500/20 text-amber-400' :
+                                              tool.risk === 'high' ? 'bg-red-500/20 text-red-400' :
+                                              tool.risk === 'medium' ? 'bg-amber-500/20 text-amber-400' :
                                               'bg-emerald-500/20 text-emerald-400'
-                                            )}>{t.risk || 'low'}</span>
-                                            <button onClick={(ev) => { ev.stopPropagation(); if(window.confirm(`Revoke ${e.full_name}'s access to ${t.tool_name}?`)) muts.deleteAccess.mutate(t.id); }}
-                                              className="p-1 rounded-lg bg-slate-800 hover:bg-red-600/20 text-slate-500 hover:text-red-400 transition-colors" title="Revoke access">
-                                              <X className="h-3.5 w-3.5" />
-                                            </button>
+                                            )}>{tool.risk || 'low'}</span>
+                                            {revokeConfirm.isPending(tool.id) ? (
+                                              <ConfirmButtons onConfirm={() => { muts.deleteAccess.mutate(tool.id); revokeConfirm.reset(); }} onCancel={revokeConfirm.cancel} />
+                                            ) : (
+                                              <button onClick={(ev) => { ev.stopPropagation(); revokeConfirm.ask(tool.id); }}
+                                                className="p-1 rounded-lg bg-slate-800 hover:bg-red-600/20 text-slate-500 hover:text-red-400 transition-colors" title={tr('revoke')}>
+                                                <X className="h-3.5 w-3.5" />
+                                              </button>
+                                            )}
                                           </div>
                                         </div>
-                                        {evidence.length > 0 && (t.risk === 'high' || t.risk === 'medium') && (
+                                        {evidence.length > 0 && (tool.risk === 'high' || tool.risk === 'medium') && (
                                           <div className="px-3 pb-3 pt-0">
                                             <div className="flex flex-wrap gap-1.5">
                                               {evidence.map((r, j) => (
                                                 <span key={j} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-800 text-[10px] text-slate-400 border border-slate-700">
-                                                  {t(r.key) || r.fallback}
+                                                  {tr(r.key) || r.fallback}
                                                 </span>
                                               ))}
                                             </div>
@@ -6438,27 +7201,27 @@ function EmployeesPage() {
               {totalPages > 1 && (
                 <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-slate-800 bg-slate-950/30">
                   <span className="text-xs text-slate-500">
-                    Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, filtered.length)} of {filtered.length}
+                    {tr('page_showing')} {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, filtered.length)} {tr('page_of')} {filtered.length}
                   </span>
                   <div className="flex items-center gap-1">
                     <button onClick={() => setPage(0)} disabled={page === 0}
                       className="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-400 text-xs hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
-                      « {t("page_first").replace("« ", "")}
+                      {tr("page_first")}
                     </button>
                     <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}
                       className="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-400 text-xs hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
-                      {t("page_prev")}
+                      {tr("page_prev")}
                     </button>
                     <span className="px-3 py-1 text-xs text-slate-300 font-semibold">
-                      Page {page + 1} / {totalPages}
+                      {tr('page_label')} {page + 1} / {totalPages}
                     </span>
                     <button onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1}
                       className="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-400 text-xs hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
-                      {t("page_next")}
+                      {tr("page_next")}
                     </button>
                     <button onClick={() => setPage(totalPages - 1)} disabled={page >= totalPages - 1}
                       className="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-400 text-xs hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
-                      {t("page_last")}
+                      {tr("page_last")}
                     </button>
                   </div>
                 </div>
@@ -6468,7 +7231,7 @@ function EmployeesPage() {
         </div>
       </div>
 
-      <Modal open={open} title={editing ? "Edit employee" : "Add employee"} subtitle={t('employee_directory_sub')} onClose={() => setOpen(false)}>
+      <Modal open={open} title={editing ? tr('edit_employee_btn') : tr('add_employee_btn')} subtitle={tr('employee_directory_sub')} onClose={() => setOpen(false)}>
         <EmployeeForm
           initial={editing}
           onClose={() => setOpen(false)}
@@ -6532,7 +7295,7 @@ function AccessForm({ initial, tools, employees, onSubmit, onClose }) {
     >
       <div className="grid gap-3 md:grid-cols-2">
         <div>
-          <div className="mb-1 text-xs font-semibold text-slate-400">Tool</div>
+          <div className="mb-1 text-xs font-semibold text-slate-400">{t('tool_name')}</div>
           <Select value={form.tool_id} onChange={(e) => setForm((f) => ({ ...f, tool_id: e.target.value }))}>
             {tools.map((t) => (
               <option key={t.id} value={t.id}>
@@ -6542,7 +7305,7 @@ function AccessForm({ initial, tools, employees, onSubmit, onClose }) {
           </Select>
         </div>
         <div>
-          <div className="mb-1 text-xs font-semibold text-slate-400">Employee</div>
+          <div className="mb-1 text-xs font-semibold text-slate-400">{t('employee')}</div>
           <Select value={form.employee_id} onChange={(e) => setForm((f) => ({ ...f, employee_id: e.target.value }))}>
             {employees.map((e) => (
               <option key={e.id} value={e.id}>
@@ -6565,7 +7328,7 @@ function AccessForm({ initial, tools, employees, onSubmit, onClose }) {
           </Select>
         </div>
         <div>
-          <div className="mb-1 text-xs font-semibold text-slate-400">Status</div>
+          <div className="mb-1 text-xs font-semibold text-slate-400">{t('status')}</div>
           <Select value={form.status} onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}>
             {ACCESS_STATUS.map((s) => (
               <option key={s} value={s}>
@@ -6622,6 +7385,10 @@ function AccessPage() {
   const [viewMode, setViewMode] = useState('map');
   const [filterRisk, setFilterRisk] = useState('all');
   const [search, setSearch] = useState('');
+  const [revokeAllConfirm, setRevokeAllConfirm] = useState(false);
+  const rowRevokeConfirm = useConfirm();
+  const [managingId, setManagingId] = useState(null);
+  const [mapManaging, setMapManaging] = useState(null); // { id, empName, toolName, level }
 
   const derived = useMemo(() => {
     if (!db) return null;
@@ -6658,7 +7425,18 @@ function AccessPage() {
     return { access, highRisk, needsReview, matrix, toolMatrix, allTools: [...allTools].sort() };
   }, [db]);
 
-  if (isLoading || !derived) return <div className="flex items-center justify-center h-screen"><div className="text-white">{t('loading')}</div></div>;
+  if (isLoading || !derived) return (
+    <AppShell title={t('nav_access')}>
+      <div className="space-y-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => <div key={i} className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 h-24 animate-pulse" />)}
+        </div>
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 space-y-3">
+          {[...Array(8)].map((_, i) => <SkeletonRow key={i} cols={5} />)}
+        </div>
+      </div>
+    </AppShell>
+  );
 
   // Filter logic
   const filteredAccess = derived.access.filter(a => {
@@ -6679,22 +7457,30 @@ function AccessPage() {
 
         {/* ── Row 1: KPI Strip ── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-5">
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-blue-500">
+          <div
+            className={"rounded-2xl border bg-slate-900/60 p-5 border-l-4 border-l-blue-500 cursor-pointer transition-all " + (filterRisk === 'all' ? 'border-blue-500 ring-1 ring-blue-500/40' : 'border-slate-800 hover:border-slate-700')}
+            onClick={() => { setFilterRisk('all'); }}>
             <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t("kpi_total_access")}</div>
             <div className="text-3xl font-black text-white">{derived.access.filter(a => a.status === 'active').length}</div>
             <div className="text-sm text-slate-500">{t("sub_active_permissions")}</div>
           </div>
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-red-500 cursor-pointer hover:border-slate-700 transition-colors" onClick={() => setFilterRisk('high')}>
+          <div
+            className={"rounded-2xl border bg-slate-900/60 p-5 border-l-4 border-l-red-500 cursor-pointer transition-all " + (filterRisk === 'high' ? 'border-red-500 ring-1 ring-red-500/40' : 'border-slate-800 hover:border-slate-700')}
+            onClick={() => { setFilterRisk('high'); setViewMode('table'); }}>
             <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t("kpi_high_risk")}</div>
             <div className="text-3xl font-black text-red-400">{derived.highRisk.length}</div>
             <div className="text-sm text-slate-500">{t("sub_click_to_filter")}</div>
           </div>
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-amber-500 cursor-pointer hover:border-slate-700 transition-colors" onClick={() => setFilterRisk('review')}>
+          <div
+            className={"rounded-2xl border bg-slate-900/60 p-5 border-l-4 border-l-amber-500 cursor-pointer transition-all " + (filterRisk === 'review' ? 'border-amber-500 ring-1 ring-amber-500/40' : 'border-slate-800 hover:border-slate-700')}
+            onClick={() => { setFilterRisk('review'); setViewMode('table'); }}>
             <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t("kpi_needs_review")}</div>
             <div className="text-3xl font-black text-amber-400">{derived.needsReview.length}</div>
             <div className="text-sm text-slate-500">{t("sub_click_to_filter")}</div>
           </div>
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-emerald-500 cursor-pointer hover:border-slate-700 transition-colors" onClick={() => setFilterRisk('clean')}>
+          <div
+            className={"rounded-2xl border bg-slate-900/60 p-5 border-l-4 border-l-emerald-500 cursor-pointer transition-all " + (filterRisk === 'clean' ? 'border-emerald-500 ring-1 ring-emerald-500/40' : 'border-slate-800 hover:border-slate-700')}
+            onClick={() => { setFilterRisk('clean'); setViewMode('table'); }}>
             <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t("kpi_clean")}</div>
             <div className="text-3xl font-black text-emerald-400">{derived.access.filter(a => a.status === 'active').length - derived.highRisk.length - derived.needsReview.length}</div>
             <div className="text-sm text-slate-500">{t("sub_click_to_filter")}</div>
@@ -6707,16 +7493,18 @@ function AccessPage() {
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <AlertTriangle className="h-5 w-5 text-red-400" />
-                <span className="text-base font-semibold text-white">Urgent: {derived.highRisk.length} high-risk access records</span>
+                <span className="text-base font-semibold text-white">{t('urgent_high_risk_header').replace('{n}', derived.highRisk.length)}</span>
               </div>
-              <Button variant="secondary" size="sm" onClick={() => {
-                if(window.confirm('Revoke all ' + derived.highRisk.length + ' high-risk access records?')) {
-                  derived.highRisk.forEach(a => muts.updateAccess.mutate({ id: a.id, patch: { status: 'revoked' } }));
-                  toast.success('All high-risk access revoked');
-                }
-              }}>
-                {t("access_revoke_all_high")}
-              </Button>
+              {revokeAllConfirm ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-400">{t('confirm_revoke_all_high').replace('{n}', derived.highRisk.length)}</span>
+                  <ConfirmButtons onConfirm={() => { derived.highRisk.forEach(a => muts.updateAccess.mutate({ id: a.id, patch: { status: 'revoked' } })); toast.success(t('toast_all_high_risk_revoked')); setRevokeAllConfirm(false); }} onCancel={() => setRevokeAllConfirm(false)} />
+                </div>
+              ) : (
+                <Button variant="secondary" size="sm" onClick={() => setRevokeAllConfirm(true)}>
+                  {t("access_revoke_all_high")}
+                </Button>
+              )}
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {derived.highRisk.slice(0, 6).map((a, idx) => (
@@ -6729,9 +7517,9 @@ function AccessPage() {
                     <div className="text-xs text-slate-500 truncate">{a.tool?.name || a.tool_name} · {a.access_level}</div>
                   </div>
                   <button onClick={() => {
-                    muts.updateAccess.mutate({ id: a.id, patch: { status: 'revoked' } }, { onSuccess: () => toast.success('Revoked') });
+                    muts.updateAccess.mutate({ id: a.id, patch: { status: 'revoked' } }, { onSuccess: () => toast.success(t('toast_revoked')) });
                   }} className="px-2.5 py-1 bg-red-600/30 hover:bg-red-600/50 text-red-400 rounded-lg text-xs font-semibold transition-colors flex-shrink-0">
-                    Revoke
+                    {t('revoke')}
                   </button>
                 </div>
               ))}
@@ -6759,7 +7547,7 @@ function AccessPage() {
           </div>
           <select value={filterRisk} onChange={e => setFilterRisk(e.target.value)}
             className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-300 outline-none">
-            <option value="all">All Risk Levels</option>
+            <option value="all">{t('all_risk_levels')}</option>
             <option value="high">{t("high_risk_only")}</option>
             <option value="review">{t("needs_review_filter")}</option>
             <option value="clean">{t("clean_only")}</option>
@@ -6774,7 +7562,7 @@ function AccessPage() {
                 <h2 className="text-base font-semibold text-white">{t("access_map_label")}</h2>
                 <p className="text-sm text-slate-500">{t("access_map_sub")}</p>
               </div>
-              <span className="text-xs text-slate-500">{Object.keys(derived.matrix).length} employees · {derived.allTools.length} tools</span>
+              <span className="text-xs text-slate-500">{t('employees_n_tools_n').replace('{e}', Object.keys(derived.matrix).length).replace('{t}', derived.allTools.length)}</span>
             </div>
 
             {/* Legend */}
@@ -6824,12 +7612,7 @@ function AccessPage() {
                               <div key={toolName} className="w-10 h-8 flex items-center justify-center flex-shrink-0">
                                 <div className={"w-4 h-4 rounded-full transition-all cursor-pointer hover:scale-125 " + color + (isRisk ? ' ring-2 ring-red-500 ring-offset-1 ring-offset-slate-950' : '')}
                                   title={empName + ' → ' + toolName + ' (' + access.level + ')' + (isRisk ? ' ⚠️ RISK' : '')}
-                                  onClick={() => {
-                                    const action = window.prompt(empName + ' → ' + toolName + ' (' + access.level + ')\n\n1 = Change to Viewer\n2 = Change to Admin\n3 = Revoke\n\nEnter 1, 2, or 3:');
-                                    if (action === '1') muts.updateAccess.mutate({ id: access.id, patch: { access_level: 'viewer' } }, { onSuccess: () => toast.success('Changed to Viewer') });
-                                    else if (action === '2') muts.updateAccess.mutate({ id: access.id, patch: { access_level: 'admin' } }, { onSuccess: () => toast.success('Changed to Admin') });
-                                    else if (action === '3') muts.updateAccess.mutate({ id: access.id, patch: { status: 'revoked' } }, { onSuccess: () => toast.success('Revoked') });
-                                  }}
+                                  onClick={() => setMapManaging({ id: access.id, empName, toolName, level: access.level })}
                                 />
                               </div>
                             );
@@ -6840,6 +7623,22 @@ function AccessPage() {
                   })}
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Map dot action panel ── */}
+        {mapManaging && (
+          <div className="rounded-2xl border border-blue-500/30 bg-slate-900/80 p-4 flex items-center gap-4 flex-wrap">
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-semibold text-white">{mapManaging.empName} → {mapManaging.toolName}</div>
+              <div className="text-xs text-slate-500">{t('current_access')}: <span className="text-slate-300 font-medium">{mapManaging.level}</span></div>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <button onClick={() => { muts.updateAccess.mutate({ id: mapManaging.id, patch: { access_level: 'viewer' } }, { onSuccess: () => toast.success(t('toast_changed_to_viewer')) }); setMapManaging(null); }} className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-xs font-semibold">Viewer</button>
+              <button onClick={() => { muts.updateAccess.mutate({ id: mapManaging.id, patch: { access_level: 'admin' } }, { onSuccess: () => toast.success(t('toast_changed_to_admin')) }); setMapManaging(null); }} className="px-3 py-1.5 bg-blue-700 hover:bg-blue-600 text-white rounded-lg text-xs font-semibold">Admin</button>
+              <button onClick={() => { muts.updateAccess.mutate({ id: mapManaging.id, patch: { status: 'revoked' } }, { onSuccess: () => toast.success(t('toast_revoked')) }); setMapManaging(null); }} className="px-3 py-1.5 bg-red-600/30 hover:bg-red-600/50 text-red-400 rounded-lg text-xs font-semibold">{t('revoke')}</button>
+              <button onClick={() => setMapManaging(null)} className="p-1.5 text-slate-500 hover:text-white rounded-lg text-xs font-bold">✗</button>
             </div>
           </div>
         )}
@@ -6863,7 +7662,7 @@ function AccessPage() {
                     privCount[name].count++;
                   });
                   const sorted = Object.entries(privCount).sort((a,b) => b[1].count - a[1].count).slice(0,5);
-                  if (sorted.length === 0) return <div className="text-sm text-slate-500 text-center py-4">No admin access yet</div>;
+                  if (sorted.length === 0) return <div className="text-sm text-slate-500 text-center py-4">{t('no_admin_access_yet')}</div>;
                   return sorted.map(([name, data]) => (
                     <div key={name} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-800/40 transition-colors">
                       <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
@@ -6871,11 +7670,11 @@ function AccessPage() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-medium text-white truncate">{name}</div>
-                        <div className="text-xs text-slate-500 truncate">{data.dept || 'No department'}</div>
+                        <div className="text-xs text-slate-500 truncate">{data.dept || t('no_department')}</div>
                       </div>
                       <div className="text-right">
                         <div className="text-sm font-bold text-purple-400">{data.count}</div>
-                        <div className="text-[10px] text-slate-500">admin</div>
+                        <div className="text-[10px] text-slate-500">{t('admin')}</div>
                       </div>
                     </div>
                   ));
@@ -6899,7 +7698,7 @@ function AccessPage() {
                   });
                   const sorted = Object.entries(toolCount).sort((a,b) => b[1].count - a[1].count).slice(0,5);
                   const maxCount = sorted[0]?.[1].count || 1;
-                  if (sorted.length === 0) return <div className="text-sm text-slate-500 text-center py-4">No access records yet</div>;
+                  if (sorted.length === 0) return <div className="text-sm text-slate-500 text-center py-4">{t('no_access_records_yet')}</div>;
                   return sorted.map(([name, data]) => (
                     <div key={name}>
                       <div className="flex items-center justify-between mb-1">
@@ -6937,7 +7736,7 @@ function AccessPage() {
                   const sorted = Object.entries(deptCount).sort((a,b) => b[1] - a[1]).slice(0,6);
                   const total = sorted.reduce((s, [,c]) => s + c, 0) || 1;
                   const colors = ['#3b82f6','#8b5cf6','#10b981','#f59e0b','#ef4444','#06b6d4'];
-                  if (sorted.length === 0) return <div className="text-sm text-slate-500 text-center py-4">No departments yet</div>;
+                  if (sorted.length === 0) return <div className="text-sm text-slate-500 text-center py-4">{t('no_departments_yet')}</div>;
                   return sorted.map(([dept, count], idx) => {
                     const pct = Math.round((count/total)*100);
                     return (
@@ -6978,11 +7777,11 @@ function AccessPage() {
                   <div className="flex items-center justify-between mb-3">
                     <div>
                       <h3 className="text-sm font-semibold text-white">{toolName}</h3>
-                      <div className="text-xs text-slate-500">{tool?.category || 'Uncategorized'}</div>
+                      <div className="text-xs text-slate-500">{tool?.category || t('uncategorized')}</div>
                     </div>
                     <div className="flex items-center gap-2">
-                      {adminCount > 0 && <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400 font-semibold">{adminCount} admin</span>}
-                      <span className="text-xs text-slate-500">{employees.length} users</span>
+                      {adminCount > 0 && <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400 font-semibold">{adminCount} {t('admin')}</span>}
+                      <span className="text-xs text-slate-500">{t('n_users_label').replace('{n}', employees.length)}</span>
                     </div>
                   </div>
                   <div className="space-y-1.5">
@@ -7000,7 +7799,7 @@ function AccessPage() {
                         </div>
                       );
                     })}
-                    {employees.length > 5 && <div className="text-[10px] text-slate-600">+ {employees.length - 5} more</div>}
+                    {employees.length > 5 && <div className="text-[10px] text-slate-600">{t('n_more_items').replace('{n}', employees.length - 5)}</div>}
                   </div>
                 </div>
               );
@@ -7015,12 +7814,12 @@ function AccessPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-800 bg-slate-950/50">
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-slate-400">Employee</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-slate-400">Tool</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-slate-400">Level</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-slate-400">Status</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-slate-400">Risk</th>
-                  <th className="text-right py-3 px-4 text-xs font-semibold text-slate-400">Actions</th>
+                  <th className="text-left py-3 px-4 text-xs font-semibold text-slate-400">{t('th_employee')}</th>
+                  <th className="text-left py-3 px-4 text-xs font-semibold text-slate-400">{t('tool_name')}</th>
+                  <th className="text-left py-3 px-4 text-xs font-semibold text-slate-400">{t('th_level')}</th>
+                  <th className="text-left py-3 px-4 text-xs font-semibold text-slate-400">{t('th_status')}</th>
+                  <th className="text-left py-3 px-4 text-xs font-semibold text-slate-400">{t('th_risk')}</th>
+                  <th className="text-right py-3 px-4 text-xs font-semibold text-slate-400">{t('th_actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -7050,16 +7849,24 @@ function AccessPage() {
                       ) : <span className="text-[10px] text-slate-600">—</span>}
                     </td>
                     <td className="py-3 px-4 text-right">
-                      <div className="flex gap-1 justify-end">
-                        <button onClick={() => {
-                          const action = window.prompt('Manage: ' + (a.employee?.full_name||'') + ' → ' + (a.tool?.name||a.tool_name) + '\n\n1=Viewer  2=Admin  3=Revoke');
-                          if (action === '1') muts.updateAccess.mutate({ id: a.id, patch: { access_level: 'viewer' } }, { onSuccess: () => toast.success('Changed to Viewer') });
-                          else if (action === '2') muts.updateAccess.mutate({ id: a.id, patch: { access_level: 'admin' } }, { onSuccess: () => toast.success('Changed to Admin') });
-                          else if (action === '3') muts.updateAccess.mutate({ id: a.id, patch: { status: 'revoked' } }, { onSuccess: () => toast.success('Revoked') });
-                        }} className="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold">Manage</button>
-                        <button onClick={() => {
-                          if(window.confirm('Revoke?')) muts.updateAccess.mutate({ id: a.id, patch: { status: 'revoked' } }, { onSuccess: () => toast.success('Revoked') });
-                        }} className="px-2 py-1 bg-red-600/20 hover:bg-red-600/40 text-red-400 rounded-lg text-xs font-semibold">×</button>
+                      <div className="flex gap-1 justify-end items-center">
+                        {managingId === a.id ? (
+                          <div className="flex gap-1 items-center">
+                            <button onClick={() => { muts.updateAccess.mutate({ id: a.id, patch: { access_level: 'viewer' } }, { onSuccess: () => toast.success(t('toast_changed_to_viewer')) }); setManagingId(null); }} className="px-2 py-1 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-xs font-semibold">Viewer</button>
+                            <button onClick={() => { muts.updateAccess.mutate({ id: a.id, patch: { access_level: 'admin' } }, { onSuccess: () => toast.success(t('toast_changed_to_admin')) }); setManagingId(null); }} className="px-2 py-1 bg-blue-700 hover:bg-blue-600 text-white rounded-lg text-xs font-semibold">Admin</button>
+                            <button onClick={() => { muts.updateAccess.mutate({ id: a.id, patch: { status: 'revoked' } }, { onSuccess: () => toast.success(t('toast_revoked')) }); setManagingId(null); }} className="px-2 py-1 bg-red-600/30 hover:bg-red-600/50 text-red-400 rounded-lg text-xs font-semibold">{t('revoke')}</button>
+                            <button onClick={() => setManagingId(null)} className="px-1.5 py-1 text-slate-500 hover:text-white rounded-lg text-xs font-bold">✗</button>
+                          </div>
+                        ) : (
+                          <>
+                            <button onClick={() => { setManagingId(a.id); rowRevokeConfirm.reset(); }} className="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold">{t('manage')}</button>
+                            {rowRevokeConfirm.isPending(a.id) ? (
+                              <ConfirmButtons onConfirm={() => { muts.updateAccess.mutate({ id: a.id, patch: { status: 'revoked' } }, { onSuccess: () => toast.success(t('toast_revoked')) }); rowRevokeConfirm.reset(); }} onCancel={rowRevokeConfirm.cancel} />
+                            ) : (
+                              <button onClick={() => rowRevokeConfirm.ask(a.id)} className="px-2 py-1 bg-red-600/20 hover:bg-red-600/40 text-red-400 rounded-lg text-xs font-semibold">×</button>
+                            )}
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -7067,7 +7874,7 @@ function AccessPage() {
               </tbody>
             </table>
             </div>
-            {filteredAccess.length > 25 && <div className="text-center py-3 text-xs text-slate-500">Showing 25 of {filteredAccess.length} records</div>}
+            {filteredAccess.length > 25 && <div className="text-center py-3 text-xs text-slate-500">{t('showing_n_of_m').replace('{x}', 25).replace('{n}', filteredAccess.length)}</div>}
           </div>
         )}
 
@@ -7157,16 +7964,16 @@ Return ONLY the JSON array, no markdown.`;
             <svg className="h-5 w-5 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
           </div>
           <div>
-            <h3 className="text-base font-bold text-white">AI Access Recommendations</h3>
-            <p className="text-xs text-slate-400">Powered by Claude AI</p>
+            <h3 className="text-base font-bold text-white">{t('ai_access_recommendations')}</h3>
+            <p className="text-xs text-slate-400">{t('powered_by_claude_ai')}</p>
           </div>
         </div>
         <button onClick={generateRecs} disabled={loading}
           className="text-xs px-3 py-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 rounded-lg border border-purple-500/20 transition-colors">
-          {loading ? 'Analysing...' : 'Refresh'}
+          {loading ? t('contract_analysing') : t('refresh')}
         </button>
       </div>
-      {loading && <div className="flex items-center gap-2 text-slate-400 text-sm"><div className="h-4 w-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin"/><span>Analysing your access data...</span></div>}
+      {loading && <div className="flex items-center gap-2 text-slate-400 text-sm"><div className="h-4 w-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin"/><span>{t('analysing_access_data')}</span></div>}
       {recs && (
         <div className="space-y-3">
           {(expanded ? recs : recs.slice(0,3)).map((rec, i) => (
@@ -7184,7 +7991,7 @@ Return ONLY the JSON array, no markdown.`;
           ))}
           {recs.length > 3 && (
             <button onClick={() => setExpanded(e => !e)} className="text-xs text-slate-400 hover:text-slate-200 transition-colors">
-              {expanded ? 'Show less' : `Show ${recs.length - 3} more recommendations`}
+              {expanded ? t('collapse') : `${t('show_more')} (${recs.length - 3})`}
             </button>
           )}
         </div>
@@ -7195,6 +8002,8 @@ Return ONLY the JSON array, no markdown.`;
 
 // ── Slack Notifications Setup ─────────────────────────────────────────────
 function SlackNotifications() {
+  const { language } = useLang();
+  const t = useTranslation(language);
   const [webhook, setWebhook] = React.useState(localStorage.getItem('slack_webhook') || '');
   const [saved, setSaved] = React.useState(false);
   const [testing, setTesting] = React.useState(false);
@@ -7213,9 +8022,9 @@ function SlackNotifications() {
         method: 'POST',
         body: JSON.stringify({ text: '✅ Stacklens connected! You will receive alerts for security risks, renewals and offboarding.' })
       });
-      toast.success('Test message sent to Slack!');
+      toast.success(t('toast_slack_test_sent'));
     } catch(e) {
-      toast.error('Failed to send. Check your webhook URL.');
+      toast.error(t('toast_slack_failed'));
     } finally { setTesting(false); }
   };
 
@@ -7224,13 +8033,13 @@ function SlackNotifications() {
       <div className="flex items-center gap-3 mb-4">
         <div className="p-2 bg-emerald-500/20 rounded-xl text-xl">💬</div>
         <div>
-          <h3 className="text-base font-bold text-white">Slack Notifications</h3>
-          <p className="text-xs text-slate-400">Get alerts for risks, renewals & offboarding</p>
+          <h3 className="text-base font-bold text-white">{t('slack_notifications')}</h3>
+          <p className="text-xs text-slate-400">{t('slack_get_alerts')}</p>
         </div>
       </div>
       <div className="space-y-3">
         <div>
-          <label className="text-xs text-slate-400 mb-1 block">Slack Webhook URL</label>
+          <label className="text-xs text-slate-400 mb-1 block">{t('slack_webhook_url')}</label>
           <input
             value={webhook}
             onChange={e => setWebhook(e.target.value)}
@@ -7238,23 +8047,23 @@ function SlackNotifications() {
             className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-emerald-500 transition-colors"
           />
           <p className="text-xs text-slate-500 mt-1">
-            <a href="https://api.slack.com/apps" target="_blank" rel="noreferrer" className="text-blue-400 hover:underline">Create a Slack App</a> → Incoming Webhooks → Add New Webhook
+            <a href="https://api.slack.com/apps" target="_blank" rel="noreferrer" className="text-blue-400 hover:underline">{t('slack_create_app')}</a> → Incoming Webhooks → Add New Webhook
           </p>
         </div>
         <div className="flex gap-2">
           <button onClick={save} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold rounded-xl transition-colors">
-            {saved ? '✓ Saved!' : 'Save'}
+            {saved ? `✓ ${t('saved_msg')}` : t('save')}
           </button>
           {webhook && (
             <button onClick={test} disabled={testing} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-semibold rounded-xl transition-colors">
-              {testing ? 'Sending...' : 'Test Connection'}
+              {testing ? `${t('loading')}` : t('send')}
             </button>
           )}
         </div>
         <div className="pt-2 border-t border-slate-800">
-          <p className="text-xs text-slate-500 mb-2">You will receive alerts for:</p>
+          <p className="text-xs text-slate-500 mb-2">{t('slack_will_receive')}</p>
           <div className="grid grid-cols-2 gap-1">
-            {['🚨 High risk tools', '👤 Former employee access', '🔔 Renewals in 30 days', '⚡ Offboarding needed'].map(a => (
+            {[`🚨 ${t('high_risk_tools')}`, `👤 ${t('hc_former_employee_access')}`, `🔔 ${t('renewals_tab')} 30d`, `⚡ ${t('offboarding_title')}`].map(a => (
               <div key={a} className="text-xs text-slate-400 flex items-center gap-1">{a}</div>
             ))}
           </div>
@@ -7267,6 +8076,7 @@ function SlackNotifications() {
 // ── License Benchmarking ──────────────────────────────────────────────────
 function LicenseBenchmark({ tools }) {
   const { language } = useLang();
+  const t = useTranslation(language);
   const BENCHMARKS = {
     'slack': { avg: 8.75, name: 'Slack' },
     'github': { avg: 21, name: 'GitHub' },
@@ -7281,7 +8091,7 @@ function LicenseBenchmark({ tools }) {
   };
 
   const comparisons = (tools || []).map(tool => {
-    const key = tool.name.toLowerCase().replace(/[^a-z]/g, '');
+    const key = (tool?.name || '').toLowerCase().replace(/[^a-z]/g, '');
     const bench = Object.entries(BENCHMARKS).find(([k]) => key.includes(k));
     if (!bench || !tool.cost_per_month) return null;
     const perUser = tool.cost_per_month;
@@ -7298,8 +8108,8 @@ function LicenseBenchmark({ tools }) {
           <svg className="h-5 w-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
         </div>
         <div>
-          <h3 className="text-base font-bold text-white">License Benchmarking</h3>
-          <p className="text-xs text-slate-400">Your costs vs industry average</p>
+          <h3 className="text-base font-bold text-white">{t('license_benchmarking')}</h3>
+          <p className="text-xs text-slate-400">{t('license_costs_vs_industry')}</p>
         </div>
       </div>
       <div className="space-y-2">
@@ -7324,22 +8134,24 @@ function LicenseBenchmark({ tools }) {
 }
 
 function ChecklistItems() {
+  const { language } = useLang();
+  const t = useTranslation(language);
   const [checked, setChecked] = React.useState({});
   const items = [
-    "Revoke all SaaS tool access",
-    "Remove from SSO / identity provider",
-    "Transfer ownership of shared docs",
-    "Recover company devices",
-    "Archive or reassign email",
-    "Remove from Slack / Teams",
-    "Cancel user-specific subscriptions",
+    t('cl_revoke_saas'),
+    t('cl_remove_sso'),
+    t('cl_transfer_docs'),
+    t('cl_recover_devices'),
+    t('cl_archive_email'),
+    t('cl_remove_slack'),
+    t('cl_cancel_subs'),
   ];
   const doneCount = Object.values(checked).filter(Boolean).length;
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
-        <span className="text-xs text-slate-500">{doneCount}/{items.length} completed</span>
-        {doneCount === items.length && <span className="text-xs text-emerald-400 font-semibold">All done!</span>}
+        <span className="text-xs text-slate-500">{t('cl_n_of_m_completed').replace('{n}', doneCount).replace('{m}', items.length)}</span>
+        {doneCount === items.length && <span className="text-xs text-emerald-400 font-semibold">{t('all_done')}</span>}
       </div>
       <div className="space-y-2 text-sm text-slate-400">
         {items.map((item) => (
@@ -7354,6 +8166,185 @@ function ChecklistItems() {
       </div>
     </div>
   );
+}
+
+function printOffboardingChecklist(employee, activeRecords, allAccess) {
+  const revokedRecords = allAccess.filter(a => a.employee_id === employee.id && a.status === 'revoked');
+  const allRecords = [...revokedRecords, ...activeRecords];
+  const today = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+  const bestPractices = [
+    'Revoke all SaaS tool access',
+    'Remove from SSO / identity provider',
+    'Transfer ownership of shared documents',
+    'Recover company devices (laptop, phone, badge)',
+    'Archive or reassign corporate email',
+    'Remove from Slack / Microsoft Teams',
+    'Cancel user-specific subscriptions',
+    'Update emergency contact lists',
+    'Complete exit interview',
+    'Return all access badges and keys',
+  ];
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>Offboarding Checklist — ${employee.full_name}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Helvetica Neue', Arial, sans-serif; color: #1e293b; background: #fff; padding: 40px; font-size: 13px; }
+  .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 32px; padding-bottom: 20px; border-bottom: 2px solid #e2e8f0; }
+  .brand { font-size: 22px; font-weight: 800; color: #0f172a; letter-spacing: -0.5px; }
+  .brand span { color: #3b82f6; }
+  .doc-meta { text-align: right; font-size: 11px; color: #64748b; line-height: 1.8; }
+  .section { margin-bottom: 28px; }
+  .section-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #64748b; margin-bottom: 12px; padding-bottom: 6px; border-bottom: 1px solid #e2e8f0; }
+  .emp-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .emp-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; }
+  .emp-card-label { font-size: 10px; text-transform: uppercase; color: #94a3b8; margin-bottom: 3px; }
+  .emp-card-value { font-size: 13px; font-weight: 600; color: #0f172a; }
+  table { width: 100%; border-collapse: collapse; }
+  th { background: #f1f5f9; text-align: left; padding: 8px 12px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; font-weight: 600; }
+  td { padding: 9px 12px; border-bottom: 1px solid #f1f5f9; font-size: 12px; vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: 10px; font-weight: 600; text-transform: uppercase; }
+  .badge-revoked { background: #dcfce7; color: #16a34a; }
+  .badge-active  { background: #fee2e2; color: #dc2626; }
+  .badge-admin   { background: #eff6ff; color: #2563eb; }
+  .badge-member  { background: #f8fafc; color: #64748b; }
+  .checklist { columns: 2; gap: 16px; }
+  .check-item { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 10px; break-inside: avoid; }
+  .check-box { width: 14px; height: 14px; border: 2px solid #cbd5e1; border-radius: 3px; flex-shrink: 0; margin-top: 1px; }
+  .check-label { font-size: 12px; color: #334155; line-height: 1.5; }
+  .signature-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; margin-top: 8px; }
+  .sig-line { border-bottom: 1px solid #94a3b8; padding-bottom: 4px; margin-bottom: 4px; height: 36px; }
+  .sig-label { font-size: 10px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; }
+  .footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; font-size: 10px; color: #94a3b8; }
+  .status-summary { display: flex; gap: 16px; margin-bottom: 12px; }
+  .stat { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 16px; text-align: center; }
+  .stat-num { font-size: 20px; font-weight: 800; color: #0f172a; }
+  .stat-lbl { font-size: 10px; color: #94a3b8; text-transform: uppercase; }
+  @media print {
+    body { padding: 20px; }
+    @page { margin: 15mm; }
+  }
+</style>
+</head>
+<body>
+<div class="header">
+  <div>
+    <div class="brand">Stack<span>lens</span></div>
+    <div style="font-size:15px;font-weight:700;color:#334155;margin-top:6px">Offboarding Checklist</div>
+  </div>
+  <div class="doc-meta">
+    <div><strong>Generated:</strong> ${today}</div>
+    <div><strong>Confidential</strong> — HR Use Only</div>
+    <div style="margin-top:4px;font-size:10px;color:#94a3b8">Ref: OB-${employee.id?.slice(-6)?.toUpperCase()}</div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">Employee Information</div>
+  <div class="emp-grid">
+    <div class="emp-card">
+      <div class="emp-card-label">Full Name</div>
+      <div class="emp-card-value">${employee.full_name || '—'}</div>
+    </div>
+    <div class="emp-card">
+      <div class="emp-card-label">Email</div>
+      <div class="emp-card-value" style="font-size:11px">${employee.email || '—'}</div>
+    </div>
+    <div class="emp-card">
+      <div class="emp-card-label">Department</div>
+      <div class="emp-card-value">${employee.department || '—'}</div>
+    </div>
+    <div class="emp-card">
+      <div class="emp-card-label">Role</div>
+      <div class="emp-card-value">${employee.role || '—'}</div>
+    </div>
+    <div class="emp-card">
+      <div class="emp-card-label">Start Date</div>
+      <div class="emp-card-value">${employee.start_date || '—'}</div>
+    </div>
+    <div class="emp-card">
+      <div class="emp-card-label">End Date</div>
+      <div class="emp-card-value">${employee.end_date || 'TBD'}</div>
+    </div>
+    <div class="emp-card">
+      <div class="emp-card-label">Status</div>
+      <div class="emp-card-value" style="text-transform:capitalize">${employee.status || '—'}</div>
+    </div>
+    <div class="emp-card">
+      <div class="emp-card-label">Manager</div>
+      <div class="emp-card-value">${employee.manager || '—'}</div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">Access Summary</div>
+  <div class="status-summary">
+    <div class="stat"><div class="stat-num">${allRecords.length}</div><div class="stat-lbl">Total Access</div></div>
+    <div class="stat"><div class="stat-num" style="color:#16a34a">${revokedRecords.length}</div><div class="stat-lbl">Revoked</div></div>
+    <div class="stat"><div class="stat-num" style="color:${activeRecords.length > 0 ? '#dc2626' : '#16a34a'}">${activeRecords.length}</div><div class="stat-lbl">Still Active</div></div>
+  </div>
+  ${allRecords.length > 0 ? `
+  <table>
+    <thead><tr>
+      <th>#</th><th>Tool / Application</th><th>Access Level</th><th>Granted Date</th><th>Last Accessed</th><th>Status</th>
+    </tr></thead>
+    <tbody>
+      ${allRecords.map((r, i) => `<tr>
+        <td style="color:#94a3b8">${i + 1}</td>
+        <td><strong>${r.tool_name || '—'}</strong></td>
+        <td><span class="badge badge-${r.access_level === 'admin' ? 'admin' : 'member'}">${r.access_level || '—'}</span></td>
+        <td>${r.granted_date || '—'}</td>
+        <td>${r.last_accessed_date || '—'}</td>
+        <td><span class="badge badge-${r.status === 'revoked' ? 'revoked' : 'active'}">${r.status}</span></td>
+      </tr>`).join('')}
+    </tbody>
+  </table>` : '<p style="color:#94a3b8;font-size:12px;padding:12px 0">No access records found.</p>'}
+</div>
+
+<div class="section">
+  <div class="section-title">Offboarding Checklist</div>
+  <div class="checklist">
+    ${bestPractices.map(item => `
+    <div class="check-item">
+      <div class="check-box"></div>
+      <div class="check-label">${item}</div>
+    </div>`).join('')}
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">Approvals &amp; Sign-off</div>
+  <div class="signature-grid">
+    <div>
+      <div class="sig-line"></div>
+      <div class="sig-label">HR Manager</div>
+    </div>
+    <div>
+      <div class="sig-line"></div>
+      <div class="sig-label">Direct Manager</div>
+    </div>
+    <div>
+      <div class="sig-line"></div>
+      <div class="sig-label">IT / Security</div>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  <span>Generated by Stacklens · stacklens.fr</span>
+  <span>Confidential — ${today}</span>
+  <span>Ref: OB-${employee.id?.slice(-6)?.toUpperCase()}</span>
+</div>
+
+<script>window.onload = function() { window.print(); }</script>
+</body>
+</html>`;
+  const w = window.open('', '_blank');
+  if (w) { w.document.write(html); w.document.close(); }
 }
 
 function OffboardingPage() {
@@ -7374,6 +8365,8 @@ function OffboardingPage() {
   const [tab, setTab] = useState("queue"); // "queue" | "history"
   const [employeeId, setEmployeeId] = useState(pre || "");
   const [checked, setChecked] = useState({});
+  const [revokeAllConfirm, setRevokeAllConfirm] = useState(false);
+  const [revokeRiskyConfirm, setRevokeRiskyConfirm] = useState(false);
 
   useEffect(() => {
     if (pre) setEmployeeId(pre);
@@ -7383,18 +8376,18 @@ function OffboardingPage() {
   const activeRecords = access.filter((a) => a.employee_id === employeeId && a.status === "active");
 
   const revokeOne = (id) => {
-    muts.updateAccess.mutate({ id, patch: { status: "revoked" } }, { onSuccess: () => toast.success("Access revoked") });
+    muts.updateAccess.mutate({ id, patch: { status: "revoked" } }, { onSuccess: () => toast.success(t('toast_access_revoked')) });
   };
   const revokeAll = () => {
     if (!employee) return;
-    if (!window.confirm(`Revoke all ${activeRecords.length} access records for ${employee.full_name}?`)) return;
     activeRecords.forEach((r) => muts.updateAccess.mutate({ id: r.id, patch: { status: "revoked" } }));
     muts.updateEmployee.mutate({
       id: employeeId,
       patch: { status: "offboarded", end_date: employee?.end_date || todayISO() },
     });
-    toast.success(`${employee.full_name} offboarded — ${activeRecords.length} access records revoked`);
+    toast.success(`${employee.full_name} ${t('toast_employee_offboarded')} — ${activeRecords.length} ${t('toast_revoked_records')}`);
     setEmployeeId("");
+    setRevokeAllConfirm(false);
   };
 
   // Pipeline buckets
@@ -7432,6 +8425,11 @@ function OffboardingPage() {
       title={t('nav_offboarding')}
       right={
         <div className="flex gap-2">
+          {employee && (
+            <Button variant="secondary" onClick={() => printOffboardingChecklist(employee, activeRecords, access)}>
+              <Download className="h-4 w-4" /> {t('off_print_checklist')}
+            </Button>
+          )}
           <Button variant="secondary" onClick={() => nav("/employees")}>
             <Users className="h-4 w-4" /> {t("nav_employees") || "Employees"}
           </Button>
@@ -7472,8 +8470,8 @@ function OffboardingPage() {
                 <AlertTriangle className="h-5 w-5 text-red-400" />
               </div>
               <div className="flex-1">
-                <div className="text-base font-semibold text-red-400 mb-1">Security Risk: {riskRecords.length} active access records belong to offboarded employees</div>
-                <p className="text-sm text-slate-400 mb-4">These users have been offboarded but their access was never revoked. This is a major security and compliance issue.</p>
+                <div className="text-base font-semibold text-red-400 mb-1">{t('offboarding_security_risk_header').replace('{n}', riskRecords.length)}</div>
+                <p className="text-sm text-slate-400 mb-4">{t('offboarding_security_risk_body')}</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 mb-4">
                   {riskRecords.slice(0, 6).map((a, idx) => {
                     const emp = employees.find(e => e.id === a.employee_id);
@@ -7490,14 +8488,16 @@ function OffboardingPage() {
                     );
                   })}
                 </div>
-                <button onClick={() => {
-                  if (window.confirm(`Revoke all ${riskRecords.length} risky access records?`)) {
-                    riskRecords.forEach(a => muts.updateAccess.mutate({ id: a.id, patch: { status: "revoked" } }));
-                    toast.success(`Revoked ${riskRecords.length} access records`);
-                  }
-                }} className="px-4 py-2 bg-red-600 hover:bg-red-500 rounded-xl font-semibold text-sm text-white transition-colors">
-                  Revoke All Risky Access
-                </button>
+                {revokeRiskyConfirm ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-red-300">{t('confirm_offboard_revoke_all')} {riskRecords.length} {t('confirm_revoke_all_risky')}</span>
+                    <ConfirmButtons onConfirm={() => { riskRecords.forEach(a => muts.updateAccess.mutate({ id: a.id, patch: { status: "revoked" } })); toast.success(`${t('toast_revoked')} ${riskRecords.length} ${t('toast_revoked_records')}`); setRevokeRiskyConfirm(false); }} onCancel={() => setRevokeRiskyConfirm(false)} />
+                  </div>
+                ) : (
+                  <button onClick={() => setRevokeRiskyConfirm(true)} className="px-4 py-2 bg-red-600 hover:bg-red-500 rounded-xl font-semibold text-sm text-white transition-colors">
+                    {t('access_revoke_all_high')}
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -7512,8 +8512,8 @@ function OffboardingPage() {
             {/* Tab bar */}
             <div className="flex gap-1 rounded-xl border border-slate-800 bg-slate-900/60 p-1 w-fit">
               {[
-                { id: "queue",   label: `Queue (${upcoming.length})` },
-                { id: "history", label: `History (${offboarded.length})` },
+                { id: "queue",   label: t('off_queue_tab').replace('{n}', upcoming.length) },
+                { id: "history", label: t('off_history_tab').replace('{n}', offboarded.length) },
               ].map(({ id, label }) => (
                 <button key={id} onClick={() => setTab(id)}
                   className={"px-4 py-2 rounded-lg text-sm font-semibold transition-colors " + (tab === id ? "bg-blue-600 text-white" : "text-slate-400 hover:text-slate-200")}>
@@ -7554,7 +8554,7 @@ function OffboardingPage() {
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="text-sm font-semibold text-white truncate">{e.full_name}</div>
-                            <div className="text-xs text-slate-500 truncate">{e.department || '—'} · {empAccess.length} active access</div>
+                            <div className="text-xs text-slate-500 truncate">{e.department || '—'} · {t('off_n_active_access').replace('{n}', empAccess.length)}</div>
                           </div>
                           <div className="flex items-center gap-2 flex-shrink-0">
                             {days !== null && (
@@ -7563,7 +8563,7 @@ function OffboardingPage() {
                                 days <= 7 ? "bg-amber-500/20 text-amber-400" :
                                 "bg-slate-700 text-slate-400"
                               )}>
-                                {days < 0 ? `${Math.abs(days)}d overdue` : days === 0 ? "Today" : `${days}d`}
+                                {days < 0 ? t('offboarding_d_overdue').replace('{n}', Math.abs(days)) : days === 0 ? t('offboarding_today') : `${days}d`}
                               </span>
                             )}
                             <span className={"text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase " + (
@@ -7609,15 +8609,15 @@ function OffboardingPage() {
                           <div className="flex-1 min-w-0">
                             <div className="text-sm font-semibold text-white truncate">{e.full_name}</div>
                             <div className="text-xs text-slate-500 truncate">
-                              {e.department || '—'} · Offboarded {e.end_date || 'recently'}
+                              {e.department || '—'} · {t('off_offboarded_date').replace('{d}', e.end_date || t('recently') || 'recently')}
                             </div>
                           </div>
                           <div className="flex items-center gap-2 flex-shrink-0">
                             {revokedCount > 0 && (
-                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400">{revokedCount} revoked</span>
+                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400">{t('off_n_revoked').replace('{n}', revokedCount)}</span>
                             )}
                             {remainingCount > 0 && (
-                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-500/20 text-red-400">{remainingCount} risk</span>
+                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-500/20 text-red-400">{t('off_n_risk').replace('{n}', remainingCount)}</span>
                             )}
                           </div>
                         </div>
@@ -7667,6 +8667,13 @@ function OffboardingPage() {
                       <div className="text-base font-semibold text-white truncate">{employee.full_name}</div>
                       <div className="text-xs text-slate-500 truncate">{employee.email}</div>
                     </div>
+                    <button
+                      onClick={() => printOffboardingChecklist(employee, activeRecords, access)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-xs font-semibold transition-colors flex-shrink-0"
+                      title="Print or save as PDF"
+                    >
+                      <Download className="h-3.5 w-3.5" />PDF
+                    </button>
                   </div>
                   <div className="grid grid-cols-3 gap-2 text-center">
                     <div className="rounded-lg bg-slate-800/50 p-2">
@@ -7675,11 +8682,11 @@ function OffboardingPage() {
                     </div>
                     <div className="rounded-lg bg-slate-800/50 p-2">
                       <div className="text-[10px] text-slate-500 uppercase">{t("offboarding_access_label")}</div>
-                      <div className="text-xs font-semibold text-white">{activeRecords.length} active</div>
+                      <div className="text-xs font-semibold text-white">{t('off_n_active').replace('{n}', activeRecords.length)}</div>
                     </div>
                     <div className="rounded-lg bg-slate-800/50 p-2">
                       <div className="text-[10px] text-slate-500 uppercase">{t("offboarding_end_date")}</div>
-                      <div className="text-xs font-semibold text-white">{employee.end_date || 'TBD'}</div>
+                      <div className="text-xs font-semibold text-white">{employee.end_date || t('off_tbd')}</div>
                     </div>
                   </div>
                 </div>
@@ -7709,23 +8716,30 @@ function OffboardingPage() {
                             <div className="flex-1 min-w-0">
                               <div className="text-sm font-semibold text-white truncate">{r.tool_name}</div>
                               <div className="text-[10px] text-slate-500">
-                                <span className="capitalize">{r.access_level}</span> · Granted {r.granted_date || '—'}
+                                <span className="capitalize">{r.access_level}</span> · {t('off_granted_date').replace('{d}', r.granted_date || '—')}
                               </div>
                             </div>
                             <button onClick={() => revokeOne(r.id)}
                               className="px-2.5 py-1 bg-red-600/20 hover:bg-red-600/40 text-red-400 rounded-lg text-xs font-semibold transition-colors flex-shrink-0">
-                              Revoke
+                              {t('revoke')}
                             </button>
                           </div>
                         ))}
                       </div>
 
                       {/* One-click button */}
-                      <button onClick={revokeAll}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-600 hover:bg-red-500 rounded-xl font-bold text-sm text-white transition-all shadow-lg shadow-red-500/20">
-                        <BadgeX className="h-4 w-4" />
-                        One-Click Offboard ({activeRecords.length} access)
-                      </button>
+                      {revokeAllConfirm ? (
+                        <div className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl border border-red-500/30 bg-red-500/10">
+                          <span className="text-sm text-red-300">{t('confirm_offboard_revoke_all')} {activeRecords.length} {t('confirm_revoke_all_risky')}</span>
+                          <ConfirmButtons onConfirm={revokeAll} onCancel={() => setRevokeAllConfirm(false)} />
+                        </div>
+                      ) : (
+                        <button onClick={() => setRevokeAllConfirm(true)}
+                          className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-600 hover:bg-red-500 rounded-xl font-bold text-sm text-white transition-all shadow-lg shadow-red-500/20">
+                          <BadgeX className="h-4 w-4" />
+                          {t('off_one_click_label').replace('{n}', activeRecords.length)}
+                        </button>
+                      )}
                       <p className="text-[10px] text-slate-600 text-center mt-2">
                         {t("offboarding_one_click_sub")}
                       </p>
@@ -7826,32 +8840,39 @@ function ImportWizard({ defaultKind = null, onDone = null }) {
     if (!file) return;
     const name = file.name.toLowerCase();
     let csv;
-    if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
-      if (!window.XLSX) {
-        await new Promise((res, rej) => {
-          const s = document.createElement('script');
-          s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
-          s.onload = res; s.onerror = rej;
-          document.head.appendChild(s);
+    try {
+      if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
+        if (!window.XLSX) {
+          await new Promise((res, rej) => {
+            const s = document.createElement('script');
+            s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+            s.onload = res; s.onerror = () => rej(new Error('Failed to load Excel reader. Check your connection.'));
+            document.head.appendChild(s);
+          });
+        }
+        const ab = await file.arrayBuffer();
+        const wb = window.XLSX.read(ab, { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        csv = window.XLSX.utils.sheet_to_csv(ws);
+      } else {
+        csv = await new Promise((res, rej) => {
+          const reader = new FileReader();
+          reader.onload = (e) => res(e.target.result);
+          reader.onerror = () => rej(new Error('Could not read file'));
+          reader.readAsText(file);
         });
       }
-      const ab = await file.arrayBuffer();
-      const wb = window.XLSX.read(ab, { type: 'array' });
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      csv = window.XLSX.utils.sheet_to_csv(ws);
-    } else {
-      csv = await new Promise((res) => {
-        const reader = new FileReader();
-        reader.onload = (e) => res(e.target.result);
-        reader.readAsText(file);
-      });
+    } catch (err) {
+      toast.error(err.message || 'Could not read file. Try saving as CSV and uploading again.');
+      return;
     }
     setText(csv);
-    // Auto-detect type from headers
     const detected = detectKind(csv);
     if (detected) {
       setKind(detected);
-      toast.success('Detected: ' + (KINDS[detected]?.label || detected));
+      toast.success(t('toast_detected') + ' ' + (KINDS[detected]?.label || detected));
+    } else if (!kind) {
+      toast('Could not detect file type — please select the data type above.', { icon: '⚠️' });
     }
     goTo(2);
   };
@@ -7861,11 +8882,17 @@ function ImportWizard({ defaultKind = null, onDone = null }) {
     setImporting(true);
     try {
       await muts.bulkImport.mutateAsync({ kind, records: liveRows });
-      // Wait for Firestore to sync before proceeding
       await new Promise(r => setTimeout(r, 1500));
       setImported({ count: liveRows.length, kind });
       if (onDone) setTimeout(onDone, 2000);
       goTo(3);
+    } catch (err) {
+      const msg = err?.message || '';
+      if (msg.startsWith('PLAN_LIMIT:')) {
+        toast.error(msg.replace('PLAN_LIMIT:', ''), { duration: 8000 });
+      } else {
+        toast.error(t('toast_import_failed') + ' ' + (msg || 'Unknown error'));
+      }
     } finally { setImporting(false); }
   };
 
@@ -7912,7 +8939,7 @@ function ImportWizard({ defaultKind = null, onDone = null }) {
     const detected = detectKind(val);
     if (detected && detected !== kind) {
       setKind(detected);
-      toast.success('Detected type: ' + KINDS[detected].label + ' — smart detection! ✨');
+      toast.success(t('toast_detected_type') + ' ' + KINDS[detected].label + ' ✨');
     }
   };
 
@@ -8053,7 +9080,7 @@ function ImportWizard({ defaultKind = null, onDone = null }) {
           {kind && (
             <div className="flex items-center gap-2 text-xs text-slate-500 bg-slate-900/60 border border-slate-800 rounded-xl px-4 py-2.5">
               <span className="text-lg">{KINDS[kind].icon}</span>
-              <span>{t('import_as_label')} <span className="text-white font-semibold">{KINDS[kind].label}</span></span>
+              <span>{t('imp_importing_as')} <span className="text-white font-semibold">{KINDS[kind].label}</span></span>
               <button onClick={() => goTo(0)} className="ml-auto text-blue-400 hover:text-blue-300 font-semibold">{t('back')}</button>
             </div>
           )}
@@ -8078,6 +9105,8 @@ function ImportWizard({ defaultKind = null, onDone = null }) {
               <div className="mt-4 flex items-center gap-2 text-xs text-slate-700">
                 <span className="px-2 py-0.5 bg-slate-800 rounded font-mono">CSV</span>
                 <span className="px-2 py-0.5 bg-slate-800 rounded font-mono">TXT</span>
+                <span className="px-2 py-0.5 bg-slate-800 rounded font-mono">XLSX</span>
+                <span className="px-2 py-0.5 bg-slate-800 rounded font-mono">XLS</span>
               </div>
             </div>
 
@@ -8129,7 +9158,7 @@ function ImportWizard({ defaultKind = null, onDone = null }) {
                             <td className="px-3 py-2">
                               {valid
                                 ? <span className="text-emerald-400 flex items-center gap-1"><Check className="h-3 w-3" /> OK</span>
-                                : <span className="text-rose-400 flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> Missing</span>
+                                : <span className="text-rose-400 flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> {t('imp_missing')}</span>
                               }
                             </td>
                           </tr>
@@ -8141,7 +9170,7 @@ function ImportWizard({ defaultKind = null, onDone = null }) {
                   {liveRows.length > 10 && <div className="text-center text-xs text-slate-600 py-2">{t('import_showing_of')} {liveRows.length} {t('rows')}</div>}
                 </div>
                 <div className="flex items-center justify-between mt-4">
-                  <div className="text-xs text-slate-500">{t('import_not_duplicated')}</div>
+                  <div className="text-xs text-slate-500">{t('imp_existing_updated')}</div>
                   <button disabled={validCount === 0 || importing} onClick={handleImport}
                     className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 rounded-xl font-bold text-sm transition-all active:scale-[0.98]">
                     {importing
@@ -8180,6 +9209,221 @@ function ImportWizard({ defaultKind = null, onDone = null }) {
   );
 }
 
+
+function printExecutiveSummary(db, derived) {
+  if (!db || !derived) return;
+  const today = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+  const orgName = JSON.parse(localStorage.getItem('sg_general') || '{}').orgName || 'Your Organisation';
+  const tools = derived.tools || [];
+  const employees = derived.employees || [];
+  const access = derived.access || [];
+  const totalSpend = tools.reduce((s, t) => s + Number(t.cost_per_month || 0), 0);
+  const annualSpend = totalSpend * 12;
+  const activeTools = tools.filter(t => t.derived_status === 'active').length;
+  const unusedTools = tools.filter(t => t.derived_status === 'unused' || t.derived_status === 'orphaned').length;
+  const highRisk = tools.filter(t => t.derived_risk === 'high').length;
+  const formerAccess = access.filter(a => a.derived_risk_flag === 'former_employee').length;
+  const healthScore = derived.healthScore || 0;
+  const healthLabel = healthScore >= 80 ? 'Audit Ready' : healthScore >= 60 ? 'Needs Attention' : 'At Risk';
+  const healthColor = healthScore >= 80 ? '#10b981' : healthScore >= 60 ? '#f59e0b' : '#ef4444';
+  const topTools = [...tools].sort((a, b) => Number(b.cost_per_month || 0) - Number(a.cost_per_month || 0)).slice(0, 10);
+  const renewals = tools.filter(t => t.renewal_date).sort((a, b) => new Date(a.renewal_date) - new Date(b.renewal_date))
+    .filter(t => { const d = new Date(t.renewal_date); const now = new Date(); return d >= now && d <= new Date(now.getFullYear(), now.getMonth() + 3, now.getDate()); }).slice(0, 8);
+  const byCategory = tools.reduce((acc, t) => { const k = t.category || 'Other'; acc[k] = (acc[k] || 0) + Number(t.cost_per_month || 0); return acc; }, {});
+  const topCategories = Object.entries(byCategory).sort((a, b) => b[1] - a[1]).slice(0, 6);
+  const risks = derived.alerts || buildRiskAlerts(db) || [];
+  const riskCounts = { critical: 0, high: 0, medium: 0, low: 0 };
+  risks.forEach(r => { if (riskCounts[r.severity] !== undefined) riskCounts[r.severity]++; });
+
+  const fmt = (n) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>Executive SaaS Report — ${orgName}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Helvetica Neue',Arial,sans-serif;color:#1e293b;background:#fff;padding:40px;font-size:13px}
+  .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;padding-bottom:20px;border-bottom:3px solid #0f172a}
+  .brand{font-size:24px;font-weight:800;color:#0f172a;letter-spacing:-0.5px}
+  .brand span{color:#3b82f6}
+  .doc-meta{text-align:right;font-size:11px;color:#64748b;line-height:1.9}
+  .section{margin-bottom:26px}
+  .section-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#64748b;margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid #e2e8f0}
+  .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:4px}
+  .kpi{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px 12px;text-align:center}
+  .kpi-num{font-size:26px;font-weight:800;color:#0f172a;line-height:1}
+  .kpi-lbl{font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;margin-top:4px}
+  .kpi-sub{font-size:11px;color:#64748b;margin-top:2px}
+  .health-row{display:flex;align-items:center;gap:16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px 16px;margin-bottom:16px}
+  .health-circle{width:52px;height:52px;border-radius:50%;background:conic-gradient(${healthColor} ${healthScore * 3.6}deg,#e2e8f0 0deg);display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative}
+  .health-inner{width:38px;height:38px;border-radius:50%;background:#f8fafc;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:${healthColor}}
+  .risk-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  .risk-card{border-radius:8px;padding:10px 12px;text-align:center}
+  .risk-num{font-size:20px;font-weight:800}
+  .risk-lbl{font-size:10px;font-weight:600;text-transform:uppercase}
+  table{width:100%;border-collapse:collapse}
+  th{background:#f1f5f9;text-align:left;padding:7px 10px;font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:#64748b;font-weight:600}
+  td{padding:8px 10px;border-bottom:1px solid #f8fafc;font-size:12px;vertical-align:middle}
+  .badge{display:inline-block;padding:2px 7px;border-radius:99px;font-size:9px;font-weight:700;text-transform:uppercase}
+  .b-high{background:#fee2e2;color:#dc2626}
+  .b-medium{background:#fef3c7;color:#d97706}
+  .b-low{background:#dcfce7;color:#16a34a}
+  .b-active{background:#dbeafe;color:#2563eb}
+  .b-unused{background:#f1f5f9;color:#64748b}
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .cat-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #f1f5f9;font-size:12px}
+  .cat-bar-wrap{width:80px;height:6px;background:#e2e8f0;border-radius:3px;margin:0 8px}
+  .footer{margin-top:32px;padding-top:12px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;font-size:10px;color:#94a3b8}
+  @media print{body{padding:16px}@page{margin:12mm;size:A4}}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <div class="brand">Stack<span>lens</span></div>
+    <div style="font-size:17px;font-weight:700;color:#334155;margin-top:6px">Executive SaaS Report</div>
+    <div style="font-size:12px;color:#94a3b8;margin-top:3px">${orgName}</div>
+  </div>
+  <div class="doc-meta">
+    <div><strong>Generated:</strong> ${today}</div>
+    <div><strong>Confidential</strong> — Executive Use Only</div>
+    <div style="margin-top:4px;font-size:10px;color:#94a3b8">Powered by Stacklens · stacklens.fr</div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">Key Performance Indicators</div>
+  <div class="kpi-grid">
+    <div class="kpi">
+      <div class="kpi-num">${tools.length}</div>
+      <div class="kpi-lbl">Total Tools</div>
+      <div class="kpi-sub">${activeTools} active · ${unusedTools} unused</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-num" style="color:#3b82f6">${fmt(totalSpend)}</div>
+      <div class="kpi-lbl">Monthly Spend</div>
+      <div class="kpi-sub">${fmt(annualSpend)} / year</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-num">${employees.length}</div>
+      <div class="kpi-lbl">Employees</div>
+      <div class="kpi-sub">${employees.filter(e => e.status === 'active').length} active</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-num">${access.filter(a => a.status === 'active').length}</div>
+      <div class="kpi-lbl">Access Records</div>
+      <div class="kpi-sub">${formerAccess > 0 ? `<span style="color:#dc2626">${formerAccess} at risk</span>` : 'All clear'}</div>
+    </div>
+  </div>
+</div>
+
+<div class="two-col">
+  <div class="section">
+    <div class="section-title">Security Health Score</div>
+    <div class="health-row">
+      <div class="health-circle"><div class="health-inner">${healthScore}</div></div>
+      <div>
+        <div style="font-size:15px;font-weight:700;color:${healthColor}">${healthLabel}</div>
+        <div style="font-size:11px;color:#64748b;margin-top:2px">${highRisk} high-risk tools · ${formerAccess} ex-employee access</div>
+      </div>
+    </div>
+    <div class="risk-grid">
+      <div class="risk-card" style="background:#fee2e2"><div class="risk-num" style="color:#dc2626">${riskCounts.critical}</div><div class="risk-lbl" style="color:#dc2626">Critical</div></div>
+      <div class="risk-card" style="background:#fef3c7"><div class="risk-num" style="color:#d97706">${riskCounts.high}</div><div class="risk-lbl" style="color:#d97706">High</div></div>
+      <div class="risk-card" style="background:#fefce8"><div class="risk-num" style="color:#ca8a04">${riskCounts.medium}</div><div class="risk-lbl" style="color:#ca8a04">Medium</div></div>
+      <div class="risk-card" style="background:#dcfce7"><div class="risk-num" style="color:#16a34a">${riskCounts.low}</div><div class="risk-lbl" style="color:#16a34a">Low</div></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Spend by Category</div>
+    ${topCategories.map(([cat, spend], i) => {
+      const pct = Math.round((spend / totalSpend) * 100) || 0;
+      return `<div class="cat-row">
+        <span style="color:#334155;font-weight:500">${cat}</span>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="cat-bar-wrap"><div style="height:6px;border-radius:3px;background:#3b82f6;width:${pct}%"></div></div>
+          <span style="color:#64748b;width:60px;text-align:right">${fmt(spend)}</span>
+        </div>
+      </div>`;
+    }).join('')}
+    ${topCategories.length === 0 ? '<div style="color:#94a3b8;font-size:12px;padding:8px 0">No spend data available.</div>' : ''}
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">Top Tools by Cost (Monthly)</div>
+  <table>
+    <thead><tr><th>#</th><th>Tool</th><th>Category</th><th>Owner</th><th>Status</th><th>Risk</th><th style="text-align:right">Monthly</th><th style="text-align:right">Annual</th></tr></thead>
+    <tbody>
+      ${topTools.map((t, i) => `<tr>
+        <td style="color:#94a3b8">${i + 1}</td>
+        <td><strong>${t.name}</strong>${t.url ? ` <span style="color:#94a3b8;font-size:10px">${t.url}</span>` : ''}</td>
+        <td style="color:#64748b">${t.category || '—'}</td>
+        <td style="color:#64748b">${t.owner_email || 'Unassigned'}</td>
+        <td><span class="badge ${t.derived_status === 'active' ? 'b-active' : 'b-unused'}">${t.derived_status}</span></td>
+        <td><span class="badge ${t.derived_risk === 'high' ? 'b-high' : t.derived_risk === 'medium' ? 'b-medium' : 'b-low'}">${t.derived_risk}</span></td>
+        <td style="text-align:right;font-weight:600">${t.cost_per_month ? fmt(Number(t.cost_per_month)) : '—'}</td>
+        <td style="text-align:right;color:#64748b">${t.cost_per_month ? fmt(Number(t.cost_per_month) * 12) : '—'}</td>
+      </tr>`).join('')}
+      <tr style="background:#f8fafc;font-weight:700">
+        <td colspan="6" style="text-align:right;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#64748b">Total</td>
+        <td style="text-align:right">${fmt(totalSpend)}</td>
+        <td style="text-align:right">${fmt(annualSpend)}</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+${renewals.length > 0 ? `
+<div class="section">
+  <div class="section-title">Upcoming Renewals (Next 90 Days)</div>
+  <table>
+    <thead><tr><th>Tool</th><th>Category</th><th>Renewal Date</th><th>Days Left</th><th style="text-align:right">Annual Cost</th></tr></thead>
+    <tbody>
+      ${renewals.map(t => {
+        const days = Math.ceil((new Date(t.renewal_date) - new Date()) / 86400000);
+        const urgentColor = days <= 7 ? '#dc2626' : days <= 30 ? '#d97706' : '#334155';
+        return `<tr>
+          <td><strong>${t.name}</strong></td>
+          <td style="color:#64748b">${t.category || '—'}</td>
+          <td>${t.renewal_date}</td>
+          <td style="color:${urgentColor};font-weight:600">${days} days</td>
+          <td style="text-align:right">${t.cost_per_month ? fmt(Number(t.cost_per_month) * 12) : '—'}</td>
+        </tr>`;
+      }).join('')}
+    </tbody>
+  </table>
+</div>` : ''}
+
+${unusedTools > 0 || formerAccess > 0 ? `
+<div class="section">
+  <div class="section-title">Recommendations</div>
+  <table>
+    <thead><tr><th>Priority</th><th>Action</th><th>Potential Saving / Impact</th></tr></thead>
+    <tbody>
+      ${formerAccess > 0 ? `<tr><td><span class="badge b-high">Critical</span></td><td>Revoke ${formerAccess} active access record(s) belonging to offboarded employees</td><td>Security / Compliance</td></tr>` : ''}
+      ${unusedTools > 0 ? `<tr><td><span class="badge b-medium">High</span></td><td>Review ${unusedTools} unused/orphaned tool(s) — consider cancelling licences</td><td>${fmt(tools.filter(t => t.derived_status === 'unused' || t.derived_status === 'orphaned').reduce((s, t) => s + Number(t.cost_per_month || 0), 0) * 12)} / year</td></tr>` : ''}
+      ${highRisk > 0 ? `<tr><td><span class="badge b-medium">Medium</span></td><td>Assign owners to ${highRisk} high-risk tool(s) with no designated owner</td><td>Governance</td></tr>` : ''}
+      <tr><td><span class="badge b-low">Low</span></td><td>Schedule quarterly access review for all critical tools</td><td>Best Practice</td></tr>
+    </tbody>
+  </table>
+</div>` : ''}
+
+<div class="footer">
+  <span>Generated by Stacklens · stacklens.fr</span>
+  <span>${orgName} · Confidential</span>
+  <span>${today}</span>
+</div>
+
+<script>window.onload=function(){window.print();}</script>
+</body>
+</html>`;
+  const w = window.open('', '_blank');
+  if (w) { w.document.write(html); w.document.close(); }
+}
 
 function AuditTabContent() {
   const { language } = useLang();
@@ -8221,21 +9465,21 @@ function AuditTabContent() {
     const headers = ["Name","Category","Owner","Criticality","Status","Risk","Monthly Cost","Last Used","URL"];
     const rows = derived.tools.map(t => [t.name, t.category, t.owner_email||'Unassigned', t.criticality, t.derived_status, t.derived_risk, t.cost_per_month||0, t.last_used_date||'Never', t.url||'']);
     downloadText(`stacklens_tools_${todayISO()}.csv`, toCsv(headers, rows));
-    toast.success('Tools export downloaded');
+    toast.success(t('toast_tools_export'));
   };
   const exportEmployees = () => {
     if (!derived) return;
     const headers = ["Name","Email","Department","Role","Status","Start Date","End Date"];
     const rows = derived.employees.map(e => [e.full_name, e.email, e.department, e.role, e.status, e.start_date||'', e.end_date||'']);
     downloadText(`stacklens_employees_${todayISO()}.csv`, toCsv(headers, rows));
-    toast.success('Employees export downloaded');
+    toast.success(t('toast_employees_export'));
   };
   const exportAccess = () => {
     if (!derived) return;
     const headers = ["Tool","Employee","Email","Access Level","Granted","Last Accessed","Last Reviewed","Status","Risk Flag"];
     const rows = derived.access.map(a => [a.tool_name, a.employee_name, a.employee_email, a.access_level, a.granted_date||'', a.last_accessed_date||'', a.last_reviewed_date||'', a.status, a.derived_risk_flag||'none']);
     downloadText(`stacklens_access_${todayISO()}.csv`, toCsv(headers, rows));
-    toast.success('Access export downloaded');
+    toast.success(t('toast_access_export'));
   };
   const exportFullPackage = () => { exportTools(); setTimeout(exportEmployees, 300); setTimeout(exportAccess, 600); };
 
@@ -8243,7 +9487,7 @@ function AuditTabContent() {
   const healthBg = (s) => s >= 80 ? "bg-emerald-500" : s >= 60 ? "bg-amber-500" : "bg-red-500";
 
   if (isLoading || !derived) return (
-    <div className="flex items-center justify-center py-20 text-slate-500">Loading audit data...</div>
+    <div className="flex items-center justify-center py-20 text-slate-500">{t('audit_loading')}</div>
   );
 
   return (
@@ -8272,7 +9516,7 @@ function AuditTabContent() {
             </div>
             <div>
               <div className={`text-lg font-semibold ${healthColor(derived.healthScore)}`}>
-                {derived.healthScore >= 80 ? 'Audit Ready' : derived.healthScore >= 60 ? 'Needs Attention' : 'At Risk'}
+                {derived.healthScore >= 80 ? t('security_audit_ready') : derived.healthScore >= 60 ? t('security_needs_attention') : t('security_at_risk')}
               </div>
               <p className="text-sm text-slate-500 mt-1">
                 {derived.healthScore >= 80 
@@ -8288,24 +9532,24 @@ function AuditTabContent() {
         {/* Quick Stats */}
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
-            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Tools</div>
+            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t('nav_tools')}</div>
             <div className="text-2xl font-black text-white">{derived.activeTools}</div>
-            <div className="text-xs text-slate-500">{derived.unusedTools} unused</div>
+            <div className="text-xs text-slate-500">{t('audit_n_unused').replace('{n}', derived.unusedTools)}</div>
           </div>
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
-            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Employees</div>
+            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t('nav_employees')}</div>
             <div className="text-2xl font-black text-white">{derived.employees.length}</div>
-            <div className="text-xs text-slate-500">{derived.employees.filter(e => e.status === 'active').length} active</div>
+            <div className="text-xs text-slate-500">{t('audit_n_active').replace('{n}', derived.employees.filter(e => e.status === 'active').length)}</div>
           </div>
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
-            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Access Records</div>
+            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t('exec_access_records')}</div>
             <div className="text-2xl font-black text-white">{derived.access.length}</div>
-            <div className="text-xs text-slate-500">{derived.access.filter(a => a.status === 'active').length} active</div>
+            <div className="text-xs text-slate-500">{t('audit_n_active').replace('{n}', derived.access.filter(a => a.status === 'active').length)}</div>
           </div>
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
-            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Risk Items</div>
+            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t('audit_risk_items')}</div>
             <div className="text-2xl font-black text-red-400">{derived.highRiskCount + derived.formerEmpAccess}</div>
-            <div className="text-xs text-slate-500">{derived.highRiskCount} tools, {derived.formerEmpAccess} access</div>
+            <div className="text-xs text-slate-500">{t('audit_n_tools_n_access').replace('{n}', derived.highRiskCount).replace('{n}', derived.formerEmpAccess)}</div>
           </div>
         </div>
 
@@ -8313,8 +9557,12 @@ function AuditTabContent() {
         <div className="rounded-2xl border border-blue-500/20 bg-gradient-to-br from-slate-900 to-blue-950/20 p-6">
           <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-4">{t("audit_export_package")}</div>
           <p className="text-sm text-slate-400 mb-5">{t("audit_package_desc")}</p>
-          <button onClick={exportFullPackage}
+          <button onClick={() => printExecutiveSummary(db, derived)}
             className="w-full flex items-center justify-center gap-2 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold text-sm transition-colors mb-3">
+            <FileText className="h-4 w-4" /> {t('audit_exec_pdf')}
+          </button>
+          <button onClick={exportFullPackage}
+            className="w-full flex items-center justify-center gap-2 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-xl font-semibold text-sm transition-colors mb-3">
             <Download className="h-4 w-4" /> {t("audit_download_full")}
           </button>
           <div className="text-xs text-slate-600 text-center">{t("audit_three_files")}</div>
@@ -8324,25 +9572,25 @@ function AuditTabContent() {
       {/* ── Row 2: Individual Exports with preview ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-5">
         {[
-          { 
-            title: 'Tools Inventory', 
-            desc: 'Complete SaaS tool registry with ownership, risk level, cost, and status',
+          {
+            title: t('audit_tools_inventory'),
+            desc: t('audit_tools_inventory_desc'),
             count: derived.tools.length,
             fn: exportTools,
             color: 'blue',
-            preview: derived.tools.slice(0,3).map(t => ({ name: t.name, status: t.derived_status, risk: t.derived_risk })),
+            preview: derived.tools.slice(0,3).map(tt => ({ name: tt.name, status: tt.derived_status, risk: tt.derived_risk })),
           },
-          { 
-            title: 'Employee Directory', 
-            desc: 'Staff directory with department, role, employment status, and dates',
+          {
+            title: t('audit_employee_directory'),
+            desc: t('audit_employee_directory_desc'),
             count: derived.employees.length,
             fn: exportEmployees,
             color: 'emerald',
             preview: derived.employees.slice(0,3).map(e => ({ name: e.full_name, dept: e.department, status: e.status })),
           },
-          { 
-            title: 'Access Records', 
-            desc: 'Every permission record with risk flags, review dates, and access levels',
+          {
+            title: t('audit_access_records'),
+            desc: t('audit_access_records_desc'),
             count: derived.access.length,
             fn: exportAccess,
             color: 'purple',
@@ -8352,13 +9600,13 @@ function AuditTabContent() {
           <div key={item.title} className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 lg:p-6">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-base font-semibold text-white">{item.title}</h3>
-              <span className="text-xs text-slate-500">{item.count} records</span>
+              <span className="text-xs text-slate-500">{t('audit_n_records').replace('{n}', item.count)}</span>
             </div>
             <p className="text-sm text-slate-400 mb-4">{item.desc}</p>
             
             {/* Mini preview table */}
             <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-3 mb-4">
-              <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-600 mb-2">Preview</div>
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-600 mb-2">{t('audit_preview')}</div>
               <div className="space-y-1.5">
                 {item.preview.map((row, idx) => (
                   <div key={idx} className="flex items-center justify-between text-xs">
@@ -8371,12 +9619,12 @@ function AuditTabContent() {
                   </div>
                 ))}
               </div>
-              {item.count > 3 && <div className="text-[10px] text-slate-600 mt-1.5">+ {item.count - 3} more</div>}
+              {item.count > 3 && <div className="text-[10px] text-slate-600 mt-1.5">{t('n_more_items').replace('{n}', item.count - 3)}</div>}
             </div>
 
             <button onClick={item.fn}
               className="w-full flex items-center justify-center gap-2 py-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl font-semibold text-sm transition-colors">
-              <Download className="h-4 w-4" /> Export CSV
+              <Download className="h-4 w-4" /> {t('audit_export_csv')}
             </button>
           </div>
         ))}
@@ -8390,7 +9638,7 @@ function AuditTabContent() {
               <h2 className="text-base font-semibold text-white">{t("audit_usage_dist")}</h2>
               <p className="text-sm text-slate-500">{t("audit_usage_sub")}</p>
             </div>
-            <span className="text-xs text-slate-500">{derived.topToolsByUsers.length} tools with users</span>
+            <span className="text-xs text-slate-500">{t('audit_n_tools_users').replace('{n}', derived.topToolsByUsers.length)}</span>
           </div>
           <div className="space-y-3">
             {derived.topToolsByUsers.map(([name, count], idx) => {
@@ -8405,7 +9653,7 @@ function AuditTabContent() {
                   </div>
                   <div className="w-20 text-right">
                     <span className="text-sm font-semibold text-white">{count}</span>
-                    <span className="text-xs text-slate-500 ml-1">users</span>
+                    <span className="text-xs text-slate-500 ml-1">{t('audit_users')}</span>
                   </div>
                 </div>
               );
@@ -8413,6 +9661,61 @@ function AuditTabContent() {
           </div>
         </div>
       )}
+
+      {/* ── Audit Log ── */}
+      {(db?.audit_log?.length > 0) && (
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 lg:p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-base font-semibold text-white">{t('audit_log_title') || 'Activity Log'}</h2>
+              <p className="text-sm text-slate-500">{t('audit_log_sub') || 'Record of all changes made in this workspace'}</p>
+            </div>
+            <button onClick={() => {
+              const headers = ['Timestamp','Action','Actor','Target','Details'];
+              const rows = (db.audit_log || []).map(e => [e.ts, e.action, e.actor, e.target || '', JSON.stringify({ tool: e.tool, dept: e.dept, from: e.from, to: e.to })]);
+              downloadText(`stacklens_audit_log_${todayISO()}.csv`, toCsv(headers, rows));
+              toast.success('Audit log exported');
+            }} className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-xs font-semibold text-slate-300 transition-colors">
+              <Download className="h-3.5 w-3.5" /> Export CSV
+            </button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-800">
+                  {['Timestamp', 'Action', 'By', 'Target'].map(h => (
+                    <th key={h} className="text-left py-2 px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {(db.audit_log || []).slice(0, 50).map((entry) => (
+                  <tr key={entry.id} className="border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors">
+                    <td className="py-2.5 px-3 text-xs text-slate-500 whitespace-nowrap">{new Date(entry.ts).toLocaleString()}</td>
+                    <td className="py-2.5 px-3">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase ${
+                        entry.action.includes('delete') || entry.action === 'revoke_access' ? 'bg-red-500/15 text-red-400' :
+                        entry.action.includes('add') ? 'bg-emerald-500/15 text-emerald-400' :
+                        'bg-blue-500/15 text-blue-400'
+                      }`}>{entry.action.replace(/_/g, ' ')}</span>
+                    </td>
+                    <td className="py-2.5 px-3 text-xs text-slate-400 truncate max-w-[140px]">{entry.actor}</td>
+                    <td className="py-2.5 px-3 text-xs text-slate-300 truncate max-w-[200px]">
+                      {entry.target || '—'}
+                      {entry.tool && <span className="text-slate-500"> → {entry.tool}</span>}
+                      {entry.from && entry.to && <span className="text-slate-500"> ({entry.from} → {entry.to})</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {(db.audit_log?.length || 0) > 50 && (
+            <div className="text-center pt-3 text-xs text-slate-500">{t('showing_n_of_m')?.replace('{x}', 50).replace('{n}', db.audit_log.length) || `Showing 50 of ${db.audit_log.length} entries — export CSV for full log`}</div>
+          )}
+        </div>
+      )}
+
     </div>
   );
 }
@@ -8783,12 +10086,12 @@ function PricingTiers({ currentPlan = 'free' }) {
                       logLegalAcceptance(db.user.uid, db.user.email, plan.id).catch(() => {});
                     }
                     const priceId = billing === 'annual' ? plan.annualPriceId : plan.monthlyPriceId;
-                    if (!priceId) { toast.error('Price not configured for this plan'); return; }
+                    if (!priceId) { toast.error(t('toast_price_not_configured')); return; }
                     const { url, error } = await createCheckoutSession(priceId, db?.user?.email);
                     if (url) window.location.href = url;
                     else toast.error(error || 'Could not start checkout');
                   } catch(e) {
-                    toast.error('Checkout failed: ' + e.message);
+                    toast.error(t('toast_checkout_failed') + ' ' + e.message);
                   }
                 }}
                 className={`w-full py-3 rounded-xl font-bold transition-all ${isCurrent ? 'bg-slate-700 text-slate-400 cursor-not-allowed' : plan.popular ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-slate-800 hover:bg-slate-700 text-white'}`}>
@@ -8828,11 +10131,11 @@ function PricingTiers({ currentPlan = 'free' }) {
 }
 
 function BillingPage({ noShell = false }) {
-  React.useEffect(() => { const p = new URLSearchParams(window.location.search); if (p.get("success")) { toast.success("Plan upgraded!"); setTimeout(() => { window.history.replaceState({}, "", window.location.pathname); window.location.reload(); }, 1500); } }, []);
+  React.useEffect(() => { const p = new URLSearchParams(window.location.search); if (p.get("success")) { toast.success(t('toast_plan_upgraded')); setTimeout(() => { window.history.replaceState({}, "", window.location.pathname); window.location.reload(); }, 1500); } }, []);
   const handleManageSubscription = async () => {
     const { url, error } = await createBillingPortal(window.location.href);
     if (url) window.location.href = url;
-    else toast.error('Could not open billing portal: ' + (error || 'Unknown error'));
+    else toast.error(t('toast_portal_failed') + ' ' + (error || 'Unknown error'));
   };
   const { data: db } = useDbQuery();
   const muts = useDbMutations();
@@ -8965,9 +10268,12 @@ function BillingPage({ noShell = false }) {
       plan_hr_finance:'RH & Finance', plan_hr_finance_tag:'Pour les DRH et directeurs financiers',
       plan_pro:'Pro', plan_pro_tag:'Pour les équipes qui ont besoin de visibilité totale',
       plan_enterprise:'Enterprise', plan_enterprise_tag:'Pour les grandes organisations',
-      f_startup_1:"Jusqu'à 10 outils SaaS",f_startup_2:"Jusqu'à 10 employés",f_startup_3:"Alertes de risque basiques",f_startup_4:"Export CSV",f_startup_5:"1 membre d'équipe",f_startup_6:"Support communautaire",
-      f_growth_1:"Jusqu'à 50 outils SaaS",f_growth_2:"Jusqu'à 50 employés",f_growth_3:"Score de risque avancé",f_growth_4:"Tableau de bord Finance",f_growth_5:"Exports d'audit",f_growth_6:"Jusqu'à 5 membres",f_growth_7:"Support par email",
-      f_scale_1:"Outils SaaS illimités",f_scale_2:"Employés illimités",f_scale_3:"Analyse IA des contrats",f_scale_4:"Gestion des licences",f_scale_5:"Rapports d'audit complets",f_scale_6:"Jusqu'à 15 membres",f_scale_7:"Support prioritaire",f_scale_8:"Accès API",
+      f_free_1:"Jusqu’à 10 outils SaaS",f_free_2:"Jusqu’à 25 employés",f_free_3:"Détection du Shadow IT",f_free_4:"Alertes sécurité basiques",f_free_5:"Sans carte bancaire",f_free_6:"Gratuit pour toujours",
+      f_starter_1:"Jusqu’à 100 outils SaaS",f_starter_2:"Jusqu’à 250 employés",f_starter_3:"Ajouter / modifier / supprimer",f_starter_4:"Alertes de renouvellement",f_starter_5:"Import & export CSV",f_starter_6:"5 membres d’équipe",f_starter_7:"Support par email",
+      f_hrf_1:"Tableau de bord Finance complet",f_hrf_2:"Tableau RH & Personnes",f_hrf_3:"Suivi des accès & cartographie",f_hrf_4:"File d’attente d’offboarding",f_hrf_5:"Suivi budgétaire & calendrier de renouvellement",f_hrf_6:"10 membres d’équipe",f_hrf_7:"Support email prioritaire",
+      f_startup_1:"Jusqu’à 10 outils SaaS",f_startup_2:"Jusqu’à 10 employés",f_startup_3:"Alertes de risque basiques",f_startup_4:"Export CSV",f_startup_5:"1 membre d’équipe",f_startup_6:"Support communautaire",
+      f_growth_1:"Jusqu’à 50 outils SaaS",f_growth_2:"Jusqu’à 50 employés",f_growth_3:"Score de risque avancé",f_growth_4:"Tableau de bord Finance",f_growth_5:"Exports d’audit",f_growth_6:"Jusqu’à 5 membres",f_growth_7:"Support par email",
+      f_scale_1:"Outils SaaS illimités",f_scale_2:"Employés illimités",f_scale_3:"Analyse IA des contrats",f_scale_4:"Gestion des licences",f_scale_5:"Rapports d’audit complets",f_scale_6:"Jusqu’à 15 membres",f_scale_7:"Support prioritaire",f_scale_8:"Accès API",
       f_pro_1:"Jusqu'à 500 outils SaaS",f_pro_2:"Jusqu'à 1 500 employés",f_pro_3:"Analyse IA des contrats",f_pro_4:"Suite sécurité & audit complète",f_pro_5:"Analytics avancés",f_pro_6:"15 membres d'équipe",f_pro_7:"Support prioritaire",f_pro_8:"Export CSV & données",
       f_ent_1:"Outils & employés illimités",f_ent_2:"SSO / SAML",f_ent_3:"Provisionnement SCIM",f_ent_4:"Responsable de compte dédié",f_ent_5:"Support 24/7 téléphone & Slack",f_ent_6:"Contrats & facturation personnalisés",f_ent_7:"Option sur site / cloud privé",f_ent_8:"Audit de sécurité & garantie SLA",
     },
@@ -9029,14 +10335,14 @@ function BillingPage({ noShell = false }) {
     if (id === 'enterprise') { setShowContactModal(true); return; }
     if (id === 'free' || id === 'startup') return;
     const priceId = PRICE_IDS[id]?.[billing] || PRICE_IDS[id]?.monthly;
-    if (!priceId) { toast.error('Plan not available. Contact us!'); return; }
+    if (!priceId) { toast.error(t('toast_plan_not_available')); return; }
     setUpgrading(true);
     try {
       const { url, error } = await createCheckoutSession(priceId);
       if (error) throw new Error(error);
       if (url) window.location.href = url;
     } catch (err) {
-      toast.error('Could not start checkout: ' + err.message);
+      toast.error(t('toast_could_not_checkout') + ' ' + err.message);
     } finally {
       setUpgrading(false);
     }
@@ -9141,8 +10447,8 @@ function BillingPage({ noShell = false }) {
                 <div className={"h-10 w-10 rounded-xl bg-gradient-to-br flex items-center justify-center text-xl mb-3 " + p.color}>
                   {p.icon}
                 </div>
-                <div className="font-black text-lg text-white mb-0.5">{t(p.tName)}</div>
-                <div className="text-xs text-slate-500 mb-3 min-h-[2rem]">{t(p.tTag)}</div>
+                <div className="font-black text-lg text-white mb-0.5">{ft(p.tName)}</div>
+                <div className="text-xs text-slate-500 mb-3 min-h-[2rem]">{ft(p.tTag)}</div>
                 <div className="mb-4">
                   {p.isTrial ? (
                     <div>
@@ -9191,9 +10497,9 @@ function BillingPage({ noShell = false }) {
             <h3 className="font-bold text-white mb-4">{t('after_trial_title')}</h3>
             <div className="grid sm:grid-cols-3 gap-4">
               {[
-                { day: 'Day 14', title: 'Trial ends', desc: "You'll be prompted to choose a plan. Your data stays safe.", color: 'text-amber-400' },
-                { day: t('never'), title: 'No surprise charges', desc: "We'll never charge you without your consent.", color: 'text-slate-400' },
-                { day: 'Recommended', title: t('plan_scale'), desc: 'Keep all features. Cancel anytime.', color: 'text-emerald-400' },
+                { day: t('after_trial_d1_day'), title: t('after_trial_d1_title'), desc: t('after_trial_d1_desc'), color: 'text-amber-400' },
+                { day: t('never'), title: t('after_trial_d2_title'), desc: t('after_trial_d2_desc'), color: 'text-slate-400' },
+                { day: t('after_trial_d3_day'), title: t('plan_scale'), desc: t('after_trial_d3_desc'), color: 'text-emerald-400' },
               ].map(item => (
                 <div key={item.day} className="p-4 rounded-xl bg-slate-800/60">
                   <div className={"text-xs font-bold uppercase tracking-wide mb-1 " + item.color}>{item.day}</div>
@@ -9211,8 +10517,8 @@ function BillingPage({ noShell = false }) {
             <h3 className="font-bold text-white mb-4">{t('plan_usage')}</h3>
             <div className="grid sm:grid-cols-2 gap-4">
               {[
-                { label: 'Tools', used: db?.tools?.length || 0, max: currentPlanObj.limits.tools },
-                { label: 'Employees', used: db?.employees?.length || 0, max: currentPlanObj.limits.employees },
+                { label: t('nav_tools'), used: db?.tools?.length || 0, max: currentPlanObj.limits.tools },
+                { label: t('nav_employees'), used: db?.employees?.length || 0, max: currentPlanObj.limits.employees },
               ].map(({ label, used, max }) => {
                 const pct = Math.min((used / max) * 100, 100);
                 return (
@@ -9233,8 +10539,8 @@ function BillingPage({ noShell = false }) {
 
       {/* Enterprise Contact Modal */}
       {showContactModal && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-6">
-          <div className="bg-slate-900 rounded-3xl border border-white/10 p-8 max-w-md w-full">
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-6" onClick={() => setShowContactModal(false)}>
+          <div className="bg-slate-900 rounded-3xl border border-white/10 p-8 max-w-md w-full" onClick={e => e.stopPropagation()}>
             <h3 className="text-2xl font-bold mb-2">{t('talk_to_sales')}</h3>
             <p className="text-slate-400 text-sm mb-6">{t('plan_enterprise_tag')}</p>
             {contactSent ? (
@@ -9410,14 +10716,14 @@ function IntegrationConnectors() {
           </div>
           <div className="flex-1">
             <h2 className="text-2xl font-black text-white">{t("integration_marketplace")}</h2>
-            <p className="text-slate-400">Connect your tools to automate SaaS management</p>
+            <p className="text-slate-400">{t('int_connect_automate')}</p>
           </div>
         </div>
         
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="bg-slate-900/50 rounded-xl p-4 text-center border border-slate-800">
             <div className="text-xl md:text-3xl font-black text-blue-400">{integrations.length}</div>
-            <div className="text-sm text-slate-400 mt-1">Total</div>
+            <div className="text-sm text-slate-400 mt-1">{t('int_total')}</div>
           </div>
           <div className="bg-slate-900/50 rounded-xl p-4 text-center border border-slate-800">
             <div className="text-xl md:text-3xl font-black text-emerald-400">{connectedCount}</div>
@@ -9690,9 +10996,9 @@ function SecurityTabContent() {
   const mfaCoverage = activeTools > 0 ? Math.round(((activeTools - orphanedTools) / activeTools) * 100) : 100;
   const securityScore = Math.max(0, Math.min(100, 100 - (orphanedTools * 10) - (highRiskTools * 5) - (formerAccess * 8)));
   const scoreColor = securityScore >= 80 ? '#10b981' : securityScore >= 60 ? '#f59e0b' : '#ef4444';
-  const scoreLabel = securityScore >= 80 ? 'Good' : securityScore >= 60 ? 'Needs Work' : 'Critical';
+  const scoreLabel = securityScore >= 80 ? t('dl_good') : securityScore >= 60 ? t('dl_needs_work') : t('dl_critical');
 
-  const alerts = buildRiskAlerts({ tools, access, employees });
+  const alerts = buildRiskAlerts({ tools, access, employees }, t);
   const criticalAlerts = alerts.filter(a => a.severity === 'critical');
   const highAlerts = alerts.filter(a => a.severity === 'high');
   const mediumAlerts = alerts.filter(a => a.severity === 'medium');
@@ -9779,7 +11085,7 @@ function SecurityTabContent() {
               <Shield className="h-4 w-4 text-emerald-400" />
             </div>
             <div className="text-3xl font-black text-emerald-400">{mfaCoverage}%</div>
-            <div className="text-sm text-slate-500 mt-1">{activeTools - orphanedTools} of {activeTools} tools secured</div>
+            <div className="text-sm text-slate-500 mt-1">{activeTools - orphanedTools} {t('tools_secured_sub').replace('{n}', activeTools)}</div>
           </div>
         </div>
       </div>
@@ -9789,12 +11095,12 @@ function SecurityTabContent() {
         <div className="flex items-center justify-between mb-5">
           <div>
             <h2 className="text-base font-semibold text-white">{t('security_alerts') || 'Security Alerts'}</h2>
-            <p className="text-sm text-slate-500">{alerts.length} active alerts across your SaaS stack</p>
+            <p className="text-sm text-slate-500">{alerts.length} {t('security_alerts_active')}</p>
           </div>
           <div className="flex items-center gap-2">
-            {criticalAlerts.length > 0 && <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-red-500/20 text-red-400 border border-red-500/30">{criticalAlerts.length} critical</span>}
-            {highAlerts.length > 0 && <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">{highAlerts.length} high</span>}
-            {mediumAlerts.length > 0 && <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30">{mediumAlerts.length} medium</span>}
+            {criticalAlerts.length > 0 && <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-red-500/20 text-red-400 border border-red-500/30">{criticalAlerts.length} {t('critical')}</span>}
+            {highAlerts.length > 0 && <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">{highAlerts.length} {t('high')}</span>}
+            {mediumAlerts.length > 0 && <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30">{mediumAlerts.length} {t('medium')}</span>}
           </div>
         </div>
 
@@ -9856,10 +11162,10 @@ function SecurityTabContent() {
           <h2 className="text-base font-semibold text-white mb-4">{t("security_compliance")}</h2>
           <div className="space-y-3">
             {[
-              { name: 'SOC 2 Type II', status: 'compliant', desc: 'Service Organization Control' },
-              { name: 'GDPR', status: 'compliant', desc: 'General Data Protection Regulation' },
-              { name: 'HIPAA', status: tools.length > 0 ? 'review' : 'non-compliant', desc: 'Health Insurance Portability' },
-              { name: 'ISO 27001', status: 'compliant', desc: 'Information Security Management' },
+              { name: 'SOC 2 Type II', status: 'compliant', desc: t('soc2_desc') },
+              { name: 'GDPR', status: 'compliant', desc: t('gdpr_desc') },
+              { name: 'HIPAA', status: tools.length > 0 ? 'review' : 'non-compliant', desc: t('hipaa_desc') },
+              { name: 'ISO 27001', status: 'compliant', desc: t('iso_desc') },
             ].map((c) => (
               <div key={c.name} className="flex items-center justify-between p-3.5 rounded-xl border border-slate-800 bg-slate-950/30">
                 <div>
@@ -9869,17 +11175,17 @@ function SecurityTabContent() {
                 {c.status === 'compliant' ? (
                   <div className="flex items-center gap-1.5 text-emerald-400">
                     <BadgeCheck className="h-4 w-4" />
-                    <span className="text-xs font-semibold">Compliant</span>
+                    <span className="text-xs font-semibold">{t('sec_compliant')}</span>
                   </div>
                 ) : c.status === 'review' ? (
                   <div className="flex items-center gap-1.5 text-amber-400">
                     <AlertTriangle className="h-4 w-4" />
-                    <span className="text-xs font-semibold">Review Needed</span>
+                    <span className="text-xs font-semibold">{t('sec_review_needed')}</span>
                   </div>
                 ) : (
                   <div className="flex items-center gap-1.5 text-red-400">
                     <X className="h-4 w-4" />
-                    <span className="text-xs font-semibold">Non-Compliant</span>
+                    <span className="text-xs font-semibold">{t('sec_non_compliant')}</span>
                   </div>
                 )}
               </div>
@@ -9899,21 +11205,22 @@ function SecurityTabContent() {
             };
             const total = tools.filter(t => t.status === 'active').length || 1;
             const colors = { 'Critical': '#ef4444', 'High Risk': '#f59e0b', 'Orphaned': '#8b5cf6', 'Secured': '#10b981' };
+            const rgLabels = { 'Critical': t('critical'), 'High Risk': t('high_risk'), 'Orphaned': t('orphaned'), 'Secured': t('rg_secured') };
             return (
               <div className="space-y-4">
                 {/* Stacked bar */}
                 <div className="flex h-4 rounded-full overflow-hidden bg-slate-800">
-                  {Object.entries(riskGroups).map(([label, items]) => (
-                    items.length > 0 && <div key={label} className="h-full transition-all" style={{width: `${(items.length/total)*100}%`, background: colors[label]}} title={`${label}: ${items.length}`} />
+                  {Object.entries(riskGroups).map(([key, items]) => (
+                    items.length > 0 && <div key={key} className="h-full transition-all" style={{width: `${(items.length/total)*100}%`, background: colors[key]}} title={`${rgLabels[key]}: ${items.length}`} />
                   ))}
                 </div>
                 {/* Legend + counts */}
                 <div className="space-y-2.5">
-                  {Object.entries(riskGroups).map(([label, items]) => (
-                    <div key={label} className="flex items-center justify-between">
+                  {Object.entries(riskGroups).map(([key, items]) => (
+                    <div key={key} className="flex items-center justify-between">
                       <div className="flex items-center gap-2.5">
-                        <div className="w-3 h-3 rounded-full flex-shrink-0" style={{background: colors[label]}} />
-                        <span className="text-sm text-slate-300">{label}</span>
+                        <div className="w-3 h-3 rounded-full flex-shrink-0" style={{background: colors[key]}} />
+                        <span className="text-sm text-slate-300">{rgLabels[key]}</span>
                       </div>
                       <div className="flex items-center gap-3">
                         <span className="text-sm font-semibold text-white">{items.length}</span>
@@ -9929,7 +11236,7 @@ function SecurityTabContent() {
                     {riskGroups['High Risk'].slice(0,3).map(tool => (
                       <div key={tool.id} className="flex items-center justify-between py-2 text-sm">
                         <span className="text-slate-300">{tool.name}</span>
-                        <button onClick={() => navigate('/tools')} className="text-xs text-blue-400 hover:text-blue-300">Review →</button>
+                        <button onClick={() => navigate('/tools')} className="text-xs text-blue-400 hover:text-blue-300">{t('security_review_action')} →</button>
                       </div>
                     ))}
                   </div>
@@ -9978,7 +11285,7 @@ function CostManagementPage() {
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
             <h1 data-tour="tour-cost-header" className="text-2xl md:text-3xl font-black text-white mb-1">{t("cost_mgmt_title") || "Cost Management"}</h1>
-            <p className="text-slate-400">Find waste, optimise spend, reclaim unused licenses</p>
+            <p className="text-slate-400">{t('fin_find_waste')}</p>
           </div>
           <button onClick={() => navigate('/licenses')} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-semibold transition-colors text-sm">
             {t('reclaim_licenses') || 'Manage Licenses'} →
@@ -10144,7 +11451,7 @@ function AnalyticsReportsPage() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-slate-400 text-sm">Live insights across your entire SaaS stack</p>
+            <p className="text-slate-400 text-sm">{t('fin_live_insights')}</p>
           </div>
           <button onClick={exportCSV} className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-semibold transition-colors text-sm">
             <Download className="h-4 w-4" /> Export CSV
@@ -10300,6 +11607,7 @@ function SettingsPage() {
       setSearchParams({}, { replace: true });
     }
   }, []);  // eslint-disable-line react-hooks/exhaustive-deps
+  const muts = useDbMutations();
 
   const saved = JSON.parse(localStorage.getItem('sg_general') || '{}');
   const [orgName, setOrgName] = useState(saved.orgName || 'My Organisation');
@@ -10312,6 +11620,9 @@ function SettingsPage() {
   const [sessionTimeout, setSessionTimeout] = useState(savedSec.timeout || '60');
   const [ipRestrict, setIpRestrict] = useState(savedSec.ipRestrict ?? false);
   const [auditLog, setAuditLog] = useState(savedSec.auditLog ?? true);
+  const [deleteToolsConfirm, setDeleteToolsConfirm] = useState(false);
+  const [deleteEmpsConfirm, setDeleteEmpsConfirm] = useState(false);
+  const [deleteAccConfirm, setDeleteAccConfirm] = useState(false);
 
   const _savedApiKeys = (() => { try { return JSON.parse(localStorage.getItem('sg_api_keys') || '[]'); } catch { return []; } })();
   const [apiKeys, setApiKeys] = useState(_savedApiKeys);
@@ -10448,7 +11759,7 @@ function SettingsPage() {
               <CardBody>
                 <div className="space-y-5 max-w-2xl">
                   {[
-                    { label: t('org_name_label'), el: <input value={orgName} onChange={e=>setOrgName(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm outline-none focus:border-emerald-500 transition-colors" placeholder="Acme Corp" /> },
+                    { label: t('org_name_label'), el: <input value={orgName} onChange={e=>setOrgName(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm outline-none focus:border-emerald-500 transition-colors" placeholder={t('ob_company_name')} /> },
 
                     { label: t('time_zone_label'), el: <select value={timezone} onChange={e=>setTimezone(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm outline-none"><option>Europe/London</option><option>UTC</option><option>America/New_York</option><option>America/Los_Angeles</option><option>Europe/Paris</option><option>Asia/Tokyo</option></select> },
                     { label: t('date_format_label'), el: <select value={dateFormat} onChange={e=>setDateFormat(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm outline-none"><option>DD/MM/YYYY</option><option>MM/DD/YYYY</option><option>YYYY-MM-DD</option></select> },
@@ -10462,7 +11773,7 @@ function SettingsPage() {
                   <div className="flex items-center gap-3 pt-2">
                     <button onClick={() => save('sg_general', { orgName, timezone, currency, dateFormat })}
                       className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-semibold text-sm transition-colors">
-                      Save Changes
+                      {t('save_changes')}
                     </button>
                     {saveMsg && <span className="text-sm text-emerald-400 font-semibold">{saveMsg}</span>}
                   </div>
@@ -10475,7 +11786,7 @@ function SettingsPage() {
           {activeTab === 'team' && (
             <div className="space-y-4">
               <Card>
-                <CardHeader title={t('team_members')} subtitle={`${members.length} of ${getPlanLimits(resolvePlan(db?.user)).teamMembers} seats used`} />
+                <CardHeader title={t('team_members')} subtitle={members.length + " " + t('members_with_access')} />
                 <CardBody>
                   <div className="space-y-2">
                     {members.map(m => (
@@ -10486,7 +11797,7 @@ function SettingsPage() {
                           <div className="text-xs text-slate-500">{m.email}</div>
                         </div>
                         <span className={"text-xs font-semibold px-2.5 py-1 rounded-full " + (m.role === 'Owner' ? 'bg-violet-500/15 text-violet-400' : m.role === 'Admin' ? 'bg-blue-500/15 text-blue-400' : 'bg-slate-700 text-slate-400')}>{m.role}</span>
-                        <div className="text-xs text-slate-600">Joined {m.joined}</div>
+                        <div className="text-xs text-slate-600">{t('joined_label')} {m.joined}</div>
                         {m.role !== 'Owner' && can('invite') && (
                           <button onClick={() => saveMembers(members.filter(x => x.id !== m.id))} className="text-xs text-rose-500 hover:text-rose-400 transition-colors">{t('remove_member')}</button>
                         )}
@@ -10510,15 +11821,15 @@ function SettingsPage() {
                         className="flex-1 min-w-48 bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm outline-none focus:border-emerald-500 transition-colors" placeholder="colleague@company.com" />
                       <select value={inviteRole} onChange={e => setInviteRole(e.target.value)}
                         className="bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm outline-none">
-                        <option value="admin">Admin — Manage tools, employees & access</option>
-                        <option value="editor">Editor — View & edit data</option>
-                        <option value="viewer">Viewer — Read-only access</option>
+                        <option value="admin">{t('role_admin_opt')}</option>
+                        <option value="editor">{t('role_editor_opt')}</option>
+                        <option value="viewer">{t('role_viewer_opt')}</option>
                       </select>
                       <div className="w-full mt-2 p-3 bg-slate-900/60 rounded-xl border border-slate-800 text-xs text-slate-400 space-y-1.5">
-                        <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0"></span><span><span className="text-amber-400 font-semibold">Owner</span> — Full access + billing + roles</span></div>
-                        <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-blue-400 flex-shrink-0"></span><span><span className="text-blue-400 font-semibold">Admin</span> — Manage tools, employees, access & offboarding</span></div>
-                        <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-emerald-400 flex-shrink-0"></span><span><span className="text-emerald-400 font-semibold">Editor</span> — View & edit data, cannot delete</span></div>
-                        <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-slate-400 flex-shrink-0"></span><span><span className="text-slate-300 font-semibold">Viewer</span> — Read-only, no edits</span></div>
+                        <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0"></span><span><span className="text-amber-400 font-semibold">{t('role_owner')}</span> — {t('role_owner_desc')}</span></div>
+                        <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-blue-400 flex-shrink-0"></span><span><span className="text-blue-400 font-semibold">{t('role_admin')}</span> — {t('role_admin_desc')}</span></div>
+                        <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-emerald-400 flex-shrink-0"></span><span><span className="text-emerald-400 font-semibold">{t('role_editor')}</span> — {t('role_editor_desc')}</span></div>
+                        <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-slate-400 flex-shrink-0"></span><span><span className="text-slate-300 font-semibold">{t('role_viewer')}</span> — {t('role_viewer_desc')}</span></div>
                       </div>
                       <button onClick={async () => {
                         if (!inviteEmail || inviteSending) return;
@@ -10572,27 +11883,48 @@ function SettingsPage() {
               <CardBody>
                 <div className="space-y-1">
                   {[
-                    { label: 'Renewal due in 30 days',      sub: 'SaaS contract coming up for renewal — sent by email',  val: notifRenewal,    set: setNotifRenewal,    key: 'renewal',    live: true },
-                    { label: 'New tool added to inventory',  sub: 'When a tool is added via import or manually',           val: notifNewTool,    set: setNotifNewTool,    key: 'newTool' },
-                    { label: 'Orphaned tool detected',       sub: 'Tools with no assigned owner',                          val: notifOrphaned,   set: setNotifOrphaned,   key: 'orphaned' },
-                    { label: 'High-risk access granted',     sub: 'Admin access given to a new user',                      val: notifHighRisk,   set: setNotifHighRisk,   key: 'highRisk' },
-                    { label: 'Employee offboarding initiated', sub: 'When an offboarding task is started',                 val: notifOffboard,   set: setNotifOffboard,   key: 'offboard' },
-                    { label: 'Compliance report ready',      sub: 'Weekly compliance digest',                              val: notifCompliance, set: setNotifCompliance, key: 'compliance' },
-                    { label: 'Weekly summary email',         sub: 'Overview of spend, risk and usage',                     val: notifWeekly,     set: setNotifWeekly,     key: 'weekly' },
-                    { label: 'Invoice approval required',    sub: 'New invoice needs sign-off',                            val: notifInvoice,    set: setNotifInvoice,    key: 'invoice' },
-                    { label: t('budget_limit'),              sub: 'Monthly spend passes your set limit',                   val: notifBudget,     set: setNotifBudget,     key: 'budget' },
-                  ].map(n => (
-                    <div key={n.key} className="flex items-center justify-between py-3.5 border-b border-slate-800 last:border-0">
-                      <div>
-                        <div className="text-sm font-medium text-slate-200 flex items-center gap-2">
-                          {n.label}
-                          {n.live && <span className="text-xs font-semibold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400">Live</span>}
+                    { label: t('notif_tool_added'), sub: t('notif_tool_added_sub'), defaultOn: true, key: null },
+                    { label: t('notif_orphaned_tool'), sub: t('notif_orphaned_tool_sub'), defaultOn: true, key: null },
+                    { label: t('notif_high_risk_access'), sub: t('notif_high_risk_access_sub'), defaultOn: true, key: null },
+                    { label: t('notif_offboarding'), sub: t('notif_offboarding_sub'), defaultOn: true, key: null },
+                    { label: t('notif_renewal_due'), sub: t('notif_renewal_due_sub'), defaultOn: true, key: 'renewal_alerts' },
+                    { label: t('notif_compliance'), sub: t('notif_compliance_sub'), defaultOn: false, key: null },
+                    { label: t('notif_weekly'), sub: t('notif_weekly_sub'), defaultOn: true, key: null },
+                    { label: t('notif_invoice'), sub: t('notif_invoice_sub'), defaultOn: false, key: null },
+                    { label: t('budget_limit'), sub: t('notif_budget_sub'), defaultOn: true, key: null },
+                  ].map(n => {
+                    const isWired = n.key === 'renewal_alerts';
+                    const checked = isWired
+                      ? (db?.user?.renewal_alerts !== false)
+                      : n.defaultOn;
+                    return (
+                      <div key={n.label} className="flex items-center justify-between py-3.5 border-b border-slate-800 last:border-0">
+                        <div>
+                          <div className="text-sm font-medium text-slate-200 flex items-center gap-2">
+                            {n.label}
+                            {isWired && <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-900/40 text-emerald-400 font-semibold">LIVE</span>}
+                          </div>
+                          <div className="text-xs text-slate-500 mt-0.5">{n.sub}</div>
                         </div>
-                        <div className="text-xs text-slate-500 mt-0.5">{n.sub}</div>
+                        <label className="relative inline-flex items-center cursor-pointer flex-shrink-0 ml-4">
+                          <input
+                            type="checkbox"
+                            className="sr-only peer"
+                            checked={checked}
+                            onChange={isWired ? (e) => {
+                              muts.setAuth.mutate(
+                                { renewal_alerts: e.target.checked },
+                                { onSuccess: () => toast.success(e.target.checked ? t('renewal_alerts_enabled') : t('renewal_alerts_disabled')) }
+                              );
+                            } : undefined}
+                            defaultChecked={!isWired ? n.defaultOn : undefined}
+                            readOnly={!isWired}
+                          />
+                          <div className="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-emerald-600 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all" />
+                        </label>
                       </div>
-                      <Toggle checked={n.val} onChange={(v) => { n.set(v); saveNotifications({ [n.key]: v }); }} />
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
                 <div className='mt-6'><SlackNotifications /></div>
               </CardBody>
@@ -10630,7 +11962,7 @@ function SettingsPage() {
                   <div className="flex items-center gap-3 mt-5">
                     <button onClick={() => save('sg_security', { mfa: mfaEnabled, timeout: sessionTimeout, ipRestrict, auditLog })}
                       className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-semibold text-sm transition-colors">
-                      Save Security Settings
+                      {t('save_security')}
                     </button>
                     {saveMsg && <span className="text-sm text-emerald-400 font-semibold">{saveMsg}</span>}
                   </div>
@@ -10642,8 +11974,8 @@ function SettingsPage() {
                     <AlertTriangle className="h-5 w-5 text-amber-400 flex-shrink-0 mt-0.5" />
                     <div>
                       <div className="font-bold text-white text-sm mb-1">{t('sso_enterprise')}</div>
-                      <p className="text-xs text-slate-400">Connect your Okta, Azure AD, or Google Workspace SSO to enforce centralised authentication.</p>
-                      <button onClick={() => { navigate('/settings'); setTimeout(() => { const el = document.querySelector('[data-tab="billing"]'); if(el) el.click(); }, 100); }} className="text-xs text-amber-400 font-semibold hover:underline mt-2 inline-block">View Enterprise Plan →</button>
+                      <p className="text-xs text-slate-400">{t('sso_desc')}</p>
+                      <button onClick={() => { navigate('/settings'); setTimeout(() => { const el = document.querySelector('[data-tab="billing"]'); if(el) el.click(); }, 100); }} className="text-xs text-amber-400 font-semibold hover:underline mt-2 inline-block">{t('view_enterprise_plan')} →</button>
                     </div>
                   </div>
                 </CardBody>
@@ -10659,7 +11991,7 @@ function SettingsPage() {
                 <CardBody>
                   {showNewKey && (
                     <div className="mb-4 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-                      <div className="text-sm font-bold text-emerald-400 mb-1">✓ New API key generated — copy it now, it won't be shown again</div>
+                      <div className="text-sm font-bold text-emerald-400 mb-1">✓ {t('new_key_notice')}</div>
                       <div className="font-mono text-xs bg-slate-900 px-3 py-2 rounded-lg text-white break-all">{showNewKey}</div>
                       <button onClick={() => { navigator.clipboard.writeText(showNewKey); }} className="text-xs text-emerald-400 mt-2 hover:underline">{t("hc_copy_to_clipboard")}</button>
                     </div>
@@ -10673,8 +12005,8 @@ function SettingsPage() {
                           <div className="font-mono text-xs text-slate-500">{k.prefix}</div>
                         </div>
                         <div className="text-right text-xs text-slate-600">
-                          <div>Created {k.created}</div>
-                          <div>Last used: {k.lastUsed}</div>
+                          <div>{t('created_label')} {k.created}</div>
+                          <div>{t('last_used_label')}: {k.lastUsed}</div>
                         </div>
                         <button onClick={() => { if (window.confirm(`Revoke key "${k.name}"? This cannot be undone.`)) saveApiKeys(apiKeys.filter(x => x.id !== k.id)); }} className="text-xs text-rose-500 hover:text-rose-400 transition-colors flex-shrink-0">{t('revoke')}</button>
                       </div>
@@ -10683,14 +12015,14 @@ function SettingsPage() {
                 </CardBody>
               </Card>
               <Card>
-                <CardHeader title="Generate New Key" subtitle="Name it so you remember what it's for" />
+                <CardHeader title={t('generate_new_key_title')} subtitle={t('generate_new_key_sub')} />
                 <CardBody>
                   <div className="flex gap-3">
                     <input value={newKeyName} onChange={e => setNewKeyName(e.target.value)}
                       className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm outline-none focus:border-emerald-500 transition-colors" placeholder={t('key_name_placeholder')} />
                     <button onClick={generateApiKey}
                       className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-semibold text-sm transition-colors whitespace-nowrap">
-                      Generate Key
+                      {t('generate_key')}
                     </button>
                   </div>
                 </CardBody>
@@ -10702,49 +12034,44 @@ function SettingsPage() {
           {activeTab === 'data' && (
             <div className="space-y-4">
               <Card>
-                <CardHeader title={t('export_data')} subtitle={t('export_data_sub')
-} />
+                <CardHeader title={t('export_data')} subtitle={t('export_data_sub')} />
                 <CardBody>
+                  {/* Single "Export everything" button — GDPR Art. 20 */}
+                  <button onClick={() => {
+                    if (!db) return;
+                    const exportCsv = (key, rows) => {
+                      if (!rows.length) return;
+                      const cols = Object.keys(rows[0]);
+                      const csv = [cols.join(','), ...rows.map(r => cols.map(c => JSON.stringify(r[c] ?? '')).join(','))].join('\n');
+                      const a = document.createElement('a'); a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+                      a.download = `stacklens-${key}-${todayISO()}.csv`; a.click();
+                    };
+                    setTimeout(() => exportCsv('tools', db.tools || []), 0);
+                    setTimeout(() => exportCsv('employees', db.employees || []), 300);
+                    setTimeout(() => exportCsv('access', db.access || []), 600);
+                    setTimeout(() => exportCsv('audit_log', db.audit_log || []), 900);
+                    toast.success(t('export_all_started') || 'Exporting 4 files…');
+                  }} className="w-full flex items-center justify-center gap-2 mb-4 py-3 bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/30 rounded-xl text-emerald-400 font-semibold text-sm transition-colors">
+                    <Download className="h-4 w-4" />
+                    {t('export_all_data') || 'Export all my data (GDPR Art. 20)'}
+                  </button>
+
                   <div className="grid sm:grid-cols-3 gap-3">
                     {[
-                      {
-                        label: 'Tools & Licenses',
-                        desc: 'All tool records, costs, owners',
-                        icon: Boxes,
-                        onClick: () => {
-                          downloadText(`stacklens_tools_${todayISO()}.csv`, toCsv(db?.tools || [],
-                            ["name","category","owner_email","criticality","url","derived_status","last_used_date","cost_per_month","derived_risk","notes"]
-                          ));
-                          toast.success('Tools exported');
-                        },
-                      },
-                      {
-                        label: 'Employees & Access',
-                        desc: 'Employee directory and access map',
-                        icon: Users,
-                        onClick: () => {
-                          downloadText(`stacklens_employees_${todayISO()}.csv`, toCsv(db?.employees || [],
-                            ["full_name","email","department","role","status","start_date","end_date"]
-                          ));
-                          setTimeout(() => downloadText(`stacklens_access_${todayISO()}.csv`, toCsv(db?.access || [],
-                            ["tool_name","employee_name","employee_email","access_level","granted_date","last_accessed_date","last_reviewed_date","status","derived_risk_flag"]
-                          )), 300);
-                          toast.success('Employees & access exported');
-                        },
-                      },
-                      {
-                        label: 'Audit Log',
-                        desc: 'Full history of all actions',
-                        icon: Download,
-                        onClick: () => {
-                          downloadText(`stacklens_audit_${todayISO()}.csv`, toCsv(db?.audit_log || [],
-                            ["action","user","timestamp","details"]
-                          ));
-                          toast.success('Audit log exported');
-                        },
-                      },
-                    ].map(({ label, desc, icon: Icon, onClick }) => (
-                      <button key={label} onClick={onClick}
+                      { label: t('export_tools_label'), desc: t('export_tools_desc'), icon: Boxes, key: 'tools' },
+                      { label: t('export_employees_label'), desc: t('export_employees_desc'), icon: Users, key: 'employees' },
+                      { label: t('export_audit_label'), desc: t('export_audit_desc'), icon: Download, key: 'access' },
+                    ].map(({ label, desc, icon: Icon, key }) => (
+                      <button key={key} onClick={() => {
+                        const rows = db?.[key] || [];
+                        if (!rows.length) { toast(t('no_data_to_export') || 'No data to export'); return; }
+                        const cols = Object.keys(rows[0]);
+                        const csv = [cols.join(','), ...rows.map(r => cols.map(c => JSON.stringify(r[c] ?? '')).join(','))].join('\n');
+                        const a = document.createElement('a');
+                        a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+                        a.download = 'stacklens-' + key + '-' + new Date().toISOString().slice(0,10) + '.csv';
+                        a.click();
+                      }}
                         className="flex items-start gap-3 p-4 rounded-xl bg-slate-800/60 border border-slate-800 hover:border-emerald-500/30 hover:bg-slate-800 transition-all text-left">
                         <Icon className="h-5 w-5 text-emerald-400 flex-shrink-0 mt-0.5" />
                         <div>
@@ -10760,64 +12087,63 @@ function SettingsPage() {
                 <CardHeader title={t('danger_zone')} subtitle={t('danger_zone_sub')} />
                 <CardBody>
                   <div className="space-y-3">
-                    {[
-                      {
-                        label: 'Delete all tool data',
-                        desc: 'Removes all tools, employees and access records',
-                        btn: 'Delete Tools',
-                        onClick: () => {
-                          if (isDemo) { toast.error('Not available in demo mode.'); return; }
-                          if (!window.confirm('Delete ALL tools, employees and access records? This cannot be undone.')) return;
-                          const cur = loadDb() || seedDbIfEmpty();
-                          cur.tools = []; cur.employees = []; cur.access = [];
-                          saveDb(cur);
-                          if (firebaseUser?.uid) saveUserData(firebaseUser.uid, cur).catch(() => {});
-                          qc.invalidateQueries({ queryKey: ['db'] });
-                          toast.success('All tool data deleted');
-                        },
-                      },
-                      {
-                        label: 'Delete all employee data',
-                        desc: 'Removes all employee and access records',
-                        btn: 'Delete Employees',
-                        onClick: () => {
-                          if (isDemo) { toast.error('Not available in demo mode.'); return; }
-                          if (!window.confirm('Delete ALL employees and access records? This cannot be undone.')) return;
-                          const cur = loadDb() || seedDbIfEmpty();
-                          cur.employees = []; cur.access = [];
-                          saveDb(cur);
-                          if (firebaseUser?.uid) saveUserData(firebaseUser.uid, cur).catch(() => {});
-                          qc.invalidateQueries({ queryKey: ['db'] });
-                          toast.success('All employee data deleted');
-                        },
-                      },
-                      {
-                        label: 'Delete account',
-                        desc: 'Permanently deletes your Stacklens account and all data',
-                        btn: 'Delete Account',
-                        danger: true,
-                        onClick: () => {
-                          if (isDemo) { toast.error('Not available in demo mode.'); return; }
-                          window.location.href = 'mailto:hello@stacklens.fr?subject='
-                            + encodeURIComponent('Account Deletion Request')
-                            + '&body=' + encodeURIComponent(
-                                'Please delete my Stacklens account.\n\nEmail: '
-                                + (firebaseUser?.email || '')
-                              );
-                        },
-                      },
-                    ].map(item => (
-                      <div key={item.label} className="flex items-center justify-between py-3 border-b border-rose-500/10 last:border-0">
-                        <div>
-                          <div className="font-medium text-slate-200 text-sm">{item.label}</div>
-                          <div className="text-xs text-slate-500">{item.desc}</div>
-                        </div>
-                        <button onClick={item.onClick}
-                          className={"text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors " + (item.danger ? 'border-rose-500/40 text-rose-400 hover:bg-rose-500/10' : 'border-slate-700 text-slate-400 hover:text-white hover:border-slate-600')}>
-                          {item.btn}
-                        </button>
+                    <div className="flex items-center justify-between py-3 border-b border-rose-500/10">
+                      <div>
+                        <div className="font-medium text-slate-200 text-sm">{t('delete_tools')}</div>
+                        <div className="text-xs text-slate-500">{t('del_tools_desc')}</div>
                       </div>
-                    ))}
+                      {deleteToolsConfirm ? (
+                        <ConfirmButtons onConfirm={() => { muts.updateDb({ tools: [] }); toast.success(t('toast_deleted')); setDeleteToolsConfirm(false); }} onCancel={() => setDeleteToolsConfirm(false)} />
+                      ) : (
+                        <button onClick={() => setDeleteToolsConfirm(true)}
+                          className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-700 text-slate-400 hover:text-white hover:border-slate-600 transition-colors">
+                          {t('del_tools_btn')}
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-between py-3 border-b border-rose-500/10">
+                      <div>
+                        <div className="font-medium text-slate-200 text-sm">{t('delete_employees')}</div>
+                        <div className="text-xs text-slate-500">{t('del_employees_desc')}</div>
+                      </div>
+                      {deleteEmpsConfirm ? (
+                        <ConfirmButtons onConfirm={() => { muts.updateDb({ employees: [], access: [] }); toast.success(t('toast_deleted')); setDeleteEmpsConfirm(false); }} onCancel={() => setDeleteEmpsConfirm(false)} />
+                      ) : (
+                        <button onClick={() => setDeleteEmpsConfirm(true)}
+                          className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-700 text-slate-400 hover:text-white hover:border-slate-600 transition-colors">
+                          {t('del_employees_btn')}
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-between py-3">
+                      <div>
+                        <div className="font-medium text-slate-200 text-sm">{t('delete_account')}</div>
+                        <div className="text-xs text-slate-500">{t('del_account_desc')}</div>
+                      </div>
+                      {deleteAccConfirm ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-rose-300">{t('del_account_confirm')}</span>
+                          <ConfirmButtons onConfirm={async () => {
+                            setDeleteAccConfirm(false);
+                            try {
+                              await deleteAccount();
+                              toast.success(t('del_account_done') || 'Account deleted');
+                            } catch (err) {
+                              if (err.code === 'auth/requires-recent-login') {
+                                toast.error(t('del_account_reauth') || 'Please sign out and sign back in, then try again.');
+                              } else {
+                                toast.error(err.message);
+                              }
+                            }
+                          }} onCancel={() => setDeleteAccConfirm(false)} />
+                        </div>
+                      ) : (
+                        <button onClick={() => setDeleteAccConfirm(true)}
+                          className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-rose-500/40 text-rose-400 hover:bg-rose-500/10 transition-colors">
+                          {t('del_account_btn')}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </CardBody>
               </Card>
@@ -10865,7 +12191,7 @@ function SettingsPage() {
           {activeTab === 'integrations' && (
             <div className="space-y-4">
               <Card>
-                <CardHeader title={t('nav_integrations') || 'Integrations'} subtitle="Connect Stacklens to your tools for automatic discovery and user sync" />
+                <CardHeader title={t('nav_integrations') || 'Integrations'} subtitle={t('integrations_connect_sub')} />
                 <CardBody>
                   <IntegrationConnectors />
                 </CardBody>
@@ -10875,6 +12201,550 @@ function SettingsPage() {
         </div>
       </div>
     </AppShell>
+  );
+}
+
+// ============================================================================
+// FOUNDER ADMIN DASHBOARD — only visible when db.user.is_founder === true
+// ============================================================================
+function FounderAdminPage() {
+  const { data: db } = useDbQuery();
+  const dbUser = db?.user;
+  const { language } = useLang();
+  const t = useTranslation(language);
+  const navigate = useNavigate();
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [search, setSearch] = useState('');
+  const [actionLoading, setActionLoading] = useState({});
+
+  const TRIAL_MS = 7 * 24 * 60 * 60 * 1000;
+
+  useEffect(() => {
+    if (!dbUser?.is_founder) { navigate('/dashboard', { replace: true }); return; }
+    loadAllUsersAdmin()
+      .then(list => { setUsers(list); setLoading(false); })
+      .catch(e => { setError(e.message); setLoading(false); });
+  }, [dbUser, navigate]);
+
+  const trialDaysLeft = (u) => {
+    if (!u.trial_started_at) return null;
+    const start = typeof u.trial_started_at === 'number' ? u.trial_started_at : u.trial_started_at?.toMillis?.() || 0;
+    const left = Math.ceil((start + TRIAL_MS - Date.now()) / 86400000);
+    return left;
+  };
+
+  const effectivePlan = (u) => {
+    if (u.is_founder) return 'founder';
+    if (u.plan === 'trial') {
+      const left = trialDaysLeft(u);
+      return left > 0 ? `trial (${left}d left)` : 'trial (expired)';
+    }
+    return u.subscription_plan || u.plan || 'free';
+  };
+
+  const handleExtendTrial = async (uid, days) => {
+    setActionLoading(prev => ({ ...prev, [uid]: true }));
+    try {
+      await founderExtendTrial(uid, days);
+      toast.success(t('toast_trial_extended') + ' ' + days + ' ' + t('days'));
+      const updated = await loadAllUsersAdmin();
+      setUsers(updated);
+    } catch (e) {
+      toast.error(t('toast_failed') + ' ' + e.message);
+    } finally {
+      setActionLoading(prev => ({ ...prev, [uid]: false }));
+    }
+  };
+
+  const handleSetPlan = async (uid, plan) => {
+    setActionLoading(prev => ({ ...prev, [uid]: true }));
+    try {
+      await founderSetPlan(uid, plan);
+      toast.success(t('toast_plan_set') + ' ' + plan);
+      const updated = await loadAllUsersAdmin();
+      setUsers(updated);
+    } catch (e) {
+      toast.error(t('toast_failed') + ' ' + e.message);
+    } finally {
+      setActionLoading(prev => ({ ...prev, [uid]: false }));
+    }
+  };
+
+  const filtered = users.filter(u => {
+    const q = search.toLowerCase();
+    return !q || (u.email || '').toLowerCase().includes(q) || (u.displayName || '').toLowerCase().includes(q) || (u.uid || '').toLowerCase().includes(q);
+  });
+
+  const planBadgeColor = (u) => {
+    const p = u.subscription_plan || u.plan || 'free';
+    if (u.is_founder) return 'bg-amber-500/20 text-amber-300 border-amber-500/30';
+    if (p === 'trial') return trialDaysLeft(u) > 0 ? 'bg-blue-500/20 text-blue-300 border-blue-500/30' : 'bg-red-500/20 text-red-400 border-red-500/30';
+    if (['pro', 'enterprise', 'scale'].includes(p)) return 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30';
+    if (['starter', 'hr_finance'].includes(p)) return 'bg-teal-500/20 text-teal-300 border-teal-500/30';
+    return 'bg-slate-700/60 text-slate-400 border-slate-600/30';
+  };
+
+  if (!dbUser?.is_founder) return null;
+
+  const stats = {
+    total: users.length,
+    trial: users.filter(u => u.plan === 'trial' && trialDaysLeft(u) > 0).length,
+    paid: users.filter(u => ['starter','hr_finance','pro','enterprise','scale','growth','unlimited'].includes(u.subscription_plan || u.plan)).length,
+    free: users.filter(u => (u.plan || 'free') === 'free').length,
+  };
+
+  return (
+    <AppShell title="Founder Admin" right={
+      <span className="text-xs text-amber-400 font-bold bg-amber-500/10 border border-amber-500/30 px-3 py-1.5 rounded-full">
+        ⚡ Founder only
+      </span>
+    }>
+      <div className="space-y-6">
+        {/* Stats row */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            { label: 'Total accounts', value: stats.total, color: 'text-white' },
+            { label: 'Active trials', value: stats.trial, color: 'text-blue-400' },
+            { label: 'Paid', value: stats.paid, color: 'text-emerald-400' },
+            { label: 'Free', value: stats.free, color: 'text-slate-400' },
+          ].map(s => (
+            <div key={s.label} className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
+              <div className={`text-2xl font-black ${s.color}`}>{s.value}</div>
+              <div className="text-xs text-slate-500 mt-0.5">{s.label}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder={t('set_search_email_name')}
+            className="w-full pl-9 pr-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+          />
+        </div>
+
+        {/* Table */}
+        {loading ? (
+          <div className="text-center py-16 text-slate-500">Loading accounts…</div>
+        ) : error ? (
+          <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-6 text-red-400 text-sm">{error}</div>
+        ) : (
+          <div className="rounded-2xl border border-slate-800 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-800 bg-slate-900/60">
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide">{t('set_account')}</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide">{t('plan')}</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide">{t('set_trial_started')}</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide">{t('th_actions')}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60">
+                  {filtered.length === 0 ? (
+                    <tr><td colSpan={4} className="text-center py-12 text-slate-500">{t('set_no_accounts')}</td></tr>
+                  ) : filtered.map(u => {
+                    const busy = actionLoading[u.uid];
+                    const trialStart = u.trial_started_at
+                      ? new Date(typeof u.trial_started_at === 'number' ? u.trial_started_at : u.trial_started_at?.toMillis?.() || 0).toLocaleDateString()
+                      : '—';
+                    return (
+                      <tr key={u.uid} className="hover:bg-slate-800/30 transition-colors">
+                        <td className="px-4 py-3">
+                          <div className="font-semibold text-white text-sm">{u.displayName || <span className="text-slate-500 italic">No name</span>}</div>
+                          <div className="text-xs text-slate-400 mt-0.5">{u.email || <span className="text-slate-600 italic">No email</span>}</div>
+                          <div className="text-xs text-slate-700 mt-0.5 font-mono select-all">{u.uid}</div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${planBadgeColor(u)}`}>
+                            {effectivePlan(u)}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-slate-400 text-xs">{trialStart}</td>
+                        <td className="px-4 py-3">
+                          {!u.is_founder && (
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <button
+                                onClick={() => handleExtendTrial(u.uid, 7)}
+                                disabled={busy}
+                                className="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-all whitespace-nowrap"
+                              >
+                                {busy ? '…' : '+7 days trial'}
+                              </button>
+                              <button
+                                onClick={() => handleExtendTrial(u.uid, 14)}
+                                disabled={busy}
+                                className="px-2.5 py-1 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-slate-300 text-xs font-semibold rounded-lg transition-all whitespace-nowrap"
+                              >
+                                {busy ? '…' : '+14 days'}
+                              </button>
+                              <select
+                                onChange={e => { if (e.target.value) handleSetPlan(u.uid, e.target.value); e.target.value = ''; }}
+                                disabled={busy}
+                                defaultValue=""
+                                className="px-2 py-1 bg-slate-800 border border-slate-700 text-slate-300 text-xs rounded-lg cursor-pointer disabled:opacity-50"
+                              >
+                                <option value="">Set plan…</option>
+                                {['free','trial','starter','hr_finance','pro','enterprise'].map(p => (
+                                  <option key={p} value={p}>{p}</option>
+                                ))}
+                              </select>
+                            </div>
+                          )}
+                          {u.is_founder && <span className="text-amber-400 text-xs">⚡ You</span>}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+    </AppShell>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SHAREABLE REPORT
+// ─────────────────────────────────────────────────────────────────────────────
+
+function ShareReportModal({ onClose, db, user }) {
+  const { language } = useLang();
+  const t = useTranslation(language);
+  const [step, setStep] = useState('idle'); // idle | generating | done | error
+  const [token, setToken] = useState(null);
+  const [copied, setCopied] = useState(false);
+  const [expiry, setExpiry] = useState('7');
+
+  const reportUrl = token ? `${window.location.origin}/report/${token}` : '';
+
+  const generate = async () => {
+    setStep('generating');
+    try {
+      const tok = crypto.randomUUID().replace(/-/g, '');
+      const tools = (db?.tools || []).map(t => ({
+        name: t.name,
+        category: t.category || 'other',
+        cost: Number(t.cost_per_month || 0),
+        status: t.status || 'active',
+        risk: t.derived_risk || t.risk_score || 'low',
+        criticality: t.criticality || 'medium',
+      }));
+      const topTools = [...tools].sort((a, b) => b.cost - a.cost).slice(0, 8);
+      const spend = tools.reduce((s, t) => s + t.cost, 0);
+      const riskCounts = tools.reduce((acc, t) => { acc[t.risk] = (acc[t.risk] || 0) + 1; return acc; }, {});
+      const access = db?.access || [];
+      const formerAccess = access.filter(a => a.derived_risk_flag === 'former_employee' || a.risk_flag === 'former_employee').length;
+      const highRiskTools = tools.filter(t => t.risk === 'high').length;
+      const expiresAt = Date.now() + parseInt(expiry) * 24 * 60 * 60 * 1000;
+
+      const payload = {
+        owner_uid: user?.uid || '',
+        created_at: Date.now(),
+        expires_at: expiresAt,
+        snapshot: {
+          tools: topTools,
+          spend,
+          employeeCount: (db?.employees || []).length,
+          riskCounts,
+          topTools,
+          formerAccess,
+          highRiskTools,
+          companyName: user?.displayName?.split(' ')[0] + "'s company" || 'Your company',
+          generatedAt: Date.now(),
+        },
+      };
+      await saveReport(tok, payload);
+      setToken(tok);
+      setStep('done');
+    } catch (err) {
+      console.error(err);
+      setStep('error');
+    }
+  };
+
+  const copy = () => {
+    navigator.clipboard.writeText(reportUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const revoke = async () => {
+    if (!token) return;
+    try { await deleteReport(token); } catch (e) {}
+    setToken(null);
+    setStep('idle');
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{background:'rgba(2,6,23,0.85)', backdropFilter:'blur(12px)'}} onClick={onClose}>
+      <div className="relative w-full max-w-md bg-slate-900 border border-slate-700/60 rounded-3xl shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-emerald-500/60 to-transparent" />
+        <button onClick={onClose} className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-all z-10">✕</button>
+
+        <div className="p-6 md:p-8">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-xl">🔗</div>
+            <div>
+              <div className="font-bold text-white text-lg">{t('share_report')}</div>
+              <div className="text-xs text-slate-500">Read-only link — no sign-in required</div>
+            </div>
+          </div>
+
+          {step === 'idle' && (
+            <div className="space-y-5">
+              <div className="rounded-xl bg-slate-800/60 border border-slate-700/50 p-4 space-y-2 text-sm text-slate-400">
+                <div className="flex items-center gap-2"><span>💸</span> {t('share_monthly_summary')}</div>
+                <div className="flex items-center gap-2"><span>⚠️</span> {t('share_risk_overview')}</div>
+                <div className="flex items-center gap-2"><span>🛠️</span> {t('share_top_tools_cost')}</div>
+                <div className="flex items-center gap-2"><span>🔒</span> {t('share_emails_hidden')}</div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wide">{t('share_link_expires')}</label>
+                <div className="flex gap-2">
+                  {[['7','7 days'],['30','30 days'],['365','1 year']].map(([val, label]) => (
+                    <button key={val} onClick={() => setExpiry(val)}
+                      className={"flex-1 py-2 rounded-xl text-sm font-semibold border transition-all " +
+                        (expiry === val ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white')}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <button onClick={generate}
+                className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 rounded-xl text-white font-bold text-sm transition-all shadow-lg">
+                Generate shareable link →
+              </button>
+            </div>
+          )}
+
+          {step === 'generating' && (
+            <div className="py-12 text-center">
+              <div className="w-10 h-10 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+              <div className="text-slate-400 text-sm">Generating your report…</div>
+            </div>
+          )}
+
+          {step === 'done' && (
+            <div className="space-y-4">
+              <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-4">
+                <div className="text-xs font-semibold text-emerald-400 mb-2 uppercase tracking-wide">{t('share_your_link')}</div>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 bg-slate-800 rounded-lg px-3 py-2 text-xs text-slate-300 font-mono truncate">{reportUrl}</div>
+                  <button onClick={copy}
+                    className={"px-3 py-2 rounded-lg text-xs font-bold transition-all flex-shrink-0 " + (copied ? 'bg-emerald-500 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-300')}>
+                    {copied ? '✓ Copied' : 'Copy'}
+                  </button>
+                </div>
+              </div>
+              <div className="text-xs text-slate-500 text-center">Expires in {expiry} day{expiry !== '1' ? 's' : ''} · Anyone with this link can view</div>
+              <div className="flex gap-2">
+                <button onClick={copy}
+                  className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl text-white font-bold text-sm transition-all">
+                  {copied ? '✓ Copied!' : '📋 Copy link'}
+                </button>
+                <button onClick={revoke}
+                  className="px-4 py-2.5 bg-slate-800 hover:bg-rose-500/20 hover:text-rose-400 border border-slate-700 hover:border-rose-500/30 rounded-xl text-slate-400 text-sm font-semibold transition-all">
+                  {t('revoke')}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {step === 'error' && (
+            <div className="py-8 text-center space-y-3">
+              <div className="text-3xl">⚠️</div>
+              <div className="text-white font-semibold">{t('share_could_not_generate')}</div>
+              <div className="text-slate-400 text-sm">{t('share_make_sure_signed')}</div>
+              <button onClick={() => setStep('idle')} className="text-sm text-blue-400 hover:text-blue-300 underline">{t('share_try_again')}</button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ReportPage() {
+  const { language } = useLang();
+  const t = useTranslation(language);
+  const { token } = useParams();
+  const [report, setReport] = useState(null);
+  const [status, setStatus] = useState('loading'); // loading | found | expired | notfound
+
+  useEffect(() => {
+    if (!token) { setStatus('notfound'); return; }
+    getReport(token).then(data => {
+      if (!data) { setStatus('notfound'); return; }
+      if (data.expires_at && Date.now() > data.expires_at) { setStatus('expired'); return; }
+      setReport(data);
+      setStatus('found');
+    });
+  }, [token]);
+
+  if (status === 'loading') return (
+    <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+      <div className="w-10 h-10 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+
+  if (status === 'expired') return (
+    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6">
+      <div className="text-center space-y-3">
+        <div className="text-5xl">⏰</div>
+        <div className="text-white font-bold text-xl">{t('share_expired')}</div>
+        <div className="text-slate-400 text-sm">{t('share_ask_owner_new')}</div>
+        <a href="/" className="inline-block mt-4 text-blue-400 hover:text-blue-300 text-sm underline">Go to Stacklens →</a>
+      </div>
+    </div>
+  );
+
+  if (status === 'notfound') return (
+    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6">
+      <div className="text-center space-y-3">
+        <div className="text-5xl">🔍</div>
+        <div className="text-white font-bold text-xl">{t('share_not_found')}</div>
+        <div className="text-slate-400 text-sm">{t('share_revoked_or_never')}</div>
+        <a href="/" className="inline-block mt-4 text-blue-400 hover:text-blue-300 text-sm underline">Go to Stacklens →</a>
+      </div>
+    </div>
+  );
+
+  const s = report.snapshot;
+  const fmt = (n) => new Intl.NumberFormat('en', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
+  const riskColor = { high: 'text-rose-400', medium: 'text-amber-400', low: 'text-emerald-400' };
+  const riskBg = { high: 'bg-rose-500/10 border-rose-500/20', medium: 'bg-amber-500/10 border-amber-500/20', low: 'bg-emerald-500/10 border-emerald-500/20' };
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-white">
+      {/* Header */}
+      <div className="border-b border-slate-800 bg-slate-900/80 backdrop-blur-sm sticky top-0 z-10">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+              <Shield className="w-4 h-4 text-white" />
+            </div>
+            <div>
+              <div className="font-black text-white text-sm">Stacklens</div>
+              <div className="text-[10px] text-slate-500 uppercase tracking-widest">{t('share_read_only')}</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-slate-500">Generated {new Date(s.generatedAt).toLocaleDateString()}</span>
+            <a href="/" className="text-xs px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold transition-colors">Try Stacklens free →</a>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+        {/* Title */}
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1">{t('share_saas_stack_report')}</h1>
+          <p className="text-slate-400 text-sm">{s.companyName} · Shared via Stacklens</p>
+        </div>
+
+        {/* KPI row */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            { label: t('monthly_spend'), value: fmt(s.spend), icon: '💸', color: 'blue' },
+            { label: t('tools_tracked'), value: s.tools?.length || 0, icon: '🛠️', color: 'indigo' },
+            { label: t('nav_employees'), value: s.employeeCount || 0, icon: '👥', color: 'violet' },
+            { label: t('former_employee_access'), value: s.formerAccess || 0, icon: '⚠️', color: s.formerAccess > 0 ? 'rose' : 'emerald' },
+          ].map(({ label, value, icon, color }) => (
+            <div key={label} className={`rounded-2xl border bg-slate-900/60 p-4 border-${color}-500/20`}>
+              <div className="text-xl mb-1">{icon}</div>
+              <div className="text-2xl font-bold text-white">{value}</div>
+              <div className="text-xs text-slate-500 mt-0.5">{label}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Risk breakdown */}
+        {s.riskCounts && Object.keys(s.riskCounts).length > 0 && (
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
+            <div className="text-sm font-bold text-white mb-4">{t('share_risk_breakdown')}</div>
+            <div className="flex gap-3 flex-wrap">
+              {Object.entries(s.riskCounts).sort((a,b) => ['high','medium','low'].indexOf(a[0]) - ['high','medium','low'].indexOf(b[0])).map(([risk, count]) => (
+                <div key={risk} className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border ${riskBg[risk] || 'bg-slate-800 border-slate-700'}`}>
+                  <span className={`text-lg font-bold ${riskColor[risk] || 'text-slate-300'}`}>{count}</span>
+                  <span className="text-xs text-slate-400 capitalize">{risk} risk</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Top tools table */}
+        {s.topTools?.length > 0 && (
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-800">
+              <div className="font-bold text-white text-sm">{t('share_top_tools_monthly')}</div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-800 bg-slate-950/50">
+                    <th className="text-left py-3 px-5 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('tool_name')}</th>
+                    <th className="text-left py-3 px-5 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden sm:table-cell">{t('category')}</th>
+                    <th className="text-left py-3 px-5 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('th_status')}</th>
+                    <th className="text-left py-3 px-5 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('th_risk')}</th>
+                    <th className="text-right py-3 px-5 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('share_monthly_cost')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {s.topTools.map((tool, i) => (
+                    <tr key={i} className="border-b border-slate-800/60 hover:bg-slate-800/30 transition-colors">
+                      <td className="py-3 px-5 font-semibold text-white">{tool.name}</td>
+                      <td className="py-3 px-5 text-slate-400 capitalize hidden sm:table-cell">{tool.category}</td>
+                      <td className="py-3 px-5">
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-semibold capitalize ${
+                          tool.status === 'active' ? 'bg-emerald-500/15 text-emerald-400' :
+                          tool.status === 'orphaned' ? 'bg-amber-500/15 text-amber-400' :
+                          tool.status === 'unused' ? 'bg-rose-500/15 text-rose-400' :
+                          'bg-slate-700 text-slate-400'}`}>
+                          {tool.status}
+                        </span>
+                      </td>
+                      <td className="py-3 px-5">
+                        <span className={`text-xs font-semibold capitalize ${riskColor[tool.risk] || 'text-slate-400'}`}>{tool.risk}</span>
+                      </td>
+                      <td className="py-3 px-5 text-right font-semibold text-white">{fmt(tool.cost)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t border-slate-700 bg-slate-950/40">
+                    <td colSpan={3} className="py-3 px-5 text-xs text-slate-500">{t('share_total_shown')}</td>
+                    <td />
+                    <td className="py-3 px-5 text-right font-bold text-white">{fmt(s.spend)}/mo</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* CTA */}
+        <div className="rounded-2xl border border-blue-500/20 bg-gradient-to-r from-blue-500/10 to-indigo-500/5 p-6 text-center">
+          <div className="text-white font-bold text-lg mb-2">{t('share_want_this')}</div>
+          <p className="text-slate-400 text-sm mb-4 max-w-sm mx-auto">Stacklens gives you this dashboard in under 5 minutes. Free plan available — no credit card needed.</p>
+          <a href="/" className="inline-block px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 rounded-xl text-white font-bold text-sm transition-all shadow-lg">
+            Try Stacklens free →
+          </a>
+        </div>
+
+        <div className="text-center text-xs text-slate-700 pb-4">
+          Powered by <a href="/" className="text-slate-500 hover:text-slate-400">Stacklens</a> · This report was shared by the account owner · Employee data is anonymised
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -10927,7 +12797,7 @@ function ContactPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          access_key: '88adb1a1-a43c-4395-b37f-b3dd7ac14411',
+          access_key: import.meta.env.VITE_WEB3FORMS_KEY || '',
           from_name: form.name,
           email: form.email,
           subject: `[Stacklens ${form.subject}] from ${form.name}`,
@@ -11191,6 +13061,7 @@ function DpaPage() {
               <li>{isFr ? 'Données actives : conservées pendant toute la durée de l\'abonnement' : 'Active data: retained for the duration of the subscription'}</li>
               <li>{isFr ? 'Après résiliation : suppression dans les 30 jours' : 'After termination: deleted within 30 days'}</li>
               <li>{isFr ? 'Logs de consentement cookies : 3 ans (obligation CNIL)' : 'Cookie consent logs: 3 years (CNIL obligation)'}</li>
+              <li>{isFr ? 'Acceptations légales (CGU/CGV/DPA) : 5 ans (preuve contractuelle)' : 'Legal acceptances (ToS/DPA): 5 years (contractual proof)'}</li>
               <li>{isFr ? 'Données de paiement (Stripe) : selon politique de conservation de Stripe' : 'Payment data (Stripe): per Stripe retention policy'}</li>
               <li>{isFr ? 'Textes de contrats analysés par IA : non conservés après analyse' : 'Contract texts analysed by AI: not retained after analysis'}</li>
             </ul>
@@ -11255,6 +13126,8 @@ function SubProcessorsPage() {
     { name: 'Anthropic (Claude AI)', purpose: isFr ? 'Analyse de contrats assistée par IA — uniquement lorsque la fonctionnalité est utilisée explicitement. Les textes soumis ne sont pas conservés par Anthropic pour l\'entraînement.' : 'AI-assisted contract analysis — only when feature is explicitly used. Submitted texts are not retained by Anthropic for training.', location: 'USA', link: 'https://www.anthropic.com/privacy', transfer: isFr ? 'Transfert vers USA — SCCs + politique de non-conservation des données' : 'Transfer to USA — SCCs + data non-retention policy' },
     { name: 'OVHcloud', purpose: isFr ? 'Registrar du nom de domaine stacklens.fr, messagerie hello@stacklens.fr' : 'Domain registrar for stacklens.fr, hello@stacklens.fr email', location: 'EU (France)', link: 'https://www.ovhcloud.com/fr/personal-data-protection/', transfer: isFr ? 'EU — aucun transfert hors UE' : 'EU — no transfer outside EU' },
     { name: 'Google Analytics', purpose: isFr ? 'Mesure d\'audience anonymisée — uniquement avec consentement explicite via le bandeau CNIL' : 'Anonymised audience measurement — only with explicit consent via CNIL cookie banner', location: 'EU', link: 'https://support.google.com/analytics/answer/6004245', transfer: isFr ? 'Données anonymisées uniquement, stockage EU' : 'Anonymised data only, EU storage' },
+    { name: 'SendGrid (Twilio)', purpose: isFr ? 'Envoi d\'emails transactionnels (alertes de renouvellement)' : 'Transactional email delivery (renewal alerts)', location: 'USA', link: 'https://www.twilio.com/en-us/legal/privacy', transfer: isFr ? 'Transfert vers USA — SCCs en place' : 'Transfer to USA — SCCs in place' },
+    { name: 'Web3Forms', purpose: isFr ? 'Traitement des soumissions du formulaire de contact' : 'Contact form submission processing', location: 'USA', link: 'https://web3forms.com/privacy', transfer: isFr ? 'Email de contact uniquement, aucune donnée conservée' : 'Contact email only, no data retained' },
   ];
 
   return (
@@ -11453,7 +13326,7 @@ function AboutPage() {
           </Link>
           <div className="flex items-center gap-4">
             <LangSelectorCompact />
-            <Link to="/" className="text-slate-300 hover:text-white transition-colors">← Back to Home</Link>
+            <Link to="/" className="text-slate-300 hover:text-white transition-colors">← {t('about_back_home')}</Link>
           </div>
         </div>
       </nav>
@@ -11465,10 +13338,10 @@ function AboutPage() {
             <span className="text-xs font-semibold uppercase tracking-wider text-blue-400">{t('about_our_mission')}</span>
           </div>
           <h1 className="text-4xl md:text-5xl font-bold mb-6 leading-tight">
-            SaaS control, <span className="bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">for everyone else.</span>
+            {t('about_hero_1')} <span className="bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">{t('about_hero_2')}</span>
           </h1>
           <p className="text-xl text-slate-400 leading-relaxed">
-            Enterprise-grade SaaS management, built for small and mid-sized European companies that can't justify €30,000 a year for software visibility.
+            {t('about_hero_sub')}
           </p>
         </div>
 
@@ -11477,10 +13350,10 @@ function AboutPage() {
           <h2 className="text-2xl font-bold text-white mb-4">{t('about_the_problem')}</h2>
           <div className="space-y-4 text-slate-300 leading-relaxed">
             <p>
-              The average 100-person company now pays for more than 80 SaaS tools. Licences get forgotten. Employees leave and retain their access. Contracts auto-renew at inflated prices. For most organisations, nobody owns the full picture — and the cost of that ambiguity is material.
+              {t('about_problem_p1')}
             </p>
             <p>
-              The tools that solve this problem at enterprise scale — Zylo, Torii, Lumos — are excellent. They also charge between €30,000 and €50,000 per year and require dedicated procurement teams to operate. That leaves every company under 500 employees with two options: pay for chaos, or hire someone to chase it full-time.
+              {t('about_problem_p2')}
             </p>
           </div>
         </section>
@@ -11490,10 +13363,10 @@ function AboutPage() {
           <h2 className="text-2xl font-bold text-white mb-4">{t('about_our_approach')}</h2>
           <div className="space-y-4 text-slate-300 leading-relaxed">
             <p>
-              Stacklens is the third option. We deliver the core 80% of enterprise SaaS management — visibility, waste detection, renewal alerts, contract analysis — engineered specifically for small and mid-sized European organisations.
+              {t('about_approach_p1')}
             </p>
             <p>
-              Transparent pricing from €29 per month. Hosted in the EU. GDPR-native. No annual commitments. No sales calls. One clear mission: give every SMB the SaaS control that used to be reserved for the Fortune 500.
+              {t('about_approach_p2')}
             </p>
           </div>
         </section>
@@ -11503,10 +13376,10 @@ function AboutPage() {
           <h2 className="text-2xl font-bold text-white mb-6">{t('about_what_we_stand_for')}</h2>
           <div className="grid gap-4">
             {[
-              { title: 'Transparent pricing', body: 'Public plans, no "contact sales" tier. You see the price before you sign up — including at enterprise level.' },
-              { title: 'European by design', body: 'Hosted in the EU. GDPR-native from day one. Built for the regulatory and linguistic context of European SMBs.' },
-              { title: 'Focused scope', body: 'We deliver the 80% of SaaS management that matters most. We do not try to be an HR suite, an IT ticketing system, or a SCIM/PAM platform.' },
-              { title: 'Accessible support', body: 'Direct communication with the team that builds the product. No tier-one queues, no 48-hour SLAs.' },
+              { title: t('about_principle1_title'), body: t('about_principle1_body') },
+              { title: t('about_principle2_title'), body: t('about_principle2_body') },
+              { title: t('about_principle3_title'), body: t('about_principle3_body') },
+              { title: t('about_principle4_title'), body: t('about_principle4_body') },
             ].map((p, i) => (
               <div key={i} className="rounded-xl border border-slate-800 bg-slate-900/40 p-5">
                 <div className="text-base font-semibold text-white mb-1">{p.title}</div>
@@ -11520,20 +13393,20 @@ function AboutPage() {
         <section className="mb-14 rounded-2xl border border-blue-500/20 bg-gradient-to-br from-blue-500/10 to-indigo-500/5 p-8 text-center">
           <h2 className="text-2xl font-bold text-white mb-3">{t('about_start_in_minutes')}</h2>
           <p className="text-slate-400 mb-6 max-w-xl mx-auto">
-            Free plan includes up to 10 tools and 25 employees. No credit card required.
+            {t('about_cta_sub')}
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link to="/" className="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl text-sm font-semibold text-white transition-all">
-              Get started free
+              {t('about_get_started')}
             </Link>
             <a href="mailto:hello@stacklens.fr" className="px-6 py-3 border border-slate-700 hover:border-slate-600 rounded-xl text-sm font-semibold text-slate-300 transition-all">
-              Contact us
+              {t('contact_us')}
             </a>
           </div>
         </section>
 
         <div className="text-center text-xs text-slate-600">
-          Stacklens · Built in France · Hosted in the EU · © 2026
+          {t('about_footer_line')}
         </div>
       </div>
     </div>
@@ -11562,13 +13435,13 @@ function PrivacyPage() {
 
       <div className="max-w-4xl mx-auto px-6 py-20">
         <h1 className="text-3xl md:text-5xl font-black mb-4 text-white">{isFr ? 'Politique de confidentialité' : 'Privacy Policy'}</h1>
-        <p className="text-slate-400 mb-12">{isFr ? 'Dernière mise à jour' : 'Last updated'}: April 17, 2026</p>
+        <p className="text-slate-400 mb-12">{isFr ? 'Dernière mise à jour' : 'Last updated'}: May 17, 2026</p>
 
         <div className="space-y-10 text-sm text-slate-300 leading-relaxed">
           <section>
             <h2 className="text-xl font-bold mb-3 text-white">{isFr ? '1. Responsable du traitement' : '1. Data Controller'}</h2>
             <p>{isFr ? 'Le responsable du traitement de vos données personnelles est :' : 'The data controller for your personal data is:'}</p>
-            <p className="mt-2"><strong>Stacklens</strong> — Roland Dzoagbe<br/>Paris, France<br/>Email: <a href="mailto:hello@stacklens.fr" className="text-blue-400 hover:text-blue-300">hello@stacklens.fr</a></p>
+            <p className="mt-2"><strong>Stacklens</strong> — Roland Dzoagbe<br/>Paris, Île-de-France, France<br/>Email: <a href="mailto:hello@stacklens.fr" className="text-blue-400 hover:text-blue-300">hello@stacklens.fr</a></p>
           </section>
 
           <section>
@@ -11589,6 +13462,14 @@ function PrivacyPage() {
                 <div className="font-semibold text-white mb-1">{isFr ? 'Données de paiement' : 'Payment data'}</div>
                 <p>{isFr ? 'Traitées par Stripe. Nous ne stockons jamais les numéros de carte. Nous conservons uniquement l\'ID client Stripe et le statut de l\'abonnement.' : 'Processed by Stripe. We never store card numbers. We only retain the Stripe customer ID and subscription status.'}</p>
                 <p className="text-xs text-slate-500 mt-1">{isFr ? 'Base légale : Exécution du contrat (Art. 6.1.b RGPD)' : 'Legal basis: Contract performance (Art. 6.1.b GDPR)'}</p>
+              </div>
+              <div className="p-3 rounded-lg bg-slate-900/60 border border-slate-800">
+                <div className="font-semibold text-white mb-1">{isFr ? 'Données de synchronisation d\'annuaire' : 'Directory sync data'}</div>
+                <p>{isFr
+                  ? 'Si vous activez la synchronisation avec Google Workspace, Microsoft 365 ou Okta, Stacklens accède, via OAuth, aux données d\'annuaire suivantes : noms complets des employés, adresses email professionnelles, département, statut du compte (actif / suspendu), rôle d\'administrateur. Ces données sont importées dans votre espace Stacklens et stockées dans Firestore. Nous ne demandons que les permissions de lecture strictement nécessaires (admin.directory.user.readonly pour Google, User.Read.All pour Microsoft 365). Aucune donnée n\'est partagée avec des tiers. Vous pouvez révoquer l\'accès à tout moment depuis votre tableau de bord d\'annuaire.'
+                  : 'If you enable directory sync with Google Workspace, Microsoft 365, or Okta, Stacklens accesses the following directory data via OAuth: employee full names, work email addresses, department, account status (active / suspended), admin role. This data is imported into your Stacklens workspace and stored in Firestore. We only request the minimum read-only permissions required (admin.directory.user.readonly for Google, User.Read.All for Microsoft 365). No data is shared with third parties. You can revoke access at any time from your directory dashboard.'
+                }</p>
+                <p className="text-xs text-slate-500 mt-1">{isFr ? 'Base légale : Exécution du contrat (Art. 6.1.b RGPD) — fonctionnalité optionnelle, activée uniquement si vous connectez un annuaire' : 'Legal basis: Contract performance (Art. 6.1.b GDPR) — optional feature, only active if you connect a directory'}</p>
               </div>
               <div className="p-3 rounded-lg bg-slate-900/60 border border-slate-800">
                 <div className="font-semibold text-white mb-1">{isFr ? 'Données analytiques' : 'Analytics data'}</div>
@@ -11614,7 +13495,11 @@ function PrivacyPage() {
                   <tr className="border-b border-slate-800"><td className="py-2 pr-4">Anthropic (Claude AI)</td><td className="py-2 pr-4">{isFr ? 'Analyse de contrats IA' : 'AI contract analysis'}</td><td className="py-2">USA</td></tr>
                   <tr className="border-b border-slate-800"><td className="py-2 pr-4">Google Analytics</td><td className="py-2 pr-4">{isFr ? 'Analytiques (avec consentement)' : 'Analytics (with consent)'}</td><td className="py-2">EU</td></tr>
                   <tr className="border-b border-slate-800"><td className="py-2 pr-4">OVHcloud</td><td className="py-2 pr-4">{isFr ? 'Domaine et emails' : 'Domain and email'}</td><td className="py-2">EU (France)</td></tr>
-                  <tr><td className="py-2 pr-4">Web3Forms</td><td className="py-2 pr-4">{isFr ? 'Formulaire de contact' : 'Contact form'}</td><td className="py-2">USA</td></tr>
+                  <tr className="border-b border-slate-800"><td className="py-2 pr-4">SendGrid (Twilio)</td><td className="py-2 pr-4">{isFr ? 'Emails transactionnels (alertes renouvellement)' : 'Transactional emails (renewal alerts)'}</td><td className="py-2">USA</td></tr>
+                  <tr className="border-b border-slate-800"><td className="py-2 pr-4">Web3Forms</td><td className="py-2 pr-4">{isFr ? 'Formulaire de contact' : 'Contact form'}</td><td className="py-2">USA</td></tr>
+                  <tr className="border-b border-slate-800"><td className="py-2 pr-4">Google Workspace Admin API</td><td className="py-2 pr-4">{isFr ? 'Synchronisation d\'annuaire (optionnel, lecture seule)' : 'Directory sync (optional, read-only)'}</td><td className="py-2">USA/EU</td></tr>
+                  <tr className="border-b border-slate-800"><td className="py-2 pr-4">Microsoft Graph API</td><td className="py-2 pr-4">{isFr ? 'Synchronisation d\'annuaire Microsoft 365 (optionnel, lecture seule)' : 'Microsoft 365 directory sync (optional, read-only)'}</td><td className="py-2">EU</td></tr>
+                  <tr><td className="py-2 pr-4">Okta</td><td className="py-2 pr-4">{isFr ? 'Synchronisation d\'annuaire Okta (optionnel, lecture seule)' : 'Okta directory sync (optional, read-only)'}</td><td className="py-2">{isFr ? 'Varie selon le domaine' : 'Varies by domain'}</td></tr>
                 </tbody>
               </table>
             </div>
@@ -11631,8 +13516,8 @@ function PrivacyPage() {
           <section>
             <h2 className="text-xl font-bold mb-3 text-white">{isFr ? '5. Conservation des données' : '5. Data Retention'}</h2>
             <p>{isFr
-              ? 'Vos données sont conservées tant que votre compte est actif. Après suppression de votre compte, toutes vos données sont effacées dans un délai de 30 jours. Les données de facturation sont conservées 10 ans conformément à la législation fiscale française.'
-              : 'Your data is retained as long as your account is active. After account deletion, all your data is erased within 30 days. Billing data is retained for 10 years as required by French tax law.'
+              ? 'Vos données sont conservées tant que votre compte est actif. Après suppression de votre compte, toutes vos données sont effacées dans un délai de 30 jours. Les données de facturation sont conservées 10 ans conformément à la législation fiscale française. Les acceptations légales (CGU/DPA) sont conservées 5 ans à titre de preuve contractuelle. Les logs de consentement cookies sont conservés 3 ans (obligation CNIL).'
+              : 'Your data is retained as long as your account is active. After account deletion, all your data is erased within 30 days. Billing data is retained for 10 years as required by French tax law. Legal acceptances (ToS/DPA) are retained for 5 years as contractual proof. Cookie consent logs are retained for 3 years (CNIL obligation).'
             }</p>
           </section>
 
@@ -11712,7 +13597,7 @@ function TermsPage() {
 
       <div className="max-w-4xl mx-auto px-6 py-20">
         <h1 className="text-3xl md:text-5xl font-black mb-4 text-white">{isFr ? 'Conditions générales d\'utilisation' : 'Terms of Service'}</h1>
-        <p className="text-slate-400 mb-12">{isFr ? 'Dernière mise à jour' : 'Last updated'}: April 17, 2026</p>
+        <p className="text-slate-400 mb-12">{isFr ? 'Dernière mise à jour' : 'Last updated'}: May 17, 2026</p>
 
         <div className="space-y-10 text-sm text-slate-300 leading-relaxed">
           <section>
@@ -11826,7 +13711,37 @@ function TermsPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-bold mb-3 text-white">{isFr ? '9. Limitation de responsabilité' : '9. Limitation of Liability'}</h2>
+            <h2 className="text-xl font-bold mb-3 text-white">{isFr ? '9. Intégrations d\'annuaire (Google Workspace, Microsoft 365, Okta)' : '9. Directory Integrations (Google Workspace, Microsoft 365, Okta)'}</h2>
+            <p className="mb-3">{isFr
+              ? 'Stacklens propose des intégrations optionnelles avec des fournisseurs d\'annuaires d\'entreprise. En activant ces intégrations, vous acceptez les conditions suivantes :'
+              : 'Stacklens offers optional integrations with enterprise directory providers. By enabling these integrations, you agree to the following:'
+            }</p>
+            <ul className="list-disc list-inside space-y-2 ml-2">
+              <li>{isFr
+                ? 'Vous êtes autorisé par votre organisation à connecter le fournisseur d\'annuaire et à accorder les permissions OAuth demandées.'
+                : 'You are authorised by your organisation to connect the directory provider and grant the requested OAuth permissions.'
+              }</li>
+              <li>{isFr
+                ? 'Stacklens ne demande que des permissions de lecture (admin.directory.user.readonly pour Google Workspace ; User.Read.All pour Microsoft 365). Aucun donnée n\'est modifiée dans votre annuaire.'
+                : 'Stacklens only requests read-only permissions (admin.directory.user.readonly for Google Workspace; User.Read.All for Microsoft 365). No data is modified in your directory.'
+              }</li>
+              <li>{isFr
+                ? 'Les données importées (noms, emails professionnels, département, statut de compte) sont stockées dans votre espace Stacklens et couvertes par notre Politique de confidentialité.'
+                : 'Imported data (names, work emails, department, account status) is stored in your Stacklens workspace and covered by our Privacy Policy.'
+              }</li>
+              <li>{isFr
+                ? 'Vous pouvez révoquer l\'accès à tout moment depuis les paramètres de votre fournisseur d\'annuaire. La révocation n\'efface pas les données déjà importées — vous devez les supprimer manuellement depuis votre tableau de bord.'
+                : 'You can revoke access at any time from your directory provider\'s settings. Revocation does not erase already-imported data — you must delete it manually from your dashboard.'
+              }</li>
+              <li>{isFr
+                ? 'Stacklens n\'est pas responsable de l\'exactitude des données fournies par votre annuaire. En cas d\'écart entre les données de l\'annuaire et la réalité de votre organisation, vous êtes responsable de la réconciliation.'
+                : 'Stacklens is not responsible for the accuracy of data provided by your directory. If data differs from your organisation\'s reality, you are responsible for reconciliation.'
+              }</li>
+            </ul>
+          </section>
+
+          <section>
+            <h2 className="text-xl font-bold mb-3 text-white">{isFr ? '10. Limitation de responsabilité' : '10. Limitation of Liability'}</h2>
             <p>{isFr
               ? 'Le Service est fourni « en l\'état ». Dans les limites permises par la loi, nous ne sommes pas responsables des dommages indirects, accessoires ou consécutifs résultant de votre utilisation du Service. Notre responsabilité totale est limitée au montant que vous avez payé pour le Service au cours des 12 derniers mois.'
               : 'The Service is provided "as is". To the extent permitted by law, we are not liable for indirect, incidental, or consequential damages arising from your use of the Service. Our total liability is limited to the amount you have paid for the Service in the preceding 12 months.'
@@ -11834,7 +13749,7 @@ function TermsPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-bold mb-3 text-white">{isFr ? '10. Résiliation' : '10. Termination'}</h2>
+            <h2 className="text-xl font-bold mb-3 text-white">{isFr ? '11. Résiliation' : '11. Termination'}</h2>
             <p>{isFr
               ? 'Chaque partie peut résilier le contrat à tout moment. En cas de résiliation, votre accès au Service cessera à la fin de la période de facturation en cours. Nous supprimerons vos données conformément à notre politique de conservation.'
               : 'Either party may terminate the agreement at any time. Upon termination, your access to the Service will cease at the end of the current billing period. We will delete your data according to our retention policy.'
@@ -11842,7 +13757,7 @@ function TermsPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-bold mb-3 text-white">{isFr ? '11. Droit applicable' : '11. Applicable Law'}</h2>
+            <h2 className="text-xl font-bold mb-3 text-white">{isFr ? '12. Droit applicable' : '12. Applicable Law'}</h2>
             <p>{isFr
               ? 'Les présentes conditions sont régies par le droit français. Tout litige relève de la compétence exclusive des tribunaux de Paris, France.'
               : 'These terms are governed by French law. Any dispute falls under the exclusive jurisdiction of the courts of Paris, France.'
@@ -11850,7 +13765,7 @@ function TermsPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-bold mb-3 text-white">{isFr ? '12. Contact' : '12. Contact'}</h2>
+            <h2 className="text-xl font-bold mb-3 text-white">{isFr ? '13. Contact' : '13. Contact'}</h2>
             <p>{isFr ? 'Pour toute question concernant ces conditions :' : 'For questions about these Terms:'}</p>
             <p className="mt-2"><a href="mailto:hello@stacklens.fr" className="text-blue-400 hover:text-blue-300">hello@stacklens.fr</a></p>
             <p className="mt-1"><Link to="/contact" className="text-blue-400 hover:text-blue-300">{isFr ? 'Formulaire de contact' : 'Contact form'}</Link></p>
@@ -11908,8 +13823,8 @@ function SecurityPage() {
             { icon: "🔒", title: "End-to-End Encryption", body: "All data encrypted in transit using TLS 1.3 and at rest using AES-256. Your SaaS inventory, employee records, and access data are never stored in plaintext. Encryption keys are rotated quarterly." },
             { icon: "🏗️", title: "Infrastructure & Hosting", body: "Stacklens runs on Google Cloud Platform (Firebase/GCP), hosted in the EU (europe-west1) by default. We use isolated, per-organisation Firestore databases. No data is ever co-mingled between customers." },
             { icon: "👤", title: "Data Access Controls", body: "Only you and users you explicitly invite can access your workspace. Stacklens staff have zero access to your data by default. Any internal access requires approval, is time-limited, and fully audit-logged." },
-            { icon: "🔑", title: "Authentication & SSO", body: "We support Google OAuth 2.0, Magic Link (passwordless), and SAML 2.0 for enterprise plans. Multi-factor authentication (MFA) is available on all plans and can be enforced organisation-wide by admins." },
-            { icon: "📋", title: "Tamper-Proof Audit Logs", body: "Every action in Stacklens — logins, access grants, revocations, data exports — is logged with timestamp, user identity, and IP. Logs are immutable and retained for 12 months (Enterprise: 7 years)." },
+            { icon: "🔑", title: "Authentication & SSO", body: "We support Google OAuth 2.0, Magic Link (passwordless), and Microsoft 365 SSO. SAML 2.0 and enforced MFA are available on Enterprise plans." },
+            { icon: "📋", title: "Activity Audit Logs", body: "Key events in Stacklens — logins, access grants, revocations, and data exports — are logged with a timestamp and user identity. Enterprise plans include extended log retention and export." },
             { icon: "🗑️", title: "Data Portability & Deletion", body: "You own your data. Export everything in CSV or JSON at any time from Settings. When you cancel, all your data is permanently deleted within 30 days. We do not sell or share your data with any third party." },
             { icon: "🔍", title: "Vulnerability Disclosure", body: "We take every security report seriously. If you discover a vulnerability, email hello@stacklens.fr with details. We aim to respond within 48 hours and acknowledge responsible disclosure." },
             { icon: "📡", title: "Uptime & Reliability", body: "Stacklens runs on Google Firebase infrastructure with automatic scaling and redundancy. We target 99.5% uptime. For any service issues, contact hello@stacklens.fr." },
@@ -12058,7 +13973,7 @@ function SpendTrendChart({ monthlyTrend, byCategory }) {
 
         {totalMonthly > 0 && (
           <div className="mt-5 pt-4 border-t border-slate-800 flex items-center justify-between">
-            <span className="text-sm text-slate-400">Total monthly</span>
+            <span className="text-sm text-slate-400">{t('total_monthly')}</span>
             <span className="text-lg font-black text-white">{getCurrency(language)}{convertCurrency(totalMonthly, language).toLocaleString()}</span>
           </div>
         )}
@@ -12135,10 +14050,9 @@ function FinanceDashboard() {
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [showReclaimModal, setShowReclaimModal] = useState(false);
   const [selectedBill, setSelectedBill] = useState(null);
-  // Compute real financial data from tools — use reactive db (TanStack Query)
-  // to avoid showing demo data during Firestore hydration race
-  const _fReal = db?.user?.is_authenticated && !db?.user?.is_demo;
+  // Compute real financial data from tools
   const _tools = db?.tools || [];
+  const _fReal = _tools.length > 0;
   const _totalSpend = _fReal ? _tools.reduce((s, t) => s + (t.cost_per_month || t.cost_monthly || t.cost || 0), 0) : 47850;
   const _byCategory = _fReal ? Object.values(_tools.reduce((acc, tool) => {
     const cat = tool.category || 'Other';
@@ -12520,14 +14434,14 @@ function CostTabContent({ setFinTab }) {
           
           {/* Waste breakdown bar */}
           <div className="mb-2 flex items-center justify-between">
-            <span className="text-xs text-slate-500">Healthy spend</span>
+            <span className="text-xs text-slate-500">{t('fin_healthy_spend')}</span>
             <span className="text-xs font-semibold text-white">{100 - wastePercent}%</span>
           </div>
           <div className="h-2 bg-slate-800 rounded-full overflow-hidden mb-2">
             <div className="h-full bg-emerald-500 transition-all" style={{width: `${100 - wastePercent}%`}} />
           </div>
           <div className="flex items-center justify-between text-xs">
-            <span className="text-slate-500">Wasted</span>
+            <span className="text-slate-500">{t('fin_wasted')}</span>
             <span className={"font-semibold " + (wastePercent > 20 ? "text-red-400" : wastePercent > 10 ? "text-amber-400" : "text-emerald-400")}>
               {wastePercent}% ({getCurrency(language)}{convertCurrency(Math.round(wasteAmount), language).toLocaleString()})
             </span>
@@ -12591,11 +14505,11 @@ function CostTabContent({ setFinTab }) {
                 </div>
                 <div className="mt-3 pt-3 border-t border-slate-800/50 space-y-1">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-slate-500">Cost/mo</span>
+                    <span className="text-slate-500">{t('th_cost_mo')}</span>
                     <span className="text-white font-semibold">{getCurrency(language)}{convertCurrency(Math.round(tool.cost), language).toLocaleString()}</span>
                   </div>
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-slate-500">Active users</span>
+                    <span className="text-slate-500">{t('fin_active_users')}</span>
                     <span className={tool.activeUsers === 0 ? "text-red-400 font-semibold" : "text-white"}>{tool.activeUsers}</span>
                   </div>
                   <div className="flex items-center justify-between text-xs">
@@ -12625,9 +14539,9 @@ function CostTabContent({ setFinTab }) {
             ))}
             <select value={sortBy} onChange={e => setSortBy(e.target.value)}
               className="px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-slate-300 outline-none">
-              <option value="cost">Sort: Cost</option>
-              <option value="perUser">Sort: Cost/User</option>
-              <option value="users">Sort: Users</option>
+              <option value="cost">{t('sort_cost')}</option>
+              <option value="perUser">{t('sort_cost_user')}</option>
+              <option value="users">{t('sort_users')}</option>
             </select>
           </div>
         </div>
@@ -12646,11 +14560,11 @@ function CostTabContent({ setFinTab }) {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-800 bg-slate-950/50">
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Tool</th>
-                    <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Monthly Cost</th>
-                    <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">Users</th>
-                    <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">Cost/User</th>
-                    <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('cost_col_tool')}</th>
+                    <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('cost_col_monthly_cost')}</th>
+                    <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">{t('cost_col_users')}</th>
+                    <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">{t('th_cost_user')}</th>
+                    <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('cost_col_status')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -12722,7 +14636,7 @@ function ExecutiveTabContent() {
     tools: db.tools.map(t => ({ ...t, derived_risk: computeToolDerivedRisk(t) })),
     employees: db.employees || [],
     access: db.access || [],
-    alerts: buildRiskAlerts({ tools: db.tools, access: db.access || [], employees: db.employees || [] })
+    alerts: buildRiskAlerts({ tools: db.tools, access: db.access || [], employees: db.employees || [] }, t)
   };
   return <div className="p-2"><ExecutiveDashboard data={derived} /></div>;
 }
@@ -12815,7 +14729,7 @@ function AnalyticsTabContent() {
     a.download = 'saasguard-analytics-' + new Date().toISOString().slice(0,10) + '.csv';
     a.click();
     URL.revokeObjectURL(url);
-    toast.success('Analytics report exported');
+    toast.success(t('toast_analytics_exported'));
   };
 
   return (
@@ -13133,6 +15047,8 @@ function ExecutiveDashboard({ data }) {
 // AI INSIGHTS — inlined from DashboardComponents.jsx
 // ============================================================================
 function AIInsights({ tools, employees, spend, accessData }) {
+  const { language } = useLang();
+  const t = useTranslation(language);
   const insights = [];
   const unusedTools = tools?.filter(t => {
     const lastUsed = new Date(t.last_used_date || 0);
@@ -13140,14 +15056,14 @@ function AIInsights({ tools, employees, spend, accessData }) {
   }) || [];
   if (unusedTools.length > 0) {
     const savings = unusedTools.reduce((sum, t) => sum + (t.cost_per_month || 0), 0);
-    insights.push({ icon: TrendingDown, title: 'Unused License Opportunity', description: `${unusedTools.length} tools haven't been used in 90+ days. Potential savings: ${getCurrency(language)}${savings.toLocaleString()}/month`, savings, priority: 'high', action: 'Review Tools', link: '/tools' });
+    insights.push({ icon: TrendingDown, title: t('unused_licenses'), description: `${unusedTools.length} tools haven't been used in 90+ days. Potential savings: ${getCurrency(language)}${savings.toLocaleString()}/month`, savings, priority: 'high', action: t('review_tools'), link: '/tools' });
   }
   const orphanedTools = tools?.filter(t => !t.owner_name || t.owner_name === 'Unassigned') || [];
   if (orphanedTools.length > 0) {
-    insights.push({ icon: AlertTriangle, title: 'Unassigned Tools Detected', description: `${orphanedTools.length} tools have no owner. Security risk!`, priority: 'medium', action: 'Assign Owners', link: '/tools' });
+    insights.push({ icon: AlertTriangle, title: t('unassigned_tools'), description: `${orphanedTools.length} tools have no owner. Security risk!`, priority: 'medium', action: t('assign_owners'), link: '/tools' });
   }
   if (insights.length === 0) {
-    insights.push({ icon: Sparkles, title: 'All Systems Optimized', description: 'No immediate optimization opportunities detected!', priority: 'low', action: 'View Dashboard', link: '/dashboard' });
+    insights.push({ icon: Sparkles, title: t('all_optimized'), description: t('no_optimizations'), priority: 'low', action: t('nav_dashboard'), link: '/dashboard' });
   }
   insights.sort((a, b) => ({ critical: 0, high: 1, medium: 2, low: 3 }[a.priority] - { critical: 0, high: 1, medium: 2, low: 3 }[b.priority]));
   const totalSavings = insights.filter(i => i.savings).reduce((sum, i) => sum + i.savings, 0);
@@ -13157,10 +15073,10 @@ function AIInsights({ tools, employees, spend, accessData }) {
       <div className="flex items-center gap-3 mb-4">
         <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-500 rounded-xl"><Sparkles className="h-5 w-5 text-white" /></div>
         <div className="flex-1">
-          <h3 className="text-lg font-bold text-white">AI-Powered Insights</h3>
-          <p className="text-sm text-slate-300">Smart recommendations to optimise your SaaS stack</p>
+          <h3 className="text-lg font-bold text-white">{t('ai_powered_insights')}</h3>
+          <p className="text-sm text-slate-300">{t('ai_smart_recommendations')}</p>
         </div>
-        {totalSavings > 0 && <div className="text-right"><div className="text-2xl font-black text-emerald-400">${totalSavings.toLocaleString()}</div><div className="text-xs text-slate-400">potential monthly savings</div></div>}
+        {totalSavings > 0 && <div className="text-right"><div className="text-2xl font-black text-emerald-400">${totalSavings.toLocaleString()}</div><div className="text-xs text-slate-400">{t('potential_savings')}</div></div>}
       </div>
       <div className="space-y-3">
         {insights.slice(0, 3).map((insight, idx) => {
@@ -13433,9 +15349,9 @@ function LicenseManagement() {
                 className="px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-slate-300 outline-none focus:border-blue-500 transition-colors w-40" />
               <select value={sortBy} onChange={e => setSortBy(e.target.value)}
                 className="px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-slate-300 outline-none">
-                <option value="waste">Sort: Waste</option>
-                <option value="cost">Sort: Cost</option>
-                <option value="utilization">Sort: Utilization</option>
+                <option value="waste">{t('sort_waste')}</option>
+                <option value="cost">{t('sort_cost')}</option>
+                <option value="utilization">{t('sort_utilization')}</option>
               </select>
             </div>
           </div>
@@ -13469,12 +15385,12 @@ function LicenseManagement() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-800 bg-slate-950/50">
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Application</th>
-                    <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Used / Total</th>
-                    <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">Utilization</th>
-                    <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden lg:table-cell">Cost/mo</th>
-                    <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Waste</th>
-                    <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Action</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('th_application')}</th>
+                    <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('th_used_total')}</th>
+                    <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">{t('th_utilization')}</th>
+                    <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden lg:table-cell">{t('th_cost_mo')}</th>
+                    <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('waste')}</th>
+                    <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('license_action')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -13799,22 +15715,22 @@ function RenewalAlerts() {
       {/* ── Row 1: KPI Strip ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-blue-500">
-          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Annual Spend at Risk</div>
+          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t('ren_annual_at_risk')}</div>
           <div className="text-3xl font-black text-blue-400">{getCurrency(language)}{convertCurrency(Math.round(totalAtRisk), language).toLocaleString()}</div>
           <div className="text-sm text-slate-500 mt-1">next 90 days</div>
         </div>
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-red-500">
-          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Critical</div>
+          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t('critical')}</div>
           <div className="text-3xl font-black text-red-400">{overdue.length + critical.length}</div>
           <div className="text-sm text-slate-500 mt-1">≤ 14 days or overdue</div>
         </div>
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-amber-500">
-          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Upcoming</div>
+          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t('ren_upcoming')}</div>
           <div className="text-3xl font-black text-amber-400">{urgent.length + upcoming.length}</div>
           <div className="text-sm text-slate-500 mt-1">15–90 days</div>
         </div>
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-purple-500">
-          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Auto-Renewing</div>
+          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t('ren_auto_renewing')}</div>
           <div className="text-3xl font-black text-purple-400">{autoRenewing.length}</div>
           <div className="text-sm text-slate-500 mt-1">may auto-charge</div>
         </div>
@@ -13885,11 +15801,11 @@ function RenewalAlerts() {
                 </div>
                 <div className="mt-3 pt-3 border-t border-slate-800/50 space-y-1">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-slate-500">Annual</span>
+                    <span className="text-slate-500">{t('annual')}</span>
                     <span className="text-white font-semibold">{getCurrency(language)}{convertCurrency(Math.round(opp.annualCost), language).toLocaleString()}</span>
                   </div>
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-slate-500">Potential save</span>
+                    <span className="text-slate-500">{t('ren_potential_save')}</span>
                     <span className="text-emerald-400 font-semibold">{getCurrency(language)}{convertCurrency(Math.round(opp.annualCost * 0.15), language).toLocaleString()}/yr</span>
                   </div>
                 </div>
@@ -13908,7 +15824,7 @@ function RenewalAlerts() {
         <div className="p-4 border-b border-slate-800">
           <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
             <div className="flex-1 min-w-0">
-              <h3 className="text-base font-semibold text-white">All Renewals</h3>
+              <h3 className="text-base font-semibold text-white">{t('ren_all_renewals')}</h3>
               <p className="text-xs text-slate-500">{filtered.length} {filtered.length === 1 ? 'renewal' : 'renewals'} shown</p>
             </div>
             <div className="flex gap-2 flex-wrap items-center">
@@ -13925,9 +15841,9 @@ function RenewalAlerts() {
               </div>
               <select value={sortBy} onChange={e => setSortBy(e.target.value)}
                 className="px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-slate-300 outline-none">
-                <option value="date">Sort: Date</option>
-                <option value="cost">Sort: Cost</option>
-                <option value="app">Sort: A–Z</option>
+                <option value="date">{t('sort_date')}</option>
+                <option value="cost">{t('sort_cost')}</option>
+                <option value="app">{t('sort_az')}</option>
               </select>
               <button onClick={exportICS}
                 className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-xs font-semibold text-slate-300 transition-colors flex items-center gap-1.5">
@@ -13956,7 +15872,7 @@ function RenewalAlerts() {
             <div className="inline-flex p-3 rounded-2xl bg-slate-800 mb-3">
               <Calendar className="h-6 w-6 text-slate-500" />
             </div>
-            <h3 className="text-base font-semibold text-white mb-1">No renewals to show</h3>
+            <h3 className="text-base font-semibold text-white mb-1">{t('ren_no_renewals')}</h3>
             <p className="text-sm text-slate-500">{filter !== 'all' ? 'Try a different filter.' : 'Add renewal dates to your tools to track them here.'}</p>
           </div>
         ) : view === 'list' ? (
@@ -13965,12 +15881,12 @@ function RenewalAlerts() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-800 bg-slate-950/50">
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">App</th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">Renewal Date</th>
-                    <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
-                    <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden lg:table-cell">Annual</th>
-                    <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden lg:table-cell">Auto</th>
-                    <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Action</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('th_application')}</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">{t('exec_renewal_date')}</th>
+                    <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('th_status')}</th>
+                    <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden lg:table-cell">{t('annual')}</th>
+                    <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden lg:table-cell">{t('renewal_auto')}</th>
+                    <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('license_action')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -14034,7 +15950,7 @@ function RenewalAlerts() {
           /* Calendar view */
           <div className="p-4 lg:p-6 space-y-5">
             {calendarMonths.length === 0 ? (
-              <div className="text-center py-10 text-slate-500 text-sm">No renewals match the current filter.</div>
+              <div className="text-center py-10 text-slate-500 text-sm">{t('ren_no_match')}</div>
             ) : calendarMonths.map(month => (
               <div key={month.key}>
                 <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-800">
@@ -14165,7 +16081,7 @@ function InvoiceManager() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-slate-500">Submit and track vendor invoices for finance approval</p>
+        <p className="text-sm text-slate-500">{t('inv_submit_track')}</p>
           <button 
             onClick={() => setShowUploadModal(true)}
             className="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold flex items-center gap-2"
@@ -14240,13 +16156,13 @@ function InvoiceManager() {
               <thead>
                 <tr className="border-b border-white/10">
                   <th className="text-left py-4 px-4 text-sm font-semibold text-slate-400">Invoice #</th>
-                  <th className="text-left py-4 px-4 text-sm font-semibold text-slate-400">Vendor</th>
-                  <th className="text-left py-4 px-4 text-sm font-semibold text-slate-400">Category</th>
-                  <th className="text-right py-4 px-4 text-sm font-semibold text-slate-400">Amount</th>
+                  <th className="text-left py-4 px-4 text-sm font-semibold text-slate-400">{t('th_vendor')}</th>
+                  <th className="text-left py-4 px-4 text-sm font-semibold text-slate-400">{t('category')}</th>
+                  <th className="text-right py-4 px-4 text-sm font-semibold text-slate-400">{t('amount')}</th>
                   <th className="text-left py-4 px-4 text-sm font-semibold text-slate-400">{t("hc_due_date")}</th>
                   <th className="text-left py-4 px-4 text-sm font-semibold text-slate-400">{t("hc_submitted_by")}</th>
-                  <th className="text-left py-4 px-4 text-sm font-semibold text-slate-400">Status</th>
-                  <th className="text-right py-4 px-4 text-sm font-semibold text-slate-400">Actions</th>
+                  <th className="text-left py-4 px-4 text-sm font-semibold text-slate-400">{t('th_status')}</th>
+                  <th className="text-right py-4 px-4 text-sm font-semibold text-slate-400">{t('th_actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -14368,7 +16284,7 @@ function InvoiceManager() {
                 <input type="date" required value={uploadForm.dueDate} onChange={e => setUploadForm(f => ({...f, dueDate: e.target.value}))} className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-white" />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-slate-300 mb-2">Category</label>
+                <label className="block text-sm font-semibold text-slate-300 mb-2">{t('category')}</label>
                 <Select required>
                   <option>CRM</option>
                   <option>Communication</option>
@@ -14596,7 +16512,7 @@ Respond with this exact JSON structure:
       setView('results');
       setActiveTab('overview');
     } catch (e) {
-      toast.error('Analysis failed — please try again');
+      toast.error(t('toast_analysis_failed'));
       setView('upload');
     } finally {
       clearInterval(interval);
@@ -14622,7 +16538,7 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
           }], max_tokens: 800 });
       setRewriteResult(data.content?.[0]?.text || '');
     } catch {
-      toast.error('Rewrite failed');
+      toast.error(t('toast_rewrite_failed'));
     } finally {
       setRewriteLoading(false);
     }
@@ -14757,7 +16673,7 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
                         }
                         setState(s => ({...s, text: text.trim() || "Could not extract.", fileName: file.name}));
                       } catch (err) {
-                        toast.error('PDF extraction failed');
+                        toast.error(t('toast_pdf_failed'));
                       }
                     } else if (name.endsWith(".docx") || name.endsWith(".doc")) {
                       reader.onload = ev => {
@@ -14849,7 +16765,7 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
             <button onClick={() => {
               const txt = `CONTRACT COMPARISON REPORT\n${contractA.name} vs ${contractB.name}\n\n${analysis.summary}\n\nPROVISIONS:\n${provisions.map(p => `${p.name}:\n  A: ${p.contractA}\n  B: ${p.contractB}\n  Suggestion: ${p.suggestion}`).join('\n\n')}`;
               const a = document.createElement('a'); a.href = 'data:text/plain,' + encodeURIComponent(txt); a.download = 'contract-comparison.txt'; a.click();
-              toast.success('Report exported');
+              toast.success(t('toast_report_exported'));
             }} className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition-colors flex items-center gap-1.5">
               <Download className="h-3.5 w-3.5" /> Export Report
             </button>
@@ -14860,22 +16776,22 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
       {/* ── Row 2: KPI Strip ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-blue-500">
-          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Risk Score A</div>
+          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t('ca_risk_score_a')}</div>
           <div className={"text-3xl font-black " + ((analysis.riskScore?.a || 0) > 6 ? 'text-rose-400' : 'text-amber-400')}>{analysis.riskScore?.a || 0}<span className="text-base text-slate-500">/10</span></div>
           <div className="text-sm text-slate-500 mt-1 truncate">{contractA.name || 'Contract A'}</div>
         </div>
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-emerald-500">
-          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Risk Score B</div>
+          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t('ca_risk_score_b')}</div>
           <div className={"text-3xl font-black " + ((analysis.riskScore?.b || 0) > 6 ? 'text-rose-400' : 'text-amber-400')}>{analysis.riskScore?.b || 0}<span className="text-base text-slate-500">/10</span></div>
           <div className="text-sm text-slate-500 mt-1 truncate">{contractB.name || 'Contract B'}</div>
         </div>
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-indigo-500">
-          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Provisions</div>
+          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t('ca_provisions')}</div>
           <div className="text-3xl font-black text-indigo-400">{provisions.length}</div>
           <div className="text-sm text-slate-500 mt-1">analyzed</div>
         </div>
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-rose-500">
-          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Deal Breakers</div>
+          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t('ca_deal_breakers')}</div>
           <div className="text-3xl font-black text-rose-400">{dealBreakers.length}</div>
           <div className="text-sm text-slate-500 mt-1">flagged</div>
         </div>
@@ -14934,7 +16850,7 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 lg:p-6">
             <div className="flex items-center gap-2 mb-3">
               <FileText className="h-4 w-4 text-slate-400" />
-              <h3 className="text-base font-semibold text-white">Executive Summary</h3>
+              <h3 className="text-base font-semibold text-white">{t('ca_executive_summary')}</h3>
             </div>
             <p className="text-sm text-slate-300 leading-relaxed">{analysis.summary}</p>
           </div>
@@ -14946,15 +16862,15 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <AlertTriangle className="h-4 w-4 text-rose-400" />
-                  <h3 className="text-base font-semibold text-white">Deal Breakers</h3>
+                  <h3 className="text-base font-semibold text-white">{t('ca_deal_breakers')}</h3>
                 </div>
                 <span className="text-xs px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-400 font-semibold">{dealBreakers.length} found</span>
               </div>
               {dealBreakers.length === 0 ? (
                 <div className="py-6 text-center">
                   <Check className="h-8 w-8 text-emerald-400 mx-auto mb-2" />
-                  <p className="text-sm text-emerald-400 font-semibold">No critical deal breakers</p>
-                  <p className="text-xs text-slate-500 mt-1">Both contracts look acceptable</p>
+                  <p className="text-sm text-emerald-400 font-semibold">{t('ca_no_deal_breakers')}</p>
+                  <p className="text-xs text-slate-500 mt-1">{t('ca_both_acceptable')}</p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -14975,10 +16891,10 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
             <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
               <div className="flex items-center gap-2 mb-4">
                 <Target className="h-4 w-4 text-blue-400" />
-                <h3 className="text-base font-semibold text-white">Focus Areas</h3>
+                <h3 className="text-base font-semibold text-white">{t('ca_focus_areas')}</h3>
               </div>
               {focusAreas.length === 0 ? (
-                <p className="text-sm text-slate-500 py-4 text-center">No specific focus areas identified</p>
+                <p className="text-sm text-slate-500 py-4 text-center">{t('ca_no_focus_areas')}</p>
               ) : (
                 <div className="space-y-2">
                   {focusAreas.map((fa, i) => (
@@ -14998,7 +16914,7 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
             <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
               <div className="flex items-center gap-2 mb-4">
                 <BarChart3 className="h-4 w-4 text-amber-400" />
-                <h3 className="text-base font-semibold text-white">Market Standard Deviations</h3>
+                <h3 className="text-base font-semibold text-white">{t('ca_market_deviations')}</h3>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 {marketDeviations.map((md, i) => (
@@ -15024,7 +16940,7 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
             <div className="flex items-center gap-3 flex-wrap">
               <div className="flex-1 min-w-0">
-                <h3 className="text-base font-semibold text-white">All Provisions</h3>
+                <h3 className="text-base font-semibold text-white">{t('ca_all_provisions')}</h3>
                 <p className="text-xs text-slate-500">{provisions.length} provisions compared side-by-side</p>
               </div>
             </div>
@@ -15035,7 +16951,7 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
               <div className="inline-flex p-3 rounded-2xl bg-slate-800 mb-3">
                 <FileText className="h-6 w-6 text-slate-500" />
               </div>
-              <p className="text-sm text-slate-500">No provisions extracted from analysis</p>
+              <p className="text-sm text-slate-500">{t('ca_no_provisions')}</p>
             </div>
           ) : provisions.map((p, i) => (
             <div key={i} className="rounded-2xl border border-slate-800 bg-slate-900/60 overflow-hidden hover:border-slate-700 transition-colors">
@@ -15049,7 +16965,7 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
                   <span className={"text-[10px] px-2 py-0.5 rounded-full font-bold uppercase " + (diffColor[p.difference] || diffColor.moderate)}>
                     {p.difference}
                   </span>
-                  <span className="text-xs text-slate-500">Favors: <span className="text-white font-semibold">{p.favors}</span></span>
+                  <span className="text-xs text-slate-500">{t('ca_favors')} <span className="text-white font-semibold">{p.favors}</span></span>
                   <span className={"text-xs font-semibold " + (marketColor[p.marketStandard] || 'text-slate-400')}>
                     {p.marketStandard === 'above' ? '↑ market' : p.marketStandard === 'below' ? '↓ market' : '= market'}
                   </span>
@@ -15067,14 +16983,14 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
                     <div className="w-2 h-2 rounded-full bg-blue-500" />
                     <span className="text-blue-400 text-[10px] font-bold uppercase tracking-wider truncate">{contractA.name || 'Contract A'}</span>
                   </div>
-                  <p className="text-xs text-slate-300 leading-relaxed">{p.contractA || <span className="text-slate-600 italic">Not present in this contract</span>}</p>
+                  <p className="text-xs text-slate-300 leading-relaxed">{p.contractA || <span className="text-slate-600 italic">{t('ca_not_present')}</span>}</p>
                 </div>
                 <div className="p-4">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="w-2 h-2 rounded-full bg-emerald-500" />
                     <span className="text-emerald-400 text-[10px] font-bold uppercase tracking-wider truncate">{contractB.name || 'Contract B'}</span>
                   </div>
-                  <p className="text-xs text-slate-300 leading-relaxed">{p.contractB || <span className="text-slate-600 italic">Not present in this contract</span>}</p>
+                  <p className="text-xs text-slate-300 leading-relaxed">{p.contractB || <span className="text-slate-600 italic">{t('ca_not_present')}</span>}</p>
                 </div>
               </div>
 
@@ -15111,10 +17027,10 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
             <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
               <div className="flex items-center gap-2 mb-3">
                 <FileText className="h-4 w-4 text-slate-400" />
-                <h3 className="text-base font-semibold text-white">Select a Provision</h3>
+                <h3 className="text-base font-semibold text-white">{t('ca_select_provision')}</h3>
               </div>
               {provisions.length === 0 ? (
-                <p className="text-sm text-slate-500">No provisions to rewrite</p>
+                <p className="text-sm text-slate-500">{t('ca_no_provisions_rewrite')}</p>
               ) : (
                 <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
                   {provisions.map((p, i) => (
@@ -15133,7 +17049,7 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
             <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
               <div className="flex items-center gap-2 mb-3">
                 <Sparkles className="h-4 w-4 text-indigo-400" />
-                <h3 className="text-base font-semibold text-white">Rewrite Mode</h3>
+                <h3 className="text-base font-semibold text-white">{t('ca_rewrite_mode')}</h3>
               </div>
               <div className="space-y-2">
                 {[
@@ -15162,16 +17078,16 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 space-y-4">
             <div className="flex items-center gap-2">
               <Sparkles className="h-4 w-4 text-indigo-400" />
-              <h3 className="text-base font-semibold text-white">Rewritten Provision</h3>
+              <h3 className="text-base font-semibold text-white">{t('ca_rewritten_provision')}</h3>
             </div>
             {rewriteTarget && (
               <div className="grid grid-cols-2 gap-3">
                 <div className="rounded-xl bg-slate-800/40 border border-slate-800 p-3">
-                  <div className="text-blue-400 text-[10px] font-bold uppercase tracking-wider mb-1">Original A</div>
+                  <div className="text-blue-400 text-[10px] font-bold uppercase tracking-wider mb-1">{t('ca_original_a')}</div>
                   <p className="text-xs text-slate-400 leading-relaxed line-clamp-4">{rewriteTarget.contractA || '—'}</p>
                 </div>
                 <div className="rounded-xl bg-slate-800/40 border border-slate-800 p-3">
-                  <div className="text-emerald-400 text-[10px] font-bold uppercase tracking-wider mb-1">Original B</div>
+                  <div className="text-emerald-400 text-[10px] font-bold uppercase tracking-wider mb-1">{t('ca_original_b')}</div>
                   <p className="text-xs text-slate-400 leading-relaxed line-clamp-4">{rewriteTarget.contractB || '—'}</p>
                 </div>
               </div>
@@ -15180,7 +17096,7 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
               {rewriteLoading ? (
                 <div className="flex items-center gap-3 text-indigo-400">
                   <Sparkles className="h-4 w-4 animate-pulse" />
-                  <span className="text-sm">Claude AI is rewriting...</span>
+                  <span className="text-sm">{t('ca_rewriting')}</span>
                 </div>
               ) : rewriteResult ? (
                 <>
@@ -15188,13 +17104,13 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
                     <Sparkles className="h-3 w-3" /> AI Rewrite — {rewriteMode}
                   </div>
                   <p className="text-sm text-white leading-relaxed">{rewriteResult}</p>
-                  <button onClick={() => { navigator.clipboard?.writeText(rewriteResult); toast.success('Copied to clipboard'); }}
+                  <button onClick={() => { navigator.clipboard?.writeText(rewriteResult); toast.success(t('toast_copied_clipboard')); }}
                     className="mt-3 px-3 py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 text-xs font-semibold transition-colors">
                     Copy
                   </button>
                 </>
               ) : (
-                <p className="text-sm text-slate-500">Select a provision and click Generate Rewrite</p>
+                <p className="text-sm text-slate-500">{t('ca_select_and_generate')}</p>
               )}
             </div>
           </div>
@@ -15209,8 +17125,8 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
               <Sparkles className="h-4 w-4 text-indigo-400" />
             </div>
             <div className="min-w-0">
-              <div className="text-sm font-semibold text-white">Ask AI About These Contracts</div>
-              <div className="text-xs text-slate-500">Ask about specific clauses, risks, or recommendations</div>
+              <div className="text-sm font-semibold text-white">{t('ca_ask_ai')}</div>
+              <div className="text-xs text-slate-500">{t('ca_ask_about')}</div>
             </div>
           </div>
           <div className="flex-1 overflow-y-auto p-5 space-y-4">
@@ -15249,7 +17165,7 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
               value={chatInput}
               onChange={e => setChatInput(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendChat()}
-              placeholder="Ask anything about these contracts..."
+              placeholder={t('ca_ask_anything_ph')}
               className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-white text-sm placeholder-slate-500 outline-none focus:border-blue-500 transition-colors"
             />
             <button onClick={sendChat} disabled={!chatInput.trim() || chatLoading}
@@ -15280,12 +17196,26 @@ function FloatingChatbot() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [initialized, setInitialized] = useState(false);
+  const [serviceDown, setServiceDown] = useState(false);
   const bottomRef = React.useRef(null);
 
   React.useEffect(() => {
     if (open && !initialized) {
-      setMessages([{ role: 'assistant', content: t('chatbot_welcome') }]);
       setInitialized(true);
+      // Probe the AI service immediately so the status dot is accurate upfront
+      setLoading(true);
+      callAI({ messages: [{ role: 'user', content: 'ping' }], max_tokens: 1 })
+        .then(() => {
+          setMessages([{ role: 'assistant', content: t('chatbot_welcome') }]);
+        })
+        .catch(() => {
+          setServiceDown(true);
+          setMessages([{
+            role: 'assistant',
+            content: 'The AI assistant is temporarily unavailable — the service needs to be restarted. In the meantime, email us at hello@stacklens.fr and we\'ll get back to you shortly.',
+          }]);
+        })
+        .finally(() => setLoading(false));
     }
   }, [open, initialized, t]);
 
@@ -15294,7 +17224,7 @@ function FloatingChatbot() {
   }, [messages]);
 
   const send = async () => {
-    if (!input.trim() || loading) return;
+    if (!input.trim() || loading || serviceDown) return;
     const userMsg = { role: 'user', content: input };
     const newMessages = [...messages, userMsg];
     setMessages(newMessages);
@@ -15309,7 +17239,11 @@ function FloatingChatbot() {
       const reply = data.content?.[0]?.text || 'Sorry, I could not respond right now.';
       setMessages(prev => [...prev, { role: 'assistant', content: reply }]);
     } catch {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Connection error. Please try again or email hello@stacklens.fr' }]);
+      setServiceDown(true);
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: 'The AI assistant is temporarily unavailable. Please email us at hello@stacklens.fr and we\'ll get back to you shortly.',
+      }]);
     } finally { setLoading(false); }
   };
 
@@ -15325,7 +17259,10 @@ function FloatingChatbot() {
               <div>
                 <div className="text-white font-bold text-sm">{t('chatbot_title')}</div>
                 <div className="text-blue-200 text-xs flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" /> Online
+                  {serviceDown
+                    ? <><span className="w-1.5 h-1.5 rounded-full bg-red-400 inline-block" /> Unavailable</>
+                    : <><span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" /> Online</>
+                  }
                 </div>
               </div>
             </div>
@@ -15352,20 +17289,29 @@ function FloatingChatbot() {
             )}
             <div ref={bottomRef} />
           </div>
-          <div className="p-3 border-t border-slate-800 flex gap-2 flex-shrink-0">
-            <input
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={handleKey}
-              placeholder={t('chatbot_placeholder')}
-              className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
-            />
-            <button onClick={send} disabled={!input.trim() || loading}
-              className="px-3 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white rounded-xl transition-colors">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-              </svg>
-            </button>
+          <div className="p-3 border-t border-slate-800 flex-shrink-0">
+            {serviceDown ? (
+              <div className="flex items-center gap-2 text-xs text-slate-500 py-1">
+                <span>💬</span>
+                <span>Email us: <a href="mailto:hello@stacklens.fr" className="text-blue-400 hover:text-blue-300">hello@stacklens.fr</a></span>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <input
+                  value={input}
+                  onChange={e => setInput(e.target.value)}
+                  onKeyDown={handleKey}
+                  placeholder={t('chatbot_placeholder')}
+                  className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                />
+                <button onClick={send} disabled={!input.trim() || loading}
+                  className="px-3 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white rounded-xl transition-colors">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                  </svg>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -15400,6 +17346,7 @@ export default function App() {
           <Route path="/sub-processors" element={<SubProcessorsPage />} />
           <Route path="/security-info" element={<SecurityPage />} />
           <Route path="/finishSignUp" element={<FinishSignUpPage />} />
+          <Route path="/report/:token" element={<ReportPage />} />
           <Route path="/onboarding" element={<OnboardingPage />} />
           <Route
             path="/dashboard"
@@ -15460,6 +17407,10 @@ export default function App() {
           <Route path="/renewals" element={<Navigate to="/finance" replace />} />
           <Route path="/invoices" element={<Navigate to="/finance" replace />} />
           <Route path="/contracts" element={<Navigate to="/finance" replace />} />
+          <Route
+            path="/founder-admin"
+            element={<RequireAuth><FounderAdminPage /></RequireAuth>}
+          />
           <Route path="*" element={<NotFound />} />
         </Routes>
         <FloatingChatbotGated />

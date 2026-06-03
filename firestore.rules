@@ -8,6 +8,10 @@ service cloud.firestore {
     function isOwner(uid) {
       return isSignedIn() && request.auth.uid == uid;
     }
+    function isFounder() {
+      return isSignedIn() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('is_founder', false) == true;
+    }
 
     // Returns true if the incoming write does NOT touch any protected field.
     // Protected fields can only be set by the Stripe webhook via admin SDK,
@@ -50,11 +54,14 @@ service cloud.firestore {
 
     // /users/{uid}
     match /users/{uid} {
-      allow read: if isOwner(uid);
+      allow get: if isOwner(uid) || isFounder();
+      allow list: if isFounder();
       // Create only allowed if new doc has no protected fields (or plan='free')
       allow create: if isOwner(uid) && protectedFieldsSafe();
-      // Update: same protection
-      allow update: if isOwner(uid) && protectedFieldsSafe();
+      // Update: owner with field restrictions, OR founder extending trials / granting plans
+      allow update: if (isOwner(uid) && protectedFieldsSafe())
+                    || (isFounder() && request.resource.data.diff(resource.data).affectedKeys()
+                          .hasOnly(['trial_started_at', 'plan']));
       allow delete: if false;
     }
 
@@ -99,6 +106,21 @@ service cloud.firestore {
         request.resource.data.uid == request.auth.uid &&
         request.resource.data.documents is list &&
         request.resource.data.accepted_at == request.time;
+    }
+
+    // /reports/{token} — shareable read-only snapshots
+    // Anyone with the token can read, but only before the report has expired.
+    // Only the authenticated owner can create/delete.
+    match /reports/{token} {
+      allow read: if resource.data.expires_at is int
+                  && resource.data.expires_at > request.time.toMillis();
+      allow create: if request.auth != null
+                    && request.resource.data.owner_uid == request.auth.uid
+                    && request.resource.data.expires_at is int
+                    && request.resource.data.expires_at > request.time.toMillis();
+      allow delete: if request.auth != null
+                    && resource.data.owner_uid == request.auth.uid;
+      allow update: if false;
     }
 
     // Default deny
