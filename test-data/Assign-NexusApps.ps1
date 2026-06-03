@@ -228,16 +228,43 @@ if ($RemoveAll) {
 
 Write-Host "Resolving users from tenant '$TenantDomain'..." -ForegroundColor Cyan
 
+# Fetch all tenant users in one call then match locally.
+# This avoids per-UPN 404s when the signed-in account has limited delegated
+# permissions but can still list the directory.
+$allTenantUsers = $null
+try {
+    $allTenantUsers = Get-MgUser -All -Property Id,DisplayName,UserPrincipalName -ErrorAction Stop
+    Write-Verbose "  Fetched $($allTenantUsers.Count) users from tenant"
+} catch {
+    Write-Error "Failed to list tenant users: $_`n`nMake sure you signed in with a tenant admin account (not a personal Microsoft account)."
+    exit 1
+}
+
+# Build a UPN -> MgUser lookup (case-insensitive)
+$upnIndex = @{}
+foreach ($tu in $allTenantUsers) {
+    $upnIndex[$tu.UserPrincipalName.ToLower()] = $tu
+}
+
 $UserMap = @{}  # empId -> MgUser object
 
 foreach ($u in $Users) {
     $upn = "$($u.Prefix)@$TenantDomain"
-    try {
-        $mgUser = Get-MgUser -UserId $upn -ErrorAction Stop
+    $mgUser = $upnIndex[$upn.ToLower()]
+    if ($mgUser) {
         $UserMap[$u.Id] = $mgUser
         Write-Verbose "  Found: $upn ($($mgUser.Id))"
-    } catch {
-        Write-Warning "  User not found: $upn - skipping their assignments"
+    } else {
+        # Also try matching just by the prefix part (handles UPN suffix differences)
+        $match = $allTenantUsers | Where-Object {
+            $_.UserPrincipalName -like "$($u.Prefix)@*"
+        } | Select-Object -First 1
+        if ($match) {
+            $UserMap[$u.Id] = $match
+            Write-Verbose "  Found (suffix match): $($match.UserPrincipalName)"
+        } else {
+            Write-Warning "  User not found: $upn - skipping their assignments"
+        }
     }
 }
 
@@ -245,7 +272,9 @@ $found = $UserMap.Count
 Write-Host "  $found / $($Users.Count) users resolved.`n"
 
 if ($found -eq 0) {
-    Write-Error "No users found. Check -TenantDomain and that users were imported first."
+    Write-Host "`nAll tenant users found:" -ForegroundColor Yellow
+    $allTenantUsers | Select-Object DisplayName, UserPrincipalName | Format-Table -AutoSize
+    Write-Error "No script users matched. The UPNs above are what exist in the tenant."
     exit 1
 }
 
