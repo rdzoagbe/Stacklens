@@ -38,6 +38,7 @@ import {
   query,
   orderBy,
   serverTimestamp,
+  Timestamp,
 } from 'firebase/firestore';
 import { getAnalytics, isSupported, setConsent as firebaseSetConsent } from 'firebase/analytics';
 import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
@@ -487,10 +488,10 @@ export async function loadAllUsersAdmin() {
 
 export async function founderExtendTrial(targetUid, extraDays = 7) {
   try {
-    const newStart = Date.now() - (7 - extraDays) * 24 * 60 * 60 * 1000;
+    const newStartMs = Date.now() - (7 - extraDays) * 24 * 60 * 60 * 1000;
     await updateDoc(doc(firestoreDb, 'users', targetUid), {
       plan: 'trial',
-      trial_started_at: newStart,
+      trial_started_at: Timestamp.fromMillis(newStartMs),
     });
   } catch (err) {
     console.error('founderExtendTrial:', err);
@@ -560,11 +561,13 @@ export async function deleteAccount() {
   const user = auth.currentUser;
   if (!user) throw new Error('Not authenticated');
   const uid = user.uid;
+  // Delete auth account first — if this fails with auth/requires-recent-login,
+  // Firestore data is still intact and the user can re-authenticate and retry.
+  await deleteUser(user);
   const { deleteDoc } = await import('firebase/firestore');
   await deleteDoc(doc(firestoreDb, 'userdata', uid));
   await deleteDoc(doc(firestoreDb, 'users', uid));
   localStorage.removeItem('saasguard_db');
   localStorage.removeItem('accessguard_v1');
-  await deleteUser(user);
 }
 

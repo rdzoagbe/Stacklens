@@ -77,7 +77,9 @@ export default {
     }
 
     const system     = body.system ? String(body.system).slice(0, 5000) : undefined;
-    const max_tokens = Math.min(Number(body.max_tokens) || DEFAULT_TOKENS, MAX_TOKENS);
+    const requestedTokens = Number(body.max_tokens);
+    const safeTokens = Number.isFinite(requestedTokens) ? Math.floor(requestedTokens) : DEFAULT_TOKENS;
+    const max_tokens = Math.max(1, Math.min(safeTokens, MAX_TOKENS));
 
     const anthropicBody = {
       model:      'claude-sonnet-4-20250514',
@@ -100,7 +102,7 @@ export default {
       const data = await anthropicRes.json();
 
       if (!anthropicRes.ok) {
-        return json({ error: data.error?.message || 'AI error' }, 500, origin);
+        return json({ error: data.error?.message || 'AI error' }, anthropicRes.status, origin);
       }
 
       return json(data, 200, origin);

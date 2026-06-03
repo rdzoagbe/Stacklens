@@ -112,9 +112,12 @@ service cloud.firestore {
     // Anyone with the token can read, but only before the report has expired.
     // Only the authenticated owner can create/delete.
     match /reports/{token} {
-      allow read: if resource.data.get('expires_at', 9999999999999) > request.time.toMillis();
+      allow read: if resource.data.expires_at is int
+                  && resource.data.expires_at > request.time.toMillis();
       allow create: if request.auth != null
-                    && request.resource.data.owner_uid == request.auth.uid;
+                    && request.resource.data.owner_uid == request.auth.uid
+                    && request.resource.data.expires_at is int
+                    && request.resource.data.expires_at > request.time.toMillis();
       allow delete: if request.auth != null
                     && resource.data.owner_uid == request.auth.uid;
       allow update: if false;

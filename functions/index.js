@@ -393,7 +393,7 @@ exports.renewalAlerts = onSchedule({
   const BATCH_SIZE = 100;
 
   while (true) {
-    let q = db.collection('userdata').where('user.renewal_alerts', '!=', false).limit(BATCH_SIZE);
+    let q = db.collection('userdata').limit(BATCH_SIZE);
     if (lastDoc) q = q.startAfter(lastDoc);
     const snapshot = await q.get();
     if (snapshot.empty) break;
@@ -401,6 +401,8 @@ exports.renewalAlerts = onSchedule({
 
     for (const doc of snapshot.docs) {
       const data = doc.data();
+      // Field absence means opted-in (default on); only skip explicit opt-out
+      if (data?.user?.renewal_alerts === false) continue;
       const email = data?.user?.email;
       const tools = data?.tools || [];
       if (!email) continue;
