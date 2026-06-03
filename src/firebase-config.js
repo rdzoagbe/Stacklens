@@ -328,6 +328,8 @@ export { auth, firestoreDb as db, analytics };
 // ============================================================================
 // STRIPE BILLING HELPERS
 // ============================================================================
+// Force-refresh the Firebase ID token so new custom claims (plan) take effect immediately.
+// Call this after a successful Stripe checkout.
 export async function refreshClaims() {
   if (!auth.currentUser) return null;
   await auth.currentUser.getIdToken(true);
@@ -335,6 +337,7 @@ export async function refreshClaims() {
   return result.claims;
 }
 
+// Tell the server to sync Firestore plan → custom claims (use after Stripe redirect).
 export async function syncClaimsFromServer() {
   try {
     const token = await getToken();
@@ -350,6 +353,7 @@ export async function syncClaimsFromServer() {
   } catch { return null; }
 }
 
+// Send a team invite email via SendGrid Cloud Function.
 export async function sendInviteEmail({ inviteeEmail, inviterName, orgName }) {
   const token = await getToken();
   if (!token) throw new Error('Not authenticated');
