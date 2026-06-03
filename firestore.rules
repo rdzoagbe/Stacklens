@@ -14,8 +14,8 @@ service cloud.firestore {
     }
 
     // Returns true if the incoming write does NOT touch any protected field.
-    // Protected fields can only be set by the Stripe webhook via admin SDK,
-    // OR (for is_founder) manually via Firebase Console by the project owner.
+    // Protected fields can only be set by the Stripe webhook or founderAdmin Cloud Function
+    // (both use Admin SDK which bypasses rules).
     // EXCEPTION: users may self-start a trial — set plan='trial' + trial_started_at.
     // Handles both create (resource == null) and update cases.
     function protectedFieldsSafe() {
@@ -58,10 +58,9 @@ service cloud.firestore {
       allow list: if isFounder();
       // Create only allowed if new doc has no protected fields (or plan='free')
       allow create: if isOwner(uid) && protectedFieldsSafe();
-      // Update: owner with field restrictions, OR founder extending trials / granting plans
-      allow update: if (isOwner(uid) && protectedFieldsSafe())
-                    || (isFounder() && request.resource.data.diff(resource.data).affectedKeys()
-                          .hasOnly(['trial_started_at', 'plan']));
+      // Update: owner with field restrictions only — founder plan/trial changes go
+      // through the founderAdmin Cloud Function (Admin SDK, bypasses rules)
+      allow update: if isOwner(uid) && protectedFieldsSafe();
       allow delete: if false;
     }
 
