@@ -1,0 +1,7 @@
+reviews:
+  tools:
+    remark-lint:
+      enabled: false
+  pre_merge_checks:
+    docstring_check:
+      enabled: false
