@@ -382,8 +382,6 @@ exports.founderAdmin = onRequest({ cors: true, timeoutSeconds: 30 }, async (req,
     if (req.method === 'OPTIONS') return res.status(204).send('');
     if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
 
-    if (!await verifyAppCheck(req, res)) return;
-
     const decoded = await verifyAuth(req, res);
     if (!decoded) return;
 
@@ -424,6 +422,7 @@ exports.founderAdmin = onRequest({ cors: true, timeoutSeconds: 30 }, async (req,
     }
   });
 });
+
 
 // ── Renewal Alert Emails (SendGrid) ──────────────────────────────────────
 const { onSchedule } = require('firebase-functions/v2/scheduler');
