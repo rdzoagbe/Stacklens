@@ -4544,163 +4544,148 @@ function WorkspaceConnector({ compact = false }) {
     }
   }, [status, syncing]);
 
-  // Handle Microsoft 365 PKCE callback
-  useEffect(() => {
-    const params   = new URLSearchParams(window.location.search);
-    const urlError = params.get('error');
-    const urlState = params.get('state');
+  // Handle OAuth callbacks from popups via postMessage.
+  // Both Microsoft and Okta now open a popup instead of redirecting the main window,
+  // so Firebase Auth session is never disrupted by a full-page navigation.
+  const callbackRef = useRef(null);
+  callbackRef.current = { muts, setSyncing, setStatus, setCancelledProvider };
 
-    // Detect OAuth cancellation from Microsoft / Okta redirect
-    if (urlError === 'access_denied' || urlError === 'login_required') {
+  useEffect(() => {
+    const handleMessage = async (event) => {
+      if (event.origin !== window.location.origin) return;
+      const { type, code, state, error } = event.data || {};
+      const { muts: m, setSyncing: ss, setStatus: st, setCancelledProvider: sc } = callbackRef.current;
+
+      if (type === 'oauth_popup_cancelled') {
+        const msState   = sessionStorage.getItem('ms_state');
+        const oktaState = sessionStorage.getItem('okta_state');
+        if (msState && state === msState) {
+          sessionStorage.removeItem('ms_state');
+          sessionStorage.removeItem('ms_code_verifier');
+          sc('microsoft');
+        } else if (oktaState && state === oktaState) {
+          sessionStorage.removeItem('okta_state');
+          sessionStorage.removeItem('okta_code_verifier');
+          sessionStorage.removeItem('okta_domain');
+          sc('okta');
+        }
+        return;
+      }
+
+      if (type !== 'oauth_popup_callback' || !code || !state) return;
+
       const msState   = sessionStorage.getItem('ms_state');
       const oktaState = sessionStorage.getItem('okta_state');
-      if (msState && urlState === msState) {
+
+      if (msState && state === msState) {
+        const verifier = sessionStorage.getItem('ms_code_verifier');
+        if (!verifier) return;
         sessionStorage.removeItem('ms_state');
         sessionStorage.removeItem('ms_code_verifier');
-        window.history.replaceState({}, '', window.location.pathname);
-        setCancelledProvider('microsoft');
+        ss('microsoft');
+        st({ type: 'loading', msg: 'Completing Microsoft 365 connection…' });
+        try {
+          const tokenRes = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+              grant_type:    'authorization_code',
+              client_id:     AZURE_CLIENT_ID,
+              code,
+              redirect_uri:  window.location.origin,
+              code_verifier: verifier,
+              scope:         'https://graph.microsoft.com/User.Read.All offline_access openid',
+            }),
+          });
+          const tokenData = await tokenRes.json();
+          if (!tokenRes.ok) throw new Error(tokenData.error_description || 'Token exchange failed');
+          st({ type: 'loading', msg: 'Importing users from Microsoft 365…' });
+          const usersRes = await fetch(
+            'https://graph.microsoft.com/v1.0/users?$top=999&$select=displayName,mail,userPrincipalName,jobTitle,department,accountEnabled',
+            { headers: { Authorization: `Bearer ${tokenData.access_token}`, Accept: 'application/json' } }
+          );
+          if (!usersRes.ok) throw new Error('Failed to fetch users — ensure User.Read.All permission is granted in Azure');
+          const msUsers = (await usersRes.json()).value || [];
+          let count = 0;
+          for (const u of msUsers) {
+            const email = u.mail || u.userPrincipalName;
+            if (!email) continue;
+            try {
+              await m.createEmployee.mutateAsync({
+                full_name:     u.displayName || email,
+                email,
+                department:    u.department || 'general',
+                role:          u.jobTitle || 'Member',
+                status:        u.accountEnabled ? 'active' : 'offboarded',
+                imported_from: 'microsoft365',
+              });
+              count++;
+            } catch {}
+          }
+          st({ type: 'success', msg: `Imported ${count} employees from Microsoft 365!` });
+        } catch (err) {
+          st({ type: 'error', msg: `Microsoft sync failed: ${err.message}` });
+        } finally {
+          ss(null);
+        }
         return;
       }
-      if (oktaState && urlState === oktaState) {
+
+      if (oktaState && state === oktaState) {
+        const domain   = sessionStorage.getItem('okta_domain');
+        const verifier = sessionStorage.getItem('okta_code_verifier');
+        if (!domain || !verifier) return;
         sessionStorage.removeItem('okta_state');
         sessionStorage.removeItem('okta_code_verifier');
-        window.history.replaceState({}, '', window.location.pathname);
-        setCancelledProvider('okta');
-        return;
-      }
-    }
-
-    const code     = params.get('code');
-    const msState  = sessionStorage.getItem('ms_state');
-    if (!code || !msState || urlState !== msState) return;
-
-    const verifier = sessionStorage.getItem('ms_code_verifier');
-    if (!verifier) return;
-
-    sessionStorage.removeItem('ms_state');
-    sessionStorage.removeItem('ms_code_verifier');
-    window.history.replaceState({}, '', window.location.pathname);
-
-    setSyncing('microsoft');
-    setStatus({ type: 'loading', msg: 'Completing Microsoft 365 connection…' });
-
-    (async () => {
-      try {
-        const tokenRes = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: new URLSearchParams({
-            grant_type:    'authorization_code',
-            client_id:     AZURE_CLIENT_ID,
-            code,
-            redirect_uri:  window.location.origin,
-            code_verifier: verifier,
-            scope:         'https://graph.microsoft.com/User.Read.All offline_access openid',
-          }),
-        });
-        const tokenData = await tokenRes.json();
-        if (!tokenRes.ok) throw new Error(tokenData.error_description || 'Token exchange failed');
-
-        setStatus({ type: 'loading', msg: 'Importing users from Microsoft 365…' });
-        const usersRes = await fetch(
-          'https://graph.microsoft.com/v1.0/users?$top=999&$select=displayName,mail,userPrincipalName,jobTitle,department,accountEnabled',
-          { headers: { Authorization: `Bearer ${tokenData.access_token}`, Accept: 'application/json' } }
-        );
-        if (!usersRes.ok) throw new Error('Failed to fetch users — ensure User.Read.All permission is granted in Azure');
-        const msUsers = (await usersRes.json()).value || [];
-
-        let count = 0;
-        for (const u of msUsers) {
-          const email = u.mail || u.userPrincipalName;
-          if (!email) continue;
-          try {
-            await muts.createEmployee.mutateAsync({
-              full_name:     u.displayName || email,
-              email,
-              department:    u.department || 'general',
-              role:          u.jobTitle || 'Member',
-              status:        u.accountEnabled ? 'active' : 'offboarded',
-              imported_from: 'microsoft365',
-            });
-            count++;
-          } catch {}
+        sessionStorage.removeItem('okta_domain');
+        ss('okta');
+        st({ type: 'loading', msg: 'Completing Okta connection…' });
+        try {
+          const tokenRes = await fetch(`https://${domain}/oauth2/v1/token`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+              grant_type:    'authorization_code',
+              client_id:     OKTA_CLIENT_ID,
+              code,
+              redirect_uri:  window.location.origin,
+              code_verifier: verifier,
+            }),
+          });
+          const tokenData = await tokenRes.json();
+          if (!tokenRes.ok) throw new Error(tokenData.error_description || 'Token exchange failed');
+          st({ type: 'loading', msg: 'Importing users from Okta…' });
+          const usersRes = await fetch(
+            `https://${domain}/api/v1/users?limit=200&filter=status+eq+"ACTIVE"`,
+            { headers: { Authorization: `Bearer ${tokenData.access_token}`, Accept: 'application/json' } }
+          );
+          if (!usersRes.ok) throw new Error('Failed to fetch Okta users — ensure API Access Management is enabled');
+          const oktaUsers = await usersRes.json();
+          let count = 0;
+          for (const u of oktaUsers) {
+            try {
+              await m.createEmployee.mutateAsync({
+                full_name:     `${u.profile.firstName} ${u.profile.lastName}`.trim(),
+                email:         u.profile.email,
+                department:    u.profile.department || 'general',
+                role:          u.profile.userType || 'Member',
+                status:        'active',
+                imported_from: 'okta',
+              });
+              count++;
+            } catch {}
+          }
+          st({ type: 'success', msg: `Imported ${count} employees from Okta!` });
+        } catch (err) {
+          st({ type: 'error', msg: `Okta sync failed: ${err.message}` });
+        } finally {
+          ss(null);
         }
-        setStatus({ type: 'success', msg: `Imported ${count} employees from Microsoft 365!` });
-      } catch (err) {
-        setStatus({ type: 'error', msg: `Microsoft sync failed: ${err.message}` });
-      } finally {
-        setSyncing(null);
       }
-    })();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    };
 
-  // Handle Okta PKCE callback when redirected back from Okta
-  useEffect(() => {
-    const params      = new URLSearchParams(window.location.search);
-    const code        = params.get('code');
-    const urlState    = params.get('state');
-    const storedState = sessionStorage.getItem('okta_state');
-    if (!code || !storedState || urlState !== storedState) return;
-
-    const domain   = sessionStorage.getItem('okta_domain');
-    const verifier = sessionStorage.getItem('okta_code_verifier');
-    if (!domain || !verifier) return;
-
-    sessionStorage.removeItem('okta_state');
-    sessionStorage.removeItem('okta_code_verifier');
-    sessionStorage.removeItem('okta_domain');
-    window.history.replaceState({}, '', window.location.pathname);
-
-    setSyncing('okta');
-    setStatus({ type: 'loading', msg: 'Completing Okta connection…' });
-
-    (async () => {
-      try {
-        const tokenRes = await fetch(`https://${domain}/oauth2/v1/token`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: new URLSearchParams({
-            grant_type:    'authorization_code',
-            client_id:     OKTA_CLIENT_ID,
-            code,
-            redirect_uri:  window.location.origin,
-            code_verifier: verifier,
-          }),
-        });
-        const tokenData = await tokenRes.json();
-        if (!tokenRes.ok) throw new Error(tokenData.error_description || 'Token exchange failed');
-
-        setStatus({ type: 'loading', msg: 'Importing users from Okta…' });
-        const usersRes = await fetch(
-          `https://${domain}/api/v1/users?limit=200&filter=status+eq+"ACTIVE"`,
-          { headers: { Authorization: `Bearer ${tokenData.access_token}`, Accept: 'application/json' } }
-        );
-        if (!usersRes.ok) throw new Error('Failed to fetch Okta users — ensure API Access Management is enabled');
-        const oktaUsers = await usersRes.json();
-
-        let count = 0;
-        for (const u of oktaUsers) {
-          try {
-            await muts.createEmployee.mutateAsync({
-              full_name:       `${u.profile.firstName} ${u.profile.lastName}`.trim(),
-              email:           u.profile.email,
-              department:      u.profile.department || 'general',
-              role:            u.profile.userType || 'Member',
-              status:          'active',
-              imported_from:   'okta',
-            });
-            count++;
-          } catch {}
-        }
-        setStatus({ type: 'success', msg: `Imported ${count} employees from Okta!` });
-      } catch (err) {
-        setStatus({ type: 'error', msg: `Okta sync failed: ${err.message}` });
-      } finally {
-        setSyncing(null);
-      }
-    })();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
   }, []);
 
   const syncGoogle = async () => {
@@ -4771,7 +4756,9 @@ function WorkspaceConnector({ compact = false }) {
       code_challenge:        challenge,
       code_challenge_method: 'S256',
     });
-    window.location.href = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params}`;
+    const url = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params}`;
+    const popup = window.open(url, 'ms-auth', 'width=520,height=680,left=200,top=80');
+    if (!popup) window.location.href = url; // fallback if popup blocked
   };
 
   const connectOkta = async () => {
@@ -4801,7 +4788,9 @@ function WorkspaceConnector({ compact = false }) {
       code_challenge:        challenge,
       code_challenge_method: 'S256',
     });
-    window.location.href = `https://${domain}/oauth2/v1/authorize?${params}`;
+    const url = `https://${domain}/oauth2/v1/authorize?${params}`;
+    const popup = window.open(url, 'okta-auth', 'width=520,height=680,left=200,top=80');
+    if (!popup) window.location.href = url; // fallback if popup blocked
   };
 
   const providers = [
@@ -17331,12 +17320,33 @@ function FloatingChatbot() {
 }
 
 
+// Relay OAuth codes from popup back to the opener window, then self-close.
+// This runs in the popup that Microsoft/Okta redirects to (window.location.origin).
+function OAuthPopupRelay() {
+  useEffect(() => {
+    if (!window.opener) return;
+    const params = new URLSearchParams(window.location.search);
+    const code   = params.get('code');
+    const state  = params.get('state');
+    const error  = params.get('error');
+    if (!state) return;
+    if (error) {
+      window.opener.postMessage({ type: 'oauth_popup_cancelled', error, state }, window.location.origin);
+    } else if (code) {
+      window.opener.postMessage({ type: 'oauth_popup_callback', code, state }, window.location.origin);
+    }
+    window.close();
+  }, []);
+  return null;
+}
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <Toaster position="top-right" toastOptions={{ style: { background: "#1e293b", color: "#f1f5f9", border: "1px solid #334155" } }} />
         <LanguageProvider><CurrencyProvider>
         <ErrorBoundary><BrowserRouter>
+        <OAuthPopupRelay />
         <CookieBanner />
           <TourProvider>
           <Routes>
