@@ -39,6 +39,7 @@ jobs:
           VITE_RECAPTCHA_SITE_KEY: ${{ secrets.VITE_RECAPTCHA_SITE_KEY }}
           VITE_WORKER_URL: ${{ secrets.VITE_WORKER_URL }}
           VITE_WEB3FORMS_KEY: ${{ secrets.VITE_WEB3FORMS_KEY }}
+          VITE_AZURE_CLIENT_ID: ${{ secrets.VITE_AZURE_CLIENT_ID }}
 
       - name: Upload dist artifact
         uses: actions/upload-artifact@v4
