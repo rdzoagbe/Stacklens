@@ -192,7 +192,7 @@ async function fetchAllGitHubMembers(token, org) {
     });
     if (!res.ok) {
       if (res.status === 404)  throw new Error(`Organisation "${org}" not found. Check the org name (no spaces, use the URL slug).`);
-      if (res.status === 403)  throw new Error('Token needs read:org scope. Generate a new PAT with that scope enabled.');
+      if (res.status === 403)  throw new Error('Access denied. Ensure the token has read:org scope and that your account is a member of the organisation (required if member visibility is private).');
       if (res.status === 401)  throw new Error('Invalid token. Check that you copied the full ghp_… token.');
       const body = await res.json().catch(() => ({}));
       throw new Error(body.message || `HTTP ${res.status}`);
@@ -227,18 +227,18 @@ function mapGitHubUser(member, detail) {
 }
 
 // ── GitHub PAT modal ─────────────────────────────────────────────────────
+const GITHUB_STEPS = [
+  { n: 1, text: 'Go to github.com → Settings → Developer settings → Personal access tokens → Tokens (classic)' },
+  { n: 2, text: 'Click "Generate new token (classic)"' },
+  { n: 3, text: 'Give it a note (e.g. "Stacklens") and select scope: read:org' },
+  { n: 4, text: 'Click "Generate token" and copy it (starts with ghp_)' },
+  { n: 5, text: 'Enter your GitHub organisation slug below (the name in the URL, e.g. "acme-corp")' },
+];
+
 function GitHubTokenModal({ onSubmit, onClose, loading }) {
   const [token, setToken] = useState('');
   const [org, setOrg]     = useState(localStorage.getItem(GITHUB_ORG_KEY) || '');
   const [showToken, setShowToken] = useState(false);
-
-  const steps = [
-    { n: 1, text: 'Go to github.com → Settings → Developer settings → Personal access tokens → Tokens (classic)' },
-    { n: 2, text: 'Click "Generate new token (classic)"' },
-    { n: 3, text: 'Give it a note (e.g. "Stacklens") and select scope: read:org' },
-    { n: 4, text: 'Click "Generate token" and copy it (starts with ghp_)' },
-    { n: 5, text: 'Enter your GitHub organisation slug below (the name in the URL, e.g. "acme-corp")' },
-  ];
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-6">
@@ -254,7 +254,7 @@ function GitHubTokenModal({ onSubmit, onClose, loading }) {
           <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors"><X className="h-5 w-5" /></button>
         </div>
         <ol className="space-y-3 mb-6">
-          {steps.map(item => (
+          {GITHUB_STEPS.map(item => (
             <li key={item.n} className="flex gap-3">
               <span className="flex-shrink-0 w-6 h-6 rounded-full bg-slate-600 text-white text-xs font-bold flex items-center justify-center mt-0.5">{item.n}</span>
               <span className="text-sm text-slate-300">{item.text}</span>
@@ -307,19 +307,19 @@ function GitHubTokenModal({ onSubmit, onClose, loading }) {
 }
 
 // ── Slack token input modal ───────────────────────────────────────────────
+const SLACK_STEPS = [
+  { n: 1, text: 'Go to api.slack.com/apps → Create New App → From scratch' },
+  { n: 2, text: 'Name the app (e.g. "Stacklens") and choose your workspace' },
+  { n: 3, text: 'Go to OAuth & Permissions → Bot Token Scopes → Add: users:read, users:read.email, and chat:write' },
+  { n: 4, text: 'Click "Install to Workspace" and approve the permissions' },
+  { n: 5, text: 'Invite the bot to your alerts channel: /invite @Stacklens' },
+  { n: 6, text: 'Copy the Bot User OAuth Token (starts with xoxb-)' },
+];
+
 function SlackTokenModal({ onSubmit, onClose, loading }) {
   const [token, setToken] = useState('');
   const [channel, setChannel] = useState(localStorage.getItem(SLACK_CHANNEL_KEY) || '#renewals');
   const [showToken, setShowToken] = useState(false);
-
-  const steps = [
-    { n: 1, text: 'Go to api.slack.com/apps → Create New App → From scratch' },
-    { n: 2, text: 'Name the app (e.g. "Stacklens") and choose your workspace' },
-    { n: 3, text: 'Go to OAuth & Permissions → Bot Token Scopes → Add: users:read, users:read.email, and chat:write' },
-    { n: 4, text: 'Click "Install to Workspace" and approve the permissions' },
-    { n: 5, text: 'Invite the bot to your alerts channel: /invite @Stacklens' },
-    { n: 6, text: 'Copy the Bot User OAuth Token (starts with xoxb-)' },
-  ];
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-6">
@@ -335,7 +335,7 @@ function SlackTokenModal({ onSubmit, onClose, loading }) {
           <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors"><X className="h-5 w-5" /></button>
         </div>
         <ol className="space-y-3 mb-6">
-          {steps.map(item => (
+          {SLACK_STEPS.map(item => (
             <li key={item.n} className="flex gap-3">
               <span className="flex-shrink-0 w-6 h-6 rounded-full bg-purple-600 text-white text-xs font-bold flex items-center justify-center mt-0.5">{item.n}</span>
               <span className="text-sm text-slate-300">{item.text}</span>
