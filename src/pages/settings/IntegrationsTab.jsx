@@ -177,6 +177,135 @@ function mapMicrosoftUser(u) {
   };
 }
 
+// ── GitHub PAT + org members ─────────────────────────────────────────────
+const GITHUB_TOKEN_KEY = 'sg_github_token';
+const GITHUB_ORG_KEY   = 'sg_github_org';
+const GITHUB_SYNC_KEY  = 'sg_github_last_sync';
+const GITHUB_API       = 'https://api.github.com';
+
+async function fetchAllGitHubMembers(token, org) {
+  const members = [];
+  let page = 1;
+  while (true) {
+    const res = await fetch(`${GITHUB_API}/orgs/${encodeURIComponent(org)}/members?per_page=100&page=${page}`, {
+      headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' },
+    });
+    if (!res.ok) {
+      if (res.status === 404)  throw new Error(`Organisation "${org}" not found. Check the org name (no spaces, use the URL slug).`);
+      if (res.status === 403)  throw new Error('Token needs read:org scope. Generate a new PAT with that scope enabled.');
+      if (res.status === 401)  throw new Error('Invalid token. Check that you copied the full ghp_… token.');
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.message || `HTTP ${res.status}`);
+    }
+    const page_members = await res.json();
+    if (!page_members.length) break;
+    members.push(...page_members);
+    if (page_members.length < 100) break;
+    page++;
+  }
+  return members;
+}
+
+async function enrichGitHubMember(token, login) {
+  const res = await fetch(`${GITHUB_API}/users/${encodeURIComponent(login)}`, {
+    headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json' },
+  });
+  if (!res.ok) return null;
+  return res.json();
+}
+
+function mapGitHubUser(member, detail) {
+  return {
+    full_name:  detail?.name || member.login,
+    email:      detail?.email || '',
+    department: '',
+    role:       detail?.bio?.slice(0, 60) || '',
+    status:     'active',
+    start_date: '',
+    end_date:   '',
+  };
+}
+
+// ── GitHub PAT modal ─────────────────────────────────────────────────────
+function GitHubTokenModal({ onSubmit, onClose, loading }) {
+  const [token, setToken] = useState('');
+  const [org, setOrg]     = useState(localStorage.getItem(GITHUB_ORG_KEY) || '');
+  const [showToken, setShowToken] = useState(false);
+
+  const steps = [
+    { n: 1, text: 'Go to github.com → Settings → Developer settings → Personal access tokens → Tokens (classic)' },
+    { n: 2, text: 'Click "Generate new token (classic)"' },
+    { n: 3, text: 'Give it a note (e.g. "Stacklens") and select scope: read:org' },
+    { n: 4, text: 'Click "Generate token" and copy it (starts with ghp_)' },
+    { n: 5, text: 'Enter your GitHub organisation slug below (the name in the URL, e.g. "acme-corp")' },
+  ];
+
+  return (
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-6">
+      <div className="bg-slate-900 rounded-3xl border border-slate-700 p-8 max-w-lg w-full">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <span className="text-3xl">🐙</span>
+            <div>
+              <h3 className="text-xl font-bold text-white">Connect GitHub</h3>
+              <p className="text-sm text-slate-400">One-time configuration required</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors"><X className="h-5 w-5" /></button>
+        </div>
+        <ol className="space-y-3 mb-6">
+          {steps.map(item => (
+            <li key={item.n} className="flex gap-3">
+              <span className="flex-shrink-0 w-6 h-6 rounded-full bg-slate-600 text-white text-xs font-bold flex items-center justify-center mt-0.5">{item.n}</span>
+              <span className="text-sm text-slate-300">{item.text}</span>
+            </li>
+          ))}
+        </ol>
+        <div className="mb-4">
+          <label className="block text-sm font-semibold text-slate-300 mb-2">Personal Access Token</label>
+          <div className="relative">
+            <input
+              type={showToken ? 'text' : 'password'}
+              value={token}
+              onChange={e => setToken(e.target.value)}
+              placeholder="ghp_…"
+              className="w-full pr-10 pl-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-slate-500 font-mono text-sm"
+            />
+            <button type="button" onClick={() => setShowToken(v => !v)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors">
+              {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+          <p className="text-xs text-slate-500 mt-1.5">Stored locally in your browser. Never sent to Stacklens servers.</p>
+        </div>
+        <div className="mb-6">
+          <label className="block text-sm font-semibold text-slate-300 mb-2">Organisation slug</label>
+          <input
+            type="text"
+            value={org}
+            onChange={e => setOrg(e.target.value)}
+            placeholder="acme-corp"
+            className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-slate-500 text-sm"
+          />
+          <p className="text-xs text-slate-500 mt-1.5">The slug from your GitHub org URL: github.com/&lt;slug&gt;</p>
+        </div>
+        <div className="flex gap-3">
+          <button onClick={onClose}
+            className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-sm font-semibold text-slate-300 transition-colors">
+            Cancel
+          </button>
+          <button
+            onClick={() => onSubmit(token.trim(), org.trim())}
+            disabled={!token.trim() || !org.trim() || loading}
+            className="flex-1 py-2.5 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 rounded-xl text-sm font-semibold text-white transition-colors flex items-center justify-center gap-2">
+            {loading ? <><Loader className="h-4 w-4 animate-spin" /> Syncing…</> : 'Connect & Sync'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Slack token input modal ───────────────────────────────────────────────
 function SlackTokenModal({ onSubmit, onClose, loading }) {
   const [token, setToken] = useState('');
@@ -341,7 +470,7 @@ function SyncResult({ result, onDismiss }) {
           : (
             <>
               <p className="text-sm font-semibold text-emerald-400">
-                {{ 'slack': 'Slack', 'microsoft-365': 'Microsoft 365' }[result.source] || 'Google Workspace'} sync complete
+                {{ 'slack': 'Slack', 'microsoft-365': 'Microsoft 365', 'github': 'GitHub' }[result.source] || 'Google Workspace'} sync complete
               </p>
               <p className="text-xs text-emerald-300/80 mt-0.5">
                 {result.added} new · {result.updated} updated · {result.skipped} unchanged — {result.total} users total
@@ -372,8 +501,10 @@ export function IntegrationConnectors() {
   const [connecting, setConnecting] = useState(null);
   const [setupModal, setSetupModal] = useState(null);
   const [syncResult, setSyncResult] = useState(null);
-  const [slackTokenModal, setSlackTokenModal] = useState(false);
-  const [slackSyncing, setSlackSyncing] = useState(false);
+  const [slackTokenModal, setSlackTokenModal]   = useState(false);
+  const [slackSyncing, setSlackSyncing]         = useState(false);
+  const [githubTokenModal, setGithubTokenModal] = useState(false);
+  const [githubSyncing, setGithubSyncing]       = useState(false);
 
   // Preload GIS and MSAL so popups fire synchronously on click
   useEffect(() => {
@@ -417,12 +548,12 @@ export function IntegrationConnectors() {
     {
       id: 'github',
       name: 'GitHub',
-      description: 'Track seats, monitor activity, manage team access',
+      description: 'Import organisation members into your employee directory — display name, email, and bio synced automatically.',
       icon: '🐙',
       category: 'Development',
-      features: ['Seat Tracking', 'Activity Monitoring', 'Team Management'],
-      status: 'coming-soon',
-      setupTime: '2 min',
+      features: ['Org member sync', 'Name & email import', 'Active member filtering'],
+      status: 'available',
+      setupTime: '3 min',
     },
     {
       id: 'okta',
@@ -626,6 +757,77 @@ export function IntegrationConnectors() {
     await handleSlackTokenSubmit(token);
   }, [handleSlackTokenSubmit]);
 
+  const handleGitHubTokenSubmit = useCallback(async (token, org) => {
+    if (!token || !org) return;
+    setGithubSyncing(true);
+    setSyncResult(null);
+    try {
+      const members = await fetchAllGitHubMembers(token, org);
+
+      // Enrich up to 100 members with full profile (name + email)
+      // GitHub's /orgs/{org}/members returns minimal data; /users/{login} has the rest
+      const ENRICH_LIMIT = 100;
+      const enriched = await Promise.all(
+        members.slice(0, ENRICH_LIMIT).map(m => enrichGitHubMember(token, m.login))
+      );
+      const incoming = members.map((m, i) => mapGitHubUser(m, enriched[i] || null));
+
+      const existingByEmail = Object.fromEntries(
+        (db?.employees || []).map(e => [(e.email || '').toLowerCase(), e])
+      );
+      // Also index by GitHub login for members without email
+      const existingByLogin = Object.fromEntries(
+        (db?.employees || []).map(e => [e.github_login || '', e]).filter(([k]) => k)
+      );
+
+      const toAdd = [], toUpdate = [];
+      let skipped = 0;
+      for (let i = 0; i < incoming.length; i++) {
+        const u = { ...incoming[i], github_login: members[i].login };
+        const byEmail   = u.email ? existingByEmail[u.email.toLowerCase()] : null;
+        const byLogin   = existingByLogin[members[i].login];
+        const existing  = byEmail || byLogin;
+        if (!existing) {
+          toAdd.push(u);
+        } else {
+          const patch = {};
+          if (u.full_name && u.full_name !== members[i].login && u.full_name !== existing.full_name) patch.full_name = u.full_name;
+          if (u.email && !existing.email) patch.email = u.email;
+          if (!existing.github_login) patch.github_login = members[i].login;
+          if (Object.keys(patch).length > 0) toUpdate.push({ id: existing.id, patch });
+          else skipped++;
+        }
+      }
+
+      if (toAdd.length > 0) await muts.bulkImport.mutateAsync({ kind: 'employees', records: toAdd });
+      for (const { id, patch } of toUpdate) await muts.updateEmployee.mutateAsync({ id, patch });
+
+      localStorage.setItem(GITHUB_TOKEN_KEY, token);
+      localStorage.setItem(GITHUB_ORG_KEY, org);
+      localStorage.setItem(GITHUB_SYNC_KEY, new Date().toISOString());
+      const next = connectedIntegrations.includes('github')
+        ? connectedIntegrations
+        : [...connectedIntegrations, 'github'];
+      setConnectedIntegrations(next);
+      localStorage.setItem('sg_connected_integrations', JSON.stringify(next));
+
+      setGithubTokenModal(false);
+      setSyncResult({ source: 'github', total: incoming.length, added: toAdd.length, updated: toUpdate.length, skipped });
+    } catch (err) {
+      setSyncResult({ source: 'github', error: err.message });
+      toast.error('GitHub sync failed');
+    } finally {
+      setGithubSyncing(false);
+    }
+  }, [db?.employees, connectedIntegrations, muts]);
+
+  const handleGitHubResync = useCallback(async () => {
+    const token = localStorage.getItem(GITHUB_TOKEN_KEY);
+    const org   = localStorage.getItem(GITHUB_ORG_KEY);
+    if (!token || !org) { setGithubTokenModal(true); return; }
+    await handleGitHubTokenSubmit(token, org);
+  }, [handleGitHubTokenSubmit]);
+
   const handleMicrosoftConnect = useCallback(async () => {
     if (!M365_CLIENT_ID) {
       setSetupModal(integrations.find(i => i.id === 'microsoft-365'));
@@ -695,7 +897,13 @@ export function IntegrationConnectors() {
     }
     if (integrationId === 'microsoft-365') {
       localStorage.removeItem(M365_SYNC_KEY);
-      _msalApp = null; // reset MSAL instance so next connect starts fresh
+      _msalApp = null;
+      setSyncResult(null);
+    }
+    if (integrationId === 'github') {
+      localStorage.removeItem(GITHUB_TOKEN_KEY);
+      localStorage.removeItem(GITHUB_ORG_KEY);
+      localStorage.removeItem(GITHUB_SYNC_KEY);
       setSyncResult(null);
     }
   };
@@ -708,13 +916,15 @@ export function IntegrationConnectors() {
     if (integration.id === 'google-workspace') { handleGoogleWorkspaceConnect(); return; }
     if (integration.id === 'slack')            { setSlackTokenModal(true); return; }
     if (integration.id === 'microsoft-365')    { handleMicrosoftConnect(); return; }
+    if (integration.id === 'github')           { setGithubTokenModal(true); return; }
     // Others not yet implemented
   };
 
   const isConnected = (id) => connectedIntegrations.includes(id);
-  const lastGWSSync   = localStorage.getItem('sg_gws_last_sync');
-  const lastSlackSync = localStorage.getItem(SLACK_SYNC_KEY);
-  const lastM365Sync  = localStorage.getItem(M365_SYNC_KEY);
+  const lastGWSSync    = localStorage.getItem('sg_gws_last_sync');
+  const lastSlackSync  = localStorage.getItem(SLACK_SYNC_KEY);
+  const lastM365Sync   = localStorage.getItem(M365_SYNC_KEY);
+  const lastGitHubSync = localStorage.getItem(GITHUB_SYNC_KEY);
 
   const filteredIntegrations = useMemo(() => {
     return integrations.filter(integration => {
@@ -748,6 +958,15 @@ export function IntegrationConnectors() {
           loading={slackSyncing}
           onSubmit={handleSlackTokenSubmit}
           onClose={() => setSlackTokenModal(false)}
+        />
+      )}
+
+      {/* GitHub token modal */}
+      {githubTokenModal && (
+        <GitHubTokenModal
+          loading={githubSyncing}
+          onSubmit={handleGitHubTokenSubmit}
+          onClose={() => setGithubTokenModal(false)}
         />
       )}
 
@@ -787,6 +1006,15 @@ export function IntegrationConnectors() {
                   ? <Loader className="h-3.5 w-3.5 animate-spin" />
                   : <RefreshCw className="h-3.5 w-3.5" />}
                 Re-sync M365
+              </button>
+            )}
+            {isConnected('github') && lastGitHubSync && (
+              <button onClick={handleGitHubResync} disabled={githubSyncing}
+                className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-xs font-semibold text-slate-300 transition-colors disabled:opacity-50">
+                {githubSyncing
+                  ? <Loader className="h-3.5 w-3.5 animate-spin" />
+                  : <RefreshCw className="h-3.5 w-3.5" />}
+                Re-sync GitHub
               </button>
             )}
           </div>
@@ -900,7 +1128,18 @@ export function IntegrationConnectors() {
                     Last synced {new Date(lastM365Sync).toLocaleString()}
                   </div>
                 )}
-                {connected && ['google-workspace', 'slack', 'microsoft-365'].includes(integration.id) && db?.employees?.length > 0 && (
+                {connected && integration.id === 'github' && lastGitHubSync && (
+                  <div className="flex items-center gap-1.5 text-xs text-slate-500 mb-3">
+                    <RefreshCw className="h-3 w-3" />
+                    Last synced {new Date(lastGitHubSync).toLocaleString()}
+                  </div>
+                )}
+                {connected && integration.id === 'github' && localStorage.getItem(GITHUB_ORG_KEY) && (
+                  <div className="flex items-center gap-1.5 text-xs text-slate-400 mb-3">
+                    <span className="font-mono">🐙 org: {localStorage.getItem(GITHUB_ORG_KEY)}</span>
+                  </div>
+                )}
+                {connected && ['google-workspace', 'slack', 'microsoft-365', 'github'].includes(integration.id) && db?.employees?.length > 0 && (
                   <div className="flex items-center gap-1.5 text-xs text-emerald-400 mb-3">
                     <Users className="h-3 w-3" />
                     {db.employees.length} employees in directory
@@ -940,6 +1179,12 @@ export function IntegrationConnectors() {
                       <button onClick={handleMicrosoftConnect} disabled={isConnecting}
                         className="w-full py-2.5 rounded-xl font-bold bg-blue-700 hover:bg-blue-600 disabled:opacity-50 text-white text-sm transition-colors flex items-center justify-center gap-2">
                         {isConnecting ? <><Loader className="h-4 w-4 animate-spin" /> Syncing…</> : <><RefreshCw className="h-4 w-4" /> Sync now</>}
+                      </button>
+                    )}
+                    {integration.id === 'github' && (
+                      <button onClick={handleGitHubResync} disabled={githubSyncing}
+                        className="w-full py-2.5 rounded-xl font-bold bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white text-sm transition-colors flex items-center justify-center gap-2">
+                        {githubSyncing ? <><Loader className="h-4 w-4 animate-spin" /> Syncing…</> : <><RefreshCw className="h-4 w-4" /> Sync now</>}
                       </button>
                     )}
                     <button onClick={() => handleDisconnect(integration.id)}
