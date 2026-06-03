@@ -177,6 +177,128 @@ function mapMicrosoftUser(u) {
   };
 }
 
+// ── Okta API token + users ───────────────────────────────────────────────
+const OKTA_TOKEN_KEY  = 'sg_okta_token';
+const OKTA_DOMAIN_KEY = 'sg_okta_domain';
+const OKTA_SYNC_KEY   = 'sg_okta_last_sync';
+
+async function fetchAllOktaUsers(token, domain) {
+  const users = [];
+  let url = `https://${domain}/api/v1/users?filter=status+eq+%22ACTIVE%22&limit=200`;
+  while (url) {
+    const res = await fetch(url, {
+      headers: { Authorization: `SSWS ${token}`, Accept: 'application/json' },
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      if (res.status === 401) throw new Error('Invalid API token. Ensure you copied the full token and it has not expired.');
+      if (res.status === 403) throw new Error('Permission denied. The token needs the okta.users.read scope (or "Read-only Admin" role).');
+      if (res.status === 404) throw new Error(`Domain "${domain}" not found. Use the format your-org.okta.com (no https://).`);
+      throw new Error(body.errorSummary || `HTTP ${res.status}`);
+    }
+    const data = await res.json();
+    if (Array.isArray(data)) users.push(...data);
+    const link = res.headers.get('Link') || '';
+    const next = link.match(/<([^>]+)>;\s*rel="next"/)?.[1] || null;
+    url = next;
+  }
+  return users;
+}
+
+function mapOktaUser(u) {
+  const p = u.profile || {};
+  const name = [p.firstName, p.lastName].filter(Boolean).join(' ');
+  return {
+    full_name:  name || (p.email || '').split('@')[0] || '',
+    email:      p.email || p.login || '',
+    department: p.department || '',
+    role:       p.title || '',
+    status:     u.status === 'ACTIVE' ? 'active' : 'inactive',
+    start_date: '',
+    end_date:   '',
+  };
+}
+
+// ── Okta API token modal ──────────────────────────────────────────────────
+const OKTA_STEPS = [
+  { n: 1, text: 'Go to your Okta Admin Console (admin.okta.com or your-org-admin.okta.com)' },
+  { n: 2, text: 'Navigate to Security → API → Tokens → Create Token' },
+  { n: 3, text: 'Name the token (e.g. "Stacklens") and click Create Token' },
+  { n: 4, text: 'Copy the token immediately — it is only shown once' },
+  { n: 5, text: 'Enter your Okta domain below (e.g. acme.okta.com — no https://)' },
+];
+
+function OktaTokenModal({ onSubmit, onClose, loading }) {
+  const [token, setToken]   = useState('');
+  const [domain, setDomain] = useState(localStorage.getItem(OKTA_DOMAIN_KEY) || '');
+  const [showToken, setShowToken] = useState(false);
+
+  return (
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-6">
+      <div className="bg-slate-900 rounded-3xl border border-slate-700 p-8 max-w-lg w-full">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <span className="text-3xl">🔐</span>
+            <div>
+              <h3 className="text-xl font-bold text-white">Connect Okta</h3>
+              <p className="text-sm text-slate-400">One-time configuration required</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors"><X className="h-5 w-5" /></button>
+        </div>
+        <ol className="space-y-3 mb-6">
+          {OKTA_STEPS.map(item => (
+            <li key={item.n} className="flex gap-3">
+              <span className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-700 text-white text-xs font-bold flex items-center justify-center mt-0.5">{item.n}</span>
+              <span className="text-sm text-slate-300">{item.text}</span>
+            </li>
+          ))}
+        </ol>
+        <div className="mb-4">
+          <label className="block text-sm font-semibold text-slate-300 mb-2">API Token</label>
+          <div className="relative">
+            <input
+              type={showToken ? 'text' : 'password'}
+              value={token}
+              onChange={e => setToken(e.target.value)}
+              placeholder="00…"
+              className="w-full pr-10 pl-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 font-mono text-sm"
+            />
+            <button type="button" onClick={() => setShowToken(v => !v)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors">
+              {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+          <p className="text-xs text-slate-500 mt-1.5">Stored locally in your browser. Never sent to Stacklens servers.</p>
+        </div>
+        <div className="mb-6">
+          <label className="block text-sm font-semibold text-slate-300 mb-2">Okta domain</label>
+          <input
+            type="text"
+            value={domain}
+            onChange={e => setDomain(e.target.value)}
+            placeholder="acme.okta.com"
+            className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 text-sm"
+          />
+          <p className="text-xs text-slate-500 mt-1.5">Your Okta org domain — without https://</p>
+        </div>
+        <div className="flex gap-3">
+          <button onClick={onClose}
+            className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-sm font-semibold text-slate-300 transition-colors">
+            Cancel
+          </button>
+          <button
+            onClick={() => onSubmit(token.trim(), domain.trim().replace(/^https?:\/\//, ''))}
+            disabled={!token.trim() || !domain.trim() || loading}
+            className="flex-1 py-2.5 bg-blue-700 hover:bg-blue-600 disabled:opacity-50 rounded-xl text-sm font-semibold text-white transition-colors flex items-center justify-center gap-2">
+            {loading ? <><Loader className="h-4 w-4 animate-spin" /> Syncing…</> : 'Connect & Sync'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── GitHub PAT + org members ─────────────────────────────────────────────
 const GITHUB_TOKEN_KEY = 'sg_github_token';
 const GITHUB_ORG_KEY   = 'sg_github_org';
@@ -470,7 +592,7 @@ function SyncResult({ result, onDismiss }) {
           : (
             <>
               <p className="text-sm font-semibold text-emerald-400">
-                {{ 'slack': 'Slack', 'microsoft-365': 'Microsoft 365', 'github': 'GitHub' }[result.source] || 'Google Workspace'} sync complete
+                {{ 'slack': 'Slack', 'microsoft-365': 'Microsoft 365', 'github': 'GitHub', 'okta': 'Okta' }[result.source] || 'Google Workspace'} sync complete
               </p>
               <p className="text-xs text-emerald-300/80 mt-0.5">
                 {result.added} new · {result.updated} updated · {result.skipped} unchanged — {result.total} users total
@@ -505,6 +627,8 @@ export function IntegrationConnectors() {
   const [slackSyncing, setSlackSyncing]         = useState(false);
   const [githubTokenModal, setGithubTokenModal] = useState(false);
   const [githubSyncing, setGithubSyncing]       = useState(false);
+  const [oktaTokenModal, setOktaTokenModal]     = useState(false);
+  const [oktaSyncing, setOktaSyncing]           = useState(false);
 
   // Preload GIS and MSAL so popups fire synchronously on click
   useEffect(() => {
@@ -558,12 +682,12 @@ export function IntegrationConnectors() {
     {
       id: 'okta',
       name: 'Okta',
-      description: 'SSO integration, user provisioning, app discovery',
+      description: 'Import active users from your Okta directory — first name, last name, email, department, and job title synced automatically.',
       icon: '🔐',
       category: 'Identity & Directory',
-      features: ['SSO', 'User Provisioning', 'App Discovery'],
-      status: 'coming-soon',
-      setupTime: '10 min',
+      features: ['Active user sync', 'Department & title import', 'Active/inactive status'],
+      status: 'available',
+      setupTime: '5 min',
     },
     {
       id: 'salesforce',
@@ -828,6 +952,64 @@ export function IntegrationConnectors() {
     await handleGitHubTokenSubmit(token, org);
   }, [handleGitHubTokenSubmit]);
 
+  const handleOktaTokenSubmit = useCallback(async (token, domain) => {
+    if (!token || !domain) return;
+    setOktaSyncing(true);
+    setSyncResult(null);
+    try {
+      const oktaUsers = await fetchAllOktaUsers(token, domain);
+      const incoming  = oktaUsers.map(mapOktaUser).filter(u => u.email);
+
+      const existingByEmail = Object.fromEntries(
+        (db?.employees || []).map(e => [(e.email || '').toLowerCase(), e])
+      );
+      const toAdd = [], toUpdate = [];
+      let skipped = 0;
+      for (const u of incoming) {
+        const key      = u.email.toLowerCase();
+        const existing = existingByEmail[key];
+        if (!existing) {
+          toAdd.push(u);
+        } else {
+          const patch = {};
+          if (u.full_name && u.full_name !== existing.full_name) patch.full_name = u.full_name;
+          if (u.department && !existing.department) patch.department = u.department;
+          if (u.role && !existing.role) patch.role = u.role;
+          if (u.status !== existing.status) patch.status = u.status;
+          if (Object.keys(patch).length > 0) toUpdate.push({ id: existing.id, patch });
+          else skipped++;
+        }
+      }
+
+      if (toAdd.length > 0) await muts.bulkImport.mutateAsync({ kind: 'employees', records: toAdd });
+      for (const { id, patch } of toUpdate) await muts.updateEmployee.mutateAsync({ id, patch });
+
+      localStorage.setItem(OKTA_TOKEN_KEY,  token);
+      localStorage.setItem(OKTA_DOMAIN_KEY, domain);
+      localStorage.setItem(OKTA_SYNC_KEY,   new Date().toISOString());
+      const next = connectedIntegrations.includes('okta')
+        ? connectedIntegrations
+        : [...connectedIntegrations, 'okta'];
+      setConnectedIntegrations(next);
+      localStorage.setItem('sg_connected_integrations', JSON.stringify(next));
+
+      setOktaTokenModal(false);
+      setSyncResult({ source: 'okta', total: incoming.length, added: toAdd.length, updated: toUpdate.length, skipped });
+    } catch (err) {
+      setSyncResult({ source: 'okta', error: err.message });
+      toast.error('Okta sync failed');
+    } finally {
+      setOktaSyncing(false);
+    }
+  }, [db?.employees, connectedIntegrations, muts]);
+
+  const handleOktaResync = useCallback(async () => {
+    const token  = localStorage.getItem(OKTA_TOKEN_KEY);
+    const domain = localStorage.getItem(OKTA_DOMAIN_KEY);
+    if (!token || !domain) { setOktaTokenModal(true); return; }
+    await handleOktaTokenSubmit(token, domain);
+  }, [handleOktaTokenSubmit]);
+
   const handleMicrosoftConnect = useCallback(async () => {
     if (!M365_CLIENT_ID) {
       setSetupModal(integrations.find(i => i.id === 'microsoft-365'));
@@ -906,6 +1088,12 @@ export function IntegrationConnectors() {
       localStorage.removeItem(GITHUB_SYNC_KEY);
       setSyncResult(null);
     }
+    if (integrationId === 'okta') {
+      localStorage.removeItem(OKTA_TOKEN_KEY);
+      localStorage.removeItem(OKTA_DOMAIN_KEY);
+      localStorage.removeItem(OKTA_SYNC_KEY);
+      setSyncResult(null);
+    }
   };
 
   const handleConnect = (integration) => {
@@ -917,6 +1105,7 @@ export function IntegrationConnectors() {
     if (integration.id === 'slack')            { setSlackTokenModal(true); return; }
     if (integration.id === 'microsoft-365')    { handleMicrosoftConnect(); return; }
     if (integration.id === 'github')           { setGithubTokenModal(true); return; }
+    if (integration.id === 'okta')             { setOktaTokenModal(true); return; }
     // Others not yet implemented
   };
 
@@ -925,6 +1114,7 @@ export function IntegrationConnectors() {
   const lastSlackSync  = localStorage.getItem(SLACK_SYNC_KEY);
   const lastM365Sync   = localStorage.getItem(M365_SYNC_KEY);
   const lastGitHubSync = localStorage.getItem(GITHUB_SYNC_KEY);
+  const lastOktaSync   = localStorage.getItem(OKTA_SYNC_KEY);
 
   const filteredIntegrations = useMemo(() => {
     return integrations.filter(integration => {
@@ -967,6 +1157,15 @@ export function IntegrationConnectors() {
           loading={githubSyncing}
           onSubmit={handleGitHubTokenSubmit}
           onClose={() => setGithubTokenModal(false)}
+        />
+      )}
+
+      {/* Okta token modal */}
+      {oktaTokenModal && (
+        <OktaTokenModal
+          loading={oktaSyncing}
+          onSubmit={handleOktaTokenSubmit}
+          onClose={() => setOktaTokenModal(false)}
         />
       )}
 
@@ -1015,6 +1214,15 @@ export function IntegrationConnectors() {
                   ? <Loader className="h-3.5 w-3.5 animate-spin" />
                   : <RefreshCw className="h-3.5 w-3.5" />}
                 Re-sync GitHub
+              </button>
+            )}
+            {isConnected('okta') && lastOktaSync && (
+              <button onClick={handleOktaResync} disabled={oktaSyncing}
+                className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-xs font-semibold text-slate-300 transition-colors disabled:opacity-50">
+                {oktaSyncing
+                  ? <Loader className="h-3.5 w-3.5 animate-spin" />
+                  : <RefreshCw className="h-3.5 w-3.5" />}
+                Re-sync Okta
               </button>
             )}
           </div>
@@ -1139,7 +1347,18 @@ export function IntegrationConnectors() {
                     <span className="font-mono">🐙 org: {localStorage.getItem(GITHUB_ORG_KEY)}</span>
                   </div>
                 )}
-                {connected && ['google-workspace', 'slack', 'microsoft-365', 'github'].includes(integration.id) && db?.employees?.length > 0 && (
+                {connected && integration.id === 'okta' && lastOktaSync && (
+                  <div className="flex items-center gap-1.5 text-xs text-slate-500 mb-3">
+                    <RefreshCw className="h-3 w-3" />
+                    Last synced {new Date(lastOktaSync).toLocaleString()}
+                  </div>
+                )}
+                {connected && integration.id === 'okta' && localStorage.getItem(OKTA_DOMAIN_KEY) && (
+                  <div className="flex items-center gap-1.5 text-xs text-slate-400 mb-3">
+                    <span className="font-mono">🔐 {localStorage.getItem(OKTA_DOMAIN_KEY)}</span>
+                  </div>
+                )}
+                {connected && ['google-workspace', 'slack', 'microsoft-365', 'github', 'okta'].includes(integration.id) && db?.employees?.length > 0 && (
                   <div className="flex items-center gap-1.5 text-xs text-emerald-400 mb-3">
                     <Users className="h-3 w-3" />
                     {db.employees.length} employees in directory
@@ -1185,6 +1404,12 @@ export function IntegrationConnectors() {
                       <button onClick={handleGitHubResync} disabled={githubSyncing}
                         className="w-full py-2.5 rounded-xl font-bold bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white text-sm transition-colors flex items-center justify-center gap-2">
                         {githubSyncing ? <><Loader className="h-4 w-4 animate-spin" /> Syncing…</> : <><RefreshCw className="h-4 w-4" /> Sync now</>}
+                      </button>
+                    )}
+                    {integration.id === 'okta' && (
+                      <button onClick={handleOktaResync} disabled={oktaSyncing}
+                        className="w-full py-2.5 rounded-xl font-bold bg-blue-700 hover:bg-blue-600 disabled:opacity-50 text-white text-sm transition-colors flex items-center justify-center gap-2">
+                        {oktaSyncing ? <><Loader className="h-4 w-4 animate-spin" /> Syncing…</> : <><RefreshCw className="h-4 w-4" /> Sync now</>}
                       </button>
                     )}
                     <button onClick={() => handleDisconnect(integration.id)}
