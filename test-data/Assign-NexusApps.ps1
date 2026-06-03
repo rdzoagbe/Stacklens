@@ -28,9 +28,9 @@ param(
     [switch]$RemoveAll   # Use to undo: removes all apps created by this script
 )
 
-#region ── Config ────────────────────────────────────────────────────────────
+#region -- Config ------------------------------------------------------------
 
-# SaaS tools — matches stacklens-db.json tool IDs
+# SaaS tools - matches stacklens-db.json tool IDs
 $Tools = @(
     @{ Id = "tool-001"; Name = "GitHub Enterprise";             Category = "Development";        Website = "https://github.com" }
     @{ Id = "tool-002"; Name = "Slack Pro";                     Category = "Communication";      Website = "https://slack.com" }
@@ -49,7 +49,7 @@ $Tools = @(
     @{ Id = "tool-015"; Name = "Datadog Pro";                   Category = "Monitoring";         Website = "https://datadoghq.com" }
 )
 
-# Users — first.last prefix maps to @$TenantDomain UPN
+# Users - first.last prefix maps to @$TenantDomain UPN
 $Users = @(
     @{ Id = "emp-001"; Prefix = "alice.martin" }
     @{ Id = "emp-002"; Prefix = "bob.chen" }
@@ -68,7 +68,7 @@ $Users = @(
     @{ Id = "emp-015"; Prefix = "olivia.simon" }
 )
 
-# Access records — matches stacklens-db.json access array exactly
+# Access records - matches stacklens-db.json access array exactly
 $AccessRecords = @(
     # Alice Martin (emp-001)
     @{ EmpId = "emp-001"; ToolId = "tool-001"; Role = "Admin" }
@@ -104,7 +104,7 @@ $AccessRecords = @(
     @{ EmpId = "emp-005"; ToolId = "tool-009"; Role = "Member" }
     @{ EmpId = "emp-005"; ToolId = "tool-014"; Role = "Member" }
     @{ EmpId = "emp-005"; ToolId = "tool-015"; Role = "Admin" }
-    # François Bernard (emp-006)
+    # Francois Bernard (emp-006)
     @{ EmpId = "emp-006"; ToolId = "tool-002"; Role = "Member" }
     @{ EmpId = "emp-006"; ToolId = "tool-003"; Role = "Admin" }
     @{ EmpId = "emp-006"; ToolId = "tool-007"; Role = "Admin" }
@@ -170,9 +170,9 @@ $ScriptTag = "[Stacklens-TestData]"
 
 #endregion
 
-#region ── Connect ───────────────────────────────────────────────────────────
+#region -- Connect -----------------------------------------------------------
 
-Write-Host "`n=== Stacklens Test Data — Entra ID App Provisioner ===" -ForegroundColor Cyan
+Write-Host "`n=== Stacklens Test Data - Entra ID App Provisioner ===" -ForegroundColor Cyan
 Write-Host "Tenant: $TenantDomain`n"
 
 $RequiredScopes = @(
@@ -196,7 +196,7 @@ try {
 
 #endregion
 
-#region ── Remove mode ───────────────────────────────────────────────────────
+#region -- Remove mode -------------------------------------------------------
 
 if ($RemoveAll) {
     Write-Host "`n[REMOVE MODE] Searching for apps tagged '$ScriptTag'..." -ForegroundColor Yellow
@@ -224,7 +224,7 @@ if ($RemoveAll) {
 
 #endregion
 
-#region ── Resolve users ─────────────────────────────────────────────────────
+#region -- Resolve users -----------------------------------------------------
 
 Write-Host "Resolving users from tenant '$TenantDomain'..." -ForegroundColor Cyan
 
@@ -237,7 +237,7 @@ foreach ($u in $Users) {
         $UserMap[$u.Id] = $mgUser
         Write-Verbose "  Found: $upn ($($mgUser.Id))"
     } catch {
-        Write-Warning "  User not found: $upn — skipping their assignments"
+        Write-Warning "  User not found: $upn - skipping their assignments"
     }
 }
 
@@ -251,7 +251,7 @@ if ($found -eq 0) {
 
 #endregion
 
-#region ── Create apps & assign users ────────────────────────────────────────
+#region -- Create apps & assign users ----------------------------------------
 
 # Build a lookup: toolId -> list of empIds
 $ToolAssignments = @{}
@@ -268,7 +268,7 @@ $AssignedCount  = 0
 foreach ($tool in $Tools) {
     $displayName = $tool.Name
 
-    # ── 1. Find or create the Application registration ──────────────────────
+    # -- 1. Find or create the Application registration ----------------------
     $existing = Get-MgApplication -Filter "displayName eq '$displayName'" -ErrorAction SilentlyContinue |
                 Where-Object { $_.Notes -like "*$ScriptTag*" } |
                 Select-Object -First 1
@@ -292,7 +292,7 @@ foreach ($tool in $Tools) {
         }
     }
 
-    # ── 2. Find or create the Service Principal ──────────────────────────────
+    # -- 2. Find or create the Service Principal ------------------------------
     $sp = Get-MgServicePrincipal -Filter "appId eq '$appOid'" -ErrorAction SilentlyContinue |
           Select-Object -First 1
 
@@ -309,7 +309,7 @@ foreach ($tool in $Tools) {
 
     if (-not $sp) { continue }
 
-    # ── 3. Assign users ──────────────────────────────────────────────────────
+    # -- 3. Assign users ------------------------------------------------------
     $empIds = $ToolAssignments[$tool.Id]
     if (-not $empIds) {
         Write-Verbose "    No assignments defined for $($tool.Id)"
@@ -330,7 +330,7 @@ foreach ($tool in $Tools) {
             continue
         }
 
-        if ($PSCmdlet.ShouldProcess("$($mgUser.DisplayName) → $displayName", "Assign user")) {
+        if ($PSCmdlet.ShouldProcess("$($mgUser.DisplayName) -> $displayName", "Assign user")) {
             try {
                 New-MgServicePrincipalAppRoleAssignment `
                     -ServicePrincipalId $sp.Id `
@@ -349,7 +349,7 @@ foreach ($tool in $Tools) {
 
 #endregion
 
-#region ── Summary ───────────────────────────────────────────────────────────
+#region -- Summary -----------------------------------------------------------
 
 Write-Host "`n=== Done ===" -ForegroundColor Cyan
 Write-Host "  Apps created : $CreatedCount"
@@ -357,7 +357,7 @@ Write-Host "  Apps skipped : $SkippedCount (already existed)"
 Write-Host "  Assignments  : $AssignedCount"
 Write-Host ""
 Write-Host "Next steps:" -ForegroundColor Yellow
-Write-Host "  1. Open Stacklens → Settings → Directory Sync"
+Write-Host "  1. Open Stacklens -> Settings -> Directory Sync"
 Write-Host "  2. Click Authorise and sign in with your admin account"
 Write-Host "  3. The sync will import users and you can cross-reference app access"
 Write-Host ""
