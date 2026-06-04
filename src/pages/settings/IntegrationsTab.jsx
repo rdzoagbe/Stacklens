@@ -127,7 +127,7 @@ async function getMSALApp() {
     auth: {
       clientId: M365_CLIENT_ID,
       authority: 'https://login.microsoftonline.com/organizations',
-      redirectUri: window.location.origin,
+      redirectUri: window.location.origin + '/auth-redirect.html',
     },
     cache: { cacheLocation: 'sessionStorage', storeAuthStateInCookie: false },
     system: { loggerOptions: { loggerCallback: () => {}, logLevel: 3 } },
@@ -899,7 +899,7 @@ async function sfGenerateChallenge(verifier) {
 async function sfAuthWithPKCE(clientId, loginUrl = 'https://login.salesforce.com') {
   const verifier    = sfGenerateVerifier();
   const challenge   = await sfGenerateChallenge(verifier);
-  const redirectUri = window.location.origin;
+  const redirectUri = window.location.origin + '/auth-redirect.html';
 
   const authUrl = new URL(`${loginUrl}/services/oauth2/authorize`);
   authUrl.searchParams.set('response_type',           'code');
