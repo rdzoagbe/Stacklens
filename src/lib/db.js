@@ -204,6 +204,10 @@ export async function resetDb() {
     localStorage.removeItem('sg_okta_token');
     localStorage.removeItem('sg_okta_domain');
     localStorage.removeItem('sg_okta_last_sync');
+    localStorage.removeItem('sg_zoom_account_id');
+    localStorage.removeItem('sg_zoom_client_id');
+    localStorage.removeItem('sg_zoom_client_secret');
+    localStorage.removeItem('sg_zoom_last_sync');
 
     await new Promise(r => setTimeout(r, 500));
     window.location.reload();
