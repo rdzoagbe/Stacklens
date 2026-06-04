@@ -1200,7 +1200,7 @@ export function IntegrationConnectors() {
       });
 
       const gwsUsers = await fetchAllWorkspaceUsers(accessToken);
-      const incoming = gwsUsers.map(mapGoogleUser);
+      const incoming = gwsUsers.map(mapGoogleUser).filter(u => u.email);
 
       // Merge: compare against existing employees by email
       const existingByEmail = Object.fromEntries(
@@ -1701,7 +1701,7 @@ export function IntegrationConnectors() {
     try {
       const accessToken = await acquireMSToken();
       const msUsers = await fetchAllGraphUsers(accessToken);
-      const incoming = msUsers.map(mapMicrosoftUser);
+      const incoming = msUsers.map(mapMicrosoftUser).filter(u => u.email);
 
       const existingByEmail = Object.fromEntries(
         (db?.employees || []).map(e => [(e.email || '').toLowerCase(), e])
