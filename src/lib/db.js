@@ -211,6 +211,11 @@ export async function resetDb() {
     localStorage.removeItem('sg_asana_token');
     localStorage.removeItem('sg_asana_workspace');
     localStorage.removeItem('sg_asana_last_sync');
+    localStorage.removeItem('sg_sf_client_id');
+    localStorage.removeItem('sg_sf_login_url');
+    localStorage.removeItem('sg_sf_instance_url');
+    localStorage.removeItem('sg_sf_refresh_token');
+    localStorage.removeItem('sg_sf_last_sync');
 
     await new Promise(r => setTimeout(r, 500));
     window.location.reload();

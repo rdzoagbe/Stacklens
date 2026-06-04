@@ -850,7 +850,7 @@ function SyncResult({ result, onDismiss }) {
           : (
             <>
               <p className="text-sm font-semibold text-emerald-400">
-                {{ 'google-workspace': 'Google Workspace', 'slack': 'Slack', 'microsoft-365': 'Microsoft 365', 'github': 'GitHub', 'okta': 'Okta', 'zoom': 'Zoom', 'asana': 'Asana' }[result.source] || result.source} sync complete
+                {{ 'google-workspace': 'Google Workspace', 'slack': 'Slack', 'microsoft-365': 'Microsoft 365', 'github': 'GitHub', 'okta': 'Okta', 'zoom': 'Zoom', 'asana': 'Asana', 'salesforce': 'Salesforce' }[result.source] || result.source} sync complete
               </p>
               <p className="text-xs text-emerald-300/80 mt-0.5">
                 {result.added} new · {result.updated} updated · {result.skipped} unchanged — {result.total} users total
@@ -859,6 +859,194 @@ function SyncResult({ result, onDismiss }) {
           )}
       </div>
       <button onClick={onDismiss} className="text-slate-500 hover:text-white flex-shrink-0"><X className="h-4 w-4" /></button>
+    </div>
+  );
+}
+
+// ── Salesforce Connected App + PKCE OAuth ────────────────────────────────
+const SF_CLIENT_ID_KEY  = 'sg_sf_client_id';
+const SF_LOGIN_URL_KEY  = 'sg_sf_login_url';
+const SF_INSTANCE_KEY   = 'sg_sf_instance_url';
+const SF_REFRESH_KEY    = 'sg_sf_refresh_token';
+const SF_SYNC_KEY       = 'sg_sf_last_sync';
+
+function sfGenerateVerifier() {
+  const arr = new Uint8Array(32);
+  crypto.getRandomValues(arr);
+  return btoa(String.fromCharCode(...arr)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+}
+
+async function sfGenerateChallenge(verifier) {
+  const encoded = new TextEncoder().encode(verifier);
+  const hash    = await crypto.subtle.digest('SHA-256', encoded);
+  return btoa(String.fromCharCode(...new Uint8Array(hash))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+}
+
+async function sfAuthWithPKCE(clientId, loginUrl = 'https://login.salesforce.com') {
+  const verifier    = sfGenerateVerifier();
+  const challenge   = await sfGenerateChallenge(verifier);
+  const redirectUri = window.location.origin;
+
+  const authUrl = new URL(`${loginUrl}/services/oauth2/authorize`);
+  authUrl.searchParams.set('response_type',           'code');
+  authUrl.searchParams.set('client_id',               clientId);
+  authUrl.searchParams.set('redirect_uri',            redirectUri);
+  authUrl.searchParams.set('scope',                   'api refresh_token');
+  authUrl.searchParams.set('code_challenge',          challenge);
+  authUrl.searchParams.set('code_challenge_method',   'S256');
+
+  const popup = window.open(authUrl.toString(), 'sf_oauth', 'width=640,height=720,left=200,top=80');
+  if (!popup) throw new Error('Popup blocked. Allow popups for this site and try again.');
+
+  const code = await new Promise((resolve, reject) => {
+    const iv = setInterval(() => {
+      try {
+        if (popup.closed) { clearInterval(iv); reject(new Error('popup_closed_by_user')); return; }
+        const href = popup.location.href; // throws if still cross-origin (SF domain)
+        if (href.startsWith(redirectUri)) {
+          clearInterval(iv);
+          popup.close();
+          const params = new URL(href).searchParams;
+          if (params.has('error')) reject(new Error(params.get('error_description') || params.get('error')));
+          else resolve(params.get('code'));
+        }
+      } catch { /* cross-origin — popup still on Salesforce, keep polling */ }
+    }, 300);
+  });
+
+  const tokenRes = await fetch(`${loginUrl}/services/oauth2/token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type:    'authorization_code',
+      code,
+      client_id:     clientId,
+      redirect_uri:  redirectUri,
+      code_verifier: verifier,
+    }),
+  });
+  if (!tokenRes.ok) {
+    const body = await tokenRes.json().catch(() => ({}));
+    throw new Error(body.error_description || body.error || `Token exchange failed (HTTP ${tokenRes.status})`);
+  }
+  const tokens = await tokenRes.json();
+  return { accessToken: tokens.access_token, instanceUrl: tokens.instance_url, refreshToken: tokens.refresh_token };
+}
+
+async function sfRefreshAccessToken(clientId, refreshToken, loginUrl) {
+  const res = await fetch(`${loginUrl}/services/oauth2/token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ grant_type: 'refresh_token', client_id: clientId, refresh_token: refreshToken }),
+  });
+  if (!res.ok) return null;
+  return (await res.json()).access_token;
+}
+
+async function fetchAllSalesforceUsers(accessToken, instanceUrl) {
+  const users = [];
+  const q = encodeURIComponent("SELECT Id,Name,Email,Department,Title,IsActive,CreatedDate FROM User WHERE IsActive=true AND UserType='Standard'");
+  let url = `${instanceUrl}/services/data/v59.0/query?q=${q}`;
+  while (url) {
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' } });
+    if (!res.ok) {
+      const body = await res.json().catch(() => [{}]);
+      const msg  = Array.isArray(body) ? body[0]?.message : (body?.error_description || `HTTP ${res.status}`);
+      if (res.status === 401) throw new Error('Session expired. Reconnect to refresh your Salesforce token.');
+      if (res.status === 403) throw new Error('Permission denied. Ensure the Connected App has the "api" scope and the user has API access.');
+      throw new Error(msg);
+    }
+    const data = await res.json();
+    if (Array.isArray(data.records)) users.push(...data.records);
+    url = data.nextRecordsUrl ? `${instanceUrl}${data.nextRecordsUrl}` : null;
+  }
+  return users;
+}
+
+function mapSalesforceUser(u) {
+  return {
+    full_name:  u.Name        || '',
+    email:      u.Email       || '',
+    department: u.Department  || '',
+    role:       u.Title       || '',
+    status:     'active',
+    start_date: u.CreatedDate ? u.CreatedDate.slice(0, 10) : '',
+    end_date:   '',
+  };
+}
+
+const SF_STEPS = [
+  { n: 1, text: 'In Salesforce Setup, search for "App Manager" → New Connected App' },
+  { n: 2, text: 'Set App Name (e.g. "Stacklens"), API Name, and a Contact Email' },
+  { n: 3, text: 'Check "Enable OAuth Settings". Set Callback URL to your app domain (e.g. https://stacklens.fr)' },
+  { n: 4, text: 'Add OAuth Scopes: "Access and manage your data (api)" + "Perform requests at any time (refresh_token)"' },
+  { n: 5, text: 'Check "Enable PKCE Extension for Supported Authorization Flows"' },
+  { n: 6, text: 'Under CORS → Trusted URLs, add your app domain' },
+  { n: 7, text: 'Save and wait 2–10 min. Then copy the Consumer Key (not Consumer Secret) below' },
+];
+
+function SalesforceModal({ onSubmit, onClose, loading }) {
+  const [clientId,  setClientId]  = useState(localStorage.getItem(SF_CLIENT_ID_KEY)  || '');
+  const [loginUrl,  setLoginUrl]  = useState(localStorage.getItem(SF_LOGIN_URL_KEY)  || 'https://login.salesforce.com');
+
+  return (
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-6">
+      <div className="bg-slate-900 rounded-3xl border border-slate-700 p-8 max-w-lg w-full max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <span className="text-3xl">☁️</span>
+            <div>
+              <h3 className="text-xl font-bold text-white">Connect Salesforce</h3>
+              <p className="text-sm text-slate-400">OAuth 2.0 PKCE — one-time setup</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors"><X className="h-5 w-5" /></button>
+        </div>
+        <ol className="space-y-3 mb-6">
+          {SF_STEPS.map(item => (
+            <li key={item.n} className="flex gap-3">
+              <span className="flex-shrink-0 w-6 h-6 rounded-full bg-sky-600 text-white text-xs font-bold flex items-center justify-center mt-0.5">{item.n}</span>
+              <span className="text-sm text-slate-300">{item.text}</span>
+            </li>
+          ))}
+        </ol>
+        <div className="space-y-4 mb-6">
+          <div>
+            <label className="block text-sm font-semibold text-slate-300 mb-2">Consumer Key</label>
+            <input
+              type="text"
+              value={clientId}
+              onChange={e => setClientId(e.target.value)}
+              placeholder="3MVG9…"
+              className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 font-mono text-sm"
+            />
+            <p className="text-xs text-slate-500 mt-1.5">Found in Setup → App Manager → your app → View → Consumer Key</p>
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-slate-300 mb-2">Login URL</label>
+            <input
+              type="text"
+              value={loginUrl}
+              onChange={e => setLoginUrl(e.target.value)}
+              placeholder="https://login.salesforce.com"
+              className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 text-sm"
+            />
+            <p className="text-xs text-slate-500 mt-1.5">Use https://test.salesforce.com for sandbox orgs</p>
+          </div>
+        </div>
+        <div className="flex gap-3">
+          <button onClick={onClose}
+            className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-sm font-semibold text-slate-300 transition-colors">
+            Cancel
+          </button>
+          <button
+            onClick={() => onSubmit(clientId.trim(), loginUrl.trim() || 'https://login.salesforce.com')}
+            disabled={!clientId.trim() || loading}
+            className="flex-1 py-2.5 bg-sky-600 hover:bg-sky-500 disabled:opacity-50 rounded-xl text-sm font-semibold text-white transition-colors flex items-center justify-center gap-2">
+            {loading ? <><Loader className="h-4 w-4 animate-spin" /> Authorising…</> : 'Authorise & Sync'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -891,6 +1079,8 @@ export function IntegrationConnectors() {
   const [zoomSyncing, setZoomSyncing]           = useState(false);
   const [asanaModal, setAsanaModal]             = useState(false);
   const [asanaSyncing, setAsanaSyncing]         = useState(false);
+  const [sfModal, setSfModal]                   = useState(false);
+  const [sfSyncing, setSfSyncing]               = useState(false);
 
   // Preload GIS and MSAL so popups fire synchronously on click
   useEffect(() => {
@@ -954,12 +1144,12 @@ export function IntegrationConnectors() {
     {
       id: 'salesforce',
       name: 'Salesforce',
-      description: 'Track licenses, monitor usage, optimize seats',
+      description: 'Import active users from your Salesforce org — name, email, department, and job title synced via OAuth 2.0 PKCE.',
       icon: '☁️',
       category: 'CRM',
-      features: ['License Tracking', 'Usage Monitoring', 'Cost Optimization'],
-      status: 'coming-soon',
-      setupTime: '5 min',
+      features: ['Active user sync', 'Department & title import', 'OAuth 2.0 PKCE — no password stored'],
+      status: 'available',
+      setupTime: '10 min',
     },
     {
       id: 'zoom',
@@ -1389,6 +1579,118 @@ export function IntegrationConnectors() {
     await handleAsanaTokenSubmit(token);
   }, [handleAsanaTokenSubmit]);
 
+  const handleSalesforceSubmit = useCallback(async (clientId, loginUrl) => {
+    if (!clientId) return;
+    setSfSyncing(true);
+    setSyncResult(null);
+    try {
+      const { accessToken, instanceUrl, refreshToken } = await sfAuthWithPKCE(clientId, loginUrl);
+      const sfUsers  = await fetchAllSalesforceUsers(accessToken, instanceUrl);
+      const incoming = sfUsers.map(mapSalesforceUser).filter(u => u.email);
+
+      const existingByEmail = Object.fromEntries(
+        (db?.employees || []).map(e => [(e.email || '').toLowerCase(), e])
+      );
+      const toAdd = [], toUpdate = [];
+      let skipped = 0;
+      for (const u of incoming) {
+        const key      = u.email.toLowerCase();
+        const existing = existingByEmail[key];
+        if (!existing) {
+          toAdd.push(u);
+        } else {
+          const patch = {};
+          if (u.full_name && u.full_name !== existing.full_name) patch.full_name = u.full_name;
+          if (u.department && !existing.department) patch.department = u.department;
+          if (u.role && !existing.role) patch.role = u.role;
+          if (u.start_date && !existing.start_date) patch.start_date = u.start_date;
+          if (Object.keys(patch).length > 0) toUpdate.push({ id: existing.id, patch });
+          else skipped++;
+        }
+      }
+
+      if (toAdd.length > 0) await muts.bulkImport.mutateAsync({ kind: 'employees', records: toAdd });
+      for (const { id, patch } of toUpdate) await muts.updateEmployee.mutateAsync({ id, patch });
+
+      localStorage.setItem(SF_CLIENT_ID_KEY, clientId);
+      localStorage.setItem(SF_LOGIN_URL_KEY,  loginUrl);
+      localStorage.setItem(SF_INSTANCE_KEY,   instanceUrl);
+      if (refreshToken) localStorage.setItem(SF_REFRESH_KEY, refreshToken);
+      localStorage.setItem(SF_SYNC_KEY,       new Date().toISOString());
+      const next = connectedIntegrations.includes('salesforce')
+        ? connectedIntegrations
+        : [...connectedIntegrations, 'salesforce'];
+      setConnectedIntegrations(next);
+      localStorage.setItem('sg_connected_integrations', JSON.stringify(next));
+
+      setSfModal(false);
+      setSyncResult({ source: 'salesforce', total: incoming.length, added: toAdd.length, updated: toUpdate.length, skipped });
+    } catch (err) {
+      if (err.message === 'popup_closed_by_user') return;
+      setSyncResult({ source: 'salesforce', error: err.message });
+      toast.error('Salesforce sync failed');
+    } finally {
+      setSfSyncing(false);
+    }
+  }, [db?.employees, connectedIntegrations, muts]);
+
+  const handleSalesforceResync = useCallback(async () => {
+    const clientId     = localStorage.getItem(SF_CLIENT_ID_KEY);
+    const loginUrl     = localStorage.getItem(SF_LOGIN_URL_KEY) || 'https://login.salesforce.com';
+    const instanceUrl  = localStorage.getItem(SF_INSTANCE_KEY);
+    const refreshToken = localStorage.getItem(SF_REFRESH_KEY);
+    if (!clientId || !instanceUrl) { setSfModal(true); return; }
+
+    setSfSyncing(true);
+    setSyncResult(null);
+    try {
+      // Try silent refresh first; fall back to popup if expired
+      let accessToken = refreshToken ? await sfRefreshAccessToken(clientId, refreshToken, loginUrl) : null;
+      if (!accessToken) {
+        const result  = await sfAuthWithPKCE(clientId, loginUrl);
+        accessToken   = result.accessToken;
+        localStorage.setItem(SF_INSTANCE_KEY, result.instanceUrl);
+        if (result.refreshToken) localStorage.setItem(SF_REFRESH_KEY, result.refreshToken);
+      }
+
+      const sfUsers  = await fetchAllSalesforceUsers(accessToken, instanceUrl);
+      const incoming = sfUsers.map(mapSalesforceUser).filter(u => u.email);
+
+      const existingByEmail = Object.fromEntries(
+        (db?.employees || []).map(e => [(e.email || '').toLowerCase(), e])
+      );
+      const toAdd = [], toUpdate = [];
+      let skipped = 0;
+      for (const u of incoming) {
+        const key      = u.email.toLowerCase();
+        const existing = existingByEmail[key];
+        if (!existing) {
+          toAdd.push(u);
+        } else {
+          const patch = {};
+          if (u.full_name && u.full_name !== existing.full_name) patch.full_name = u.full_name;
+          if (u.department && !existing.department) patch.department = u.department;
+          if (u.role && !existing.role) patch.role = u.role;
+          if (u.start_date && !existing.start_date) patch.start_date = u.start_date;
+          if (Object.keys(patch).length > 0) toUpdate.push({ id: existing.id, patch });
+          else skipped++;
+        }
+      }
+
+      if (toAdd.length > 0) await muts.bulkImport.mutateAsync({ kind: 'employees', records: toAdd });
+      for (const { id, patch } of toUpdate) await muts.updateEmployee.mutateAsync({ id, patch });
+
+      localStorage.setItem(SF_SYNC_KEY, new Date().toISOString());
+      setSyncResult({ source: 'salesforce', total: incoming.length, added: toAdd.length, updated: toUpdate.length, skipped });
+    } catch (err) {
+      if (err.message === 'popup_closed_by_user') return;
+      setSyncResult({ source: 'salesforce', error: err.message });
+      toast.error('Salesforce sync failed');
+    } finally {
+      setSfSyncing(false);
+    }
+  }, [db?.employees, connectedIntegrations, muts]);
+
   const handleMicrosoftConnect = useCallback(async () => {
     if (!M365_CLIENT_ID) {
       setSetupModal(integrations.find(i => i.id === 'microsoft-365'));
@@ -1486,6 +1788,14 @@ export function IntegrationConnectors() {
       localStorage.removeItem(ASANA_SYNC_KEY);
       setSyncResult(null);
     }
+    if (integrationId === 'salesforce') {
+      localStorage.removeItem(SF_CLIENT_ID_KEY);
+      localStorage.removeItem(SF_LOGIN_URL_KEY);
+      localStorage.removeItem(SF_INSTANCE_KEY);
+      localStorage.removeItem(SF_REFRESH_KEY);
+      localStorage.removeItem(SF_SYNC_KEY);
+      setSyncResult(null);
+    }
   };
 
   const handleConnect = (integration) => {
@@ -1500,7 +1810,7 @@ export function IntegrationConnectors() {
     if (integration.id === 'okta')             { setOktaTokenModal(true); return; }
     if (integration.id === 'zoom')             { setZoomModal(true); return; }
     if (integration.id === 'asana')            { setAsanaModal(true); return; }
-    // Others not yet implemented
+    if (integration.id === 'salesforce')       { setSfModal(true); return; }
   };
 
   const isConnected = (id) => connectedIntegrations.includes(id);
@@ -1511,6 +1821,7 @@ export function IntegrationConnectors() {
   const lastOktaSync   = localStorage.getItem(OKTA_SYNC_KEY);
   const lastZoomSync   = localStorage.getItem(ZOOM_SYNC_KEY);
   const lastAsanaSync  = localStorage.getItem(ASANA_SYNC_KEY);
+  const lastSFSync     = localStorage.getItem(SF_SYNC_KEY);
 
   const filteredIntegrations = useMemo(() => {
     return integrations.filter(integration => {
@@ -1571,6 +1882,15 @@ export function IntegrationConnectors() {
           loading={asanaSyncing}
           onSubmit={handleAsanaTokenSubmit}
           onClose={() => setAsanaModal(false)}
+        />
+      )}
+
+      {/* Salesforce OAuth modal */}
+      {sfModal && (
+        <SalesforceModal
+          loading={sfSyncing}
+          onSubmit={handleSalesforceSubmit}
+          onClose={() => setSfModal(false)}
         />
       )}
 
@@ -1655,6 +1975,15 @@ export function IntegrationConnectors() {
                   ? <Loader className="h-3.5 w-3.5 animate-spin" />
                   : <RefreshCw className="h-3.5 w-3.5" />}
                 Re-sync Asana
+              </button>
+            )}
+            {isConnected('salesforce') && lastSFSync && (
+              <button onClick={handleSalesforceResync} disabled={sfSyncing}
+                className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-xs font-semibold text-slate-300 transition-colors disabled:opacity-50">
+                {sfSyncing
+                  ? <Loader className="h-3.5 w-3.5 animate-spin" />
+                  : <RefreshCw className="h-3.5 w-3.5" />}
+                Re-sync Salesforce
               </button>
             )}
           </div>
@@ -1807,7 +2136,18 @@ export function IntegrationConnectors() {
                     <span className="font-mono">📊 {localStorage.getItem(ASANA_WORKSPACE_KEY)}</span>
                   </div>
                 )}
-                {connected && ['google-workspace', 'slack', 'microsoft-365', 'github', 'okta', 'zoom', 'asana'].includes(integration.id) && db?.employees?.length > 0 && (
+                {connected && integration.id === 'salesforce' && lastSFSync && (
+                  <div className="flex items-center gap-1.5 text-xs text-slate-500 mb-3">
+                    <RefreshCw className="h-3 w-3" />
+                    Last synced {new Date(lastSFSync).toLocaleString()}
+                  </div>
+                )}
+                {connected && integration.id === 'salesforce' && localStorage.getItem(SF_INSTANCE_KEY) && (
+                  <div className="flex items-center gap-1.5 text-xs text-slate-400 mb-3">
+                    <span className="font-mono text-[11px]">☁️ {localStorage.getItem(SF_INSTANCE_KEY).replace('https://', '')}</span>
+                  </div>
+                )}
+                {connected && ['google-workspace', 'slack', 'microsoft-365', 'github', 'okta', 'zoom', 'asana', 'salesforce'].includes(integration.id) && db?.employees?.length > 0 && (
                   <div className="flex items-center gap-1.5 text-xs text-emerald-400 mb-3">
                     <Users className="h-3 w-3" />
                     {db.employees.length} employees in directory
@@ -1871,6 +2211,12 @@ export function IntegrationConnectors() {
                       <button onClick={handleAsanaResync} disabled={asanaSyncing}
                         className="w-full py-2.5 rounded-xl font-bold bg-pink-600 hover:bg-pink-500 disabled:opacity-50 text-white text-sm transition-colors flex items-center justify-center gap-2">
                         {asanaSyncing ? <><Loader className="h-4 w-4 animate-spin" /> Syncing…</> : <><RefreshCw className="h-4 w-4" /> Sync now</>}
+                      </button>
+                    )}
+                    {integration.id === 'salesforce' && (
+                      <button onClick={handleSalesforceResync} disabled={sfSyncing}
+                        className="w-full py-2.5 rounded-xl font-bold bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white text-sm transition-colors flex items-center justify-center gap-2">
+                        {sfSyncing ? <><Loader className="h-4 w-4 animate-spin" /> Syncing…</> : <><RefreshCw className="h-4 w-4" /> Sync now</>}
                       </button>
                     )}
                     <button onClick={() => handleDisconnect(integration.id)}
