@@ -177,6 +177,127 @@ function mapMicrosoftUser(u) {
   };
 }
 
+// ── Asana PAT + workspace users ──────────────────────────────────────────
+const ASANA_TOKEN_KEY     = 'sg_asana_token';
+const ASANA_WORKSPACE_KEY = 'sg_asana_workspace';
+const ASANA_SYNC_KEY      = 'sg_asana_last_sync';
+const ASANA_API           = 'https://app.asana.com/api/1.0';
+
+async function fetchAllAsanaUsers(token) {
+  // Resolve first workspace automatically
+  const wsRes = await fetch(`${ASANA_API}/workspaces`, {
+    headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+  });
+  if (!wsRes.ok) {
+    const body = await wsRes.json().catch(() => ({}));
+    if (wsRes.status === 401) throw new Error('Invalid token. Check that you copied the full PAT correctly.');
+    throw new Error(body.errors?.[0]?.message || `HTTP ${wsRes.status}`);
+  }
+  const wsData = await wsRes.json();
+  if (!wsData.data?.length) throw new Error('No workspaces found. Ensure the token belongs to an active Asana account.');
+  const workspace = wsData.data[0];
+
+  // Paginate users in that workspace
+  const users = [];
+  let offset = null;
+  do {
+    const params = new URLSearchParams({ opt_fields: 'name,email', limit: '100' });
+    if (offset) params.set('offset', offset);
+    const res = await fetch(`${ASANA_API}/workspaces/${workspace.gid}/users?${params}`, {
+      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.errors?.[0]?.message || `HTTP ${res.status}`);
+    }
+    const data = await res.json();
+    if (Array.isArray(data.data)) users.push(...data.data);
+    offset = data.next_page?.offset || null;
+  } while (offset);
+
+  return { users, workspaceName: workspace.name };
+}
+
+function mapAsanaUser(u) {
+  return {
+    full_name:  u.name  || '',
+    email:      u.email || '',
+    department: '',
+    role:       '',
+    status:     'active',
+    start_date: '',
+    end_date:   '',
+  };
+}
+
+// ── Asana PAT modal ───────────────────────────────────────────────────────
+const ASANA_STEPS = [
+  { n: 1, text: 'Go to app.asana.com → click your profile picture → My Settings → Apps' },
+  { n: 2, text: 'Click "Manage Developer Apps" → "+ New access token"' },
+  { n: 3, text: 'Give it a name (e.g. "Stacklens") and click Create token' },
+  { n: 4, text: 'Copy the token immediately — it is only shown once' },
+  { n: 5, text: 'Paste it below — Stacklens will auto-detect your workspace' },
+];
+
+function AsanaTokenModal({ onSubmit, onClose, loading }) {
+  const [token, setToken]       = useState('');
+  const [showToken, setShowToken] = useState(false);
+
+  return (
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-6">
+      <div className="bg-slate-900 rounded-3xl border border-slate-700 p-8 max-w-lg w-full">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <span className="text-3xl">📊</span>
+            <div>
+              <h3 className="text-xl font-bold text-white">Connect Asana</h3>
+              <p className="text-sm text-slate-400">Personal Access Token — one-time setup</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors"><X className="h-5 w-5" /></button>
+        </div>
+        <ol className="space-y-3 mb-6">
+          {ASANA_STEPS.map(item => (
+            <li key={item.n} className="flex gap-3">
+              <span className="flex-shrink-0 w-6 h-6 rounded-full bg-pink-600 text-white text-xs font-bold flex items-center justify-center mt-0.5">{item.n}</span>
+              <span className="text-sm text-slate-300">{item.text}</span>
+            </li>
+          ))}
+        </ol>
+        <div className="mb-6">
+          <label className="block text-sm font-semibold text-slate-300 mb-2">Personal Access Token</label>
+          <div className="relative">
+            <input
+              type={showToken ? 'text' : 'password'}
+              value={token}
+              onChange={e => setToken(e.target.value)}
+              placeholder="1/…"
+              className="w-full pr-10 pl-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-pink-500 font-mono text-sm"
+            />
+            <button type="button" onClick={() => setShowToken(v => !v)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors">
+              {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+          <p className="text-xs text-slate-500 mt-1.5">Stored locally in your browser. Never sent to Stacklens servers.</p>
+        </div>
+        <div className="flex gap-3">
+          <button onClick={onClose}
+            className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-sm font-semibold text-slate-300 transition-colors">
+            Cancel
+          </button>
+          <button
+            onClick={() => onSubmit(token.trim())}
+            disabled={!token.trim() || loading}
+            className="flex-1 py-2.5 bg-pink-600 hover:bg-pink-500 disabled:opacity-50 rounded-xl text-sm font-semibold text-white transition-colors flex items-center justify-center gap-2">
+            {loading ? <><Loader className="h-4 w-4 animate-spin" /> Syncing…</> : 'Connect & Sync'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Zoom Server-to-Server OAuth + users ─────────────────────────────────
 const ZOOM_ACCOUNT_ID_KEY     = 'sg_zoom_account_id';
 const ZOOM_CLIENT_ID_KEY      = 'sg_zoom_client_id';
@@ -727,7 +848,7 @@ function SyncResult({ result, onDismiss }) {
           : (
             <>
               <p className="text-sm font-semibold text-emerald-400">
-                {{ 'slack': 'Slack', 'microsoft-365': 'Microsoft 365', 'github': 'GitHub', 'okta': 'Okta', 'zoom': 'Zoom' }[result.source] || 'Google Workspace'} sync complete
+                {{ 'slack': 'Slack', 'microsoft-365': 'Microsoft 365', 'github': 'GitHub', 'okta': 'Okta', 'zoom': 'Zoom', 'asana': 'Asana' }[result.source] || 'Google Workspace'} sync complete
               </p>
               <p className="text-xs text-emerald-300/80 mt-0.5">
                 {result.added} new · {result.updated} updated · {result.skipped} unchanged — {result.total} users total
@@ -766,6 +887,8 @@ export function IntegrationConnectors() {
   const [oktaSyncing, setOktaSyncing]           = useState(false);
   const [zoomModal, setZoomModal]               = useState(false);
   const [zoomSyncing, setZoomSyncing]           = useState(false);
+  const [asanaModal, setAsanaModal]             = useState(false);
+  const [asanaSyncing, setAsanaSyncing]         = useState(false);
 
   // Preload GIS and MSAL so popups fire synchronously on click
   useEffect(() => {
@@ -849,12 +972,12 @@ export function IntegrationConnectors() {
     {
       id: 'asana',
       name: 'Asana',
-      description: 'Project management tool tracking',
+      description: 'Import workspace members into your employee directory — name and email synced automatically from your Asana workspace.',
       icon: '📊',
       category: 'Productivity',
-      features: ['Seat Tracking', 'Usage Reports'],
-      status: 'coming-soon',
-      setupTime: '3 min',
+      features: ['Workspace member sync', 'Name & email import', 'Auto-detects workspace'],
+      status: 'available',
+      setupTime: '2 min',
     },
   ];
 
@@ -1208,6 +1331,60 @@ export function IntegrationConnectors() {
     await handleZoomSubmit(accountId, clientId, clientSecret);
   }, [handleZoomSubmit]);
 
+  const handleAsanaTokenSubmit = useCallback(async (token) => {
+    if (!token) return;
+    setAsanaSyncing(true);
+    setSyncResult(null);
+    try {
+      const { users: asanaUsers, workspaceName } = await fetchAllAsanaUsers(token);
+      const incoming = asanaUsers.map(mapAsanaUser).filter(u => u.email);
+
+      const existingByEmail = Object.fromEntries(
+        (db?.employees || []).map(e => [(e.email || '').toLowerCase(), e])
+      );
+      const toAdd = [], toUpdate = [];
+      let skipped = 0;
+      for (const u of incoming) {
+        const key      = u.email.toLowerCase();
+        const existing = existingByEmail[key];
+        if (!existing) {
+          toAdd.push(u);
+        } else {
+          const patch = {};
+          if (u.full_name && u.full_name !== existing.full_name) patch.full_name = u.full_name;
+          if (Object.keys(patch).length > 0) toUpdate.push({ id: existing.id, patch });
+          else skipped++;
+        }
+      }
+
+      if (toAdd.length > 0) await muts.bulkImport.mutateAsync({ kind: 'employees', records: toAdd });
+      for (const { id, patch } of toUpdate) await muts.updateEmployee.mutateAsync({ id, patch });
+
+      localStorage.setItem(ASANA_TOKEN_KEY,     token);
+      localStorage.setItem(ASANA_WORKSPACE_KEY, workspaceName);
+      localStorage.setItem(ASANA_SYNC_KEY,      new Date().toISOString());
+      const next = connectedIntegrations.includes('asana')
+        ? connectedIntegrations
+        : [...connectedIntegrations, 'asana'];
+      setConnectedIntegrations(next);
+      localStorage.setItem('sg_connected_integrations', JSON.stringify(next));
+
+      setAsanaModal(false);
+      setSyncResult({ source: 'asana', total: incoming.length, added: toAdd.length, updated: toUpdate.length, skipped });
+    } catch (err) {
+      setSyncResult({ source: 'asana', error: err.message });
+      toast.error('Asana sync failed');
+    } finally {
+      setAsanaSyncing(false);
+    }
+  }, [db?.employees, connectedIntegrations, muts]);
+
+  const handleAsanaResync = useCallback(async () => {
+    const token = localStorage.getItem(ASANA_TOKEN_KEY);
+    if (!token) { setAsanaModal(true); return; }
+    await handleAsanaTokenSubmit(token);
+  }, [handleAsanaTokenSubmit]);
+
   const handleMicrosoftConnect = useCallback(async () => {
     if (!M365_CLIENT_ID) {
       setSetupModal(integrations.find(i => i.id === 'microsoft-365'));
@@ -1299,6 +1476,12 @@ export function IntegrationConnectors() {
       localStorage.removeItem(ZOOM_SYNC_KEY);
       setSyncResult(null);
     }
+    if (integrationId === 'asana') {
+      localStorage.removeItem(ASANA_TOKEN_KEY);
+      localStorage.removeItem(ASANA_WORKSPACE_KEY);
+      localStorage.removeItem(ASANA_SYNC_KEY);
+      setSyncResult(null);
+    }
   };
 
   const handleConnect = (integration) => {
@@ -1312,6 +1495,7 @@ export function IntegrationConnectors() {
     if (integration.id === 'github')           { setGithubTokenModal(true); return; }
     if (integration.id === 'okta')             { setOktaTokenModal(true); return; }
     if (integration.id === 'zoom')             { setZoomModal(true); return; }
+    if (integration.id === 'asana')            { setAsanaModal(true); return; }
     // Others not yet implemented
   };
 
@@ -1322,6 +1506,7 @@ export function IntegrationConnectors() {
   const lastGitHubSync = localStorage.getItem(GITHUB_SYNC_KEY);
   const lastOktaSync   = localStorage.getItem(OKTA_SYNC_KEY);
   const lastZoomSync   = localStorage.getItem(ZOOM_SYNC_KEY);
+  const lastAsanaSync  = localStorage.getItem(ASANA_SYNC_KEY);
 
   const filteredIntegrations = useMemo(() => {
     return integrations.filter(integration => {
@@ -1373,6 +1558,15 @@ export function IntegrationConnectors() {
           loading={oktaSyncing}
           onSubmit={handleOktaTokenSubmit}
           onClose={() => setOktaTokenModal(false)}
+        />
+      )}
+
+      {/* Asana token modal */}
+      {asanaModal && (
+        <AsanaTokenModal
+          loading={asanaSyncing}
+          onSubmit={handleAsanaTokenSubmit}
+          onClose={() => setAsanaModal(false)}
         />
       )}
 
@@ -1448,6 +1642,15 @@ export function IntegrationConnectors() {
                   ? <Loader className="h-3.5 w-3.5 animate-spin" />
                   : <RefreshCw className="h-3.5 w-3.5" />}
                 Re-sync Zoom
+              </button>
+            )}
+            {isConnected('asana') && lastAsanaSync && (
+              <button onClick={handleAsanaResync} disabled={asanaSyncing}
+                className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-xs font-semibold text-slate-300 transition-colors disabled:opacity-50">
+                {asanaSyncing
+                  ? <Loader className="h-3.5 w-3.5 animate-spin" />
+                  : <RefreshCw className="h-3.5 w-3.5" />}
+                Re-sync Asana
               </button>
             )}
           </div>
@@ -1589,7 +1792,18 @@ export function IntegrationConnectors() {
                     Last synced {new Date(lastZoomSync).toLocaleString()}
                   </div>
                 )}
-                {connected && ['google-workspace', 'slack', 'microsoft-365', 'github', 'okta', 'zoom'].includes(integration.id) && db?.employees?.length > 0 && (
+                {connected && integration.id === 'asana' && lastAsanaSync && (
+                  <div className="flex items-center gap-1.5 text-xs text-slate-500 mb-3">
+                    <RefreshCw className="h-3 w-3" />
+                    Last synced {new Date(lastAsanaSync).toLocaleString()}
+                  </div>
+                )}
+                {connected && integration.id === 'asana' && localStorage.getItem(ASANA_WORKSPACE_KEY) && (
+                  <div className="flex items-center gap-1.5 text-xs text-slate-400 mb-3">
+                    <span className="font-mono">📊 {localStorage.getItem(ASANA_WORKSPACE_KEY)}</span>
+                  </div>
+                )}
+                {connected && ['google-workspace', 'slack', 'microsoft-365', 'github', 'okta', 'zoom', 'asana'].includes(integration.id) && db?.employees?.length > 0 && (
                   <div className="flex items-center gap-1.5 text-xs text-emerald-400 mb-3">
                     <Users className="h-3 w-3" />
                     {db.employees.length} employees in directory
@@ -1647,6 +1861,12 @@ export function IntegrationConnectors() {
                       <button onClick={handleZoomResync} disabled={zoomSyncing}
                         className="w-full py-2.5 rounded-xl font-bold bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm transition-colors flex items-center justify-center gap-2">
                         {zoomSyncing ? <><Loader className="h-4 w-4 animate-spin" /> Syncing…</> : <><RefreshCw className="h-4 w-4" /> Sync now</>}
+                      </button>
+                    )}
+                    {integration.id === 'asana' && (
+                      <button onClick={handleAsanaResync} disabled={asanaSyncing}
+                        className="w-full py-2.5 rounded-xl font-bold bg-pink-600 hover:bg-pink-500 disabled:opacity-50 text-white text-sm transition-colors flex items-center justify-center gap-2">
+                        {asanaSyncing ? <><Loader className="h-4 w-4 animate-spin" /> Syncing…</> : <><RefreshCw className="h-4 w-4" /> Sync now</>}
                       </button>
                     )}
                     <button onClick={() => handleDisconnect(integration.id)}
