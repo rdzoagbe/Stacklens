@@ -177,6 +177,141 @@ function mapMicrosoftUser(u) {
   };
 }
 
+// ── Zoom Server-to-Server OAuth + users ─────────────────────────────────
+const ZOOM_ACCOUNT_ID_KEY     = 'sg_zoom_account_id';
+const ZOOM_CLIENT_ID_KEY      = 'sg_zoom_client_id';
+const ZOOM_CLIENT_SECRET_KEY  = 'sg_zoom_client_secret';
+const ZOOM_SYNC_KEY           = 'sg_zoom_last_sync';
+
+async function getZoomAccessToken(accountId, clientId, clientSecret) {
+  const creds = btoa(`${clientId}:${clientSecret}`);
+  const res = await fetch(
+    `https://zoom.us/oauth/token?grant_type=account_credentials&account_id=${encodeURIComponent(accountId)}`,
+    { method: 'POST', headers: { Authorization: `Basic ${creds}` } }
+  );
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    if (res.status === 401) throw new Error('Invalid credentials. Check your Account ID, Client ID and Client Secret.');
+    throw new Error(body.reason || `HTTP ${res.status}`);
+  }
+  return (await res.json()).access_token;
+}
+
+async function fetchAllZoomUsers(accessToken) {
+  const users = [];
+  let page = 1;
+  while (true) {
+    const res = await fetch(
+      `https://api.zoom.us/v2/users?status=active&page_size=300&page_number=${page}`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      if (res.status === 401) throw new Error('Access token rejected. Re-connect to refresh credentials.');
+      if (res.status === 403) throw new Error('Permission denied. Ensure the app has user:read:admin scope and is activated.');
+      throw new Error(body.message || `HTTP ${res.status}`);
+    }
+    const data = await res.json();
+    if (Array.isArray(data.users)) users.push(...data.users);
+    if (page >= (data.page_count || 1)) break;
+    page++;
+  }
+  return users;
+}
+
+function mapZoomUser(u) {
+  const name = [u.first_name, u.last_name].filter(Boolean).join(' ');
+  return {
+    full_name:  name || (u.email || '').split('@')[0] || '',
+    email:      u.email || '',
+    department: u.dept || '',
+    role:       '',
+    status:     u.status === 'active' ? 'active' : 'inactive',
+    start_date: u.created_at ? u.created_at.slice(0, 10) : '',
+    end_date:   '',
+  };
+}
+
+// ── Zoom credentials modal ────────────────────────────────────────────────
+const ZOOM_STEPS = [
+  { n: 1, text: 'Go to marketplace.zoom.us → Develop → Build App → Server-to-Server OAuth' },
+  { n: 2, text: 'Create the app — name it "Stacklens" — and note the Account ID, Client ID, and Client Secret' },
+  { n: 3, text: 'Go to Scopes and add: user:read:admin (lists all users in the account)' },
+  { n: 4, text: 'Click "Activate your app" (top-right toggle) — the app must be active to issue tokens' },
+  { n: 5, text: 'Paste the three credentials below' },
+];
+
+function ZoomCredentialsModal({ onSubmit, onClose, loading }) {
+  const [accountId,    setAccountId]    = useState(localStorage.getItem(ZOOM_ACCOUNT_ID_KEY) || '');
+  const [clientId,     setClientId]     = useState(localStorage.getItem(ZOOM_CLIENT_ID_KEY) || '');
+  const [clientSecret, setClientSecret] = useState('');
+  const [showSecret,   setShowSecret]   = useState(false);
+
+  return (
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-6">
+      <div className="bg-slate-900 rounded-3xl border border-slate-700 p-8 max-w-lg w-full">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <span className="text-3xl">📹</span>
+            <div>
+              <h3 className="text-xl font-bold text-white">Connect Zoom</h3>
+              <p className="text-sm text-slate-400">Server-to-Server OAuth — one-time setup</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors"><X className="h-5 w-5" /></button>
+        </div>
+        <ol className="space-y-3 mb-6">
+          {ZOOM_STEPS.map(item => (
+            <li key={item.n} className="flex gap-3">
+              <span className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center mt-0.5">{item.n}</span>
+              <span className="text-sm text-slate-300">{item.text}</span>
+            </li>
+          ))}
+        </ol>
+        <div className="space-y-3 mb-6">
+          <div>
+            <label className="block text-sm font-semibold text-slate-300 mb-1.5">Account ID</label>
+            <input type="text" value={accountId} onChange={e => setAccountId(e.target.value)}
+              placeholder="abc123…"
+              className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 font-mono text-sm" />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-slate-300 mb-1.5">Client ID</label>
+            <input type="text" value={clientId} onChange={e => setClientId(e.target.value)}
+              placeholder="abc123…"
+              className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 font-mono text-sm" />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-slate-300 mb-1.5">Client Secret</label>
+            <div className="relative">
+              <input type={showSecret ? 'text' : 'password'} value={clientSecret} onChange={e => setClientSecret(e.target.value)}
+                placeholder="••••••••"
+                className="w-full pr-10 pl-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 font-mono text-sm" />
+              <button type="button" onClick={() => setShowSecret(v => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors">
+                {showSecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+            <p className="text-xs text-slate-500 mt-1.5">Credentials stored locally in your browser. Never sent to Stacklens servers.</p>
+          </div>
+        </div>
+        <div className="flex gap-3">
+          <button onClick={onClose}
+            className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-sm font-semibold text-slate-300 transition-colors">
+            Cancel
+          </button>
+          <button
+            onClick={() => onSubmit(accountId.trim(), clientId.trim(), clientSecret.trim())}
+            disabled={!accountId.trim() || !clientId.trim() || !clientSecret.trim() || loading}
+            className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 rounded-xl text-sm font-semibold text-white transition-colors flex items-center justify-center gap-2">
+            {loading ? <><Loader className="h-4 w-4 animate-spin" /> Syncing…</> : 'Connect & Sync'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Okta API token + users ───────────────────────────────────────────────
 const OKTA_TOKEN_KEY  = 'sg_okta_token';
 const OKTA_DOMAIN_KEY = 'sg_okta_domain';
@@ -592,7 +727,7 @@ function SyncResult({ result, onDismiss }) {
           : (
             <>
               <p className="text-sm font-semibold text-emerald-400">
-                {{ 'slack': 'Slack', 'microsoft-365': 'Microsoft 365', 'github': 'GitHub', 'okta': 'Okta' }[result.source] || 'Google Workspace'} sync complete
+                {{ 'slack': 'Slack', 'microsoft-365': 'Microsoft 365', 'github': 'GitHub', 'okta': 'Okta', 'zoom': 'Zoom' }[result.source] || 'Google Workspace'} sync complete
               </p>
               <p className="text-xs text-emerald-300/80 mt-0.5">
                 {result.added} new · {result.updated} updated · {result.skipped} unchanged — {result.total} users total
@@ -629,6 +764,8 @@ export function IntegrationConnectors() {
   const [githubSyncing, setGithubSyncing]       = useState(false);
   const [oktaTokenModal, setOktaTokenModal]     = useState(false);
   const [oktaSyncing, setOktaSyncing]           = useState(false);
+  const [zoomModal, setZoomModal]               = useState(false);
+  const [zoomSyncing, setZoomSyncing]           = useState(false);
 
   // Preload GIS and MSAL so popups fire synchronously on click
   useEffect(() => {
@@ -702,11 +839,11 @@ export function IntegrationConnectors() {
     {
       id: 'zoom',
       name: 'Zoom',
-      description: 'Track meeting licenses, monitor usage',
+      description: 'Import licensed users from your Zoom account — name, email, department, and account status synced automatically.',
       icon: '📹',
       category: 'Communication',
-      features: ['License Management', 'Usage Analytics'],
-      status: 'coming-soon',
+      features: ['Licensed user sync', 'Name & email import', 'Department import'],
+      status: 'available',
       setupTime: '3 min',
     },
     {
@@ -1010,6 +1147,67 @@ export function IntegrationConnectors() {
     await handleOktaTokenSubmit(token, domain);
   }, [handleOktaTokenSubmit]);
 
+  const handleZoomSubmit = useCallback(async (accountId, clientId, clientSecret) => {
+    if (!accountId || !clientId || !clientSecret) return;
+    setZoomSyncing(true);
+    setSyncResult(null);
+    try {
+      const accessToken = await getZoomAccessToken(accountId, clientId, clientSecret);
+      const zoomUsers   = await fetchAllZoomUsers(accessToken);
+      const incoming    = zoomUsers.map(mapZoomUser).filter(u => u.email);
+
+      const existingByEmail = Object.fromEntries(
+        (db?.employees || []).map(e => [(e.email || '').toLowerCase(), e])
+      );
+      const toAdd = [], toUpdate = [];
+      let skipped = 0;
+      for (const u of incoming) {
+        const key      = u.email.toLowerCase();
+        const existing = existingByEmail[key];
+        if (!existing) {
+          toAdd.push(u);
+        } else {
+          const patch = {};
+          if (u.full_name && u.full_name !== existing.full_name) patch.full_name = u.full_name;
+          if (u.department && !existing.department) patch.department = u.department;
+          if (u.status !== existing.status) patch.status = u.status;
+          if (u.start_date && !existing.start_date) patch.start_date = u.start_date;
+          if (Object.keys(patch).length > 0) toUpdate.push({ id: existing.id, patch });
+          else skipped++;
+        }
+      }
+
+      if (toAdd.length > 0) await muts.bulkImport.mutateAsync({ kind: 'employees', records: toAdd });
+      for (const { id, patch } of toUpdate) await muts.updateEmployee.mutateAsync({ id, patch });
+
+      localStorage.setItem(ZOOM_ACCOUNT_ID_KEY,    accountId);
+      localStorage.setItem(ZOOM_CLIENT_ID_KEY,     clientId);
+      localStorage.setItem(ZOOM_CLIENT_SECRET_KEY, clientSecret);
+      localStorage.setItem(ZOOM_SYNC_KEY,          new Date().toISOString());
+      const next = connectedIntegrations.includes('zoom')
+        ? connectedIntegrations
+        : [...connectedIntegrations, 'zoom'];
+      setConnectedIntegrations(next);
+      localStorage.setItem('sg_connected_integrations', JSON.stringify(next));
+
+      setZoomModal(false);
+      setSyncResult({ source: 'zoom', total: incoming.length, added: toAdd.length, updated: toUpdate.length, skipped });
+    } catch (err) {
+      setSyncResult({ source: 'zoom', error: err.message });
+      toast.error('Zoom sync failed');
+    } finally {
+      setZoomSyncing(false);
+    }
+  }, [db?.employees, connectedIntegrations, muts]);
+
+  const handleZoomResync = useCallback(async () => {
+    const accountId    = localStorage.getItem(ZOOM_ACCOUNT_ID_KEY);
+    const clientId     = localStorage.getItem(ZOOM_CLIENT_ID_KEY);
+    const clientSecret = localStorage.getItem(ZOOM_CLIENT_SECRET_KEY);
+    if (!accountId || !clientId || !clientSecret) { setZoomModal(true); return; }
+    await handleZoomSubmit(accountId, clientId, clientSecret);
+  }, [handleZoomSubmit]);
+
   const handleMicrosoftConnect = useCallback(async () => {
     if (!M365_CLIENT_ID) {
       setSetupModal(integrations.find(i => i.id === 'microsoft-365'));
@@ -1094,6 +1292,13 @@ export function IntegrationConnectors() {
       localStorage.removeItem(OKTA_SYNC_KEY);
       setSyncResult(null);
     }
+    if (integrationId === 'zoom') {
+      localStorage.removeItem(ZOOM_ACCOUNT_ID_KEY);
+      localStorage.removeItem(ZOOM_CLIENT_ID_KEY);
+      localStorage.removeItem(ZOOM_CLIENT_SECRET_KEY);
+      localStorage.removeItem(ZOOM_SYNC_KEY);
+      setSyncResult(null);
+    }
   };
 
   const handleConnect = (integration) => {
@@ -1106,6 +1311,7 @@ export function IntegrationConnectors() {
     if (integration.id === 'microsoft-365')    { handleMicrosoftConnect(); return; }
     if (integration.id === 'github')           { setGithubTokenModal(true); return; }
     if (integration.id === 'okta')             { setOktaTokenModal(true); return; }
+    if (integration.id === 'zoom')             { setZoomModal(true); return; }
     // Others not yet implemented
   };
 
@@ -1115,6 +1321,7 @@ export function IntegrationConnectors() {
   const lastM365Sync   = localStorage.getItem(M365_SYNC_KEY);
   const lastGitHubSync = localStorage.getItem(GITHUB_SYNC_KEY);
   const lastOktaSync   = localStorage.getItem(OKTA_SYNC_KEY);
+  const lastZoomSync   = localStorage.getItem(ZOOM_SYNC_KEY);
 
   const filteredIntegrations = useMemo(() => {
     return integrations.filter(integration => {
@@ -1166,6 +1373,15 @@ export function IntegrationConnectors() {
           loading={oktaSyncing}
           onSubmit={handleOktaTokenSubmit}
           onClose={() => setOktaTokenModal(false)}
+        />
+      )}
+
+      {/* Zoom credentials modal */}
+      {zoomModal && (
+        <ZoomCredentialsModal
+          loading={zoomSyncing}
+          onSubmit={handleZoomSubmit}
+          onClose={() => setZoomModal(false)}
         />
       )}
 
@@ -1223,6 +1439,15 @@ export function IntegrationConnectors() {
                   ? <Loader className="h-3.5 w-3.5 animate-spin" />
                   : <RefreshCw className="h-3.5 w-3.5" />}
                 Re-sync Okta
+              </button>
+            )}
+            {isConnected('zoom') && lastZoomSync && (
+              <button onClick={handleZoomResync} disabled={zoomSyncing}
+                className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-xs font-semibold text-slate-300 transition-colors disabled:opacity-50">
+                {zoomSyncing
+                  ? <Loader className="h-3.5 w-3.5 animate-spin" />
+                  : <RefreshCw className="h-3.5 w-3.5" />}
+                Re-sync Zoom
               </button>
             )}
           </div>
@@ -1358,7 +1583,13 @@ export function IntegrationConnectors() {
                     <span className="font-mono">🔐 {localStorage.getItem(OKTA_DOMAIN_KEY)}</span>
                   </div>
                 )}
-                {connected && ['google-workspace', 'slack', 'microsoft-365', 'github', 'okta'].includes(integration.id) && db?.employees?.length > 0 && (
+                {connected && integration.id === 'zoom' && lastZoomSync && (
+                  <div className="flex items-center gap-1.5 text-xs text-slate-500 mb-3">
+                    <RefreshCw className="h-3 w-3" />
+                    Last synced {new Date(lastZoomSync).toLocaleString()}
+                  </div>
+                )}
+                {connected && ['google-workspace', 'slack', 'microsoft-365', 'github', 'okta', 'zoom'].includes(integration.id) && db?.employees?.length > 0 && (
                   <div className="flex items-center gap-1.5 text-xs text-emerald-400 mb-3">
                     <Users className="h-3 w-3" />
                     {db.employees.length} employees in directory
@@ -1410,6 +1641,12 @@ export function IntegrationConnectors() {
                       <button onClick={handleOktaResync} disabled={oktaSyncing}
                         className="w-full py-2.5 rounded-xl font-bold bg-blue-700 hover:bg-blue-600 disabled:opacity-50 text-white text-sm transition-colors flex items-center justify-center gap-2">
                         {oktaSyncing ? <><Loader className="h-4 w-4 animate-spin" /> Syncing…</> : <><RefreshCw className="h-4 w-4" /> Sync now</>}
+                      </button>
+                    )}
+                    {integration.id === 'zoom' && (
+                      <button onClick={handleZoomResync} disabled={zoomSyncing}
+                        className="w-full py-2.5 rounded-xl font-bold bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm transition-colors flex items-center justify-center gap-2">
+                        {zoomSyncing ? <><Loader className="h-4 w-4 animate-spin" /> Syncing…</> : <><RefreshCw className="h-4 w-4" /> Sync now</>}
                       </button>
                     )}
                     <button onClick={() => handleDisconnect(integration.id)}
