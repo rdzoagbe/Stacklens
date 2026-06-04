@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { resolve } from 'path'
 
 export default defineConfig({
   plugins: [react()],
@@ -16,6 +17,10 @@ export default defineConfig({
     sourcemap: false,
     chunkSizeWarningLimit: 700,
     rollupOptions: {
+      input: {
+        main: resolve(__dirname, 'index.html'),
+        authRedirect: resolve(__dirname, 'auth-redirect.html'),
+      },
       output: {
         manualChunks: (id) => {
           // Vendor splitting — keep heavy libraries in their own chunks
