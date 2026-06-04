@@ -208,6 +208,9 @@ export async function resetDb() {
     localStorage.removeItem('sg_zoom_client_id');
     localStorage.removeItem('sg_zoom_client_secret');
     localStorage.removeItem('sg_zoom_last_sync');
+    localStorage.removeItem('sg_asana_token');
+    localStorage.removeItem('sg_asana_workspace');
+    localStorage.removeItem('sg_asana_last_sync');
 
     await new Promise(r => setTimeout(r, 500));
     window.location.reload();
