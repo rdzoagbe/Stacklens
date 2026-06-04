@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import toast from 'react-hot-toast';
-import { Check, CheckCircle, Eye, EyeOff, Loader, Plug, RefreshCw, Search, Users, X } from 'lucide-react';
+import { AlertTriangle, Check, CheckCircle, Eye, EyeOff, Loader, Plug, RefreshCw, Search, Users, X } from 'lucide-react';
 import { useLang } from '../../contexts/LangContext';
 import { useTranslation } from '../../translations';
 import { useDbQuery, useDbMutations } from '../../hooks/useDbQuery';
@@ -12,12 +12,14 @@ const GWS_SCOPE = 'https://www.googleapis.com/auth/admin.directory.user.readonly
 const DIR_API = 'https://admin.googleapis.com/admin/directory/v1/users';
 
 function loadGIS() {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     if (window.google?.accounts?.oauth2) { resolve(); return; }
     if (document.getElementById('gis-script')) {
-      // Script tag already injected, wait for it
+      // Script tag already injected — poll until ready or timeout
+      const deadline = Date.now() + 10_000;
       const poll = setInterval(() => {
-        if (window.google?.accounts?.oauth2) { clearInterval(poll); resolve(); }
+        if (window.google?.accounts?.oauth2) { clearInterval(poll); resolve(); return; }
+        if (Date.now() > deadline) { clearInterval(poll); reject(new Error('Google Identity Services failed to load. Check your network or browser extensions.')); }
       }, 50);
       return;
     }
@@ -27,6 +29,7 @@ function loadGIS() {
     s.async = true;
     s.defer = true;
     s.onload = resolve;
+    s.onerror = () => reject(new Error('Google Identity Services failed to load. Check your network or browser extensions.'));
     document.head.appendChild(s);
   });
 }
@@ -877,6 +880,49 @@ function SyncResult({ result, onDismiss }) {
   );
 }
 
+// ── Sync cancelled modal ─────────────────────────────────────────────────────
+const SOURCE_NAMES = {
+  'google-workspace': 'Google Workspace',
+  'microsoft-365': 'Microsoft 365',
+  'salesforce': 'Salesforce',
+};
+
+function SyncCancelledModal({ source, onRetry, onDismiss }) {
+  const { language } = useLang();
+  const t = useTranslation(language);
+  const name = SOURCE_NAMES[source] || source;
+  return (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={onDismiss}>
+      <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-md w-full shadow-2xl" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-xl bg-amber-500/15 flex items-center justify-center flex-shrink-0">
+            <AlertTriangle className="h-5 w-5 text-amber-400" />
+          </div>
+          <h3 className="text-base font-bold text-white">{t('ds_sync_not_completed')}</h3>
+        </div>
+        <p className="text-slate-300 text-sm mb-1">
+          The <strong>{name}</strong> authorisation was cancelled before completing. Your directory was <strong>not synced</strong> and no employees were imported.
+        </p>
+        <p className="text-slate-500 text-sm mb-5">{t('ds_sync_try_again_q')}</p>
+        <div className="flex gap-3">
+          <button
+            onClick={() => { onDismiss(); onRetry(); }}
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-semibold text-sm transition-colors"
+          >
+            <RefreshCw className="h-4 w-4" /> Try Again
+          </button>
+          <button
+            onClick={onDismiss}
+            className="flex-1 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-semibold text-sm transition-colors border border-slate-700"
+          >
+            Cancel Sync
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Salesforce Connected App + PKCE OAuth ────────────────────────────────
 const SF_CLIENT_ID_KEY  = 'sg_sf_client_id';
 const SF_LOGIN_URL_KEY  = 'sg_sf_login_url';
@@ -1085,6 +1131,7 @@ export function IntegrationConnectors() {
   const [connecting, setConnecting] = useState(null);
   const [setupModal, setSetupModal] = useState(null);
   const [syncResult, setSyncResult] = useState(null);
+  const [syncCancelled, setSyncCancelled] = useState(null); // { source, retry }
   const [slackTokenModal, setSlackTokenModal]   = useState(false);
   const [slackSyncing, setSlackSyncing]         = useState(false);
   const [githubTokenModal, setGithubTokenModal] = useState(false);
@@ -1198,6 +1245,7 @@ export function IntegrationConnectors() {
 
     setConnecting('google-workspace');
     setSyncResult(null);
+    setSyncCancelled(null);
 
     try {
       await loadGIS();
@@ -1269,8 +1317,8 @@ export function IntegrationConnectors() {
         skipped,
       });
     } catch (err) {
-      if (err.message === 'popup_closed_by_user' || err.message === 'access_denied') {
-        // User cancelled — silent
+      if (err.message === 'popup_closed' || err.message === 'popup_closed_by_user' || err.message === 'access_denied') {
+        setSyncCancelled({ source: 'google-workspace', retry: handleGoogleWorkspaceConnect });
         return;
       }
       setSyncResult({ error: err.message });
@@ -1642,7 +1690,10 @@ export function IntegrationConnectors() {
       setSfModal(false);
       setSyncResult({ source: 'salesforce', total: incoming.length, added: toAdd.length, updated: toUpdate.length, skipped });
     } catch (err) {
-      if (err.message === 'popup_closed_by_user') return;
+      if (err.message === 'popup_closed_by_user' || err.message === 'popup_closed') {
+        setSyncCancelled({ source: 'salesforce', retry: handleSalesforceConnect });
+        return;
+      }
       setSyncResult({ source: 'salesforce', error: err.message });
       toast.error('Salesforce sync failed');
     } finally {
@@ -1699,7 +1750,10 @@ export function IntegrationConnectors() {
       localStorage.setItem(SF_SYNC_KEY, new Date().toISOString());
       setSyncResult({ source: 'salesforce', total: incoming.length, added: toAdd.length, updated: toUpdate.length, skipped });
     } catch (err) {
-      if (err.message === 'popup_closed_by_user') return;
+      if (err.message === 'popup_closed_by_user' || err.message === 'popup_closed') {
+        setSyncCancelled({ source: 'salesforce', retry: handleSalesforceWithPKCE });
+        return;
+      }
       setSyncResult({ source: 'salesforce', error: err.message });
       toast.error('Salesforce sync failed');
     } finally {
@@ -1714,6 +1768,7 @@ export function IntegrationConnectors() {
     }
     setConnecting('microsoft-365');
     setSyncResult(null);
+    setSyncCancelled(null);
     try {
       const accessToken = await acquireMSToken();
       const msUsers = await fetchAllGraphUsers(accessToken);
@@ -1752,7 +1807,10 @@ export function IntegrationConnectors() {
 
       setSyncResult({ source: 'microsoft-365', total: incoming.length, added: toAdd.length, updated: toUpdate.length, skipped });
     } catch (err) {
-      if (err.errorCode === 'user_cancelled' || err.message?.includes('user_cancelled') || err.message?.includes('popup_closed')) return;
+      if (err.errorCode === 'user_cancelled' || err.message?.includes('user_cancelled') || err.message?.includes('popup_closed') || err.message?.includes('timed_out')) {
+        setSyncCancelled({ source: 'microsoft-365', retry: handleMicrosoftConnect });
+        return;
+      }
       setSyncResult({ source: 'microsoft-365', error: err.message });
       toast.error('Microsoft 365 sync failed');
     } finally {
@@ -1861,6 +1919,15 @@ export function IntegrationConnectors() {
     <div className="space-y-6 w-full min-w-0">
       {/* Sync result banner */}
       <SyncResult result={syncResult} onDismiss={() => setSyncResult(null)} />
+
+      {/* Sync cancelled modal */}
+      {syncCancelled && (
+        <SyncCancelledModal
+          source={syncCancelled.source}
+          onRetry={syncCancelled.retry}
+          onDismiss={() => setSyncCancelled(null)}
+        />
+      )}
 
       {/* Setup modal */}
       {setupModal && <SetupModal integration={setupModal} onClose={() => setSetupModal(null)} />}
