@@ -25,6 +25,8 @@ import { AppShell, LangSelectorCompact } from '../components/AppShell';
 
 function WorkspaceConnector() {
   const navigate = useNavigate();
+  const { language } = useLang();
+  const t = useTranslation(language);
 
   const connected = (() => {
     try { return JSON.parse(localStorage.getItem('sg_connected_integrations') || '[]'); }
@@ -118,7 +120,7 @@ function WorkspaceConnector() {
         onClick={goToIntegrations}
         className="w-full mt-1 text-xs text-blue-400 hover:text-blue-300 transition-colors text-center py-1"
       >
-        Manage all integrations →
+        {t('manage_all_integrations')}
       </button>
     </div>
   );
