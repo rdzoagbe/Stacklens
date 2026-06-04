@@ -127,7 +127,7 @@ async function getMSALApp() {
     auth: {
       clientId: M365_CLIENT_ID,
       authority: 'https://login.microsoftonline.com/organizations',
-      redirectUri: window.location.origin,
+      redirectUri: window.location.origin + '/auth-redirect.html',
     },
     cache: { cacheLocation: 'sessionStorage', storeAuthStateInCookie: false },
     system: { loggerOptions: { loggerCallback: () => {}, logLevel: 3 } },
@@ -794,7 +794,7 @@ function SetupModal({ integration, onClose }) {
     'microsoft-365': [
       { n: 1, text: 'Go to portal.azure.com → Azure Active Directory → App registrations → New registration' },
       { n: 2, text: 'Name: "Stacklens", Supported account types: "Accounts in this organizational directory only"' },
-      { n: 3, text: 'Redirect URI: choose "Single-page application (SPA)" and add your app domain' },
+      { n: 3, text: 'Redirect URI: choose "Single-page application (SPA)" and add your app domain + /auth-redirect.html (e.g. https://stacklens.fr/auth-redirect.html)' },
       { n: 4, text: 'Go to API permissions → Add a permission → Microsoft Graph → Delegated → User.Read.All' },
       { n: 5, text: 'Click "Grant admin consent for [your org]" (requires Global Administrator role)' },
       { n: 6, text: 'Copy the Application (client) ID and add it as VITE_AZURE_CLIENT_ID in your .env file' },
@@ -899,7 +899,7 @@ async function sfGenerateChallenge(verifier) {
 async function sfAuthWithPKCE(clientId, loginUrl = 'https://login.salesforce.com') {
   const verifier    = sfGenerateVerifier();
   const challenge   = await sfGenerateChallenge(verifier);
-  const redirectUri = window.location.origin;
+  const redirectUri = window.location.origin + '/auth-redirect.html';
 
   const authUrl = new URL(`${loginUrl}/services/oauth2/authorize`);
   authUrl.searchParams.set('response_type',           'code');
@@ -992,7 +992,7 @@ function mapSalesforceUser(u) {
 const SF_STEPS = [
   { n: 1, text: 'In Salesforce Setup, search for "App Manager" → New Connected App' },
   { n: 2, text: 'Set App Name (e.g. "Stacklens"), API Name, and a Contact Email' },
-  { n: 3, text: 'Check "Enable OAuth Settings". Set Callback URL to your app domain (e.g. https://stacklens.fr)' },
+  { n: 3, text: 'Check "Enable OAuth Settings". Set Callback URL to your app domain + /auth-redirect.html (e.g. https://stacklens.fr/auth-redirect.html)' },
   { n: 4, text: 'Add OAuth Scopes: "Access and manage your data (api)" + "Perform requests at any time (refresh_token)"' },
   { n: 5, text: 'Check "Enable PKCE Extension for Supported Authorization Flows"' },
   { n: 6, text: 'Under CORS → Trusted URLs, add your app domain' },

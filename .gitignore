@@ -59,4 +59,5 @@ public/*
 !public/favicon.svg
 !public/robots.txt
 !public/sitemap.xml
+!public/auth-redirect.html
 scripts/
