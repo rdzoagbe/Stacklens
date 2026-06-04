@@ -1,34 +1,12 @@
-import { PublicClientApplication } from '@azure/msal-browser';
+import { broadcastResponseToMainFrame } from '@azure/msal-browser/redirect-bridge';
 
-// Minimal MSAL init for popup redirect page.
-// MSAL v5 requires handleRedirectPromise() in the popup so it can broadcast
-// the auth code back to the parent via BroadcastChannel, then the parent
-// closes the popup. If anything here fails the popup must still close so the
-// parent receives popup_closed (handled gracefully) instead of timing out.
-
-const clientId = import.meta.env.VITE_AZURE_CLIENT_ID;
-
-if (!clientId) {
-  // No client ID baked into this build — cannot process the auth response.
-  // Close the popup immediately so the parent gets popup_closed rather than
-  // a timed_out error that would leave the popup window hanging.
+// MSAL v5 redirect-bridge: parses the auth response from the URL, broadcasts
+// it to the parent window via BroadcastChannel, then calls window.close().
+// For the full-page redirect flow it navigates to the origin URL instead.
+// No clientId or PCA initialisation required.
+broadcastResponseToMainFrame().catch((err) => {
+  // No auth response in the URL (e.g. direct navigation) or parse error.
+  // Close the popup so the parent receives popup_closed rather than timing out.
+  console.error('MSAL redirect bridge error:', err);
   window.close();
-} else {
-  const msalInstance = new PublicClientApplication({
-    auth: {
-      clientId,
-      authority: 'https://login.microsoftonline.com/organizations',
-      redirectUri: window.location.origin + '/auth-redirect.html',
-    },
-  });
-
-  msalInstance.initialize()
-    .then(() => msalInstance.handleRedirectPromise())
-    .catch(console.error)
-    .finally(() => {
-      // Ensure the popup closes even if handleRedirectPromise() throws.
-      // MSAL normally closes the popup from the parent side after receiving
-      // the BroadcastChannel message, but this is a safety net.
-      window.close();
-    });
-}
+});
