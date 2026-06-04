@@ -47,7 +47,9 @@ async function fetchAllWorkspaceUsers(accessToken) {
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
       const msg = body?.error?.message || `HTTP ${res.status}`;
+      if (res.status === 401) throw new Error('Unauthorised. The OAuth token has expired or lacks admin.directory.user.readonly scope. Please reconnect.');
       if (res.status === 403) throw new Error('Permission denied. The authorising account must be a Google Workspace admin with Directory read access.');
+      if (res.status === 404) throw new Error('Google Directory API endpoint not found. Ensure the Admin SDK API is enabled in your Google Cloud project.');
       throw new Error(msg);
     }
     const data = await res.json();
@@ -102,7 +104,7 @@ function mapSlackUser(u) {
   return {
     full_name:  p.real_name || p.display_name || u.name || '',
     email:      p.email || '',
-    department: p.fields?.['Xf...']?.value || '',
+    department: '',
     role:       p.title || '',
     status:     u.deleted ? 'inactive' : 'active',
     start_date: '',
@@ -848,7 +850,7 @@ function SyncResult({ result, onDismiss }) {
           : (
             <>
               <p className="text-sm font-semibold text-emerald-400">
-                {{ 'slack': 'Slack', 'microsoft-365': 'Microsoft 365', 'github': 'GitHub', 'okta': 'Okta', 'zoom': 'Zoom', 'asana': 'Asana' }[result.source] || 'Google Workspace'} sync complete
+                {{ 'google-workspace': 'Google Workspace', 'slack': 'Slack', 'microsoft-365': 'Microsoft 365', 'github': 'GitHub', 'okta': 'Okta', 'zoom': 'Zoom', 'asana': 'Asana' }[result.source] || result.source} sync complete
               </p>
               <p className="text-xs text-emerald-300/80 mt-0.5">
                 {result.added} new · {result.updated} updated · {result.skipped} unchanged — {result.total} users total
@@ -1054,6 +1056,7 @@ export function IntegrationConnectors() {
       localStorage.setItem('sg_gws_last_sync', new Date().toISOString());
 
       setSyncResult({
+        source: 'google-workspace',
         total: incoming.length,
         added: toAdd.length,
         updated: toUpdate.length,
@@ -1136,9 +1139,10 @@ export function IntegrationConnectors() {
   }, [db?.employees, connectedIntegrations, muts]);
 
   const handleSlackResync = useCallback(async () => {
-    const token = localStorage.getItem(SLACK_TOKEN_KEY);
+    const token   = localStorage.getItem(SLACK_TOKEN_KEY);
+    const channel = localStorage.getItem(SLACK_CHANNEL_KEY) || '#renewals';
     if (!token) { setSlackTokenModal(true); return; }
-    await handleSlackTokenSubmit(token);
+    await handleSlackTokenSubmit(token, channel);
   }, [handleSlackTokenSubmit]);
 
   const handleGitHubTokenSubmit = useCallback(async (token, org) => {
@@ -1812,8 +1816,8 @@ export function IntegrationConnectors() {
 
                 {/* Features */}
                 <div className="space-y-2 mb-4 flex-grow">
-                  {integration.features.map((feature, idx) => (
-                    <div key={idx} className="flex items-center gap-2 text-sm text-slate-300">
+                  {integration.features.map((feature) => (
+                    <div key={feature} className="flex items-center gap-2 text-sm text-slate-300">
                       <Check className="h-4 w-4 text-blue-400 flex-shrink-0" />
                       {feature}
                     </div>
