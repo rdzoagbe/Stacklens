@@ -145,6 +145,16 @@ async function getMSALApp() {
   return app;
 }
 
+function clearMSALInteractionState() {
+  // Remove stale 'msal.interaction.status' left by a previously aborted popup.
+  // Without this MSAL throws interaction_in_progress on the next call.
+  for (const key of Object.keys(sessionStorage)) {
+    if (key.startsWith('msal.') && key.includes('interaction')) {
+      sessionStorage.removeItem(key);
+    }
+  }
+}
+
 async function acquireMSToken() {
   const app = await getMSALApp();
   const accounts = app.getAllAccounts();
@@ -154,8 +164,17 @@ async function acquireMSToken() {
       return r.accessToken;
     } catch { /* fall through to popup */ }
   }
-  const r = await app.loginPopup({ scopes: GRAPH_SCOPES });
-  return r.accessToken;
+  try {
+    const r = await app.loginPopup({ scopes: GRAPH_SCOPES });
+    return r.accessToken;
+  } catch (err) {
+    if (err.errorCode === 'interaction_in_progress') {
+      clearMSALInteractionState();
+      const r = await app.loginPopup({ scopes: GRAPH_SCOPES });
+      return r.accessToken;
+    }
+    throw err;
+  }
 }
 
 async function fetchAllGraphUsers(accessToken) {
