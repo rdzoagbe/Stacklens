@@ -24,135 +24,102 @@ import { AppShell, LangSelectorCompact } from '../components/AppShell';
 // ── Directory Sync Widget ────────────────────────────────────────────────────
 
 function WorkspaceConnector() {
-  const { language } = useLang();
-  const t = useTranslation(language);
-  const { firebaseUser } = useAuth();
-  const muts = useDbMutations();
-  const [syncing, setSyncing] = useState(false);
-  const [syncStatus, setSyncStatus] = useState(null);
-  const [activeProvider, setActiveProvider] = useState(null);
+  const navigate = useNavigate();
 
-  const getToken = (u) => u?.stsTokenManager?.accessToken || null;
-
-  const syncGoogle = async () => {
-    if (!firebaseUser) { setSyncStatus({ type: 'error', msg: 'Sign in with Google first.' }); return; }
-    const token = getToken(firebaseUser);
-    if (!token) { setSyncStatus({ type: 'error', msg: 'No Google access token. Please sign in with Google.' }); return; }
-    setSyncing(true); setActiveProvider('google');
-    setSyncStatus({ type: 'loading', msg: 'Importing from Google Workspace...' });
-    try {
-      const res = await fetch('https://admin.googleapis.com/admin/directory/v1/users?domain=primary&maxResults=500', {
-        headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
-      });
-      if (!res.ok) throw new Error(`API ${res.status}: ${res.statusText}`);
-      const data = await res.json();
-      const users = (data.users || []).map(u => ({
-        full_name: u.name?.fullName || '', email: u.primaryEmail,
-        status: u.suspended ? 'offboarded' : 'active',
-        department: u.orgUnitPath?.split('/').pop() || 'general',
-        role: u.isAdmin ? 'Admin' : 'Member',
-        imported_from: 'google_workspace',
-      }));
-      let count = 0;
-      for (const u of users) { try { await muts.createEmployee.mutateAsync(u); count++; } catch {} }
-      setSyncStatus({ type: 'success', msg: `Imported ${count} users from Google Workspace!` });
-      setTimeout(() => window.location.reload(), 2000);
-    } catch (err) {
-      setSyncStatus({ type: 'error', msg: `Sync failed: ${err.message}` });
-    } finally { setSyncing(false); }
-  };
-
-  const syncMicrosoft = async () => {
-    setSyncing(true); setActiveProvider('microsoft');
-    setSyncStatus({ type: 'info', msg: 'Microsoft 365 SSO — connecting...' });
-    const clientId = 'YOUR_AZURE_CLIENT_ID';
-    const redirectUri = encodeURIComponent(window.location.origin + '/auth/callback');
-    const scope = encodeURIComponent('https://graph.microsoft.com/User.Read.All https://graph.microsoft.com/Directory.Read.All');
-    const authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${clientId}&response_type=token&redirect_uri=${redirectUri}&scope=${scope}&response_mode=fragment`;
-    setSyncStatus({ type: 'info', msg: 'Microsoft 365 integration coming soon. Contact us to join the beta.' });
-    setSyncing(false);
-  };
+  const connected = (() => {
+    try { return JSON.parse(localStorage.getItem('sg_connected_integrations') || '[]'); }
+    catch { return []; }
+  })();
 
   const providers = [
     {
-      id: 'google',
+      id: 'google-workspace',
       name: 'Google Workspace',
       desc: 'Import employees, departments & org structure',
-      icon: '🔵',
-      color: 'blue',
-      action: () => toast.success('Added to the Google Workspace waitlist. We\'ll email you when full sync is ready (target: Q1 2026).', { duration: 5000 }),
-      available: false,
-      badge: 'Q1 2026',
+      syncKey: 'sg_gws_last_sync',
+      logo: (
+        <svg viewBox="0 0 48 48" className="h-6 w-6" xmlns="http://www.w3.org/2000/svg">
+          <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+          <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+          <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+          <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+          <path fill="none" d="M0 0h48v48H0z"/>
+        </svg>
+      ),
     },
     {
-      id: 'microsoft',
+      id: 'microsoft-365',
       name: 'Microsoft 365',
       desc: 'Sync from Azure AD / Entra ID',
-      icon: '🟦',
-      color: 'indigo',
-      action: () => toast.success('Added to the Microsoft 365 waitlist. We\'ll email you when it\'s ready (target: Q2 2026).', { duration: 5000 }),
-      available: false,
-      badge: 'Q2 2026',
+      syncKey: 'sg_m365_last_sync',
+      logo: (
+        <svg viewBox="0 0 23 23" className="h-6 w-6" xmlns="http://www.w3.org/2000/svg">
+          <rect x="1" y="1" width="10" height="10" fill="#F25022"/>
+          <rect x="12" y="1" width="10" height="10" fill="#7FBA00"/>
+          <rect x="1" y="12" width="10" height="10" fill="#00A4EF"/>
+          <rect x="12" y="12" width="10" height="10" fill="#FFB900"/>
+        </svg>
+      ),
     },
     {
       id: 'okta',
       name: 'Okta',
       desc: 'Import users from Okta directory',
-      icon: '⚫',
-      color: 'slate',
-      action: () => toast.success('Added to the Okta waitlist. We\'ll email you when it\'s ready (target: Q3 2026).', { duration: 5000 }),
-      available: false,
-      badge: 'Q3 2026',
+      syncKey: 'sg_okta_last_sync',
+      logo: (
+        <svg viewBox="0 0 64 64" className="h-6 w-6" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="32" cy="32" r="32" fill="#007DC1"/>
+          <circle cx="32" cy="32" r="16" fill="white"/>
+        </svg>
+      ),
     },
   ];
 
+  const goToIntegrations = () => {
+    navigate('/import?tab=integrations');
+  };
+
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 mb-6">
-      <div className="flex items-center gap-3 mb-4">
-        <div className="p-2 bg-blue-500/20 rounded-xl">
-          <svg className="h-5 w-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-        </div>
-        <div>
-          <h3 className="text-base font-bold text-white">Directory Sync</h3>
-          <p className="text-xs text-slate-400">Auto-import employees from your identity provider</p>
-        </div>
-      </div>
-      <div className="space-y-2 mb-4">
-        {providers.map(p => (
+    <div className="space-y-2">
+      {providers.map(p => {
+        const isConnected = connected.includes(p.id);
+        const lastSync = p.syncKey ? localStorage.getItem(p.syncKey) : null;
+        return (
           <button key={p.id}
-            onClick={p.action}
-            disabled={syncing}
-            className={"group relative flex items-center gap-4 p-4 rounded-xl border transition-all text-left w-full " + (p.available ? "border-slate-700 hover:border-" + p.color + "-500/50 hover:bg-slate-800/60 cursor-pointer" : "border-slate-800 opacity-60 cursor-not-allowed")}
+            onClick={goToIntegrations}
+            className="group flex items-center gap-4 p-3 rounded-xl border border-slate-800 hover:border-slate-600 hover:bg-slate-800/50 transition-all text-left w-full"
           >
-            <div className={"flex-shrink-0 w-11 h-11 rounded-lg flex items-center justify-center text-xl " + (p.available ? "bg-" + p.color + "-500/15 border border-" + p.color + "-500/20" : "bg-slate-800 border border-slate-800")}>
-              {p.icon}
+            <div className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center ${isConnected ? 'bg-slate-700' : 'bg-slate-800'} border border-slate-700`}>
+              {p.logo}
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-0.5">
                 <span className="text-sm font-semibold text-white">{p.name}</span>
-                {p.badge && <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-700 text-slate-300 font-medium uppercase tracking-wide">{p.badge}</span>}
+                {isConnected && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-semibold border border-emerald-500/30">Connected</span>
+                )}
               </div>
-              <div className="text-xs text-slate-500">{p.desc}</div>
+              <div className="text-xs text-slate-500">
+                {isConnected && lastSync
+                  ? `Last synced ${new Date(lastSync).toLocaleDateString()}`
+                  : p.desc}
+              </div>
             </div>
             <div className="flex-shrink-0">
-              {syncing && activeProvider === p.id ? (
-                <div className="h-5 w-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
-              ) : p.available ? (
-                <svg className="h-4 w-4 text-slate-500 group-hover:text-slate-300 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/></svg>
-              ) : (
-                <svg className="h-4 w-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/></svg>
-              )}
+              {isConnected
+                ? <svg className="h-4 w-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/></svg>
+                : <svg className="h-4 w-4 text-slate-600 group-hover:text-slate-300 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/></svg>
+              }
             </div>
           </button>
-        ))}
-      </div>
-      {syncStatus && (
-        <div className={"flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm " + (syncStatus.type === 'success' ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20' : syncStatus.type === 'error' ? 'bg-red-500/15 text-red-400 border border-red-500/20' : 'bg-blue-500/15 text-blue-400 border border-blue-500/20')}>
-          <span>{syncStatus.type === 'success' ? '✓' : syncStatus.type === 'error' ? '✗' : 'ℹ'}</span>
-          <span>{syncStatus.msg}</span>
-          <button onClick={() => setSyncStatus(null)} className="ml-auto text-slate-500 hover:text-slate-300">✕</button>
-        </div>
-      )}
+        );
+      })}
+      <button
+        onClick={goToIntegrations}
+        className="w-full mt-1 text-xs text-blue-400 hover:text-blue-300 transition-colors text-center py-1"
+      >
+        Manage all integrations →
+      </button>
     </div>
   );
 }

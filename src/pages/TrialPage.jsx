@@ -71,7 +71,7 @@ export function TrialPage() {
   const faqs = [
     { q: "How long does setup take?", a: "Under 5 minutes. Upload a CSV or Excel file with your tools and employees. Stacklens maps everything automatically." },
     { q: "Do I need to install anything?", a: "No. 100% cloud-based. Works in your browser." },
-    { q: "Do you support Google Workspace / Microsoft 365 sync?", a: "Not yet — real OAuth sync is on the roadmap for Q1/Q2 2026. For now, CSV/Excel import works great and takes 5 minutes." },
+    { q: "Do you support Google Workspace / Microsoft 365 sync?", a: "Yes — OAuth-based directory sync is available now for Google Workspace, Microsoft 365, and Okta. CSV/Excel import also works great and takes 5 minutes." },
     { q: "How much can I save?", a: "It depends on your stack size. Most companies with 50+ tools have 10-30% waste they don't know about — idle licenses, forgotten subscriptions, ex-employee access." },
     { q: "Is my data secure?", a: "Yes. Your data is hosted on Google Cloud Platform in the EU (Firebase). GDPR-compliant by design. Data is encrypted in transit and at rest. You own your data and can export or delete it at any time." },
     { q: "Why is it so much cheaper than Zylo or Torii?", a: "They're built for enterprises with 1,000+ employees and dedicated procurement teams. Stacklens is built for SMBs — simpler feature set, lower infrastructure costs, solo founder. Different market, different price." },
