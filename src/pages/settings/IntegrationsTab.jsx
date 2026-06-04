@@ -1812,8 +1812,13 @@ export function IntegrationConnectors() {
 
       setSyncResult({ source: 'microsoft-365', total: incoming.length, added: toAdd.length, updated: toUpdate.length, skipped });
     } catch (err) {
-      if (err.errorCode === 'user_cancelled' || err.message?.includes('user_cancelled') || err.message?.includes('popup_closed') || err.message?.includes('timed_out')) {
+      if (err.errorCode === 'user_cancelled' || err.message?.includes('user_cancelled') || err.message?.includes('popup_closed')) {
         setSyncCancelled({ source: 'microsoft-365', retry: handleMicrosoftConnect });
+        return;
+      }
+      if (err.message?.includes('timed_out') || err.errorCode === 'monitor_popup_timeout') {
+        setSyncResult({ source: 'microsoft-365', error: 'The Microsoft 365 popup did not respond. Ensure VITE_AZURE_CLIENT_ID is set and the app is deployed with the correct build environment, then try again.' });
+        toast.error('Microsoft 365 popup timed out');
         return;
       }
       setSyncResult({ source: 'microsoft-365', error: err.message });
