@@ -242,6 +242,8 @@ const ASANA_STEPS = [
 ];
 
 function AsanaTokenModal({ onSubmit, onClose, loading }) {
+  const { language } = useLang();
+  const t = useTranslation(language);
   const [token, setToken]       = useState('');
   const [showToken, setShowToken] = useState(false);
 
@@ -253,7 +255,7 @@ function AsanaTokenModal({ onSubmit, onClose, loading }) {
             <span className="text-3xl">📊</span>
             <div>
               <h3 className="text-xl font-bold text-white">Connect Asana</h3>
-              <p className="text-sm text-slate-400">Personal Access Token — one-time setup</p>
+              <p className="text-sm text-slate-400">{t('int_pat_label')} — {t('int_one_time_setup')}</p>
             </div>
           </div>
           <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors"><X className="h-5 w-5" /></button>
@@ -267,7 +269,7 @@ function AsanaTokenModal({ onSubmit, onClose, loading }) {
           ))}
         </ol>
         <div className="mb-6">
-          <label className="block text-sm font-semibold text-slate-300 mb-2">Personal Access Token</label>
+          <label className="block text-sm font-semibold text-slate-300 mb-2">{t('int_pat_label')}</label>
           <div className="relative">
             <input
               type={showToken ? 'text' : 'password'}
@@ -281,18 +283,18 @@ function AsanaTokenModal({ onSubmit, onClose, loading }) {
               {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
           </div>
-          <p className="text-xs text-slate-500 mt-1.5">Stored locally in your browser. Never sent to Stacklens servers.</p>
+          <p className="text-xs text-slate-500 mt-1.5">{t('int_stored_locally')}</p>
         </div>
         <div className="flex gap-3">
           <button onClick={onClose}
             className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-sm font-semibold text-slate-300 transition-colors">
-            Cancel
+            {t('cancel')}
           </button>
           <button
             onClick={() => onSubmit(token.trim())}
             disabled={!token.trim() || loading}
             className="flex-1 py-2.5 bg-pink-600 hover:bg-pink-500 disabled:opacity-50 rounded-xl text-sm font-semibold text-white transition-colors flex items-center justify-center gap-2">
-            {loading ? <><Loader className="h-4 w-4 animate-spin" /> Syncing…</> : 'Connect & Sync'}
+            {loading ? <><Loader className="h-4 w-4 animate-spin" /> {t('int_syncing')}</> : t('int_connect_sync')}
           </button>
         </div>
       </div>
@@ -365,6 +367,8 @@ const ZOOM_STEPS = [
 ];
 
 function ZoomCredentialsModal({ onSubmit, onClose, loading }) {
+  const { language } = useLang();
+  const t = useTranslation(language);
   const [accountId,    setAccountId]    = useState(localStorage.getItem(ZOOM_ACCOUNT_ID_KEY) || '');
   const [clientId,     setClientId]     = useState(localStorage.getItem(ZOOM_CLIENT_ID_KEY) || '');
   const [clientSecret, setClientSecret] = useState('');
@@ -378,7 +382,7 @@ function ZoomCredentialsModal({ onSubmit, onClose, loading }) {
             <span className="text-3xl">📹</span>
             <div>
               <h3 className="text-xl font-bold text-white">Connect Zoom</h3>
-              <p className="text-sm text-slate-400">Server-to-Server OAuth — one-time setup</p>
+              <p className="text-sm text-slate-400">{t('int_one_time_setup')}</p>
             </div>
           </div>
           <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors"><X className="h-5 w-5" /></button>
@@ -393,19 +397,19 @@ function ZoomCredentialsModal({ onSubmit, onClose, loading }) {
         </ol>
         <div className="space-y-3 mb-6">
           <div>
-            <label className="block text-sm font-semibold text-slate-300 mb-1.5">Account ID</label>
+            <label className="block text-sm font-semibold text-slate-300 mb-1.5">{t('int_account_id')}</label>
             <input type="text" value={accountId} onChange={e => setAccountId(e.target.value)}
               placeholder="abc123…"
               className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 font-mono text-sm" />
           </div>
           <div>
-            <label className="block text-sm font-semibold text-slate-300 mb-1.5">Client ID</label>
+            <label className="block text-sm font-semibold text-slate-300 mb-1.5">{t('int_client_id')}</label>
             <input type="text" value={clientId} onChange={e => setClientId(e.target.value)}
               placeholder="abc123…"
               className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 font-mono text-sm" />
           </div>
           <div>
-            <label className="block text-sm font-semibold text-slate-300 mb-1.5">Client Secret</label>
+            <label className="block text-sm font-semibold text-slate-300 mb-1.5">{t('int_client_secret')}</label>
             <div className="relative">
               <input type={showSecret ? 'text' : 'password'} value={clientSecret} onChange={e => setClientSecret(e.target.value)}
                 placeholder="••••••••"
@@ -415,19 +419,19 @@ function ZoomCredentialsModal({ onSubmit, onClose, loading }) {
                 {showSecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
-            <p className="text-xs text-slate-500 mt-1.5">Credentials stored locally in your browser. Never sent to Stacklens servers.</p>
+            <p className="text-xs text-slate-500 mt-1.5">{t('int_stored_locally')}</p>
           </div>
         </div>
         <div className="flex gap-3">
           <button onClick={onClose}
             className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-sm font-semibold text-slate-300 transition-colors">
-            Cancel
+            {t('cancel')}
           </button>
           <button
             onClick={() => onSubmit(accountId.trim(), clientId.trim(), clientSecret.trim())}
             disabled={!accountId.trim() || !clientId.trim() || !clientSecret.trim() || loading}
             className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 rounded-xl text-sm font-semibold text-white transition-colors flex items-center justify-center gap-2">
-            {loading ? <><Loader className="h-4 w-4 animate-spin" /> Syncing…</> : 'Connect & Sync'}
+            {loading ? <><Loader className="h-4 w-4 animate-spin" /> {t('int_syncing')}</> : t('int_connect_sync')}
           </button>
         </div>
       </div>
@@ -487,6 +491,8 @@ const OKTA_STEPS = [
 ];
 
 function OktaTokenModal({ onSubmit, onClose, loading }) {
+  const { language } = useLang();
+  const t = useTranslation(language);
   const [token, setToken]   = useState('');
   const [domain, setDomain] = useState(localStorage.getItem(OKTA_DOMAIN_KEY) || '');
   const [showToken, setShowToken] = useState(false);
@@ -499,7 +505,7 @@ function OktaTokenModal({ onSubmit, onClose, loading }) {
             <span className="text-3xl">🔐</span>
             <div>
               <h3 className="text-xl font-bold text-white">Connect Okta</h3>
-              <p className="text-sm text-slate-400">One-time configuration required</p>
+              <p className="text-sm text-slate-400">{t('int_one_time_setup')}</p>
             </div>
           </div>
           <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors"><X className="h-5 w-5" /></button>
@@ -527,10 +533,10 @@ function OktaTokenModal({ onSubmit, onClose, loading }) {
               {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
           </div>
-          <p className="text-xs text-slate-500 mt-1.5">Stored locally in your browser. Never sent to Stacklens servers.</p>
+          <p className="text-xs text-slate-500 mt-1.5">{t('int_stored_locally')}</p>
         </div>
         <div className="mb-6">
-          <label className="block text-sm font-semibold text-slate-300 mb-2">Okta domain</label>
+          <label className="block text-sm font-semibold text-slate-300 mb-2">{t('int_okta_domain_label')}</label>
           <input
             type="text"
             value={domain}
@@ -543,13 +549,13 @@ function OktaTokenModal({ onSubmit, onClose, loading }) {
         <div className="flex gap-3">
           <button onClick={onClose}
             className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-sm font-semibold text-slate-300 transition-colors">
-            Cancel
+            {t('cancel')}
           </button>
           <button
             onClick={() => onSubmit(token.trim(), domain.trim().replace(/^https?:\/\//, ''))}
             disabled={!token.trim() || !domain.trim() || loading}
             className="flex-1 py-2.5 bg-blue-700 hover:bg-blue-600 disabled:opacity-50 rounded-xl text-sm font-semibold text-white transition-colors flex items-center justify-center gap-2">
-            {loading ? <><Loader className="h-4 w-4 animate-spin" /> Syncing…</> : 'Connect & Sync'}
+            {loading ? <><Loader className="h-4 w-4 animate-spin" /> {t('int_syncing')}</> : t('int_connect_sync')}
           </button>
         </div>
       </div>
@@ -616,6 +622,8 @@ const GITHUB_STEPS = [
 ];
 
 function GitHubTokenModal({ onSubmit, onClose, loading }) {
+  const { language } = useLang();
+  const t = useTranslation(language);
   const [token, setToken] = useState('');
   const [org, setOrg]     = useState(localStorage.getItem(GITHUB_ORG_KEY) || '');
   const [showToken, setShowToken] = useState(false);
@@ -628,7 +636,7 @@ function GitHubTokenModal({ onSubmit, onClose, loading }) {
             <span className="text-3xl">🐙</span>
             <div>
               <h3 className="text-xl font-bold text-white">Connect GitHub</h3>
-              <p className="text-sm text-slate-400">One-time configuration required</p>
+              <p className="text-sm text-slate-400">{t('int_one_time_setup')}</p>
             </div>
           </div>
           <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors"><X className="h-5 w-5" /></button>
@@ -642,7 +650,7 @@ function GitHubTokenModal({ onSubmit, onClose, loading }) {
           ))}
         </ol>
         <div className="mb-4">
-          <label className="block text-sm font-semibold text-slate-300 mb-2">Personal Access Token</label>
+          <label className="block text-sm font-semibold text-slate-300 mb-2">{t('int_pat_label')}</label>
           <div className="relative">
             <input
               type={showToken ? 'text' : 'password'}
@@ -656,10 +664,10 @@ function GitHubTokenModal({ onSubmit, onClose, loading }) {
               {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
           </div>
-          <p className="text-xs text-slate-500 mt-1.5">Stored locally in your browser. Never sent to Stacklens servers.</p>
+          <p className="text-xs text-slate-500 mt-1.5">{t('int_stored_locally')}</p>
         </div>
         <div className="mb-6">
-          <label className="block text-sm font-semibold text-slate-300 mb-2">Organisation slug</label>
+          <label className="block text-sm font-semibold text-slate-300 mb-2">{t('int_org_slug')}</label>
           <input
             type="text"
             value={org}
@@ -672,13 +680,13 @@ function GitHubTokenModal({ onSubmit, onClose, loading }) {
         <div className="flex gap-3">
           <button onClick={onClose}
             className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-sm font-semibold text-slate-300 transition-colors">
-            Cancel
+            {t('cancel')}
           </button>
           <button
             onClick={() => onSubmit(token.trim(), org.trim())}
             disabled={!token.trim() || !org.trim() || loading}
             className="flex-1 py-2.5 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 rounded-xl text-sm font-semibold text-white transition-colors flex items-center justify-center gap-2">
-            {loading ? <><Loader className="h-4 w-4 animate-spin" /> Syncing…</> : 'Connect & Sync'}
+            {loading ? <><Loader className="h-4 w-4 animate-spin" /> {t('int_syncing')}</> : t('int_connect_sync')}
           </button>
         </div>
       </div>
@@ -697,6 +705,8 @@ const SLACK_STEPS = [
 ];
 
 function SlackTokenModal({ onSubmit, onClose, loading }) {
+  const { language } = useLang();
+  const t = useTranslation(language);
   const [token, setToken] = useState('');
   const [channel, setChannel] = useState(localStorage.getItem(SLACK_CHANNEL_KEY) || '#renewals');
   const [showToken, setShowToken] = useState(false);
@@ -709,7 +719,7 @@ function SlackTokenModal({ onSubmit, onClose, loading }) {
             <span className="text-3xl">💬</span>
             <div>
               <h3 className="text-xl font-bold text-white">Connect Slack</h3>
-              <p className="text-sm text-slate-400">One-time configuration required</p>
+              <p className="text-sm text-slate-400">{t('int_one_time_setup')}</p>
             </div>
           </div>
           <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors"><X className="h-5 w-5" /></button>
@@ -723,7 +733,7 @@ function SlackTokenModal({ onSubmit, onClose, loading }) {
           ))}
         </ol>
         <div className="mb-6">
-          <label className="block text-sm font-semibold text-slate-300 mb-2">Bot User OAuth Token</label>
+          <label className="block text-sm font-semibold text-slate-300 mb-2">{t('int_bot_token')}</label>
           <div className="relative">
             <input
               type={showToken ? 'text' : 'password'}
@@ -737,10 +747,10 @@ function SlackTokenModal({ onSubmit, onClose, loading }) {
               {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
           </div>
-          <p className="text-xs text-slate-500 mt-1.5">Stored locally in your browser. Never sent to Stacklens servers.</p>
+          <p className="text-xs text-slate-500 mt-1.5">{t('int_stored_locally')}</p>
         </div>
         <div className="mb-6">
-          <label className="block text-sm font-semibold text-slate-300 mb-2">Alerts channel</label>
+          <label className="block text-sm font-semibold text-slate-300 mb-2">{t('int_alerts_channel')}</label>
           <input
             type="text"
             value={channel}
@@ -753,13 +763,13 @@ function SlackTokenModal({ onSubmit, onClose, loading }) {
         <div className="flex gap-3">
           <button onClick={onClose}
             className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-sm font-semibold text-slate-300 transition-colors">
-            Cancel
+            {t('cancel')}
           </button>
           <button
             onClick={() => onSubmit(token.trim(), channel.trim() || '#renewals')}
             disabled={!token.trim() || loading}
             className="flex-1 py-2.5 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 rounded-xl text-sm font-semibold text-white transition-colors flex items-center justify-center gap-2">
-            {loading ? <><Loader className="h-4 w-4 animate-spin" /> Syncing…</> : 'Connect & Sync'}
+            {loading ? <><Loader className="h-4 w-4 animate-spin" /> {t('int_syncing')}</> : t('int_connect_sync')}
           </button>
         </div>
       </div>
@@ -769,6 +779,8 @@ function SlackTokenModal({ onSubmit, onClose, loading }) {
 
 // ── Setup instructions modal ──────────────────────────────────────────────
 function SetupModal({ integration, onClose }) {
+  const { language } = useLang();
+  const t = useTranslation(language);
   const steps = {
     'google-workspace': [
       { n: 1, text: 'Go to console.cloud.google.com → APIs & Services → Library' },
@@ -811,8 +823,8 @@ function SetupModal({ integration, onClose }) {
           <div className="flex items-center gap-3">
             <span className="text-3xl">{integration?.icon}</span>
             <div>
-              <h3 className="text-xl font-bold text-white">Set up {integration?.name}</h3>
-              <p className="text-sm text-slate-400">One-time configuration required</p>
+              <h3 className="text-xl font-bold text-white">{t('int_set_up_title')} {integration?.name}</h3>
+              <p className="text-sm text-slate-400">{t('int_one_time_setup')}</p>
             </div>
           </div>
           <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors"><X className="h-5 w-5" /></button>
@@ -829,7 +841,7 @@ function SetupModal({ integration, onClose }) {
           <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 mb-6">{note}</div>
         )}
         <button onClick={onClose} className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-sm font-semibold text-slate-300 transition-colors">
-          Close — I'll set it up
+          {t('int_setup_close')}
         </button>
       </div>
     </div>
@@ -838,6 +850,8 @@ function SetupModal({ integration, onClose }) {
 
 // ── Sync result banner ────────────────────────────────────────────────────
 function SyncResult({ result, onDismiss }) {
+  const { language } = useLang();
+  const t = useTranslation(language);
   if (!result) return null;
   return (
     <div className={`flex items-start gap-3 rounded-xl border px-4 py-3 ${result.error ? 'border-rose-500/30 bg-rose-500/10' : 'border-emerald-500/30 bg-emerald-500/10'}`}>
@@ -846,14 +860,14 @@ function SyncResult({ result, onDismiss }) {
         : <CheckCircle className="h-4 w-4 text-emerald-400 flex-shrink-0 mt-0.5" />}
       <div className="flex-1 min-w-0">
         {result.error
-          ? <p className="text-sm font-semibold text-rose-400">Sync failed: {result.error}</p>
+          ? <p className="text-sm font-semibold text-rose-400">{t('int_sync_failed')}: {result.error}</p>
           : (
             <>
               <p className="text-sm font-semibold text-emerald-400">
-                {{ 'google-workspace': 'Google Workspace', 'slack': 'Slack', 'microsoft-365': 'Microsoft 365', 'github': 'GitHub', 'okta': 'Okta', 'zoom': 'Zoom', 'asana': 'Asana', 'salesforce': 'Salesforce' }[result.source] || result.source} sync complete
+                {{ 'google-workspace': 'Google Workspace', 'slack': 'Slack', 'microsoft-365': 'Microsoft 365', 'github': 'GitHub', 'okta': 'Okta', 'zoom': 'Zoom', 'asana': 'Asana', 'salesforce': 'Salesforce' }[result.source] || result.source} {t('int_sync_complete')}
               </p>
               <p className="text-xs text-emerald-300/80 mt-0.5">
-                {result.added} new · {result.updated} updated · {result.skipped} unchanged — {result.total} users total
+                {result.added} {t('int_sync_new')} · {result.updated} {t('int_sync_updated')} · {result.skipped} {t('int_sync_unchanged')} — {result.total} {t('int_sync_users_total')}
               </p>
             </>
           )}
@@ -986,6 +1000,8 @@ const SF_STEPS = [
 ];
 
 function SalesforceModal({ onSubmit, onClose, loading }) {
+  const { language } = useLang();
+  const t = useTranslation(language);
   const [clientId,  setClientId]  = useState(localStorage.getItem(SF_CLIENT_ID_KEY)  || '');
   const [loginUrl,  setLoginUrl]  = useState(localStorage.getItem(SF_LOGIN_URL_KEY)  || 'https://login.salesforce.com');
 
@@ -997,7 +1013,7 @@ function SalesforceModal({ onSubmit, onClose, loading }) {
             <span className="text-3xl">☁️</span>
             <div>
               <h3 className="text-xl font-bold text-white">Connect Salesforce</h3>
-              <p className="text-sm text-slate-400">OAuth 2.0 PKCE — one-time setup</p>
+              <p className="text-sm text-slate-400">OAuth 2.0 PKCE — {t('int_one_time_setup')}</p>
             </div>
           </div>
           <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors"><X className="h-5 w-5" /></button>
@@ -1012,7 +1028,7 @@ function SalesforceModal({ onSubmit, onClose, loading }) {
         </ol>
         <div className="space-y-4 mb-6">
           <div>
-            <label className="block text-sm font-semibold text-slate-300 mb-2">Consumer Key</label>
+            <label className="block text-sm font-semibold text-slate-300 mb-2">{t('int_consumer_key')}</label>
             <input
               type="text"
               value={clientId}
@@ -1023,7 +1039,7 @@ function SalesforceModal({ onSubmit, onClose, loading }) {
             <p className="text-xs text-slate-500 mt-1.5">Found in Setup → App Manager → your app → View → Consumer Key</p>
           </div>
           <div>
-            <label className="block text-sm font-semibold text-slate-300 mb-2">Login URL</label>
+            <label className="block text-sm font-semibold text-slate-300 mb-2">{t('int_login_url')}</label>
             <input
               type="text"
               value={loginUrl}
@@ -1037,13 +1053,13 @@ function SalesforceModal({ onSubmit, onClose, loading }) {
         <div className="flex gap-3">
           <button onClick={onClose}
             className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-sm font-semibold text-slate-300 transition-colors">
-            Cancel
+            {t('cancel')}
           </button>
           <button
             onClick={() => onSubmit(clientId.trim(), loginUrl.trim() || 'https://login.salesforce.com')}
             disabled={!clientId.trim() || loading}
             className="flex-1 py-2.5 bg-sky-600 hover:bg-sky-500 disabled:opacity-50 rounded-xl text-sm font-semibold text-white transition-colors flex items-center justify-center gap-2">
-            {loading ? <><Loader className="h-4 w-4 animate-spin" /> Authorising…</> : 'Authorise & Sync'}
+            {loading ? <><Loader className="h-4 w-4 animate-spin" /> {t('int_authorising')}</> : t('int_authorise_sync')}
           </button>
         </div>
       </div>
@@ -1911,7 +1927,7 @@ export function IntegrationConnectors() {
           </div>
           <div className="flex-1">
             <h2 className="text-2xl font-black text-white">{t("integration_marketplace")}</h2>
-            <p className="text-slate-400">Connect your tools to automate SaaS management</p>
+            <p className="text-slate-400">{t('int_connect_automate')}</p>
           </div>
           <div className="flex items-center gap-2">
             {isConnected('google-workspace') && lastGWSSync && (
@@ -1920,7 +1936,7 @@ export function IntegrationConnectors() {
                 {connecting === 'google-workspace'
                   ? <Loader className="h-3.5 w-3.5 animate-spin" />
                   : <RefreshCw className="h-3.5 w-3.5" />}
-                Re-sync Google
+                {t('int_resync')} Google
               </button>
             )}
             {isConnected('slack') && lastSlackSync && (
@@ -1929,7 +1945,7 @@ export function IntegrationConnectors() {
                 {slackSyncing
                   ? <Loader className="h-3.5 w-3.5 animate-spin" />
                   : <RefreshCw className="h-3.5 w-3.5" />}
-                Re-sync Slack
+                {t('int_resync')} Slack
               </button>
             )}
             {isConnected('microsoft-365') && lastM365Sync && (
@@ -1938,7 +1954,7 @@ export function IntegrationConnectors() {
                 {connecting === 'microsoft-365'
                   ? <Loader className="h-3.5 w-3.5 animate-spin" />
                   : <RefreshCw className="h-3.5 w-3.5" />}
-                Re-sync M365
+                {t('int_resync')} M365
               </button>
             )}
             {isConnected('github') && lastGitHubSync && (
@@ -1947,7 +1963,7 @@ export function IntegrationConnectors() {
                 {githubSyncing
                   ? <Loader className="h-3.5 w-3.5 animate-spin" />
                   : <RefreshCw className="h-3.5 w-3.5" />}
-                Re-sync GitHub
+                {t('int_resync')} GitHub
               </button>
             )}
             {isConnected('okta') && lastOktaSync && (
@@ -1956,7 +1972,7 @@ export function IntegrationConnectors() {
                 {oktaSyncing
                   ? <Loader className="h-3.5 w-3.5 animate-spin" />
                   : <RefreshCw className="h-3.5 w-3.5" />}
-                Re-sync Okta
+                {t('int_resync')} Okta
               </button>
             )}
             {isConnected('zoom') && lastZoomSync && (
@@ -1965,7 +1981,7 @@ export function IntegrationConnectors() {
                 {zoomSyncing
                   ? <Loader className="h-3.5 w-3.5 animate-spin" />
                   : <RefreshCw className="h-3.5 w-3.5" />}
-                Re-sync Zoom
+                {t('int_resync')} Zoom
               </button>
             )}
             {isConnected('asana') && lastAsanaSync && (
@@ -1974,7 +1990,7 @@ export function IntegrationConnectors() {
                 {asanaSyncing
                   ? <Loader className="h-3.5 w-3.5 animate-spin" />
                   : <RefreshCw className="h-3.5 w-3.5" />}
-                Re-sync Asana
+                {t('int_resync')} Asana
               </button>
             )}
             {isConnected('salesforce') && lastSFSync && (
@@ -1983,7 +1999,7 @@ export function IntegrationConnectors() {
                 {sfSyncing
                   ? <Loader className="h-3.5 w-3.5 animate-spin" />
                   : <RefreshCw className="h-3.5 w-3.5" />}
-                Re-sync Salesforce
+                {t('int_resync')} Salesforce
               </button>
             )}
           </div>
@@ -1991,7 +2007,7 @@ export function IntegrationConnectors() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="bg-slate-900/50 rounded-xl p-4 text-center border border-slate-800">
             <div className="text-xl md:text-3xl font-black text-blue-400">{integrations.length}</div>
-            <div className="text-sm text-slate-400 mt-1">Total</div>
+            <div className="text-sm text-slate-400 mt-1">{t('int_total')}</div>
           </div>
           <div className="bg-slate-900/50 rounded-xl p-4 text-center border border-slate-800">
             <div className="text-xl md:text-3xl font-black text-emerald-400">{connectedCount}</div>
@@ -1999,7 +2015,7 @@ export function IntegrationConnectors() {
           </div>
           <div className="bg-slate-900/50 rounded-xl p-4 text-center border border-slate-800">
             <div className="text-xl md:text-3xl font-black text-purple-400">{availableCount}</div>
-            <div className="text-sm text-slate-400 mt-1">Available</div>
+            <div className="text-sm text-slate-400 mt-1">{t('int_available')}</div>
           </div>
           <div className="bg-slate-900/50 rounded-xl p-4 text-center border border-slate-800">
             <div className="text-xl md:text-3xl font-black text-orange-400">{comingSoonCount}</div>
@@ -2018,13 +2034,13 @@ export function IntegrationConnectors() {
           </div>
           <select value={selectedCategory} onChange={e => setSelectedCategory(e.target.value)}
             className="px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-blue-500">
-            {categories.map(cat => <option key={cat} value={cat}>{cat === 'all' ? 'All Categories' : cat}</option>)}
+            {categories.map(cat => <option key={cat} value={cat}>{cat === 'all' ? t('int_all_categories') : cat}</option>)}
           </select>
           <select value={selectedStatus} onChange={e => setSelectedStatus(e.target.value)}
             className="px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-blue-500">
             <option value="all">{t('all_status')}</option>
             <option value="connected">{t('connected')}</option>
-            <option value="available">Available</option>
+            <option value="available">{t('int_available')}</option>
             <option value="coming-soon">{t('coming_soon_label')}</option>
           </select>
         </div>
@@ -2051,14 +2067,14 @@ export function IntegrationConnectors() {
                 <div className="absolute top-4 right-4">
                   {connected && (
                     <span className="px-3 py-1 bg-emerald-500/20 text-emerald-400 text-xs font-bold rounded-full flex items-center gap-1">
-                      <CheckCircle className="h-3 w-3" /> Connected
+                      <CheckCircle className="h-3 w-3" /> {t('connected')}
                     </span>
                   )}
                   {comingSoon && (
-                    <span className="px-3 py-1 bg-slate-700 text-slate-400 text-xs font-bold rounded-full">Coming Soon</span>
+                    <span className="px-3 py-1 bg-slate-700 text-slate-400 text-xs font-bold rounded-full">{t('coming_soon_label')}</span>
                   )}
                   {!connected && !comingSoon && needsSetup && (
-                    <span className="px-3 py-1 bg-amber-500/20 text-amber-400 text-xs font-bold rounded-full">Setup Required</span>
+                    <span className="px-3 py-1 bg-amber-500/20 text-amber-400 text-xs font-bold rounded-full">{t('int_setup_required')}</span>
                   )}
                 </div>
 
@@ -2077,13 +2093,13 @@ export function IntegrationConnectors() {
                 {connected && integration.id === 'google-workspace' && lastGWSSync && (
                   <div className="flex items-center gap-1.5 text-xs text-slate-500 mb-3">
                     <RefreshCw className="h-3 w-3" />
-                    Last synced {new Date(lastGWSSync).toLocaleString()}
+                    {t('int_last_synced')} {new Date(lastGWSSync).toLocaleString()}
                   </div>
                 )}
                 {connected && integration.id === 'slack' && lastSlackSync && (
                   <div className="flex items-center gap-1.5 text-xs text-slate-500 mb-1">
                     <RefreshCw className="h-3 w-3" />
-                    Last synced {new Date(lastSlackSync).toLocaleString()}
+                    {t('int_last_synced')} {new Date(lastSlackSync).toLocaleString()}
                   </div>
                 )}
                 {connected && integration.id === 'slack' && localStorage.getItem(SLACK_CHANNEL_KEY) && (
@@ -2094,13 +2110,13 @@ export function IntegrationConnectors() {
                 {connected && integration.id === 'microsoft-365' && lastM365Sync && (
                   <div className="flex items-center gap-1.5 text-xs text-slate-500 mb-3">
                     <RefreshCw className="h-3 w-3" />
-                    Last synced {new Date(lastM365Sync).toLocaleString()}
+                    {t('int_last_synced')} {new Date(lastM365Sync).toLocaleString()}
                   </div>
                 )}
                 {connected && integration.id === 'github' && lastGitHubSync && (
                   <div className="flex items-center gap-1.5 text-xs text-slate-500 mb-3">
                     <RefreshCw className="h-3 w-3" />
-                    Last synced {new Date(lastGitHubSync).toLocaleString()}
+                    {t('int_last_synced')} {new Date(lastGitHubSync).toLocaleString()}
                   </div>
                 )}
                 {connected && integration.id === 'github' && localStorage.getItem(GITHUB_ORG_KEY) && (
@@ -2111,7 +2127,7 @@ export function IntegrationConnectors() {
                 {connected && integration.id === 'okta' && lastOktaSync && (
                   <div className="flex items-center gap-1.5 text-xs text-slate-500 mb-3">
                     <RefreshCw className="h-3 w-3" />
-                    Last synced {new Date(lastOktaSync).toLocaleString()}
+                    {t('int_last_synced')} {new Date(lastOktaSync).toLocaleString()}
                   </div>
                 )}
                 {connected && integration.id === 'okta' && localStorage.getItem(OKTA_DOMAIN_KEY) && (
@@ -2122,13 +2138,13 @@ export function IntegrationConnectors() {
                 {connected && integration.id === 'zoom' && lastZoomSync && (
                   <div className="flex items-center gap-1.5 text-xs text-slate-500 mb-3">
                     <RefreshCw className="h-3 w-3" />
-                    Last synced {new Date(lastZoomSync).toLocaleString()}
+                    {t('int_last_synced')} {new Date(lastZoomSync).toLocaleString()}
                   </div>
                 )}
                 {connected && integration.id === 'asana' && lastAsanaSync && (
                   <div className="flex items-center gap-1.5 text-xs text-slate-500 mb-3">
                     <RefreshCw className="h-3 w-3" />
-                    Last synced {new Date(lastAsanaSync).toLocaleString()}
+                    {t('int_last_synced')} {new Date(lastAsanaSync).toLocaleString()}
                   </div>
                 )}
                 {connected && integration.id === 'asana' && localStorage.getItem(ASANA_WORKSPACE_KEY) && (
@@ -2139,7 +2155,7 @@ export function IntegrationConnectors() {
                 {connected && integration.id === 'salesforce' && lastSFSync && (
                   <div className="flex items-center gap-1.5 text-xs text-slate-500 mb-3">
                     <RefreshCw className="h-3 w-3" />
-                    Last synced {new Date(lastSFSync).toLocaleString()}
+                    {t('int_last_synced')} {new Date(lastSFSync).toLocaleString()}
                   </div>
                 )}
                 {connected && integration.id === 'salesforce' && localStorage.getItem(SF_INSTANCE_KEY) && (
@@ -2150,7 +2166,7 @@ export function IntegrationConnectors() {
                 {connected && ['google-workspace', 'slack', 'microsoft-365', 'github', 'okta', 'zoom', 'asana', 'salesforce'].includes(integration.id) && db?.employees?.length > 0 && (
                   <div className="flex items-center gap-1.5 text-xs text-emerald-400 mb-3">
                     <Users className="h-3 w-3" />
-                    {db.employees.length} employees in directory
+                    {db.employees.length} {t('int_employees_in_dir')}
                   </div>
                 )}
 
@@ -2174,60 +2190,60 @@ export function IntegrationConnectors() {
                     {integration.id === 'google-workspace' && (
                       <button onClick={() => handleConnect(integration)} disabled={isConnecting}
                         className="w-full py-2.5 rounded-xl font-bold bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm transition-colors flex items-center justify-center gap-2">
-                        {isConnecting ? <><Loader className="h-4 w-4 animate-spin" /> Syncing…</> : <><RefreshCw className="h-4 w-4" /> Sync now</>}
+                        {isConnecting ? <><Loader className="h-4 w-4 animate-spin" /> {t('int_syncing')}</> : <><RefreshCw className="h-4 w-4" /> {t('int_sync_now')}</>}
                       </button>
                     )}
                     {integration.id === 'slack' && (
                       <button onClick={handleSlackResync} disabled={slackSyncing}
                         className="w-full py-2.5 rounded-xl font-bold bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white text-sm transition-colors flex items-center justify-center gap-2">
-                        {slackSyncing ? <><Loader className="h-4 w-4 animate-spin" /> Syncing…</> : <><RefreshCw className="h-4 w-4" /> Sync now</>}
+                        {slackSyncing ? <><Loader className="h-4 w-4 animate-spin" /> {t('int_syncing')}</> : <><RefreshCw className="h-4 w-4" /> {t('int_sync_now')}</>}
                       </button>
                     )}
                     {integration.id === 'microsoft-365' && (
                       <button onClick={handleMicrosoftConnect} disabled={isConnecting}
                         className="w-full py-2.5 rounded-xl font-bold bg-blue-700 hover:bg-blue-600 disabled:opacity-50 text-white text-sm transition-colors flex items-center justify-center gap-2">
-                        {isConnecting ? <><Loader className="h-4 w-4 animate-spin" /> Syncing…</> : <><RefreshCw className="h-4 w-4" /> Sync now</>}
+                        {isConnecting ? <><Loader className="h-4 w-4 animate-spin" /> {t('int_syncing')}</> : <><RefreshCw className="h-4 w-4" /> {t('int_sync_now')}</>}
                       </button>
                     )}
                     {integration.id === 'github' && (
                       <button onClick={handleGitHubResync} disabled={githubSyncing}
                         className="w-full py-2.5 rounded-xl font-bold bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white text-sm transition-colors flex items-center justify-center gap-2">
-                        {githubSyncing ? <><Loader className="h-4 w-4 animate-spin" /> Syncing…</> : <><RefreshCw className="h-4 w-4" /> Sync now</>}
+                        {githubSyncing ? <><Loader className="h-4 w-4 animate-spin" /> {t('int_syncing')}</> : <><RefreshCw className="h-4 w-4" /> {t('int_sync_now')}</>}
                       </button>
                     )}
                     {integration.id === 'okta' && (
                       <button onClick={handleOktaResync} disabled={oktaSyncing}
                         className="w-full py-2.5 rounded-xl font-bold bg-blue-700 hover:bg-blue-600 disabled:opacity-50 text-white text-sm transition-colors flex items-center justify-center gap-2">
-                        {oktaSyncing ? <><Loader className="h-4 w-4 animate-spin" /> Syncing…</> : <><RefreshCw className="h-4 w-4" /> Sync now</>}
+                        {oktaSyncing ? <><Loader className="h-4 w-4 animate-spin" /> {t('int_syncing')}</> : <><RefreshCw className="h-4 w-4" /> {t('int_sync_now')}</>}
                       </button>
                     )}
                     {integration.id === 'zoom' && (
                       <button onClick={handleZoomResync} disabled={zoomSyncing}
                         className="w-full py-2.5 rounded-xl font-bold bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm transition-colors flex items-center justify-center gap-2">
-                        {zoomSyncing ? <><Loader className="h-4 w-4 animate-spin" /> Syncing…</> : <><RefreshCw className="h-4 w-4" /> Sync now</>}
+                        {zoomSyncing ? <><Loader className="h-4 w-4 animate-spin" /> {t('int_syncing')}</> : <><RefreshCw className="h-4 w-4" /> {t('int_sync_now')}</>}
                       </button>
                     )}
                     {integration.id === 'asana' && (
                       <button onClick={handleAsanaResync} disabled={asanaSyncing}
                         className="w-full py-2.5 rounded-xl font-bold bg-pink-600 hover:bg-pink-500 disabled:opacity-50 text-white text-sm transition-colors flex items-center justify-center gap-2">
-                        {asanaSyncing ? <><Loader className="h-4 w-4 animate-spin" /> Syncing…</> : <><RefreshCw className="h-4 w-4" /> Sync now</>}
+                        {asanaSyncing ? <><Loader className="h-4 w-4 animate-spin" /> {t('int_syncing')}</> : <><RefreshCw className="h-4 w-4" /> {t('int_sync_now')}</>}
                       </button>
                     )}
                     {integration.id === 'salesforce' && (
                       <button onClick={handleSalesforceResync} disabled={sfSyncing}
                         className="w-full py-2.5 rounded-xl font-bold bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white text-sm transition-colors flex items-center justify-center gap-2">
-                        {sfSyncing ? <><Loader className="h-4 w-4 animate-spin" /> Syncing…</> : <><RefreshCw className="h-4 w-4" /> Sync now</>}
+                        {sfSyncing ? <><Loader className="h-4 w-4 animate-spin" /> {t('int_syncing')}</> : <><RefreshCw className="h-4 w-4" /> {t('int_sync_now')}</>}
                       </button>
                     )}
                     <button onClick={() => handleDisconnect(integration.id)}
                       className="w-full py-2 rounded-xl font-semibold bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm transition-colors">
-                      Disconnect
+                      {t('disconnect')}
                     </button>
                   </div>
                 ) : (
                   <button onClick={() => handleConnect(integration)} disabled={isConnecting}
                     className="w-full py-3 rounded-xl font-bold bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white transition-colors flex items-center justify-center gap-2">
-                    {isConnecting ? <><Loader className="h-4 w-4 animate-spin" /> Connecting…</> : needsSetup ? '⚙️ View setup steps' : 'Connect'}
+                    {isConnecting ? <><Loader className="h-4 w-4 animate-spin" /> {t('int_connecting')}</> : needsSetup ? `⚙️ ${t('int_view_setup_steps')}` : t('connect')}
                   </button>
                 )}
               </div>
@@ -2246,18 +2262,18 @@ export function IntegrationConnectors() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
           <h3 className="text-xl font-bold text-white mb-2">{t('need_different_int')}</h3>
-          <p className="text-slate-400 mb-4 text-sm">Let us know which tools you'd like us to support.</p>
+          <p className="text-slate-400 mb-4 text-sm">{t('int_need_different_sub')}</p>
           <a href={"mailto:hello@stacklens.fr?subject=" + encodeURIComponent("Integration Request — Stacklens")}
             className="block w-full px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-semibold transition-all text-center">
-            Request Integration
+            {t('request_integration')}
           </a>
         </div>
         <div className="bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded-2xl p-6">
           <h3 className="text-xl font-bold text-white mb-2">{t('need_help')}</h3>
-          <p className="text-slate-400 mb-4 text-sm">Our team is here to help you set up your integrations.</p>
+          <p className="text-slate-400 mb-4 text-sm">{t('int_need_help_sub')}</p>
           <a href={"mailto:hello@stacklens.fr?subject=" + encodeURIComponent("Support Request — Stacklens")}
             className="block w-full px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-semibold transition-all text-center">
-            Contact Support
+            {t('int_contact_support')}
           </a>
         </div>
       </div>
