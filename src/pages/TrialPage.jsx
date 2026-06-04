@@ -54,16 +54,6 @@ export function TrialPage() {
     }
   };
 
-  // SSO Providers - exact match to screenshot
-  const ssoProviders = [
-    { id: 'google', name: 'Google', subtitle: 'Sign in with Google account', live: true },
-    { id: 'microsoft', name: 'Microsoft', subtitle: 'Microsoft 365 / Azure AD', live: true },
-    { id: 'github', name: 'GitHub', subtitle: 'Sign in with GitHub', live: false },
-    { id: 'okta', name: 'Okta', subtitle: 'Enterprise SSO via Okta', live: false },
-    { id: 'saml', name: 'SAML SSO', subtitle: 'Custom SAML 2.0 provider', live: false },
-    { id: 'magic', name: 'Email magic link', subtitle: 'Passwordless — link sent to email', live: true },
-  ];
-
   // No fake testimonials — we're in early access. Real testimonials come from real customers.
   const testimonials = [];
 
