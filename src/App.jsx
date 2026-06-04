@@ -51,11 +51,17 @@ function EmailVerificationWall({ email }) {
   const { firebaseUser } = useAuth();
   const [sent, setSent] = useState(false);
   const [checking, setChecking] = useState(false);
+  const [resending, setResending] = useState(false);
   const [error, setError] = useState('');
 
   const handleResend = async () => {
-    const { error: err } = await resendEmailVerification();
-    if (err) { setError(err); } else { setSent(true); setError(''); }
+    setResending(true);
+    try {
+      const { error: err } = await resendEmailVerification();
+      if (err) { setError(err); } else { setSent(true); setError(''); }
+    } finally {
+      setResending(false);
+    }
   };
 
   const handleCheck = async () => {
@@ -86,9 +92,9 @@ function EmailVerificationWall({ email }) {
             className="w-full px-4 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-xl font-semibold text-sm transition-colors">
             {checking ? (t('checking') || 'Checking...') : (t('ive_verified') || "I've verified — continue")}
           </button>
-          <button onClick={handleResend}
-            className="w-full px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-semibold text-sm transition-colors">
-            {t('resend_verification') || 'Resend verification email'}
+          <button onClick={handleResend} disabled={resending || sent}
+            className="w-full px-4 py-2.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-300 rounded-xl font-semibold text-sm transition-colors">
+            {resending ? (t('checking') || 'Sending…') : (t('resend_verification') || 'Resend verification email')}
           </button>
         </div>
       </div>
@@ -101,7 +107,6 @@ function RequireAuth({ children }) {
   const t = useTranslation(language);
   const { isAuthed, isDemo, loading, firebaseUser } = useAuth();
   const location = useLocation();
-  useIdleTimer(!!(isAuthed && !isDemo && firebaseUser));
 
   if (loading) return <div className="flex items-center justify-center h-screen bg-slate-950"><div className="text-white text-sm">{t('loading')}</div></div>;
 
@@ -129,10 +134,10 @@ function SetupConnectionsHub() {
   const t = useTranslation(language);
   const [setupTab, setSetupTab] = useState(() => { const p = new URLSearchParams(window.location.search); return p.get('tab') || 'integrations'; });
   const _loc = useLocation();
-  useEffect(() => { const p = new URLSearchParams(_loc.search); const t = p.get('tab'); if (t) setSetupTab(t); }, [_loc.search]);
+  useEffect(() => { const p = new URLSearchParams(_loc.search); const tab = p.get('tab'); if (tab) setSetupTab(tab); }, [_loc.search]);
   const TABS = [
-    { id: 'integrations', label: '🔌 Integrations',  desc: 'Connect your tools' },
-    { id: 'import',       label: '📥 Import Data',    desc: 'CSV & data import' },
+    { id: 'integrations', label: `🔌 ${t('integrations_tab')}`,  desc: t('int_connect_automate') },
+    { id: 'import',       label: `📥 ${t('import_tab')}`,        desc: 'CSV & data import' },
   ];
   return (
     <AppShell title={t('setup_title')}
@@ -150,8 +155,8 @@ function SetupConnectionsHub() {
       {setupTab === 'integrations' && (
         <div className="p-4 md:p-6">
           <div className="mb-6">
-            <h2 className="text-2xl font-black text-white mb-1">🔌 Integrations</h2>
-            <p className="text-slate-400">Connect Stacklens to your tools for automatic discovery and user sync</p>
+            <h2 className="text-2xl font-black text-white mb-1">🔌 {t('integrations_tab')}</h2>
+            <p className="text-slate-400">{t('integrations_connect_sub')}</p>
           </div>
           <Suspense fallback={<PageLoader />}><LazyIntegrationConnectors /></Suspense>
         </div>
@@ -199,7 +204,7 @@ export default function App() {
           <Route path="/sub-processors" element={<SubProcessorsPage />} />
           <Route path="/security-info" element={<SecurityPage />} />
           <Route path="/finishSignUp" element={<FinishSignUpPage />} />
-          <Route path="/report/:token" element={<ReportPage />} />
+          <Route path="/report/:token" element={<NotFound />} />
           <Route path="/onboarding" element={<OnboardingPage />} />
           <Route
             path="/dashboard"
@@ -260,10 +265,7 @@ export default function App() {
           <Route path="/renewals" element={<Navigate to="/finance" replace />} />
           <Route path="/invoices" element={<Navigate to="/finance" replace />} />
           <Route path="/contracts" element={<Navigate to="/finance" replace />} />
-          <Route
-            path="/founder-admin"
-            element={<RequireAuth><FounderAdminPage /></RequireAuth>}
-          />
+          <Route path="/founder-admin" element={<Navigate to="/dashboard" replace />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
           </Suspense>
