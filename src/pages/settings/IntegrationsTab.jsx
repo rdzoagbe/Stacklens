@@ -14,22 +14,27 @@ const DIR_API = 'https://admin.googleapis.com/admin/directory/v1/users';
 function loadGIS() {
   return new Promise((resolve, reject) => {
     if (window.google?.accounts?.oauth2) { resolve(); return; }
+    const fail = () => {
+      document.getElementById('gis-script')?.remove();
+      reject(new Error('Google Identity Services failed to load. Check your network or browser extensions.'));
+    };
     if (document.getElementById('gis-script')) {
       // Script tag already injected — poll until ready or timeout
       const deadline = Date.now() + 10_000;
       const poll = setInterval(() => {
         if (window.google?.accounts?.oauth2) { clearInterval(poll); resolve(); return; }
-        if (Date.now() > deadline) { clearInterval(poll); reject(new Error('Google Identity Services failed to load. Check your network or browser extensions.')); }
+        if (Date.now() > deadline) { clearInterval(poll); fail(); }
       }, 50);
       return;
     }
     const s = document.createElement('script');
+    const timeout = window.setTimeout(fail, 10_000);
     s.id = 'gis-script';
     s.src = 'https://accounts.google.com/gsi/client';
     s.async = true;
     s.defer = true;
-    s.onload = resolve;
-    s.onerror = () => reject(new Error('Google Identity Services failed to load. Check your network or browser extensions.'));
+    s.onload = () => { clearTimeout(timeout); resolve(); };
+    s.onerror = () => { clearTimeout(timeout); fail(); };
     document.head.appendChild(s);
   });
 }
@@ -901,7 +906,7 @@ function SyncCancelledModal({ source, onRetry, onDismiss }) {
           <h3 className="text-base font-bold text-white">{t('ds_sync_not_completed')}</h3>
         </div>
         <p className="text-slate-300 text-sm mb-1">
-          The <strong>{name}</strong> authorisation was cancelled before completing. Your directory was <strong>not synced</strong> and no employees were imported.
+          {t('ds_sync_cancelled_body_pre')}<strong>{name}</strong>{t('ds_sync_cancelled_body_post')}
         </p>
         <p className="text-slate-500 text-sm mb-5">{t('ds_sync_try_again_q')}</p>
         <div className="flex gap-3">
@@ -909,13 +914,13 @@ function SyncCancelledModal({ source, onRetry, onDismiss }) {
             onClick={() => { onDismiss(); onRetry(); }}
             className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-semibold text-sm transition-colors"
           >
-            <RefreshCw className="h-4 w-4" /> Try Again
+            <RefreshCw className="h-4 w-4" /> {t('ds_sync_try_again_btn')}
           </button>
           <button
             onClick={onDismiss}
             className="flex-1 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-semibold text-sm transition-colors border border-slate-700"
           >
-            Cancel Sync
+            {t('ds_sync_cancel_btn')}
           </button>
         </div>
       </div>
@@ -1691,7 +1696,7 @@ export function IntegrationConnectors() {
       setSyncResult({ source: 'salesforce', total: incoming.length, added: toAdd.length, updated: toUpdate.length, skipped });
     } catch (err) {
       if (err.message === 'popup_closed_by_user' || err.message === 'popup_closed') {
-        setSyncCancelled({ source: 'salesforce', retry: handleSalesforceConnect });
+        setSyncCancelled({ source: 'salesforce', retry: () => handleSalesforceSubmit(clientId, loginUrl) });
         return;
       }
       setSyncResult({ source: 'salesforce', error: err.message });
@@ -1751,7 +1756,7 @@ export function IntegrationConnectors() {
       setSyncResult({ source: 'salesforce', total: incoming.length, added: toAdd.length, updated: toUpdate.length, skipped });
     } catch (err) {
       if (err.message === 'popup_closed_by_user' || err.message === 'popup_closed') {
-        setSyncCancelled({ source: 'salesforce', retry: handleSalesforceWithPKCE });
+        setSyncCancelled({ source: 'salesforce', retry: handleSalesforceResync });
         return;
       }
       setSyncResult({ source: 'salesforce', error: err.message });
@@ -1807,8 +1812,13 @@ export function IntegrationConnectors() {
 
       setSyncResult({ source: 'microsoft-365', total: incoming.length, added: toAdd.length, updated: toUpdate.length, skipped });
     } catch (err) {
-      if (err.errorCode === 'user_cancelled' || err.message?.includes('user_cancelled') || err.message?.includes('popup_closed') || err.message?.includes('timed_out')) {
+      if (err.errorCode === 'user_cancelled' || err.message?.includes('user_cancelled') || err.message?.includes('popup_closed')) {
         setSyncCancelled({ source: 'microsoft-365', retry: handleMicrosoftConnect });
+        return;
+      }
+      if (err.message?.includes('timed_out') || err.errorCode === 'monitor_popup_timeout') {
+        setSyncResult({ source: 'microsoft-365', error: 'The Microsoft 365 popup did not respond. Ensure VITE_AZURE_CLIENT_ID is set and the app is deployed with the correct build environment, then try again.' });
+        toast.error('Microsoft 365 popup timed out');
         return;
       }
       setSyncResult({ source: 'microsoft-365', error: err.message });

@@ -1723,6 +1723,10 @@ export const translations = {
     // Directory sync
     ds_sync_not_completed: 'Sync not completed',
     ds_sync_try_again_q: 'Would you like to try again or cancel the sync?',
+    ds_sync_cancelled_body_pre: 'The ',
+    ds_sync_cancelled_body_post: ' authorisation was cancelled before completing. Your directory was not synced and no employees were imported.',
+    ds_sync_try_again_btn: 'Try Again',
+    ds_sync_cancel_btn: 'Cancel Sync',
     ds_directory_sync: 'Directory Sync',
     ds_auto_import_idp: 'Auto-import employees from your identity provider',
     ds_connect_okta: 'Connect Okta',
@@ -4437,6 +4441,10 @@ export const translations = {
     // Directory sync
     ds_sync_not_completed: 'Synchronisation non terminée',
     ds_sync_try_again_q: 'Voulez-vous réessayer ou annuler la synchronisation ?',
+    ds_sync_cancelled_body_pre: 'L\'autorisation ',
+    ds_sync_cancelled_body_post: ' a été annulée avant d\'être terminée. Votre annuaire n\'a pas été synchronisé et aucun employé n\'a été importé.',
+    ds_sync_try_again_btn: 'Réessayer',
+    ds_sync_cancel_btn: 'Annuler la synchronisation',
     ds_directory_sync: "Synchronisation de l'annuaire",
     ds_auto_import_idp: "Importez automatiquement les employés depuis votre fournisseur d'identité",
     ds_connect_okta: 'Connecter Okta',
