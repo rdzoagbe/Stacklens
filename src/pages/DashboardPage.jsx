@@ -277,6 +277,7 @@ export function DashboardPage() {
   const [assignToolName, setAssignToolName] = useState('');
   const [orphanedTools] = useState(['GitHub', 'Figma', 'Notion']);
   const [selectedOwners, setSelectedOwners] = useState({});
+  const [spendView, setSpendView] = useState('tool');
   const { data: db, isLoading } = useDbQuery();
   const muts = useDbMutations();
 
@@ -315,6 +316,35 @@ export function DashboardPage() {
     );
   };
 
+  // ── Derived spend-breakdown rows ──────────────────────────────────────────
+  const spendRows = useMemo(() => {
+    const tools = derived.tools || [];
+    if (spendView === 'tool') {
+      return tools
+        .filter(t => t.cost_per_month > 0)
+        .sort((a, b) => b.cost_per_month - a.cost_per_month)
+        .slice(0, 6)
+        .map(t => ({ label: t.name, value: t.cost_per_month, sub: `${t.seats || '?'} seats` }));
+    }
+    if (spendView === 'category') {
+      const cat = {};
+      tools.forEach(t => { const c = t.category || 'other'; cat[c] = (cat[c] || 0) + (t.cost_per_month || 0); });
+      return Object.entries(cat).sort((a, b) => b[1] - a[1]).slice(0, 6)
+        .map(([label, value]) => ({ label, value, sub: '' }));
+    }
+    // dept
+    const deptAcc = {};
+    tools.forEach(t => {
+      const emp = (db?.employees || []).find(e => e.email === t.owner_email);
+      const d = emp?.department || 'unassigned';
+      deptAcc[d] = (deptAcc[d] || 0) + (t.cost_per_month || 0);
+    });
+    return Object.entries(deptAcc).sort((a, b) => b[1] - a[1]).slice(0, 6)
+      .map(([label, value]) => ({ label, value, sub: '' }));
+  }, [derived.tools, spendView, db]);
+
+  const spendMax = spendRows.length ? spendRows[0].value : 1;
+
   return (
     <AppShell title={t('dashboard')} right={
         <div className="flex items-center gap-2">
@@ -337,7 +367,7 @@ export function DashboardPage() {
         <GettingStartedChecklist db={db} />
       )}
 
-      {/* ── PRIORITY ACTION — the ONE thing to do first ── */}
+      {/* ── PRIORITY ACTION BANNER ── */}
       {derived.formerAccess > 0 && (
         <div className="relative overflow-hidden rounded-2xl border border-rose-500/30 bg-gradient-to-r from-rose-500/10 via-orange-500/5 to-transparent p-5 lg:p-6 mb-6">
           <div className="absolute top-0 right-0 w-64 h-full bg-gradient-to-l from-rose-500/5 to-transparent pointer-events-none" />
@@ -347,20 +377,15 @@ export function DashboardPage() {
                 <AlertTriangle className="h-7 w-7 text-rose-400" />
               </div>
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-rose-400">Priority · Act now</span>
-                </div>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-rose-400">Priority · Act now</span>
                 <h2 className="text-xl lg:text-2xl font-bold text-white mb-1">
                   {derived.formerAccess} ex-{derived.formerAccess === 1 ? 'employee' : 'employees'} can still access your tools
                 </h2>
-                <p className="text-sm text-slate-400">
-                  This is a security risk and probably wasted licence spend. Fix it in one click.
-                </p>
+                <p className="text-sm text-slate-400">Security risk and wasted licence spend. Fix it in one click.</p>
               </div>
             </div>
             <div className="flex-shrink-0">
-              <Button
-                onClick={() => navigate('/offboarding')}
+              <Button onClick={() => navigate('/offboarding')}
                 className="w-full lg:w-auto !bg-rose-500 hover:!bg-rose-400 !text-white !px-6 !py-3 !font-bold shadow-lg shadow-rose-900/30">
                 Remove their access →
               </Button>
@@ -369,7 +394,6 @@ export function DashboardPage() {
         </div>
       )}
 
-      {/* When no risks — show a "next step" prompt instead */}
       {derived.formerAccess === 0 && derived.tools.length === 0 && (
         <div className="relative overflow-hidden rounded-2xl border border-blue-500/30 bg-gradient-to-r from-blue-500/10 via-indigo-500/5 to-transparent p-5 lg:p-6 mb-6">
           <div className="relative flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-6">
@@ -380,14 +404,11 @@ export function DashboardPage() {
               <div className="flex-1">
                 <div className="text-[10px] font-bold uppercase tracking-widest text-blue-400 mb-1">Get started · Step 1 of 3</div>
                 <h2 className="text-xl lg:text-2xl font-bold text-white mb-1">Import your team and tools</h2>
-                <p className="text-sm text-slate-400">
-                  Upload a CSV or Excel file with your employees and SaaS tools. Stacklens maps everything in seconds.
-                </p>
+                <p className="text-sm text-slate-400">Upload a CSV or Excel file with your employees and SaaS tools. Stacklens maps everything in seconds.</p>
               </div>
             </div>
             <div className="flex-shrink-0">
-              <Button
-                onClick={() => { setImportKind('company'); setShowImport(true); }}
+              <Button onClick={() => { setImportKind('company'); setShowImport(true); }}
                 className="w-full lg:w-auto !bg-blue-500 hover:!bg-blue-400 !text-white !px-6 !py-3 !font-bold">
                 Upload my data →
               </Button>
@@ -396,270 +417,178 @@ export function DashboardPage() {
         </div>
       )}
 
-      {/* ── Row 1: Directory Sync + Security Score ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5 mb-6">
-
-        <div className="rounded-2xl border border-blue-500/20 bg-gradient-to-br from-slate-900 to-blue-950/20 p-5 lg:p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 bg-blue-500/20 rounded-xl">
-              <Activity className="h-5 w-5 text-blue-400" />
-            </div>
-            <div>
-              <span className="text-base font-semibold text-slate-100 block">Directory Sync</span>
-              <span className="text-xs text-slate-500">Connect your identity provider to auto-import employees & tools</span>
-            </div>
-          </div>
-          <WorkspaceConnector compact={true} />
-        </div>
-
-        {/* Security Score */}
-        {(() => {
-          const totalTools = (derived?.tools || []).length;
-          const totalEmployees = (derived?.access || []).length > 0 ? new Set((derived?.access || []).map(a => a.employee_id)).size : 0;
-          const hasData = totalTools > 0 || totalEmployees > 0;
-          const orphanedToolsCount = (derived?.tools || []).filter(t => !t.owner_email).length;
-          const formerAccess = derived?.formerAccess || 0;
-          const highRiskTools = (derived?.tools || []).filter(t => t.derived_risk === 'high').length;
-
-          const score = hasData ? Math.max(0, Math.min(100, 100 - (orphanedToolsCount * 10) - (highRiskTools * 5) - (formerAccess * 8))) : null;
-          const scoreColor = score === null ? '#475569' : score >= 80 ? '#10b981' : score >= 60 ? '#f59e0b' : '#ef4444';
-          const scoreLabel = score === null ? 'No data' : score >= 80 ? 'Good' : score >= 60 ? 'Needs Work' : 'Critical';
-          const labelBg = score === null ? 'bg-slate-700/40 text-slate-400' : score >= 80 ? 'bg-emerald-500/20 text-emerald-400' : score >= 60 ? 'bg-amber-500/20 text-amber-400' : 'bg-red-500/20 text-red-400';
-
-          const toolsWithMfa = (derived?.tools || []).filter(t => t.mfa_required || t.mfa_enabled).length;
-          const mfaCoverage = totalTools > 0 ? Math.round((toolsWithMfa / totalTools) * 100) : null;
-
-          const ninetyDaysAgo = Date.now() - (90 * 24 * 60 * 60 * 1000);
-          const overdueReviews = (derived?.access || []).filter(a => {
-            if (!a.last_reviewed_date) return true;
-            return new Date(a.last_reviewed_date).getTime() < ninetyDaysAgo;
-          }).length;
-
-          return (
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 lg:p-6">
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-base font-semibold text-slate-100">{t('security_score') || 'Security Score'}</span>
-            <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${labelBg}`}>
-              {scoreLabel}
-            </span>
-          </div>
-          <div className="flex items-center gap-6">
-            <div className="relative w-28 h-28 flex-shrink-0">
-              <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
-                <circle cx="50" cy="50" r="40" fill="none" stroke="#1e293b" strokeWidth="8"/>
-                <circle cx="50" cy="50" r="40" fill="none"
-                  stroke={scoreColor}
-                  strokeWidth="8"
-                  strokeDasharray={`${2*Math.PI*40}`}
-                  strokeDashoffset={`${2*Math.PI*40*(1-(score||0)/100)}`}
-                  strokeLinecap="round"/>
-              </svg>
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-3xl font-black text-white">{score === null ? '—' : score}</span>
-                <span className="text-xs text-slate-500">/ 100</span>
-              </div>
-            </div>
-            <div className="flex-1 space-y-2">
-              {[
-                {label:'MFA coverage', value: mfaCoverage === null ? '—' : `${mfaCoverage}%`, color: mfaCoverage === null ? 'text-slate-500' : mfaCoverage >= 80 ? 'text-emerald-400' : 'text-amber-400'},
-                {label:'Access reviews', value: !hasData ? '—' : overdueReviews > 0 ? `${overdueReviews} overdue` : 'On track', color: !hasData ? 'text-slate-500' : overdueReviews > 0 ? 'text-red-400' : 'text-emerald-400'},
-                {label:'Ex-employees with access', value:`${formerAccess} active`, color: formerAccess > 0 ? 'text-red-400' : 'text-emerald-400'},
-                {label:'Tools without owners', value:`${orphanedToolsCount}`, color: orphanedToolsCount > 0 ? 'text-amber-400' : 'text-emerald-400'},
-              ].map((row,i)=>(
-                <div key={i} className="flex items-center justify-between py-1 text-sm">
-                  <span className="text-slate-400">{row.label}</span>
-                  <span className={`font-semibold ${row.color}`}>{row.value}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-          <Link to="/security" className="block mt-4">
-            <Button variant="secondary" className="w-full text-sm">{hasData ? 'Review my security score →' : 'Set up to see your score →'}</Button>
-          </Link>
-        </div>
-          );
-        })()}
-      </div>
-
-      {/* ── Row 2: KPI Strip ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-5 mb-6">
-        {[
-          { label: t('security_alerts') || 'Security Alerts', value: derived?.alerts?.length || 0, sub: `${derived?.counts?.critical||0} critical · ${derived?.counts?.high||0} high`, color: 'border-l-red-500', vcolor: 'text-red-400', link: '/security' },
-          { label: 'Wasted Spend', value: getCurrency(language) + convertCurrency(Math.round((derived?.spend||0)*0.14), language).toLocaleString(), sub: 'Idle licenses detected', color: 'border-l-amber-500', vcolor: 'text-amber-400', link: '/tools' },
-          { label: t('monthly_spend') || 'Monthly Spend', value: getCurrency(language) + convertCurrency(derived?.spend||0, language).toLocaleString(), sub: getCurrency(language) + convertCurrency((derived?.spend||0)*12, language).toLocaleString() + '/yr', color: 'border-l-emerald-500', vcolor: 'text-emerald-400', link: '/finance' },
-        ].map((kpi, i) => (
-          <Link key={i} to={kpi.link}>
-            <div className={`rounded-2xl border border-slate-800 bg-slate-900/60 p-5 lg:p-6 border-l-4 ${kpi.color} hover:border-slate-700 hover:bg-slate-900/80 transition-all cursor-pointer group`}>
-              <div className="flex items-center justify-between">
-                <div className="text-[11px] text-slate-500 uppercase tracking-wider font-semibold mb-2">{kpi.label}</div>
-                <ChevronRight className="h-4 w-4 text-slate-600 group-hover:text-slate-400 transition-colors" />
-              </div>
-              <div className={`text-3xl lg:text-4xl font-black ${kpi.vcolor}`}>{kpi.value}</div>
-              <div className="text-sm text-slate-500 mt-1.5">{kpi.sub}</div>
-            </div>
-          </Link>
-        ))}
-      </div>
-
-      {/* ── Action Inbox ── */}
+      {/* ── ROW 1: Hero KPI Strip ── */}
       {(() => {
-        const actions = [];
-
-        const formerWithAccess = (derived?.access || []).filter(a => a.derived_risk_flag === 'former_employee' && a.status === 'active');
-        formerWithAccess.forEach(a => {
-          actions.push({
-            id: 'former-' + a.id,
-            severity: 'critical',
-            icon: '🔴',
-            title: `${a.employee_name || 'Ex-employee'} still has access to ${a.tool_name || 'a tool'}`,
-            reason: 'This employee has left the company but their access has not been revoked.',
-            action: 'Revoke access',
-            onAction: () => { muts.updateAccess.mutate({ id: a.id, patch: { status: 'revoked' } }, { onSuccess: () => toast.success(t('revoked')) }); },
-            link: '/offboarding',
-          });
-        });
-
-        const unownedTools = (derived?.tools || []).filter(t => !t.owner_email);
-        unownedTools.slice(0, 5).forEach(t => {
-          actions.push({
-            id: 'noowner-' + t.id,
-            severity: 'high',
-            icon: '🟡',
-            title: `${t.name} has no assigned owner`,
-            reason: `No one is responsible for managing this tool. Cost: ${getCurrency(language)}${convertCurrency(t.cost_per_month || 0, language).toLocaleString()}/mo.`,
-            action: 'Assign owner',
-            toolId: t.id,
-            toolName: t.name,
-            needsOwner: true,
-            link: '/tools',
-          });
-        });
-
-        const highRiskNoMfa = (derived?.tools || []).filter(t => t.derived_risk === 'high' && !t.mfa_required && !t.mfa_enabled);
-        highRiskNoMfa.slice(0, 3).forEach(t => {
-          actions.push({
-            id: 'mfa-' + t.id,
-            severity: 'high',
-            icon: '🛡️',
-            title: `${t.name} is high risk with no MFA`,
-            reason: `Risk: ${t.derived_risk}. Last used: ${t.last_used_date || 'unknown'}. Owner: ${t.owner_email || 'none'}. No multi-factor authentication enabled.`,
-            action: 'Review',
-            link: '/security',
-          });
-        });
-
-        const _budgetCap = db?.user?.budget_cap || parseInt(localStorage.getItem('sg_budget_cap') || '0') || 0;
-        const _notifBudget = (() => { try { return JSON.parse(localStorage.getItem('sg_notifications') || '{}'); } catch { return {}; } })().budget ?? true;
-        if (_budgetCap > 0 && _notifBudget && (derived?.spend || 0) > _budgetCap) {
-          const pct = Math.round((derived.spend / _budgetCap) * 100);
-          actions.push({
-            id: 'budget-exceeded',
-            severity: 'high',
-            icon: '💰',
-            title: `Monthly spend is ${pct}% of your budget cap`,
-            reason: `You've set a ${getCurrency(language)}${convertCurrency(_budgetCap, language).toLocaleString()}/mo cap. Current spend is ${getCurrency(language)}${convertCurrency(derived.spend, language).toLocaleString()}.`,
-            action: 'View Finance',
-            link: '/finance',
-          });
-        }
-
-        const sixtyDaysAgo = Date.now() - (60 * 24 * 60 * 60 * 1000);
-        const idleTools = (derived?.tools || []).filter(t => {
-          if (!t.cost_per_month || t.cost_per_month <= 0) return false;
-          if (!t.last_used_date) return true;
-          return new Date(t.last_used_date).getTime() < sixtyDaysAgo;
-        });
-        idleTools.slice(0, 3).forEach(t => {
-          actions.push({
-            id: 'idle-' + t.id,
-            severity: 'medium',
-            icon: '💸',
-            title: `${t.name} — ${getCurrency(language)}${convertCurrency(t.cost_per_month || 0, language).toLocaleString()}/mo possibly wasted`,
-            reason: `Last used: ${t.last_used_date || 'never'}. Consider cancelling or reassigning this license.`,
-            action: 'Review tool',
-            link: '/tools',
-          });
-        });
-
-        if (actions.length === 0) return null;
-
-        const order = { critical: 0, high: 1, medium: 2 };
-        actions.sort((a, b) => (order[a.severity] || 3) - (order[b.severity] || 3));
+        const totalTools = derived.tools.length;
+        const totalEmployees = new Set((derived.access).map(a => a.employee_id)).size;
+        const hasData = totalTools > 0 || totalEmployees > 0;
+        const orphanedToolsCount = derived.tools.filter(t => !t.owner_email).length;
+        const formerAccess = derived.formerAccess || 0;
+        const highRiskTools = derived.tools.filter(t => t.derived_risk === 'high').length;
+        const score = hasData ? Math.max(0, Math.min(100, 100 - (orphanedToolsCount * 10) - (highRiskTools * 5) - (formerAccess * 8))) : null;
+        const scoreColor = score === null ? '#475569' : score >= 80 ? '#10b981' : score >= 60 ? '#f59e0b' : '#ef4444';
+        const scoreLabel = score === null ? 'No data' : score >= 80 ? 'Good' : score >= 60 ? 'Needs Work' : 'Critical';
+        const labelBg = score === null ? 'bg-slate-700/40 text-slate-400' : score >= 80 ? 'bg-emerald-500/20 text-emerald-400' : score >= 60 ? 'bg-amber-500/20 text-amber-400' : 'bg-red-500/20 text-red-400';
+        const toolsWithMfa = derived.tools.filter(t => t.mfa_required || t.mfa_enabled).length;
+        const mfaCoverage = totalTools > 0 ? Math.round((toolsWithMfa / totalTools) * 100) : null;
+        const ninetyDaysAgo = Date.now() - 90 * 24 * 60 * 60 * 1000;
+        const overdueReviews = derived.access.filter(a => !a.last_reviewed_date || new Date(a.last_reviewed_date).getTime() < ninetyDaysAgo).length;
+        const wastedSpend = Math.round((derived.spend || 0) * 0.14);
+        const annualSpend = (derived.spend || 0) * 12;
+        const avgPerEmployee = totalEmployees > 0 ? Math.round((derived.spend || 0) / totalEmployees) : 0;
 
         return (
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 lg:p-6 mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 bg-red-500/20 rounded-lg">
-                  <AlertTriangle className="h-4 w-4 text-red-400" />
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 lg:gap-5 mb-6">
+            {/* Monthly Spend — hero */}
+            <Link to="/finance" className="lg:col-span-2">
+              <div className="relative overflow-hidden rounded-2xl border border-emerald-500/20 bg-gradient-to-br from-slate-900 to-emerald-950/20 p-5 lg:p-6 h-full hover:border-emerald-500/40 transition-all group">
+                <div className="absolute top-0 right-0 w-40 h-full bg-gradient-to-l from-emerald-500/5 to-transparent pointer-events-none" />
+                <div className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-1">{t('monthly_spend') || 'Monthly Spend'}</div>
+                <div className="text-4xl lg:text-5xl font-black text-emerald-400 mb-1">
+                  {getCurrency(language)}{convertCurrency(derived.spend || 0, language).toLocaleString()}
                 </div>
-                <span className="text-base font-semibold text-slate-100">{t('action_inbox') || 'Action inbox'}</span>
-                <span className="text-xs px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 font-semibold">{actions.length}</span>
-              </div>
-              <span className="text-xs text-slate-500">{t('action_inbox_sub') || 'Items needing your attention'}</span>
-            </div>
-            <div className="space-y-2.5">
-              {actions.slice(0, 8).map((item) => (
-                <div key={item.id} className={`flex items-start gap-3 rounded-xl p-3.5 border transition-colors ${
-                  item.severity === 'critical' ? 'bg-red-500/5 border-red-500/20 hover:border-red-500/40' :
-                  item.severity === 'high' ? 'bg-amber-500/5 border-amber-500/20 hover:border-amber-500/40' :
-                  'bg-slate-950/40 border-slate-800 hover:border-slate-700'
-                }`}>
-                  <span className="text-sm mt-0.5 flex-shrink-0">{item.icon}</span>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-semibold text-slate-100">{item.title}</div>
-                    <div className="text-xs text-slate-500 mt-0.5 line-clamp-2">{item.reason}</div>
+                <div className="text-sm text-slate-500 mb-4">
+                  {getCurrency(language)}{convertCurrency(annualSpend, language).toLocaleString()}/yr
+                </div>
+                <div className="flex gap-6">
+                  <div>
+                    <div className="text-xs text-slate-500 mb-0.5">Tools tracked</div>
+                    <div className="text-lg font-black text-white">{totalTools}</div>
                   </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    {item.needsOwner ? (
-                      <button onClick={() => { setAssignToolId(item.toolId); setAssignToolName(item.toolName); setShowAssignOwner(true); }}
-                        className="px-3 py-1.5 rounded-lg bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 text-xs font-semibold transition-colors">
-                        {item.action}
-                      </button>
-                    ) : item.onAction ? (
-                      <button onClick={item.onAction}
-                        className="px-3 py-1.5 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 text-xs font-semibold transition-colors">
-                        {item.action}
-                      </button>
-                    ) : (
-                      <Link to={item.link}>
-                        <span className="px-3 py-1.5 rounded-lg bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 text-xs font-semibold transition-colors inline-block">
-                          {item.action}
-                        </span>
-                      </Link>
-                    )}
+                  <div>
+                    <div className="text-xs text-slate-500 mb-0.5">Avg / employee</div>
+                    <div className="text-lg font-black text-white">
+                      {totalEmployees > 0 ? `${getCurrency(language)}${convertCurrency(avgPerEmployee, language).toLocaleString()}` : '—'}
+                    </div>
                   </div>
                 </div>
-              ))}
-            </div>
-            {actions.length > 8 && (
-              <div className="mt-3 text-center">
-                <Link to="/security" className="text-xs text-blue-400 hover:text-blue-300">View all {actions.length} items →</Link>
               </div>
-            )}
+            </Link>
+
+            {/* Security Score */}
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 lg:p-6 flex flex-col justify-between">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[11px] font-bold uppercase tracking-widest text-slate-400">{t('security_score') || 'Security Score'}</span>
+                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${labelBg}`}>{scoreLabel}</span>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="relative w-20 h-20 flex-shrink-0">
+                  <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
+                    <circle cx="50" cy="50" r="40" fill="none" stroke="#1e293b" strokeWidth="10"/>
+                    <circle cx="50" cy="50" r="40" fill="none" stroke={scoreColor} strokeWidth="10"
+                      strokeDasharray={`${2*Math.PI*40}`}
+                      strokeDashoffset={`${2*Math.PI*40*(1-(score||0)/100)}`}
+                      strokeLinecap="round"/>
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-2xl font-black text-white">{score === null ? '—' : score}</span>
+                    <span className="text-[10px] text-slate-500">/100</span>
+                  </div>
+                </div>
+                <div className="space-y-1.5 flex-1 text-xs">
+                  <div className="flex justify-between"><span className="text-slate-400">MFA coverage</span><span className={mfaCoverage === null ? 'text-slate-500' : mfaCoverage >= 80 ? 'text-emerald-400' : 'text-amber-400'} >{mfaCoverage === null ? '—' : `${mfaCoverage}%`}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-400">Ex-emp access</span><span className={formerAccess > 0 ? 'text-red-400' : 'text-emerald-400'}>{formerAccess} active</span></div>
+                  <div className="flex justify-between"><span className="text-slate-400">Overdue reviews</span><span className={overdueReviews > 0 ? 'text-amber-400' : 'text-emerald-400'}>{overdueReviews}</span></div>
+                </div>
+              </div>
+              <Link to="/security" className="mt-3 block">
+                <Button variant="secondary" className="w-full text-xs">Review score →</Button>
+              </Link>
+            </div>
+
+            {/* Alerts + Wasted stacked */}
+            <div className="flex flex-col gap-3">
+              <Link to="/security" className="flex-1">
+                <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-4 h-full hover:border-red-500/40 transition-all">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">{t('security_alerts') || 'Security Alerts'}</div>
+                  <div className="text-3xl font-black text-red-400">{derived.alerts.length || 0}</div>
+                  <div className="text-xs text-slate-500">{derived.counts.critical||0} critical · {derived.counts.high||0} high</div>
+                </div>
+              </Link>
+              <Link to="/tools" className="flex-1">
+                <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 h-full hover:border-amber-500/40 transition-all">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Wasted Spend</div>
+                  <div className="text-3xl font-black text-amber-400">{getCurrency(language)}{convertCurrency(wastedSpend, language).toLocaleString()}</div>
+                  <div className="text-xs text-slate-500">Idle / unused licenses</div>
+                </div>
+              </Link>
+            </div>
           </div>
         );
       })()}
 
-      {/* ── Row 3: Critical Alerts + AI Recommendations ── */}
+      {/* ── ROW 2: Spend Breakdown + Security Overview ── */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 lg:gap-5 mb-6">
+
+        {/* Spend Breakdown */}
         <div className="lg:col-span-3 rounded-2xl border border-slate-800 bg-slate-900/60 p-5 lg:p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <div className="h-2.5 w-2.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-base font-semibold text-slate-100">{t('critical_alerts') || 'Critical Alerts'}</span>
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <h3 className="text-base font-semibold text-white">Spend Breakdown</h3>
+              <p className="text-xs text-slate-500 mt-0.5">Top items by monthly cost</p>
             </div>
-            <Pill tone="blue" icon={Sparkles}>{t('live')}</Pill>
+            <div className="flex gap-1.5">
+              {[['tool','By Tool'],['category','By Category'],['dept','By Dept']].map(([v,l]) => (
+                <button key={v} onClick={() => setSpendView(v)}
+                  className={`text-xs px-2.5 py-1.5 rounded-lg font-semibold transition-colors ${spendView === v ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
+                  {l}
+                </button>
+              ))}
+            </div>
           </div>
+
+          {spendRows.length === 0 ? (
+            <div className="text-center py-8">
+              <div className="text-3xl mb-2 opacity-40">💸</div>
+              <div className="text-sm text-slate-400 mb-1">No spend data yet</div>
+              <div className="text-xs text-slate-600">Import your tools to see spending</div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {spendRows.map((row, i) => (
+                <div key={i} className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-sm font-bold text-slate-300 flex-shrink-0">
+                    {(row.label || '?')[0].toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="text-white font-medium capitalize truncate">{row.label}</span>
+                      <span className="text-slate-200 font-semibold flex-shrink-0 ml-2">{getCurrency(language)}{convertCurrency(row.value||0,language).toLocaleString()}/mo</span>
+                    </div>
+                    <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+                      <div className="h-full rounded-full bg-blue-500 transition-all"
+                        style={{width:`${Math.min(100,Math.round((row.value/spendMax)*100))}%`}} />
+                    </div>
+                    {row.sub && <div className="text-[10px] text-slate-500 mt-0.5">{row.sub}</div>}
+                  </div>
+                </div>
+              ))}
+              <div className="pt-2 border-t border-slate-800 flex justify-end">
+                <Link to="/finance" className="text-xs text-blue-400 hover:text-blue-300 font-semibold">Full breakdown →</Link>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Security Overview */}
+        <div className="lg:col-span-2 rounded-2xl border border-slate-800 bg-slate-900/60 p-5 lg:p-6">
+          <div className="flex items-center justify-between mb-5">
+            <h3 className="text-base font-semibold text-white">{t('critical_alerts') || 'Security Overview'}</h3>
+            <div className="flex items-center gap-1.5">
+              <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+              <Pill tone="blue" icon={Sparkles}>{t('live')}</Pill>
+            </div>
+          </div>
+
           <div className="space-y-2.5">
-            {derived?.alerts?.length ? derived.alerts.slice(0,4).map((a) => (
+            {derived.alerts.length > 0 ? derived.alerts.slice(0, 4).map((a) => (
               <div key={a.id} className={`flex items-start gap-3 rounded-xl p-3.5 border transition-colors hover:border-slate-700 ${a.severity === 'critical' ? 'bg-red-500/5 border-red-500/20' : 'bg-slate-950/40 border-slate-800'}`}>
-                <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${a.severity === 'critical' ? 'bg-red-400' : 'bg-amber-400'}`} />
+                <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${a.severity === 'critical' ? 'bg-red-400' : 'bg-amber-400'}`} />
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-semibold text-slate-100">{a.title}</div>
-                  <div className="text-sm text-slate-500 mt-0.5 line-clamp-2">{a.body}</div>
+                  <div className="text-xs text-slate-500 mt-0.5 line-clamp-1">{a.body}</div>
                 </div>
-                <Link to={a.action.to} className="text-sm text-blue-400 hover:text-blue-300 flex-shrink-0 font-medium mt-0.5">Fix →</Link>
+                <Link to={a.action.to} className="text-xs text-blue-400 hover:text-blue-300 flex-shrink-0 font-semibold">Fix →</Link>
               </div>
             )) : (
               <div className="flex items-center gap-3 rounded-xl p-4 bg-emerald-500/5 border border-emerald-500/20">
@@ -668,150 +597,177 @@ export function DashboardPage() {
               </div>
             )}
           </div>
-        </div>
 
-        <div className="lg:col-span-2 rounded-2xl border border-blue-500/20 bg-gradient-to-br from-slate-900 to-blue-950/20 p-5 lg:p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <div className="p-1.5 bg-purple-500/20 rounded-lg">
-                <Sparkles className="h-4 w-4 text-purple-400" />
-              </div>
-              <span className="text-base font-semibold text-slate-100">AI Recommendations</span>
-            </div>
-            <span className="text-xs text-slate-500">Powered by Claude</span>
-          </div>
-          <AIRecommendations tools={derived?.tools||[]} employees={db?.employees||[]} access={db?.access||[]} compact={true} />
+          {derived.alerts.length > 4 && (
+            <Link to="/security" className="mt-3 block">
+              <Button variant="secondary" className="w-full text-xs">See all {derived.alerts.length} alerts →</Button>
+            </Link>
+          )}
         </div>
       </div>
 
-      {/* ── Row 4: Spend + Shadow IT + Overdue Reviews ── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-5 mb-6">
+      {/* ── ROW 3: Action Inbox ── */}
+      {(() => {
+        const actions = [];
 
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 lg:p-6">
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-base font-semibold text-slate-100">{t('spend_trend') || 'Spend by Category'}</span>
-            <span className="text-xs text-slate-500">Monthly</span>
-          </div>
-          {(derived?.tools||[]).length === 0 ? (
-            <div className="text-center py-6 mb-4">
-              <div className="text-3xl mb-2 opacity-40">💸</div>
-              <div className="text-sm text-slate-400 mb-1">No spend data yet</div>
-              <div className="text-xs text-slate-600">Import your tools to see spending</div>
-            </div>
-          ) : (
-            <div className="space-y-3 mb-4">
-              {Object.entries((derived?.tools||[]).reduce((acc,t)=>{const c=t.category||'other';acc[c]=(acc[c]||0)+(t.cost_per_month||0);return acc},{})).sort((a,b)=>b[1]-a[1]).slice(0,4).map(([cat,spend],i)=>(
-                <div key={i} className="space-y-1.5">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-400 capitalize">{cat}</span>
-                    <span className="text-slate-200 font-medium">{getCurrency(language)}{convertCurrency(spend||0,language).toLocaleString()}</span>
-                  </div>
-                  <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
-                    <div className="h-full bg-blue-500 rounded-full" style={{width:`${Math.min(100,Math.round((spend/(derived?.spend||1))*100))}%`}} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-          <Link to="/finance">
-            <Button variant="secondary" className="w-full text-sm">Dig into the numbers →</Button>
-          </Link>
-        </div>
+        (derived.access || []).filter(a => a.derived_risk_flag === 'former_employee' && a.status === 'active').forEach(a => {
+          actions.push({
+            id: 'former-' + a.id, severity: 'critical', icon: '🔴',
+            title: `${a.employee_name || 'Ex-employee'} still has access to ${a.tool_name || 'a tool'}`,
+            reason: 'Left the company but access was not revoked.',
+            action: 'Revoke',
+            onAction: () => muts.updateAccess.mutate({ id: a.id, patch: { status: 'revoked' } }, { onSuccess: () => toast.success(t('revoked')) }),
+          });
+        });
 
-        <div className="rounded-2xl border border-purple-500/20 bg-purple-500/5 p-5 lg:p-6">
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-base font-semibold text-slate-100">Shadow IT Detected</span>
-            <span className="text-xs px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 font-semibold">New</span>
-          </div>
-          {(() => {
-            const shadowTools = (derived?.tools||[]).filter(t => t.is_shadow || t.tag === 'shadow' || t.status === 'unsanctioned' || t.discovery_source === 'detected').slice(0, 3);
-            if (shadowTools.length === 0) {
-              return (
-                <div className="text-center py-6 mb-4">
-                  <div className="text-3xl mb-2 opacity-40">🔍</div>
-                  <div className="text-sm text-slate-400 mb-1">No shadow IT detected yet</div>
-                  <div className="text-xs text-slate-600">Import your tools to start scanning</div>
+        (derived.tools || []).filter(t => !t.owner_email).slice(0, 4).forEach(t => {
+          actions.push({
+            id: 'noowner-' + t.id, severity: 'high', icon: '🟡',
+            title: `${t.name} has no assigned owner`,
+            reason: `${getCurrency(language)}${convertCurrency(t.cost_per_month||0,language).toLocaleString()}/mo — nobody responsible`,
+            action: 'Assign',
+            toolId: t.id, toolName: t.name, needsOwner: true,
+          });
+        });
+
+        (derived.tools || []).filter(t => t.derived_risk === 'high' && !t.mfa_required && !t.mfa_enabled).slice(0, 3).forEach(t => {
+          actions.push({
+            id: 'mfa-' + t.id, severity: 'high', icon: '🛡️',
+            title: `${t.name} is high risk with no MFA`,
+            reason: `Owner: ${t.owner_email || 'none'} · Last used: ${t.last_used_date || 'unknown'}`,
+            action: 'Review', link: '/security',
+          });
+        });
+
+        const _budgetCap = db?.user?.budget_cap || parseInt(localStorage.getItem('sg_budget_cap') || '0') || 0;
+        const _notifBudget = (() => { try { return JSON.parse(localStorage.getItem('sg_notifications') || '{}'); } catch { return {}; } })().budget ?? true;
+        if (_budgetCap > 0 && _notifBudget && (derived.spend || 0) > _budgetCap) {
+          const pct = Math.round((derived.spend / _budgetCap) * 100);
+          actions.push({
+            id: 'budget-exceeded', severity: 'high', icon: '💰',
+            title: `Monthly spend is ${pct}% of your budget cap`,
+            reason: `Cap: ${getCurrency(language)}${convertCurrency(_budgetCap,language).toLocaleString()}/mo · Current: ${getCurrency(language)}${convertCurrency(derived.spend,language).toLocaleString()}`,
+            action: 'Finance', link: '/finance',
+          });
+        }
+
+        const sixtyDaysAgo = Date.now() - 60 * 24 * 60 * 60 * 1000;
+        (derived.tools || []).filter(t => t.cost_per_month > 0 && (!t.last_used_date || new Date(t.last_used_date).getTime() < sixtyDaysAgo)).slice(0, 3).forEach(t => {
+          actions.push({
+            id: 'idle-' + t.id, severity: 'medium', icon: '💸',
+            title: `${t.name} — ${getCurrency(language)}${convertCurrency(t.cost_per_month||0,language).toLocaleString()}/mo possibly wasted`,
+            reason: `Last used: ${t.last_used_date || 'never'}`,
+            action: 'Review', link: '/tools',
+          });
+        });
+
+        if (actions.length === 0) return null;
+        actions.sort((a, b) => ({ critical:0, high:1, medium:2 }[a.severity]||3) - ({ critical:0, high:1, medium:2 }[b.severity]||3));
+
+        return (
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 lg:p-6 mb-6">
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-red-500/20 rounded-lg">
+                  <AlertTriangle className="h-4 w-4 text-red-400" />
                 </div>
-              );
-            }
-            return (
-              <div className="space-y-2.5 mb-4">
-                {shadowTools.map((app, i) => (
-                  <div key={i} className="flex items-center gap-3 p-3 rounded-xl border border-slate-800 bg-slate-900/50">
-                    <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-sm font-bold text-slate-300 flex-shrink-0">{(app.name||'?')[0]}</div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-semibold text-slate-200 truncate">{app.name}</div>
-                      <div className="text-xs text-slate-500">{app.user_count || 0} employees</div>
-                    </div>
-                    <span className="text-xs font-semibold text-amber-400">Unsanctioned</span>
-                  </div>
-                ))}
+                <span className="text-base font-semibold text-slate-100">{t('action_inbox') || 'Action Inbox'}</span>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 font-semibold border border-red-500/30">{actions.length}</span>
               </div>
-            );
-          })()}
-          <Button variant="secondary" className="w-full text-sm" onClick={()=>toast(t('shadow_it_coming_soon') || (language === 'fr' ? 'Rapport Shadow IT bientôt disponible !' : 'Shadow IT report coming soon!'), { icon: '🔜' })}>See what's behind this →</Button>
-        </div>
-
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 lg:p-6">
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-base font-semibold text-slate-100">{t('overdue_reviews') || 'Overdue Reviews'}</span>
-            <span className="text-sm text-slate-500">{(derived?.access||[]).filter(a=>a.status==='active').length} pending</span>
-          </div>
-          {(derived?.access||[]).filter(a=>a.status==='active').length === 0 ? (
-            <div className="text-center py-6 mb-4">
-              <div className="text-3xl mb-2 opacity-40">📋</div>
-              <div className="text-sm text-slate-400 mb-1">No reviews pending</div>
-              <div className="text-xs text-slate-600">Import access records to start reviews</div>
+              {actions.length > 6 && (
+                <Link to="/security" className="text-xs text-slate-500 hover:text-blue-400">View all {actions.length} →</Link>
+              )}
             </div>
-          ) : (
-            <div className="space-y-2.5">
-              {(derived?.access||[]).filter(a=>a.status==='active').slice(0,3).map((a)=>(
-                <div key={a.id} className="flex items-center gap-3 p-3 rounded-xl border border-slate-800 bg-slate-950/30">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-                    {(a.employee_name||'?').charAt(0)}
-                  </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5">
+              {actions.slice(0, 6).map((item) => (
+                <div key={item.id} className={`flex items-start gap-3 rounded-xl p-3.5 border transition-colors ${
+                  item.severity === 'critical' ? 'bg-red-500/5 border-red-500/20 hover:border-red-500/40' :
+                  item.severity === 'high' ? 'bg-amber-500/5 border-amber-500/20 hover:border-amber-500/40' :
+                  'bg-slate-950/40 border-slate-800 hover:border-slate-700'
+                }`}>
+                  <span className="text-sm mt-0.5 flex-shrink-0">{item.icon}</span>
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-semibold text-slate-200 truncate">{a.tool_name}</div>
-                    <div className="text-xs text-slate-500 truncate">{a.employee_name}</div>
+                    <div className="text-sm font-semibold text-slate-100">{item.title}</div>
+                    <div className="text-xs text-slate-500 mt-0.5">{item.reason}</div>
                   </div>
-                  <div className="flex gap-1.5">
-                    <button onClick={()=>markReviewed(a.id)} className="px-2.5 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700 text-xs transition-colors">✓</button>
-                    <button onClick={()=>revokeAccess(a.id)} className="px-2.5 py-1.5 rounded-lg border border-red-800 bg-red-900/30 text-red-400 hover:bg-red-900/50 text-xs transition-colors">✕</button>
+                  <div className="flex-shrink-0">
+                    {item.needsOwner ? (
+                      <button onClick={() => { setAssignToolId(item.toolId); setAssignToolName(item.toolName); setShowAssignOwner(true); }}
+                        className="px-2.5 py-1.5 rounded-lg bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 text-xs font-semibold transition-colors">
+                        {item.action}
+                      </button>
+                    ) : item.onAction ? (
+                      <button onClick={item.onAction}
+                        className="px-2.5 py-1.5 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 text-xs font-semibold transition-colors">
+                        {item.action}
+                      </button>
+                    ) : (
+                      <Link to={item.link}>
+                        <span className="px-2.5 py-1.5 rounded-lg bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 text-xs font-semibold transition-colors inline-block">
+                          {item.action}
+                        </span>
+                      </Link>
+                    )}
                   </div>
                 </div>
               ))}
             </div>
-          )}
-          <Link to="/access" className="block mt-4">
-            <Button variant="secondary" className="w-full text-sm">Review pending access →</Button>
-          </Link>
-        </div>
-      </div>
+          </div>
+        );
+      })()}
 
-      {/* ── Row 5: Quick Actions ── */}
+      {/* ── ROW 4: Quick Actions ── */}
       <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 lg:p-6">
-        <div className="flex items-center justify-between mb-4">
-          <span className="text-base font-semibold text-slate-100">{t('quick_actions') || 'Quick Actions'}</span>
-        </div>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
-          <Link to="/offboarding" className="w-full">
-            <Button variant="secondary" className="w-full justify-start text-sm py-3"><UserMinus className="h-4 w-4" />{t('revoke_departing_access') || 'Revoke Departing Access'}</Button>
+        <h3 className="text-sm font-semibold text-white mb-4">{t('quick_actions') || 'Quick Actions'}</h3>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <Link to="/offboarding">
+            <button className="flex items-center gap-3 p-4 rounded-xl border border-slate-700 bg-slate-950/40 hover:bg-slate-900/80 hover:border-slate-600 transition-all text-left w-full">
+              <UserMinus className="h-5 w-5 text-slate-400 flex-shrink-0" />
+              <div>
+                <div className="text-sm font-semibold text-white">{t('revoke_departing_access') || 'Offboard Employee'}</div>
+                <div className="text-xs text-slate-500">Revoke all access at once</div>
+              </div>
+            </button>
           </Link>
-          <Link to="/access" className="w-full">
-            <Button className="w-full justify-start text-sm py-3"><GitMerge className="h-4 w-4" />{t('review_admin_access') || 'Review Admin Access'}</Button>
+          <Link to="/access">
+            <button className="flex items-center gap-3 p-4 rounded-xl border border-slate-700 bg-slate-950/40 hover:bg-slate-900/80 hover:border-slate-600 transition-all text-left w-full">
+              <GitMerge className="h-5 w-5 text-slate-400 flex-shrink-0" />
+              <div>
+                <div className="text-sm font-semibold text-white">{t('review_admin_access') || 'Review Admin Access'}</div>
+                <div className="text-xs text-slate-500">{(derived.access||[]).filter(a=>a.status==='active').length} pending reviews</div>
+              </div>
+            </button>
           </Link>
-          <Link to="/tools" className="w-full">
-            <Button variant="secondary" className="w-full justify-start text-sm py-3"><Boxes className="h-4 w-4" />{t('assign_owners') || 'Assign Tool Owners'}</Button>
+          <Link to="/tools">
+            <button className="flex items-center gap-3 p-4 rounded-xl border border-slate-700 bg-slate-950/40 hover:bg-slate-900/80 hover:border-slate-600 transition-all text-left w-full">
+              <Boxes className="h-5 w-5 text-slate-400 flex-shrink-0" />
+              <div>
+                <div className="text-sm font-semibold text-white">{t('assign_owners') || 'Assign Tool Owners'}</div>
+                <div className="text-xs text-slate-500">{derived.tools.filter(t=>!t.owner_email).length} tools unassigned</div>
+              </div>
+            </button>
           </Link>
-          <Link to="/licenses" className="w-full">
-            <Button variant="secondary" className="w-full justify-start text-sm py-3"><Activity className="h-4 w-4" />{t('reclaim_licenses') || 'Reclaim Idle Licenses'}</Button>
+          <Link to="/licenses">
+            <button className="flex items-center gap-3 p-4 rounded-xl border border-slate-700 bg-slate-950/40 hover:bg-slate-900/80 hover:border-slate-600 transition-all text-left w-full">
+              <Activity className="h-5 w-5 text-slate-400 flex-shrink-0" />
+              <div>
+                <div className="text-sm font-semibold text-white">{t('reclaim_licenses') || 'Reclaim Idle Licenses'}</div>
+                <div className="text-xs text-slate-500">Save ~{getCurrency(language)}{convertCurrency(Math.round((derived.spend||0)*0.14),language).toLocaleString()}/mo</div>
+              </div>
+            </button>
           </Link>
         </div>
       </div>
 
-      {showImport && importKind && (<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={()=>setShowImport(false)}><div className="bg-slate-950 border border-slate-700 rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto relative" onClick={e=>e.stopPropagation()}><button onClick={()=>setShowImport(false)} className="absolute top-4 right-4 w-8 h-8 bg-slate-800 rounded-lg text-slate-400 hover:text-white">x</button><ImportWizard defaultKind={importKind} onDone={()=>{setShowImport(false);setImportKind(null);}} /></div></div>)}
+      {showImport && importKind && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={() => setShowImport(false)}>
+          <div className="bg-slate-950 border border-slate-700 rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto relative" onClick={e => e.stopPropagation()}>
+            <button onClick={() => setShowImport(false)} className="absolute top-4 right-4 w-8 h-8 bg-slate-800 rounded-lg text-slate-400 hover:text-white">✕</button>
+            <ImportWizard defaultKind={importKind} onDone={() => { setShowImport(false); setImportKind(null); }} />
+          </div>
+        </div>
+      )}
 
-      {/* ── Assign Owner Modal ── */}
       {showAssignOwner && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={() => setShowAssignOwner(false)}>
           <div className="bg-slate-950 border border-slate-700 rounded-2xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
@@ -821,15 +777,12 @@ export function DashboardPage() {
               {(db?.employees || []).filter(e => e.status === 'active').map(emp => (
                 <button key={emp.id}
                   onClick={() => {
-                    if (assignToolId) {
-                      muts.updateTool.mutate(
-                        { id: assignToolId, patch: { owner_email: emp.email, owner_name: emp.full_name } },
-                        { onSuccess: () => { toast.success(`${emp.full_name} is now the owner of ${assignToolName}`); setShowAssignOwner(false); } }
-                      );
-                    }
+                    if (assignToolId) muts.updateTool.mutate(
+                      { id: assignToolId, patch: { owner_email: emp.email, owner_name: emp.full_name } },
+                      { onSuccess: () => { toast.success(`${emp.full_name} is now the owner of ${assignToolName}`); setShowAssignOwner(false); } }
+                    );
                   }}
-                  className="w-full flex items-center gap-3 p-3 rounded-xl border border-slate-800 bg-slate-950/30 hover:bg-slate-900/60 hover:border-slate-700 transition-colors text-left"
-                >
+                  className="w-full flex items-center gap-3 p-3 rounded-xl border border-slate-800 bg-slate-950/30 hover:bg-slate-900/60 hover:border-slate-700 transition-colors text-left">
                   <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
                     {(emp.full_name || '?')[0]}
                   </div>
@@ -840,7 +793,7 @@ export function DashboardPage() {
                 </button>
               ))}
               {(db?.employees || []).filter(e => e.status === 'active').length === 0 && (
-                <div className="text-center py-6 text-sm text-slate-500">{t("assign_no_active_employees") || "No active employees. Import your team first."}</div>
+                <div className="text-center py-6 text-sm text-slate-500">{t('assign_no_active_employees') || 'No active employees. Import your team first.'}</div>
               )}
             </div>
             <div className="mt-4 flex justify-end">
