@@ -21,10 +21,9 @@ export function BillingPage({ noShell = false }) {
   const { data: db } = useDbQuery();
   const { language } = useLang();
   const t = useTranslation(language);
-  const plan = db?.user?.is_founder ? 'scale' : (db?.user?.plan || db?.user?.subscription_plan || 'trial');
+  const plan = resolvePlan(db?.user);
   const [billing, setBilling] = useState('monthly');
   const [showContactModal, setShowContactModal] = useState(false);
-  const [legalAccepted, setLegalAccepted] = useState(false);
   const [contactEmail, setContactEmail] = useState('');
   const [contactSize, setContactSize] = useState('1-10');
   const [contactSent, setContactSent] = useState(false);
@@ -267,9 +266,9 @@ export function BillingPage({ noShell = false }) {
               </div>
             </div>
             <div className="flex-shrink-0 text-right">
-              <button onClick={() => upgrade('scale')}
-                className="px-7 py-3.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white font-black rounded-xl transition-all shadow-lg shadow-amber-500/30 text-sm block mb-2">
-                {t('upgrade_now')} ✨
+              <button onClick={() => upgrade('scale')} disabled={upgrading}
+                className="px-7 py-3.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white font-black rounded-xl transition-all shadow-lg shadow-amber-500/30 text-sm block mb-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                {upgrading ? '...' : t('upgrade_now') + ' ✨'}
               </button>
               <p className="text-xs text-slate-500">{t('cancel_anytime')}</p>
             </div>
@@ -346,9 +345,9 @@ export function BillingPage({ noShell = false }) {
                   {t('contact_sales')}
                 </button>
               ) : (
-                <button onClick={() => upgrade(p.id)}
-                  className={"w-full py-2.5 rounded-xl font-bold transition-all text-xs text-white bg-gradient-to-r hover:opacity-90 shadow-lg " + p.color}>
-                  {isTrial ? t('upgrade_now').split('—')[0].trim() : 'Upgrade'}
+                <button onClick={() => upgrade(p.id)} disabled={upgrading}
+                  className={"w-full py-2.5 rounded-xl font-bold transition-all text-xs text-white bg-gradient-to-r hover:opacity-90 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed " + p.color}>
+                  {upgrading ? '...' : (isTrial ? t('upgrade_now').split('—')[0].trim() : 'Upgrade')}
                 </button>
               )}
             </div>
