@@ -82,6 +82,7 @@ export function LicenseManagement() {
       });
   }, [licenseData, filter, search, sortBy]);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   React.useEffect(() => { setPage(0); }, [filter, search, sortBy]);
 
   const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);

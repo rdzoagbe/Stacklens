@@ -266,12 +266,13 @@ export function AIInsights({ tools, employees, spend, accessData }) {
   // Unused licenses
   const unusedTools = tools?.filter(t => {
     const lastUsed = new Date(t.last_used_date || 0);
+    // eslint-disable-next-line react-hooks/purity
     const daysSinceUse = Math.floor((Date.now() - lastUsed) / (1000 * 60 * 60 * 24));
     return daysSinceUse > 90;
   }) || [];
   
   if (unusedTools.length > 0) {
-    const savings = unusedTools.reduce((sum, t) => sum + (t.cost_per_month || 0), 0);
+    const savings = unusedTools.reduce((sum, tool) => sum + (tool.cost_per_month || 0), 0);
     insights.push({
       icon: TrendingDown,
       title: 'Unused License Opportunity',

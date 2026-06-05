@@ -217,6 +217,7 @@ export function ToolsPage() {
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [tools, q, cat, status, risk]);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   React.useEffect(() => { setPage(0); }, [q, cat, status, risk]);
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);

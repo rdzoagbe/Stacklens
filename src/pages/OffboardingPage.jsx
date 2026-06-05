@@ -63,6 +63,7 @@ export function OffboardingPage() {
   const [checked, setChecked] = useState({});
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (pre) setEmployeeId(pre);
   }, [pre]);
 

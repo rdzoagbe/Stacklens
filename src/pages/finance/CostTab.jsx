@@ -47,6 +47,7 @@ export function CostTabContent({ setFinTab }) {
       .sort((a, b) => sortBy === 'cost' ? b.cost - a.cost : sortBy === 'perUser' ? b.costPerUser - a.costPerUser : (b.activeUsers - a.activeUsers));
   }, [enriched, filter, sortBy]);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   React.useEffect(() => { setPage(0); }, [filter, sortBy]);
 
   const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);

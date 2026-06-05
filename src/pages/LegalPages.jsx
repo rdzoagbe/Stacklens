@@ -529,7 +529,7 @@ export function AboutPage() {
             SaaS control, <span className="bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">for everyone else.</span>
           </h1>
           <p className="text-xl text-slate-400 leading-relaxed">
-            Enterprise-grade SaaS management, built for small and mid-sized European companies that can't justify €30,000 a year for software visibility.
+            Enterprise-grade SaaS management, built for small and mid-sized European companies that can&apos;t justify €30,000 a year for software visibility.
           </p>
         </div>
 
