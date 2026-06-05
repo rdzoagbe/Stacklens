@@ -134,6 +134,7 @@ function SetupConnectionsHub() {
   const t = useTranslation(language);
   const [setupTab, setSetupTab] = useState(() => { const p = new URLSearchParams(window.location.search); return p.get('tab') || 'integrations'; });
   const _loc = useLocation();
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { const p = new URLSearchParams(_loc.search); const tab = p.get('tab'); if (tab) setSetupTab(tab); }, [_loc.search]);
   const TABS = [
     { id: 'integrations', label: `🔌 ${t('integrations_tab')}`,  desc: t('int_connect_automate') },

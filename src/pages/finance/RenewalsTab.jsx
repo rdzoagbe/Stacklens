@@ -162,6 +162,7 @@ export function RenewalAlerts() {
       });
   }, [renewals, filter, sortBy]);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   React.useEffect(() => { setPage(0); }, [filter, sortBy, view]);
 
   const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);

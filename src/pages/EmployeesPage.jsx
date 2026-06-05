@@ -231,6 +231,7 @@ export function EmployeesPage() {
     });
   }, [employees, q, dept, status]);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   React.useEffect(() => { setPage(0); }, [q, dept, status]);
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
@@ -255,6 +256,7 @@ export function EmployeesPage() {
 
   const tenure = (emp) => {
     if (!emp?.start_date) return null;
+    // eslint-disable-next-line react-hooks/purity
     const ms = Date.now() - new Date(emp.start_date).getTime();
     const yrs = Math.floor(ms / (365.25 * 24 * 60 * 60 * 1000));
     const mos = Math.floor((ms % (365.25 * 24 * 60 * 60 * 1000)) / (30.44 * 24 * 60 * 60 * 1000));

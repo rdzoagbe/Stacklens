@@ -13,17 +13,18 @@ import {
 export function ExecutiveDashboard({ data }) {
   const { language } = useLang();
   const t = useTranslation(language);
-  const totalSpend = data?.tools?.reduce((sum, t) => sum + (t.cost_per_month || 0), 0) || 0;
+  const totalSpend = data?.tools?.reduce((sum, tool) => sum + (tool.cost_per_month || 0), 0) || 0;
   const annualSpend = totalSpend * 12;
-  const unusedTools = data?.tools?.filter(t => {
-    const lastUsed = new Date(t.last_used_date || 0);
+  const unusedTools = data?.tools?.filter(tool => {
+    const lastUsed = new Date(tool.last_used_date || 0);
+    // eslint-disable-next-line react-hooks/purity
     const daysSinceUse = Math.floor((Date.now() - lastUsed) / (1000 * 60 * 60 * 24));
     return daysSinceUse > 90;
   }) || [];
-  const potentialSavings = unusedTools.reduce((sum, t) => sum + (t.cost_per_month || 0), 0);
+  const potentialSavings = unusedTools.reduce((sum, tool) => sum + (tool.cost_per_month || 0), 0);
   const annualSavings = potentialSavings * 12;
   const roi = totalSpend > 0 ? ((potentialSavings / totalSpend) * 100).toFixed(1) : 0;
-  const highRiskTools = data?.tools?.filter(t => t.derived_risk === 'high').length || 0;
+  const highRiskTools = data?.tools?.filter(tool => tool.derived_risk === 'high').length || 0;
   const efficiencyScore = Math.min(100, Math.max(0, 85 + (potentialSavings === 0 ? 10 : 0) - (highRiskTools * 2)));
   const criticalAlerts = data?.alerts?.filter(a => a.severity === 'critical').length || 0;
   const categorySpend = {};
