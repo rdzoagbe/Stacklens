@@ -8750,7 +8750,7 @@ async function flushTranslationQueue() {
         }
         
         saveTransCache(cache);
-        console.log(`✅ Live-translated ${Object.keys(translated).length} keys to ${langName}`);
+        console.warn(`✅ Live-translated ${Object.keys(translated).length} keys to ${langName}`);
         
         // Notify React to re-render
         _transCallbacks.forEach(cb => cb());
@@ -8779,7 +8779,7 @@ function queueForTranslation(key, enValue, lang) {
 }
 
 // React hook version that triggers re-render when translations arrive
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { callAI } from './firebase-config';
 
 export function useTranslation(language = 'en') {
@@ -8793,18 +8793,17 @@ export function useTranslation(language = 'en') {
     };
   }, []);
 
-  const lang = translations[language] || {};
-  const en = translations.en || {};
-  const cache = loadTransCache();
-  const cached = cache[language] || {};
+  const lang   = useMemo(() => translations[language] || {}, [language]);
+  const en     = useMemo(() => translations.en || {}, []);
+  const cached = useMemo(() => { const c = loadTransCache(); return c[language] || {}; }, [language]);
 
   return useCallback((key) => {
     // 1. Manual translation exists for this language
     if (lang[key] !== undefined) return lang[key];
-    
+
     // 2. Cached auto-translation exists
     if (cached[key] !== undefined) return cached[key];
-    
+
     // 3. English fallback exists — queue for translation
     if (en[key] !== undefined) {
       if (language !== 'en') {
@@ -8812,7 +8811,7 @@ export function useTranslation(language = 'en') {
       }
       return en[key]; // Show English while translating
     }
-    
+
     // 4. Key not found anywhere — return the key itself
     return key;
   }, [language, lang, cached, en]);

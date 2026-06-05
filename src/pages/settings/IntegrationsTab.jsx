@@ -1175,7 +1175,7 @@ export function IntegrationConnectors() {
     if (M365_CLIENT_ID) getMSALApp().catch(() => {});
   }, []);
 
-  const integrations = [
+  const integrations = useMemo(() => [
     {
       id: 'google-workspace',
       name: 'Google Workspace',
@@ -1258,7 +1258,7 @@ export function IntegrationConnectors() {
       status: 'available',
       setupTime: '2 min',
     },
-  ];
+  ], []);
 
   // ── Google Workspace real OAuth + Directory sync ──────────────────────
   const handleGoogleWorkspaceConnect = useCallback(async () => {
@@ -1350,7 +1350,7 @@ export function IntegrationConnectors() {
     } finally {
       setConnecting(null);
     }
-  }, [db?.employees, connectedIntegrations, muts]);
+  }, [db?.employees, connectedIntegrations, muts, integrations]);
 
   // eslint-disable-next-line react-hooks/preserve-manual-memoization
   const handleSlackTokenSubmit = useCallback(async (token, channel = '#renewals') => {
@@ -1791,7 +1791,7 @@ export function IntegrationConnectors() {
     } finally {
       setSfSyncing(false);
     }
-  }, [db?.employees, connectedIntegrations, muts]);
+  }, [db?.employees, muts]);
 
   const handleMicrosoftConnect = useCallback(async () => {
     if (!M365_CLIENT_ID) {
@@ -1853,7 +1853,7 @@ export function IntegrationConnectors() {
     } finally {
       setConnecting(null);
     }
-  }, [db?.employees, connectedIntegrations, muts]);
+  }, [db?.employees, connectedIntegrations, muts, integrations]);
 
   const handleDisconnect = (integrationId) => {
     const next = connectedIntegrations.filter(id => id !== integrationId);
@@ -1925,7 +1925,7 @@ export function IntegrationConnectors() {
     if (integration.id === 'salesforce')       { setSfModal(true); return; }
   };
 
-  const isConnected = (id) => connectedIntegrations.includes(id);
+  const isConnected = useCallback((id) => connectedIntegrations.includes(id), [connectedIntegrations]);
   const lastGWSSync    = localStorage.getItem('sg_gws_last_sync');
   const lastSlackSync  = localStorage.getItem(SLACK_SYNC_KEY);
   const lastM365Sync   = localStorage.getItem(M365_SYNC_KEY);
@@ -1946,7 +1946,7 @@ export function IntegrationConnectors() {
                            (selectedStatus === 'coming-soon' && integration.status === 'coming-soon');
       return matchesSearch && matchesCategory && matchesStatus;
     });
-  }, [searchQuery, selectedCategory, selectedStatus, connectedIntegrations]);
+  }, [searchQuery, selectedCategory, selectedStatus, integrations, isConnected]);
 
   const categories = ['all', ...new Set(integrations.map(i => i.category))];
   const connectedCount = connectedIntegrations.length;
