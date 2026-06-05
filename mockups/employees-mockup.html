@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Employees — Redesign Mockup</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { background: #020817; font-family: 'Inter', system-ui, sans-serif; }
+  .selected-employee { background: rgba(59,130,246,0.08); border-color: rgba(59,130,246,0.30); }
+</style>
+</head>
+<body class="text-white min-h-screen">
+
+<div class="flex h-screen overflow-hidden">
+
+  <!-- Sidebar stub -->
+  <aside class="w-56 flex-shrink-0 border-r border-slate-800 bg-slate-950 flex flex-col py-6 px-3 gap-1">
+    <div class="px-3 mb-4">
+      <div class="text-lg font-black tracking-tight text-white">Stacklens</div>
+      <div class="text-[10px] text-slate-500 uppercase tracking-widest">SaaS Intelligence</div>
+    </div>
+    <a href="#" class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-500 hover:text-white text-sm">
+      <span class="w-4 h-4 text-center">⊞</span> Dashboard
+    </a>
+    <a href="#" class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-500 hover:text-white text-sm">
+      <span class="w-4 h-4 text-center">🛠</span> Tools
+    </a>
+    <a href="#" class="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-blue-600/20 text-blue-400 text-sm font-semibold">
+      <span class="w-4 h-4 text-center">👥</span> Employees
+    </a>
+    <a href="#" class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-500 hover:text-white text-sm">
+      <span class="w-4 h-4 text-center">🔒</span> Security
+    </a>
+    <a href="#" class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-500 hover:text-white text-sm">
+      <span class="w-4 h-4 text-center">💰</span> Finance
+    </a>
+  </aside>
+
+  <!-- Main -->
+  <main class="flex-1 overflow-y-auto flex flex-col">
+
+    <!-- Top bar -->
+    <div class="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950/80 backdrop-blur-sm flex-shrink-0">
+      <div>
+        <h1 class="text-xl font-bold text-white">Employees</h1>
+        <p class="text-xs text-slate-500">60 employees · 4 departments</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <button class="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-500">+ Add Employee</button>
+        <div class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-xs">R</div>
+      </div>
+    </div>
+
+    <!-- KPI strip -->
+    <div class="grid grid-cols-4 gap-4 px-6 py-4 border-b border-slate-800 bg-slate-950/30 flex-shrink-0">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-blue-500/15 border border-blue-500/20 flex items-center justify-center flex-shrink-0">
+          <span class="text-blue-400 font-black text-sm">60</span>
+        </div>
+        <div>
+          <div class="text-xs text-slate-500 uppercase tracking-wider font-semibold">Total</div>
+          <div class="text-sm font-bold text-white">All employees</div>
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/20 flex items-center justify-center flex-shrink-0">
+          <span class="text-emerald-400 font-black text-sm">52</span>
+        </div>
+        <div>
+          <div class="text-xs text-slate-500 uppercase tracking-wider font-semibold">Active</div>
+          <div class="text-sm font-bold text-white">Currently working</div>
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/20 flex items-center justify-center flex-shrink-0">
+          <span class="text-amber-400 font-black text-sm">5</span>
+        </div>
+        <div>
+          <div class="text-xs text-slate-500 uppercase tracking-wider font-semibold">Offboarding</div>
+          <div class="text-sm font-bold text-white">In transition</div>
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-purple-500/15 border border-purple-500/20 flex items-center justify-center flex-shrink-0">
+          <span class="text-purple-400 font-black text-sm">4</span>
+        </div>
+        <div>
+          <div class="text-xs text-slate-500 uppercase tracking-wider font-semibold">Departments</div>
+          <div class="text-sm font-bold text-white">Distinct teams</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── Directory Sync Banner ─── -->
+    <div class="mx-6 mt-4 rounded-xl border border-blue-500/20 bg-gradient-to-r from-blue-950/40 to-slate-900/40 px-4 py-3 flex items-center gap-4 flex-shrink-0">
+      <div class="flex items-center gap-2 flex-shrink-0">
+        <span class="text-xs font-bold uppercase tracking-widest text-blue-400">Directory Sync</span>
+        <span class="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-semibold border border-emerald-500/30">1 Connected</span>
+      </div>
+      <div class="flex items-center gap-3 flex-1">
+        <!-- Google Workspace — connected -->
+        <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+          <svg viewBox="0 0 48 48" class="h-4 w-4" xmlns="http://www.w3.org/2000/svg">
+            <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+            <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+            <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+            <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+          </svg>
+          <span class="text-xs font-semibold text-emerald-300">Google Workspace</span>
+          <span class="text-[10px] text-emerald-500">Synced 2h ago</span>
+        </div>
+        <!-- M365 — not connected -->
+        <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800/60 border border-slate-700">
+          <svg viewBox="0 0 23 23" class="h-4 w-4" xmlns="http://www.w3.org/2000/svg">
+            <rect x="1" y="1" width="10" height="10" fill="#F25022"/>
+            <rect x="12" y="1" width="10" height="10" fill="#7FBA00"/>
+            <rect x="1" y="12" width="10" height="10" fill="#00A4EF"/>
+            <rect x="12" y="12" width="10" height="10" fill="#FFB900"/>
+          </svg>
+          <span class="text-xs text-slate-400">Microsoft 365</span>
+          <span class="text-[10px] text-slate-500">Not connected</span>
+        </div>
+        <!-- Okta — not connected -->
+        <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800/60 border border-slate-700">
+          <svg viewBox="0 0 64 64" class="h-4 w-4"><circle cx="32" cy="32" r="32" fill="#007DC1"/><circle cx="32" cy="32" r="16" fill="white"/></svg>
+          <span class="text-xs text-slate-400">Okta</span>
+          <span class="text-[10px] text-slate-500">Not connected</span>
+        </div>
+      </div>
+      <button class="text-xs px-3 py-1.5 rounded-lg bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 border border-blue-500/30 font-semibold flex-shrink-0 transition-colors">Manage →</button>
+    </div>
+
+    <!-- ─── SPLIT VIEW ─── -->
+    <div class="flex flex-1 overflow-hidden mx-6 mt-4 mb-6 rounded-2xl border border-slate-800 bg-slate-900/40">
+
+      <!-- LEFT PANEL — Employee List (40%) -->
+      <div class="w-[40%] flex-shrink-0 border-r border-slate-800 flex flex-col">
+
+        <!-- Search + filters -->
+        <div class="p-3 border-b border-slate-800 space-y-2">
+          <div class="relative">
+            <svg class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            <input class="w-full pl-9 pr-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-600 outline-none focus:border-blue-500"
+              placeholder="Search by name, email, role…" />
+          </div>
+          <!-- Dept chips -->
+          <div class="flex gap-1.5 flex-wrap">
+            <button class="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-blue-600 text-white">All (60)</button>
+            <button class="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-slate-800 text-slate-400 hover:bg-slate-700">Eng (22)</button>
+            <button class="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-slate-800 text-slate-400 hover:bg-slate-700">Sales (18)</button>
+            <button class="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-slate-800 text-slate-400 hover:bg-slate-700">Finance (12)</button>
+            <button class="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-slate-800 text-slate-400 hover:bg-slate-700">HR (8)</button>
+          </div>
+          <div class="flex items-center gap-2">
+            <select class="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-slate-300 outline-none">
+              <option value="">All status</option>
+              <option>Active</option>
+              <option>Offboarding</option>
+              <option>Offboarded</option>
+            </select>
+            <span class="text-[11px] text-slate-500 whitespace-nowrap">60 found</span>
+          </div>
+        </div>
+
+        <!-- Employee list -->
+        <div class="flex-1 overflow-y-auto">
+          <!-- SELECTED employee -->
+          <button class="w-full flex items-center gap-3 p-3.5 border-b border-slate-800/50 selected-employee border-l-2 border-l-blue-500 transition-colors text-left">
+            <div class="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">A</div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2">
+                <span class="text-sm font-semibold text-white truncate">Alice Martin</span>
+                <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-semibold border border-emerald-500/30 flex-shrink-0">Active</span>
+              </div>
+              <div class="text-xs text-slate-400 truncate mt-0.5">Engineering · Lead Engineer</div>
+            </div>
+            <div class="flex-shrink-0 text-right">
+              <div class="text-xs font-bold text-blue-400">8 apps</div>
+              <div class="text-[10px] text-slate-500">€1,240/mo</div>
+            </div>
+          </button>
+          <!-- Normal employees -->
+          <button class="w-full flex items-center gap-3 p-3.5 border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors text-left">
+            <div class="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">B</div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2">
+                <span class="text-sm font-semibold text-white truncate">Bob Chen</span>
+                <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-semibold border border-amber-500/30 flex-shrink-0">Offboarding</span>
+              </div>
+              <div class="text-xs text-slate-400 truncate mt-0.5">Sales · Account Executive</div>
+            </div>
+            <div class="flex-shrink-0 text-right">
+              <div class="text-xs font-bold text-slate-300">5 apps</div>
+              <div class="text-[10px] text-red-400 font-semibold">Risk !</div>
+            </div>
+          </button>
+          <button class="w-full flex items-center gap-3 p-3.5 border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors text-left">
+            <div class="w-9 h-9 rounded-full bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">C</div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2">
+                <span class="text-sm font-semibold text-white truncate">Clara Dubois</span>
+                <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-semibold border border-emerald-500/30 flex-shrink-0">Active</span>
+              </div>
+              <div class="text-xs text-slate-400 truncate mt-0.5">Finance · CFO</div>
+            </div>
+            <div class="flex-shrink-0 text-right">
+              <div class="text-xs font-bold text-slate-300">12 apps</div>
+              <div class="text-[10px] text-slate-500">€2,100/mo</div>
+            </div>
+          </button>
+          <button class="w-full flex items-center gap-3 p-3.5 border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors text-left">
+            <div class="w-9 h-9 rounded-full bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">D</div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2">
+                <span class="text-sm font-semibold text-white truncate">David Park</span>
+                <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-semibold border border-emerald-500/30 flex-shrink-0">Active</span>
+              </div>
+              <div class="text-xs text-slate-400 truncate mt-0.5">Engineering · Backend Dev</div>
+            </div>
+            <div class="flex-shrink-0 text-right">
+              <div class="text-xs font-bold text-slate-300">6 apps</div>
+              <div class="text-[10px] text-slate-500">€740/mo</div>
+            </div>
+          </button>
+          <button class="w-full flex items-center gap-3 p-3.5 border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors text-left">
+            <div class="w-9 h-9 rounded-full bg-gradient-to-br from-violet-500 to-indigo-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">E</div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2">
+                <span class="text-sm font-semibold text-white truncate">Emma Nguyen</span>
+                <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-semibold border border-emerald-500/30 flex-shrink-0">Active</span>
+              </div>
+              <div class="text-xs text-slate-400 truncate mt-0.5">HR · Head of People</div>
+            </div>
+            <div class="flex-shrink-0 text-right">
+              <div class="text-xs font-bold text-slate-300">9 apps</div>
+              <div class="text-[10px] text-slate-500">€980/mo</div>
+            </div>
+          </button>
+          <button class="w-full flex items-center gap-3 p-3.5 border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors text-left">
+            <div class="w-9 h-9 rounded-full bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">F</div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2">
+                <span class="text-sm font-semibold text-white truncate">Frank Torres</span>
+                <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-semibold border border-emerald-500/30 flex-shrink-0">Active</span>
+              </div>
+              <div class="text-xs text-slate-400 truncate mt-0.5">Sales · Sales Manager</div>
+            </div>
+            <div class="flex-shrink-0 text-right">
+              <div class="text-xs font-bold text-slate-300">7 apps</div>
+              <div class="text-[10px] text-slate-500">€820/mo</div>
+            </div>
+          </button>
+          <button class="w-full flex items-center gap-3 p-3.5 border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors text-left">
+            <div class="w-9 h-9 rounded-full bg-gradient-to-br from-red-500 to-pink-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">G</div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2">
+                <span class="text-sm font-semibold text-white truncate">Grace Lee</span>
+                <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-semibold border border-emerald-500/30 flex-shrink-0">Active</span>
+              </div>
+              <div class="text-xs text-slate-400 truncate mt-0.5">Engineering · Frontend Dev</div>
+            </div>
+            <div class="flex-shrink-0 text-right">
+              <div class="text-xs font-bold text-slate-300">5 apps</div>
+              <div class="text-[10px] text-slate-500">€560/mo</div>
+            </div>
+          </button>
+          <!-- More rows placeholder -->
+          <div class="p-3 text-center text-xs text-slate-600">+ 53 more employees…</div>
+        </div>
+
+      </div><!-- /LEFT -->
+
+      <!-- RIGHT PANEL — Employee Profile (60%) -->
+      <div class="flex-1 overflow-y-auto">
+
+        <!-- Profile header -->
+        <div class="p-6 border-b border-slate-800">
+          <div class="flex items-start justify-between gap-4">
+            <div class="flex items-center gap-4">
+              <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-black text-2xl flex-shrink-0">A</div>
+              <div>
+                <h2 class="text-xl font-bold text-white">Alice Martin</h2>
+                <p class="text-sm text-slate-400 mt-0.5">alice.martin@company.com</p>
+                <div class="flex items-center gap-2 mt-2">
+                  <span class="text-[10px] px-2 py-1 rounded-full bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30 uppercase tracking-wider">Active</span>
+                  <span class="text-[10px] px-2 py-1 rounded-full bg-blue-500/20 text-blue-400 font-semibold border border-blue-500/30">Engineering</span>
+                  <span class="text-[10px] px-2 py-1 rounded-full bg-slate-700 text-slate-300 font-semibold">Lead Engineer</span>
+                </div>
+              </div>
+            </div>
+            <div class="flex gap-2 flex-shrink-0">
+              <button class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors" title="Edit">
+                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+              </button>
+              <button class="p-2 rounded-xl bg-slate-800 hover:bg-amber-900/30 text-slate-400 hover:text-amber-400 transition-colors" title="Offboard">
+                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+              </button>
+              <button class="p-2 rounded-xl bg-slate-800 hover:bg-red-900/30 text-slate-400 hover:text-red-400 transition-colors" title="Delete">
+                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Detail row -->
+          <div class="mt-5 grid grid-cols-4 gap-4">
+            <div class="rounded-xl bg-slate-950/50 border border-slate-800 p-3">
+              <div class="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mb-1">Start date</div>
+              <div class="text-sm font-semibold text-white">Jan 15, 2022</div>
+            </div>
+            <div class="rounded-xl bg-slate-950/50 border border-slate-800 p-3">
+              <div class="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mb-1">Tenure</div>
+              <div class="text-sm font-semibold text-white">3 yrs 5 mo</div>
+            </div>
+            <div class="rounded-xl bg-blue-500/10 border border-blue-500/20 p-3">
+              <div class="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mb-1">Total apps</div>
+              <div class="text-sm font-bold text-blue-400">8 active</div>
+            </div>
+            <div class="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-3">
+              <div class="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mb-1">Total cost</div>
+              <div class="text-sm font-bold text-emerald-400">€ 1,240/mo</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Apps section -->
+        <div class="p-6">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-base font-semibold text-white">Apps & Access</h3>
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-slate-500">8 tools · €1,240/mo</span>
+              <button class="text-xs px-2.5 py-1.5 rounded-lg bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 border border-blue-500/30 font-semibold transition-colors">+ Assign App</button>
+            </div>
+          </div>
+
+          <div class="space-y-2.5">
+            <!-- Tool with risk -->
+            <div class="rounded-xl border border-red-500/20 bg-red-500/5 p-4">
+              <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-lg bg-slate-800 flex items-center justify-center text-sm font-bold text-blue-400 flex-shrink-0">S</div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <span class="text-sm font-semibold text-white">Salesforce</span>
+                    <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-400 font-bold uppercase">High Risk</span>
+                    <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-700 text-slate-300 font-semibold">Admin</span>
+                  </div>
+                  <div class="text-xs text-slate-500 mt-0.5 flex items-center gap-3">
+                    <span>Last used: 2 days ago</span>
+                    <span>·</span>
+                    <span class="text-emerald-400">MFA enabled</span>
+                    <span>·</span>
+                    <span>€103/mo</span>
+                  </div>
+                </div>
+                <div class="flex items-center gap-2 flex-shrink-0">
+                  <button class="text-xs px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 transition-colors">Review</button>
+                  <button class="p-1.5 rounded-lg bg-slate-800 hover:bg-red-600/20 text-slate-500 hover:text-red-400 transition-colors" title="Revoke">
+                    <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                  </button>
+                </div>
+              </div>
+              <!-- Risk evidence chips -->
+              <div class="mt-2.5 flex flex-wrap gap-1.5">
+                <span class="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">No contract</span>
+                <span class="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">No renewal date</span>
+                <span class="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">High spend</span>
+              </div>
+            </div>
+
+            <!-- Normal tools -->
+            <div class="rounded-xl border border-slate-800 bg-slate-950/40 p-4 flex items-center gap-3">
+              <div class="w-9 h-9 rounded-lg bg-slate-800 flex items-center justify-center text-sm font-bold text-purple-400 flex-shrink-0">G</div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="text-sm font-semibold text-white">GitHub Enterprise</span>
+                  <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold uppercase">Low Risk</span>
+                </div>
+                <div class="text-xs text-slate-500 mt-0.5 flex items-center gap-3">
+                  <span>Last used: today</span>
+                  <span>·</span>
+                  <span class="text-emerald-400">MFA enabled</span>
+                  <span>·</span>
+                  <span>€44/mo</span>
+                </div>
+              </div>
+              <button class="p-1.5 rounded-lg bg-slate-800 hover:bg-red-600/20 text-slate-500 hover:text-red-400 transition-colors" title="Revoke">
+                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            </div>
+
+            <div class="rounded-xl border border-slate-800 bg-slate-950/40 p-4 flex items-center gap-3">
+              <div class="w-9 h-9 rounded-lg bg-slate-800 flex items-center justify-center text-sm font-bold text-pink-400 flex-shrink-0">F</div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="text-sm font-semibold text-white">Figma</span>
+                  <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-bold uppercase">Medium Risk</span>
+                </div>
+                <div class="text-xs text-slate-500 mt-0.5 flex items-center gap-3">
+                  <span>Last used: 5 days ago</span>
+                  <span>·</span>
+                  <span class="text-slate-400">No MFA</span>
+                  <span>·</span>
+                  <span>€60/mo</span>
+                </div>
+              </div>
+              <button class="p-1.5 rounded-lg bg-slate-800 hover:bg-red-600/20 text-slate-500 hover:text-red-400 transition-colors" title="Revoke">
+                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            </div>
+
+            <div class="rounded-xl border border-slate-800 bg-slate-950/40 p-4 flex items-center gap-3">
+              <div class="w-9 h-9 rounded-lg bg-slate-800 flex items-center justify-center text-sm font-bold text-emerald-400 flex-shrink-0">S</div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="text-sm font-semibold text-white">Slack</span>
+                  <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold uppercase">Low Risk</span>
+                </div>
+                <div class="text-xs text-slate-500 mt-0.5 flex items-center gap-3">
+                  <span>Last used: today</span>
+                  <span>·</span>
+                  <span class="text-emerald-400">MFA enabled</span>
+                  <span>·</span>
+                  <span>€15/mo</span>
+                </div>
+              </div>
+              <button class="p-1.5 rounded-lg bg-slate-800 hover:bg-red-600/20 text-slate-500 hover:text-red-400 transition-colors" title="Revoke">
+                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            </div>
+
+            <div class="rounded-xl border border-slate-800 bg-slate-950/40 p-4 flex items-center gap-3">
+              <div class="w-9 h-9 rounded-lg bg-slate-800 flex items-center justify-center text-sm font-bold text-blue-400 flex-shrink-0">N</div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="text-sm font-semibold text-white">Notion</span>
+                  <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold uppercase">Low Risk</span>
+                </div>
+                <div class="text-xs text-slate-500 mt-0.5 flex items-center gap-3">
+                  <span>Last used: 3 days ago</span>
+                  <span>·</span>
+                  <span class="text-emerald-400">MFA enabled</span>
+                  <span>·</span>
+                  <span>€16/mo</span>
+                </div>
+              </div>
+              <button class="p-1.5 rounded-lg bg-slate-800 hover:bg-red-600/20 text-slate-500 hover:text-red-400 transition-colors" title="Revoke">
+                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            </div>
+
+            <!-- + more -->
+            <button class="w-full text-xs text-slate-500 hover:text-blue-400 py-2 transition-colors">+ 3 more apps →</button>
+          </div>
+        </div>
+
+      </div><!-- /RIGHT -->
+
+    </div><!-- /SPLIT VIEW -->
+
+  </main>
+</div>
+
+</body>
+</html>
