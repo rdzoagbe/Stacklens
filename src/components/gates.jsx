@@ -89,7 +89,7 @@ export function PlanGate({ requires, children, feature = 'this feature' }) {
       <h2 className="text-2xl font-black text-white mb-2">{t('upgrade_to_access')} {feature}</h2>
       <p className="text-slate-400 mb-6 max-w-md">
         This feature requires the <span className="text-blue-400 font-semibold">{planNames[requires] || requires}</span> plan or higher.
-        You're currently on the <span className="text-slate-300 font-semibold">{getPlanLimits(plan).label || plan}</span> plan.
+        You&apos;re currently on the <span className="text-slate-300 font-semibold">{getPlanLimits(plan).label || plan}</span> plan.
       </p>
       <button
         onClick={() => { navigate('/settings'); setTimeout(() => { document.querySelector('[data-tab="billing"]')?.click(); }, 100); }}
@@ -120,7 +120,7 @@ export function ModuleGate({ module, children, feature = 'this module' }) {
   const { user } = useAuth();
   const navigate  = useNavigate();
   const plan      = resolvePlan(user);
-  const hasAccess = plan === 'trial' || (MODULE_PLANS[module] || []).includes(plan);
+  const hasAccess = plan === 'trial' || plan === 'demo' || (MODULE_PLANS[module] || []).includes(plan);
   if (hasAccess) return children;
 
   const moduleNames = {
