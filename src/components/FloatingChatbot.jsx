@@ -17,15 +17,15 @@ function FloatingChatbot() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [initialized, setInitialized] = useState(false);
+  const initializedRef = React.useRef(false);
   const bottomRef = React.useRef(null);
 
   React.useEffect(() => {
-    if (open && !initialized) {
+    if (open && !initializedRef.current) {
+      initializedRef.current = true;
       setMessages([{ role: 'assistant', content: t('chatbot_welcome') }]);
-      setInitialized(true);
     }
-  }, [open, initialized, t]);
+  }, [open, t]);
 
   React.useEffect(() => {
     if (bottomRef.current) bottomRef.current.scrollIntoView({ behavior: 'smooth' });

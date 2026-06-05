@@ -510,7 +510,7 @@ export function DemoBanner() {
     <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm px-4 py-2.5 flex items-center justify-between">
       <div className="flex items-center gap-2">
         <span className="text-base">🎯</span>
-        <span className="font-semibold">You're in Demo Mode</span>
+        <span className="font-semibold">You&apos;re in Demo Mode</span>
         <span className="text-blue-200 hidden sm:inline">— Explore with sample data. Sign up for real data.</span>
       </div>
       <div className="flex items-center gap-2">

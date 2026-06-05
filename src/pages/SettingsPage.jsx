@@ -50,6 +50,7 @@ export function SettingsPage() {
     const success = searchParams.get('success');
     const cancelled = searchParams.get('cancelled');
     if (success === 'true') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setActiveTab('billing');
       setStripeMsg('success');
       // Sync plan: refresh custom claims from server, then pull Firestore plan into localStorage
@@ -431,7 +432,7 @@ export function SettingsPage() {
                 <CardBody>
                   {showNewKey && (
                     <div className="mb-4 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-                      <div className="text-sm font-bold text-emerald-400 mb-1">✓ New API key generated — copy it now, it won't be shown again</div>
+                      <div className="text-sm font-bold text-emerald-400 mb-1">✓ New API key generated — copy it now, it won&apos;t be shown again</div>
                       <div className="font-mono text-xs bg-slate-900 px-3 py-2 rounded-lg text-white break-all">{showNewKey}</div>
                       <button onClick={() => { navigator.clipboard.writeText(showNewKey); }} className="text-xs text-emerald-400 mt-2 hover:underline">{t("hc_copy_to_clipboard")}</button>
                     </div>

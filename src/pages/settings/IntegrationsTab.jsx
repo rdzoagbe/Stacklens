@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import toast from 'react-hot-toast';
 import { AlertTriangle, Check, CheckCircle, Eye, EyeOff, Loader, Plug, RefreshCw, Search, Users, X } from 'lucide-react';
 import { useLang } from '../../contexts/LangContext';
@@ -837,7 +837,7 @@ function SetupModal({ integration, onClose }) {
     'microsoft-365': (
       <p className="text-xs text-amber-300">
         <strong>Note:</strong> <code className="bg-black/30 px-1 rounded">User.Read.All</code> requires tenant admin consent.
-        The first user to connect must be a Global Administrator — they'll see a consent screen covering all users in the org.
+        The first user to connect must be a Global Administrator — they&apos;ll see a consent screen covering all users in the org.
       </p>
     ),
   };
@@ -1352,6 +1352,7 @@ export function IntegrationConnectors() {
     }
   }, [db?.employees, connectedIntegrations, muts]);
 
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization
   const handleSlackTokenSubmit = useCallback(async (token, channel = '#renewals') => {
     if (!token) return;
     setSlackSyncing(true);
@@ -1423,6 +1424,7 @@ export function IntegrationConnectors() {
     await handleSlackTokenSubmit(token, channel);
   }, [handleSlackTokenSubmit]);
 
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization
   const handleGitHubTokenSubmit = useCallback(async (token, org) => {
     if (!token || !org) return;
     setGithubSyncing(true);
@@ -1494,6 +1496,7 @@ export function IntegrationConnectors() {
     await handleGitHubTokenSubmit(token, org);
   }, [handleGitHubTokenSubmit]);
 
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization
   const handleOktaTokenSubmit = useCallback(async (token, domain) => {
     if (!token || !domain) return;
     setOktaSyncing(true);
@@ -1552,6 +1555,7 @@ export function IntegrationConnectors() {
     await handleOktaTokenSubmit(token, domain);
   }, [handleOktaTokenSubmit]);
 
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization
   const handleZoomSubmit = useCallback(async (accountId, clientId, clientSecret) => {
     if (!accountId || !clientId || !clientSecret) return;
     setZoomSyncing(true);
@@ -1613,6 +1617,7 @@ export function IntegrationConnectors() {
     await handleZoomSubmit(accountId, clientId, clientSecret);
   }, [handleZoomSubmit]);
 
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization
   const handleAsanaTokenSubmit = useCallback(async (token) => {
     if (!token) return;
     setAsanaSyncing(true);
@@ -1667,6 +1672,8 @@ export function IntegrationConnectors() {
     await handleAsanaTokenSubmit(token);
   }, [handleAsanaTokenSubmit]);
 
+  const handleSalesforceSubmitRef = useRef(null);
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization
   const handleSalesforceSubmit = useCallback(async (clientId, loginUrl) => {
     if (!clientId) return;
     setSfSyncing(true);
@@ -1715,7 +1722,7 @@ export function IntegrationConnectors() {
       setSyncResult({ source: 'salesforce', total: incoming.length, added: toAdd.length, updated: toUpdate.length, skipped });
     } catch (err) {
       if (err.message === 'popup_closed_by_user' || err.message === 'popup_closed') {
-        setSyncCancelled({ source: 'salesforce', retry: () => handleSalesforceSubmit(clientId, loginUrl) });
+        setSyncCancelled({ source: 'salesforce', retry: () => handleSalesforceSubmitRef.current?.(clientId, loginUrl) });
         return;
       }
       setSyncResult({ source: 'salesforce', error: err.message });
@@ -1724,6 +1731,7 @@ export function IntegrationConnectors() {
       setSfSyncing(false);
     }
   }, [db?.employees, connectedIntegrations, muts]);
+  React.useLayoutEffect(() => { handleSalesforceSubmitRef.current = handleSalesforceSubmit; }, [handleSalesforceSubmit]);
 
   const handleSalesforceResync = useCallback(async () => {
     const clientId     = localStorage.getItem(SF_CLIENT_ID_KEY);
@@ -1863,7 +1871,8 @@ export function IntegrationConnectors() {
     }
     if (integrationId === 'microsoft-365') {
       localStorage.removeItem(M365_SYNC_KEY);
-      _msalApp = null;
+      // eslint-disable-next-line react-hooks/globals
+      _msalApp = null; // module-level MSAL singleton, intentionally reset on disconnect
       setSyncResult(null);
     }
     if (integrationId === 'github') {

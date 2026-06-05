@@ -147,7 +147,7 @@ function GettingStartedChecklist({ db }) {
       icon: '🛠️',
       title: t('gs_step1_title'),
       desc: t('gs_step1_desc'),
-      done: (db?.tools || []).filter(t => t.status !== 'archived').length > 0,
+      done: (db?.tools || []).filter(tool => tool.status !== 'archived').length > 0,
       action: () => navigate('/tools'),
       cta: t('gs_step1_cta'),
     },
@@ -190,6 +190,7 @@ function GettingStartedChecklist({ db }) {
 
   React.useEffect(() => {
     if (allDone && !dismissed) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setCelebrating(true);
       const t = setTimeout(() => dismiss(), 4000);
       return () => clearTimeout(t);
@@ -296,8 +297,8 @@ export function DashboardPage() {
     }));
     const alerts = buildRiskAlerts({ ...db, tools, access });
     const counts = riskSeverityCounts(alerts);
-    const spend = tools.reduce((sum, t) => sum + Number(t.cost_per_month || 0), 0);
-    const highRiskTools = tools.filter((t) => t.derived_risk === "high").length;
+    const spend = tools.reduce((sum, tool) => sum + Number(tool.cost_per_month || 0), 0);
+    const highRiskTools = tools.filter((tool) => tool.derived_risk === "high").length;
     const formerAccess = access.filter((a) => a.derived_risk_flag === "former_employee").length;
     return { tools, access, alerts, counts, spend, highRiskTools, formerAccess };
   }, [db]);
@@ -321,23 +322,23 @@ export function DashboardPage() {
     const tools = derived.tools || [];
     if (spendView === 'tool') {
       return tools
-        .filter(t => t.cost_per_month > 0)
+        .filter(tool => tool.cost_per_month > 0)
         .sort((a, b) => b.cost_per_month - a.cost_per_month)
         .slice(0, 6)
-        .map(t => ({ label: t.name, value: t.cost_per_month, sub: `${t.seats || '?'} seats` }));
+        .map(tool => ({ label: tool.name, value: tool.cost_per_month, sub: `${tool.seats || '?'} seats` }));
     }
     if (spendView === 'category') {
       const cat = {};
-      tools.forEach(t => { const c = t.category || 'other'; cat[c] = (cat[c] || 0) + (t.cost_per_month || 0); });
+      tools.forEach(tool => { const c = tool.category || 'other'; cat[c] = (cat[c] || 0) + (tool.cost_per_month || 0); });
       return Object.entries(cat).sort((a, b) => b[1] - a[1]).slice(0, 6)
         .map(([label, value]) => ({ label, value, sub: '' }));
     }
     // dept
     const deptAcc = {};
-    tools.forEach(t => {
-      const emp = (db?.employees || []).find(e => e.email === t.owner_email);
+    tools.forEach(tool => {
+      const emp = (db?.employees || []).find(e => e.email === tool.owner_email);
       const d = emp?.department || 'unassigned';
-      deptAcc[d] = (deptAcc[d] || 0) + (t.cost_per_month || 0);
+      deptAcc[d] = (deptAcc[d] || 0) + (tool.cost_per_month || 0);
     });
     return Object.entries(deptAcc).sort((a, b) => b[1] - a[1]).slice(0, 6)
       .map(([label, value]) => ({ label, value, sub: '' }));
@@ -422,15 +423,16 @@ export function DashboardPage() {
         const totalTools = derived.tools.length;
         const totalEmployees = new Set((derived.access).map(a => a.employee_id)).size;
         const hasData = totalTools > 0 || totalEmployees > 0;
-        const orphanedToolsCount = derived.tools.filter(t => !t.owner_email).length;
+        const orphanedToolsCount = derived.tools.filter(tool => !tool.owner_email).length;
         const formerAccess = derived.formerAccess || 0;
-        const highRiskTools = derived.tools.filter(t => t.derived_risk === 'high').length;
+        const highRiskTools = derived.tools.filter(tool => tool.derived_risk === 'high').length;
         const score = hasData ? Math.max(0, Math.min(100, 100 - (orphanedToolsCount * 10) - (highRiskTools * 5) - (formerAccess * 8))) : null;
         const scoreColor = score === null ? '#475569' : score >= 80 ? '#10b981' : score >= 60 ? '#f59e0b' : '#ef4444';
         const scoreLabel = score === null ? 'No data' : score >= 80 ? 'Good' : score >= 60 ? 'Needs Work' : 'Critical';
         const labelBg = score === null ? 'bg-slate-700/40 text-slate-400' : score >= 80 ? 'bg-emerald-500/20 text-emerald-400' : score >= 60 ? 'bg-amber-500/20 text-amber-400' : 'bg-red-500/20 text-red-400';
-        const toolsWithMfa = derived.tools.filter(t => t.mfa_required || t.mfa_enabled).length;
+        const toolsWithMfa = derived.tools.filter(tool => tool.mfa_required || tool.mfa_enabled).length;
         const mfaCoverage = totalTools > 0 ? Math.round((toolsWithMfa / totalTools) * 100) : null;
+        // eslint-disable-next-line react-hooks/purity
         const ninetyDaysAgo = Date.now() - 90 * 24 * 60 * 60 * 1000;
         const overdueReviews = derived.access.filter(a => !a.last_reviewed_date || new Date(a.last_reviewed_date).getTime() < ninetyDaysAgo).length;
         const wastedSpend = Math.round((derived.spend || 0) * 0.14);
@@ -620,21 +622,21 @@ export function DashboardPage() {
           });
         });
 
-        (derived.tools || []).filter(t => !t.owner_email).slice(0, 4).forEach(t => {
+        (derived.tools || []).filter(tool => !tool.owner_email).slice(0, 4).forEach(tool => {
           actions.push({
-            id: 'noowner-' + t.id, severity: 'high', icon: '🟡',
-            title: `${t.name} has no assigned owner`,
-            reason: `${getCurrency(language)}${convertCurrency(t.cost_per_month||0,language).toLocaleString()}/mo — nobody responsible`,
+            id: 'noowner-' + tool.id, severity: 'high', icon: '🟡',
+            title: `${tool.name} has no assigned owner`,
+            reason: `${getCurrency(language)}${convertCurrency(tool.cost_per_month||0,language).toLocaleString()}/mo — nobody responsible`,
             action: 'Assign',
-            toolId: t.id, toolName: t.name, needsOwner: true,
+            toolId: tool.id, toolName: tool.name, needsOwner: true,
           });
         });
 
-        (derived.tools || []).filter(t => t.derived_risk === 'high' && !t.mfa_required && !t.mfa_enabled).slice(0, 3).forEach(t => {
+        (derived.tools || []).filter(tool => tool.derived_risk === 'high' && !tool.mfa_required && !tool.mfa_enabled).slice(0, 3).forEach(tool => {
           actions.push({
-            id: 'mfa-' + t.id, severity: 'high', icon: '🛡️',
-            title: `${t.name} is high risk with no MFA`,
-            reason: `Owner: ${t.owner_email || 'none'} · Last used: ${t.last_used_date || 'unknown'}`,
+            id: 'mfa-' + tool.id, severity: 'high', icon: '🛡️',
+            title: `${tool.name} is high risk with no MFA`,
+            reason: `Owner: ${tool.owner_email || 'none'} · Last used: ${tool.last_used_date || 'unknown'}`,
             action: 'Review', link: '/security',
           });
         });
@@ -651,12 +653,13 @@ export function DashboardPage() {
           });
         }
 
+        // eslint-disable-next-line react-hooks/purity
         const sixtyDaysAgo = Date.now() - 60 * 24 * 60 * 60 * 1000;
-        (derived.tools || []).filter(t => t.cost_per_month > 0 && (!t.last_used_date || new Date(t.last_used_date).getTime() < sixtyDaysAgo)).slice(0, 3).forEach(t => {
+        (derived.tools || []).filter(tool => tool.cost_per_month > 0 && (!tool.last_used_date || new Date(tool.last_used_date).getTime() < sixtyDaysAgo)).slice(0, 3).forEach(tool => {
           actions.push({
-            id: 'idle-' + t.id, severity: 'medium', icon: '💸',
-            title: `${t.name} — ${getCurrency(language)}${convertCurrency(t.cost_per_month||0,language).toLocaleString()}/mo possibly wasted`,
-            reason: `Last used: ${t.last_used_date || 'never'}`,
+            id: 'idle-' + tool.id, severity: 'medium', icon: '💸',
+            title: `${tool.name} — ${getCurrency(language)}${convertCurrency(tool.cost_per_month||0,language).toLocaleString()}/mo possibly wasted`,
+            reason: `Last used: ${tool.last_used_date || 'never'}`,
             action: 'Review', link: '/tools',
           });
         });
@@ -836,10 +839,10 @@ function AIRecommendations({ tools, employees, access }) {
     try {
       const today = new Date();
       const offboarded = (employees || []).filter(e => e.status === 'offboarded' || e.status === 'offboarding');
-      const orphaned = (tools || []).filter(t => !t.owner_email);
-      const unused = (tools || []).filter(t => {
-        if (!t.last_used_date) return false;
-        const days = Math.floor((today - new Date(t.last_used_date)) / 86400000);
+      const orphaned = (tools || []).filter(tool => !tool.owner_email);
+      const unused = (tools || []).filter(tool => {
+        if (!tool.last_used_date) return false;
+        const days = Math.floor((today - new Date(tool.last_used_date)) / 86400000);
         return days > 90;
       });
       const formerWithAccess = offboarded.filter(e =>
@@ -852,9 +855,9 @@ Company data:
 - Total tools: ${(tools || []).length}
 - Total employees: ${(employees || []).length}
 - Former employees with active access: ${formerWithAccess.map(e => e.full_name).join(', ') || 'None'}
-- Tools without owners (no owner): ${orphaned.map(t => t.name).join(', ') || 'None'}
-- Unused 90+ days: ${unused.map(t => t.name).join(', ') || 'None'}
-- Monthly spend: ${getCurrency(language)}${(tools || []).reduce((s, t) => s + (t.cost_per_month || 0), 0).toLocaleString()}
+- Tools without owners (no owner): ${orphaned.map(tool => tool.name).join(', ') || 'None'}
+- Unused 90+ days: ${unused.map(tool => tool.name).join(', ') || 'None'}
+- Monthly spend: ${getCurrency(language)}${(tools || []).reduce((s, tool) => s + (tool.cost_per_month || 0), 0).toLocaleString()}
 
 Return JSON array of recommendations:
 [{"priority": "high|medium|low", "title": "...", "description": "...", "action": "...", "savings": "optional $X/mo"}]
@@ -874,6 +877,7 @@ Return ONLY the JSON array, no markdown.`;
     } finally { setLoading(false); }
   };
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   React.useEffect(() => { if (tools?.length > 0) generateRecs(); }, []);
 
   return (
