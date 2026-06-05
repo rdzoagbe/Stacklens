@@ -326,7 +326,7 @@ export function AuditExportPage() {
 
   return (
     <PlanGate requires="scale" feature="Audit Export"><AppShell
-      title={"Export Audit" || 'Audit Export'}
+      title="Audit Export"
       right={
         <Button onClick={exportAll}>
           <Download className="h-4 w-4" /> Full Audit Package

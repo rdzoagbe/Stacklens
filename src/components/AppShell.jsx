@@ -345,7 +345,7 @@ function readStoredConsent() {
 
 function writeStoredConsent(choice) {
   const record = { choice, version: CONSENT_VERSION, timestamp: Date.now() };
-  try { localStorage.setItem(CONSENT_STORAGE_KEY, JSON.stringify(record)); } catch {}
+  try { localStorage.setItem(CONSENT_STORAGE_KEY, JSON.stringify(record)); } catch { /* noop */ }
   try {
     if (typeof logConsent === 'function') {
       logConsent({
@@ -355,7 +355,7 @@ function writeStoredConsent(choice) {
         language: navigator.language || '',
       }).catch(() => {});
     }
-  } catch {}
+  } catch { /* noop */ }
 }
 
 export function CookieBanner() {
@@ -544,6 +544,12 @@ export class ErrorBoundary extends React.Component {
     }
     return this.props.children;
   }
+}
+
+// Resets error state on each route change so one broken page doesn't lock the app.
+export function PageBoundary({ children }) {
+  const { pathname } = useLocation();
+  return <ErrorBoundary key={pathname}>{children}</ErrorBoundary>;
 }
 
 export function AppShell({ subtitle, title, right, children }) {
