@@ -18,8 +18,12 @@ export const ROLES = {
 };
 
 export function getUserRole() {
-  try { return (localStorage.getItem('sg_my_role') || 'owner').toLowerCase(); }
-  catch { return 'owner'; }
+  try {
+    const db = JSON.parse(localStorage.getItem('accessguard_v1') || '{}');
+    return (db?.user?.role || 'owner').toLowerCase();
+  } catch {
+    return 'owner';
+  }
 }
 
 export function can(action, role) {

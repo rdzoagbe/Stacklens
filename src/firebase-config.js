@@ -56,15 +56,16 @@ const firebaseConfig = {
   measurementId:     import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
 
-// Sanity check — fail loud in dev if env vars aren't set
-if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
-  console.error(
-    '❌ Firebase config missing! Make sure your .env file has VITE_FIREBASE_* variables set. ' +
-    'See .env.example for the template.'
+const FIREBASE_CONFIGURED = !!(firebaseConfig.apiKey && firebaseConfig.projectId);
+
+if (!FIREBASE_CONFIGURED) {
+  console.warn(
+    '[Stacklens] Firebase config missing — running in offline/demo mode. ' +
+    'Set VITE_FIREBASE_* in your .env file to enable auth and cloud sync.'
   );
 }
 
-const app             = initializeApp(firebaseConfig);
+const app = initializeApp(firebaseConfig);
 
 // ── App Check (anti-bot protection) ──────────────────────────────
 // Activates only when VITE_RECAPTCHA_SITE_KEY is set in .env
@@ -81,8 +82,17 @@ try {
   console.warn('App Check initialization skipped:', e?.message);
 }
 
-const auth            = getAuth(app);
-const firestoreDb     = getFirestore(app);
+// Auth and Firestore are guarded — if Firebase credentials are missing the app
+// runs in offline mode: onAuthChange immediately fires with null (not signed in)
+// and all Firestore reads/writes silently no-op.
+let auth        = null;
+let firestoreDb = null;
+try {
+  auth        = getAuth(app);
+  firestoreDb = getFirestore(app);
+} catch (e) {
+  console.warn('[Stacklens] Firebase services unavailable (offline mode):', e?.message);
+}
 const googleProvider    = new GoogleAuthProvider();
 const microsoftProvider = new OAuthProvider('microsoft.com');
 microsoftProvider.addScope('email');
@@ -180,6 +190,7 @@ export async function callAI({ messages, system, max_tokens = 2000 }) {
 // /userdata/{uid} → { tools, employees, access, user }
 // ============================================================================
 export async function loadUserData(uid) {
+  if (!firestoreDb) return null;
   try {
     const snap = await getDoc(doc(firestoreDb, 'userdata', uid));
     return snap.exists() ? snap.data() : null;
@@ -191,6 +202,7 @@ export async function loadUserData(uid) {
 
 // Read billing plan directly from users collection (updated by Stripe webhook)
 export async function getUserPlanFromFirestore(uid) {
+  if (!firestoreDb) return null;
   try {
     const snap = await getDoc(doc(firestoreDb, 'users', uid));
     if (snap.exists()) return snap.data();
@@ -201,6 +213,7 @@ export async function getUserPlanFromFirestore(uid) {
 }
 
 export async function saveUserData(uid, db) {
+  if (!firestoreDb) return;
   try {
     await setDoc(
       doc(firestoreDb, 'userdata', uid),
@@ -289,6 +302,12 @@ export async function signOutUser() {
 }
 
 export function onAuthChange(callback) {
+  if (!auth) {
+    // No Firebase auth — fire immediately with null (not signed in) so the app
+    // doesn't hang on the loading spinner in offline/dev mode.
+    const timer = setTimeout(() => callback(null), 0);
+    return () => clearTimeout(timer);
+  }
   return onAuthStateChanged(auth, callback);
 }
 
@@ -445,6 +464,7 @@ export async function resetPassword(email) {
 // CNIL requires proof of consent existence, not user identification.
 // ============================================================================
 export async function logConsent({ choice, version, userAgent, language }) {
+  if (!firestoreDb) return;
   try {
     await addDoc(collection(firestoreDb, 'consent_logs'), {
       choice,                          // 'accepted' or 'rejected'
@@ -464,6 +484,7 @@ export async function logConsent({ choice, version, userAgent, language }) {
 // Writes to /legal_acceptances/{uid}_{ts} — best-effort, never blocks UI.
 // ============================================================================
 export async function logLegalAcceptance(uid, email, planId) {
+  if (!firestoreDb) return;
   try {
     await setDoc(
       doc(firestoreDb, 'legal_acceptances', `${uid}_${Date.now()}`),
@@ -483,6 +504,7 @@ export async function logLegalAcceptance(uid, email, planId) {
 // FOUNDER ADMIN — read all users, extend trials
 // ============================================================================
 export async function loadAllUsersAdmin() {
+  if (!firestoreDb) return [];
   try {
     const snap = await getDocs(query(collection(firestoreDb, 'users'), orderBy('trial_started_at', 'desc')));
     return snap.docs.map(d => ({ uid: d.id, ...d.data() }));
@@ -522,6 +544,7 @@ export async function founderSetPlan(targetUid, plan) {
 // Best-effort: silently fails if Firestore rules reject (Cloud Function may have already set it).
 // ============================================================================
 export async function saveReport(token, payload) {
+  if (!firestoreDb) throw new Error('Firestore unavailable');
   try {
     await setDoc(doc(firestoreDb, 'reports', token), payload);
   } catch (err) {
@@ -531,6 +554,7 @@ export async function saveReport(token, payload) {
 }
 
 export async function getReport(token) {
+  if (!firestoreDb) return null;
   try {
     const snap = await getDoc(doc(firestoreDb, 'reports', token));
     return snap.exists() ? snap.data() : null;
@@ -541,6 +565,7 @@ export async function getReport(token) {
 }
 
 export async function deleteReport(token) {
+  if (!firestoreDb) return;
   try {
     const { deleteDoc } = await import('firebase/firestore');
     await deleteDoc(doc(firestoreDb, 'reports', token));
@@ -551,6 +576,7 @@ export async function deleteReport(token) {
 }
 
 export async function startTrial(uid) {
+  if (!firestoreDb) return;
   try {
     await setDoc(
       doc(firestoreDb, 'users', uid),
@@ -566,6 +592,7 @@ export async function startTrial(uid) {
 }
 
 export async function deleteAccount() {
+  if (!auth) throw new Error('Firebase auth unavailable');
   const user = auth.currentUser;
   if (!user) throw new Error('Not authenticated');
   const uid = user.uid;

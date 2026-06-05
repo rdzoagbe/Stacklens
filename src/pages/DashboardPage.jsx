@@ -816,11 +816,11 @@ function getCachedAIRecs() {
   try {
     const cached = JSON.parse(localStorage.getItem(AI_RECS_CACHE_KEY) || '{}');
     if (cached.data && Date.now() - cached.ts < AI_RECS_CACHE_TTL) return cached.data;
-  } catch {}
+  } catch { /* noop */ }
   return null;
 }
 function setCachedAIRecs(data) {
-  try { localStorage.setItem(AI_RECS_CACHE_KEY, JSON.stringify({ data, ts: Date.now() })); } catch {}
+  try { localStorage.setItem(AI_RECS_CACHE_KEY, JSON.stringify({ data, ts: Date.now() })); } catch { /* noop */ }
 }
 
 function AIRecommendations({ tools, employees, access }) {

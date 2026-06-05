@@ -6,7 +6,7 @@ import { TourProvider } from './contexts/TourContext';
 import { LanguageProvider, useLang } from './contexts/LangContext';
 import { CurrencyProvider } from './contexts/CurrencyContext';
 import { ModuleGate } from './components/gates';
-import { AppShell, CookieBanner, ErrorBoundary } from './components/AppShell';
+import { AppShell, CookieBanner, ErrorBoundary, PageBoundary } from './components/AppShell';
 import { FloatingChatbotGated } from './components/FloatingChatbot';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useTranslation } from './translations';
@@ -193,6 +193,7 @@ export default function App() {
         <CookieBanner />
           <TourProvider>
           <Suspense fallback={<PageLoader />}>
+          <PageBoundary>
           <Routes>
           <Route path="/" element={<TrialPage />} />
           <Route path="/about" element={<AboutPage />} />
@@ -268,6 +269,7 @@ export default function App() {
           <Route path="/founder-admin" element={<Navigate to="/dashboard" replace />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
+          </PageBoundary>
           </Suspense>
         <FloatingChatbotGated />
         </TourProvider>

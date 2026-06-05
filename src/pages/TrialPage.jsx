@@ -726,8 +726,8 @@ export function TrialPage() {
                           onChange={e => { const btn = document.getElementById('signup-btn'); if (btn) btn.disabled = !e.target.checked; }} />
                         <span className="text-xs text-slate-400 leading-relaxed">
                           {language === 'fr'
-                            ? <>{`J'accepte les `}<Link to="/terms" target="_blank" className="text-blue-400 hover:text-blue-300 underline">{`CGU`}</Link>{` et la `}<Link to="/privacy" target="_blank" className="text-blue-400 hover:text-blue-300 underline">{`Politique de confidentialité`}</Link></>
-                            : <>{'I agree to the '}<Link to="/terms" target="_blank" className="text-blue-400 hover:text-blue-300 underline">{'Terms of Service'}</Link>{' and '}<Link to="/privacy" target="_blank" className="text-blue-400 hover:text-blue-300 underline">{'Privacy Policy'}</Link></>
+                            ? <>{`J'accepte les `}<Link to="/terms" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 underline">{`CGU`}</Link>{` et la `}<Link to="/privacy" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 underline">{`Politique de confidentialité`}</Link></>
+                            : <>{'I agree to the '}<Link to="/terms" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 underline">{'Terms of Service'}</Link>{' and '}<Link to="/privacy" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 underline">{'Privacy Policy'}</Link></>
                           }
                         </span>
                       </label>

@@ -38,14 +38,29 @@ export function loadDb() {
 const LS_SIZE_WARN_BYTES = 3 * 1024 * 1024;
 const LS_SIZE_MAX_BYTES  = 4.5 * 1024 * 1024;
 
+function _trimDbForStorage(db) {
+  const trimmed = { ...db };
+  // Keep all employees and tools — they're the source of truth.
+  // Trim access records: sort by last_accessed_date desc, keep most recent.
+  if (trimmed.access?.length > 100) {
+    trimmed.access = [...trimmed.access]
+      .sort((a, b) => {
+        const ta = a.last_accessed_date ? new Date(a.last_accessed_date).getTime() : 0;
+        const tb = b.last_accessed_date ? new Date(b.last_accessed_date).getTime() : 0;
+        return tb - ta;
+      })
+      .slice(0, 150);
+  }
+  return trimmed;
+}
+
 export function saveDb(db) {
   const serialized = JSON.stringify({ ...db, _saved_at: Date.now() });
   if (serialized.length > LS_SIZE_MAX_BYTES) {
-    const trimmed = { ...db };
-    if (trimmed.tools?.length > 50) trimmed.tools = trimmed.tools.slice(0, Math.floor(trimmed.tools.length * 0.8));
-    if (trimmed.access?.length > 200) trimmed.access = trimmed.access.slice(0, Math.floor(trimmed.access.length * 0.8));
-    localStorage.setItem(LS_KEY, JSON.stringify(trimmed));
-    console.warn('[Stacklens] localStorage approaching limit — oldest records trimmed.');
+    const trimmed = _trimDbForStorage(db);
+    const trimmedSerialized = JSON.stringify({ ...trimmed, _saved_at: Date.now(), _trimmed: true });
+    localStorage.setItem(LS_KEY, trimmedSerialized);
+    console.warn('[Stacklens] localStorage limit reached — oldest access records archived. Sync to cloud to preserve full history.');
   } else {
     if (serialized.length > LS_SIZE_WARN_BYTES) {
       console.warn('[Stacklens] localStorage usage high:', Math.round(serialized.length / 1024), 'KB');
