@@ -19,9 +19,13 @@ firebase deploy --only functions   # requires billing enabled on GCP project
 
 # Functions local dev
 cd functions && npm run serve      # Firebase emulator for functions only
+
+# Quality
+npm run lint         # ESLint — must stay at 0 errors
+npm test             # Vitest — 84 tests across lib/
 ```
 
-There are no tests or linters configured. Type checking is implicit via React/JSX.
+There is a **husky pre-commit hook** that runs ESLint on staged files — commits will be blocked on lint errors.
 
 ## Architecture
 
@@ -38,27 +42,92 @@ Plan/billing state lives in a **separate** Firestore collection (`/users/{uid}`)
 
 ### Plan & access control
 
-Two gating systems:
+Three gating systems:
 - `PlanGate({ requires })` — checks `resolvePlan(user)` against plan hierarchy: `free → trial → starter → hr_finance → pro → enterprise → scale`
 - `ModuleGate({ module })` — maps plan to enabled modules (`security`, `finance`, `people`)
 - `RoleGate({ requires })` — RBAC within the app (`viewer`, `editor`, `admin`, `owner`)
 
-`resolvePlan()` (line ~4571) is the single source of truth. Founder override (`is_founder=true`) always returns `'scale'`. Trial expiry is checked client-side against `trial_started_at` + `TRIAL_MS` (7 days).
+`resolvePlan()` in `src/lib/plan.js` is the **single source of truth** — always use it, never derive plan from `db.user.plan` directly. Founder override (`is_founder=true`) always returns `'scale'`. Trial expiry is checked client-side against `trial_started_at` + `TRIAL_MS` (7 days).
 
 ### Source files
 
+#### Core
+
 | File | Purpose |
 |---|---|
-| `src/App.jsx` | **~15k lines** — entire app: routing, all pages, all components, all hooks, all business logic. Everything lives here. |
+| `src/App.jsx` | ~280 lines — providers, error boundary, and route table only |
 | `src/firebase-config.js` | Firebase init, all auth helpers, Firestore CRUD, Stripe billing calls, AI proxy, consent logging |
 | `src/translations.js` | i18n strings (EN/FR/DE/ES/PT) + `useTranslation()` hook. AI auto-translate via `callAI()`. |
-| `src/components/ui.jsx` | Tiny shared UI primitives (Button, Input, Modal, etc.) — rarely needed since App.jsx has its own copies |
+| `src/main.jsx` | React entry point |
+
+#### Pages (`src/pages/`)
+
+| File | Route |
+|---|---|
+| `TrialPage.jsx` | `/` — landing + sign-in |
+| `DashboardPage.jsx` | `/dashboard` |
+| `ToolsPage.jsx` | `/tools` |
+| `EmployeesPage.jsx` | `/employees` |
+| `FinancePage.jsx` | `/finance` (shell; tabs below) |
+| `SecurityCompliancePage.jsx` | `/security` |
+| `AccessPage.jsx` | `/access` |
+| `OffboardingPage.jsx` | `/offboarding` |
+| `SettingsPage.jsx` | `/settings` (shell; tabs below) |
+| `AuditPage.jsx` | `/audit` |
+| `OnboardingPage.jsx` | `/onboarding` |
+| `LegalPages.jsx` | `/privacy`, `/terms`, `/dpa`, `/sub-processors`, `/security-info`, `/legal`, `/about`, `/contact` |
+| `FinishSignUpPage.jsx` | `/finishSignUp` |
+
+#### Finance tabs (`src/pages/finance/`)
+
+`OverviewTab`, `CostTab`, `LicensesTab`, `RenewalsTab`, `AnalyticsTab`, `ExecutiveDashboard`
+
+#### Settings tabs (`src/pages/settings/`)
+
+`BillingTab`, `IntegrationsTab`
+
+#### Components (`src/components/`)
+
+| File | Purpose |
+|---|---|
+| `AppShell.jsx` | Sidebar nav + top bar wrapper used by all authenticated pages |
+| `FloatingChatbot.jsx` | AI chat assistant overlay |
+| `gates.jsx` | `RequireAuth`, `PlanGate`, `ModuleGate`, `RoleGate` |
+| `ui.jsx` | Shared primitives: Button, Input, Modal, Pill, etc. |
+
+#### Other `src/` files
+
+| File | Purpose |
+|---|---|
+| `DashboardComponents.jsx` | Spend cards, KPI widgets used by DashboardPage |
+| `ExecutiveDashboard.jsx` | Executive summary view |
+| `Modals.jsx` | Shared modal components (AddTool, ImportWizard, etc.) |
+| `google-workspace.js` | GWS OAuth + Directory API helpers |
+| `auth-redirect.js` | OAuth popup relay (Microsoft/Okta postMessage bridge) |
+
+#### Contexts, hooks, lib
+
+| Path | Purpose |
+|---|---|
+| `src/contexts/LangContext.jsx` | `LanguageContext` / `useLang()` — language preference |
+| `src/contexts/CurrencyContext.jsx` | Currency conversion context |
+| `src/contexts/TourContext.jsx` | Product tour state |
+| `src/hooks/useAuth.js` | Firebase auth state hook |
+| `src/hooks/useDbQuery.js` | TanStack Query wrapper for localStorage DB |
+| `src/lib/plan.js` | `resolvePlan()`, `getTrialState()`, plan constants |
+| `src/lib/db.js` | `saveDb()`, `hydrateFromFirestore()`, DB schema helpers |
+| `src/lib/dataUtils.js` | Pure data utilities (sorting, filtering, CSV export) |
+| `src/lib/currency.js` | Currency formatting and conversion |
+| `src/lib/constants.js` | App-wide constants |
 | `src/lib/utils.js` | `cn()` classname helper |
-| `functions/index.js` | Cloud Functions: `/ai`, `/createCheckout`, `/createPortal`, `/stripeWebhook`, `/syncuser`, `renewalAlerts` |
 
 ### Routing
 
-All routes are defined at the bottom of `App.jsx` (~line 14920). Public routes: `/`, `/pricing`, `/features`, legal pages. Authenticated routes wrap with `<RequireAuth>` and often `<ModuleGate>`. `/integrations`, `/billing`, `/analytics`, `/licenses`, `/renewals`, `/invoices`, `/contracts` all redirect to `/settings` or `/finance`.
+All routes are in `src/App.jsx`. Public routes: `/` and legal pages (`/privacy`, `/terms`, `/dpa`, etc.). All authenticated routes wrap with `<RequireAuth>`. Sensitive modules (Finance, Employees, Security, Access, Offboarding) also wrap with `<ModuleGate>`.
+
+**There are no `/pricing` or `/features` routes** — unknown paths hit `<NotFound>` which redirects to `/`.
+
+Redirects: `/integrations` → `/settings`, `/billing` → `/settings`, `/analytics` → `/finance`, `/licenses` → `/finance`, `/renewals` → `/finance`, `/invoices` → `/finance`, `/contracts` → `/finance`.
 
 ### Authentication
 
@@ -83,7 +152,7 @@ Secrets (ANTHROPIC_API_KEY, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, SENDGRID_A
 
 ### i18n
 
-`useTranslation()` from `translations.js` returns `t(key)`. Language preference stored in `localStorage('language')` and managed by `LanguageContext` / `LanguageProvider` at the top of `App.jsx`. Five languages: `en`, `fr`, `de`, `es`, `pt`.
+`useTranslation()` from `translations.js` returns `t(key)`. Language preference stored in `localStorage('language')` and managed by `useLang()` from `src/contexts/LangContext.jsx`. Five languages: `en`, `fr`, `de`, `es`, `pt`. Missing keys are auto-translated via AI and cached in localStorage.
 
 ### Deployment
 
