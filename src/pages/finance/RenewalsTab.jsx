@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import {
-  AlertTriangle, ArrowDown, ArrowUp, BarChart3, Boxes, Calendar,
+  AlertTriangle, ArrowDown, ArrowUp, BadgeCheck, BarChart3, Boxes, Calendar,
   CalendarClock, Check, CheckCircle, CreditCard, DollarSign, Download,
   Filter, Loader, Mail, Search, Send, Sparkles, Target, TrendingDown,
   TrendingUp, Upload, Users, X,
@@ -18,14 +18,14 @@ import { Card, Modal, Pill, Select } from '../../components/ui';
 import { AppShell } from '../../components/AppShell';
 import { ContractComparisonPage } from '../ContractComparisonPage';
 
-function openNegotiateEmail(renewal) {
+function openNegotiateEmail(renewal, language) {
   const subject = encodeURIComponent(`Renewal Negotiation: ${renewal.app}`);
   const body = encodeURIComponent(`Hi,
 
 I'm reaching out regarding the upcoming renewal for ${renewal.app} on ${renewal.renewalDate}.
 
 Current details:
-- Annual cost: ${getCurrency(language)}{renewal.cost.toLocaleString()}
+- Annual cost: ${getCurrency(language)}${renewal.cost.toLocaleString()}
 - Contract owner: ${renewal.owner}
 - Auto-renewal: ${renewal.autoRenew ? 'Yes' : 'No'}
 

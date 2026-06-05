@@ -8,7 +8,7 @@ import {
   Upload, Users, X,
 } from 'lucide-react';
 import { saveUserData } from '../../firebase-config';
-import { loadDb, saveDb } from '../../lib/db';
+import { loadDb, saveDb, seedDbIfEmpty } from '../../lib/db';
 import {
   buildRiskAlerts, computeToolDerivedRisk, convertCurrency,
   formatMoney, getCurrency,
