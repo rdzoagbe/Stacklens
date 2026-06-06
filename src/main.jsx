@@ -6,7 +6,10 @@ import './index.css'
 
 Sentry.init({
   dsn: import.meta.env.VITE_SENTRY_DSN,
+  // enabled guard fully disables SDK overhead (integrations, breadcrumbs, etc.)
+  // when VITE_SENTRY_DSN is unset — an undefined DSN alone only stops sending
   enabled: !!import.meta.env.VITE_SENTRY_DSN,
+  // browserTracingIntegration is required for tracesSampleRate to capture spans
   integrations: [Sentry.browserTracingIntegration()],
   tracesSampleRate: 0.1,
   environment: import.meta.env.MODE,
