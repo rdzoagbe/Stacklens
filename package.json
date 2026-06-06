@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@azure/msal-browser": "^5.11.0",
+    "@sentry/react": "^10.56.0",
     "@tanstack/react-query": "^5.90.21",
     "date-fns": "^4.1.0",
     "firebase": "^12.9.0",
@@ -30,7 +31,9 @@
     "recharts": "^3.7.0"
   },
   "lint-staged": {
-    "src/**/*.{js,jsx}": ["eslint --quiet"]
+    "src/**/*.{js,jsx}": [
+      "eslint --quiet"
+    ]
   },
   "devDependencies": {
     "@babel/parser": "^7.29.0",
