@@ -203,6 +203,7 @@ export function BillingPage({ noShell = false }) {
   const upgrade = async (id) => {
     if (id === 'enterprise') { setShowContactModal(true); return; }
     if (id === 'free' || id === 'startup') return;
+    if (id === 'scale') { document.getElementById('billing-plans')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
     const priceId = PRICE_IDS[id]?.[billing] || PRICE_IDS[id]?.monthly;
     if (!priceId) { toast.error('Plan not available. Contact us!'); return; }
     setUpgrading(true);
@@ -289,9 +290,9 @@ export function BillingPage({ noShell = false }) {
         </div>
       </div>
 
-      <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      <div id="billing-plans" className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {plans.map(p => {
-          const isCurrent = plan === p.id || (isTrial && p.id === 'scale');
+          const isCurrent = plan === p.id;
           return (
             <div key={p.id} className={"relative rounded-2xl border p-5 flex flex-col transition-all " + p.border + (p.popular ? ' shadow-xl shadow-emerald-500/10 ring-1 ring-emerald-500/30' : '')}>
               {p.popular && (
