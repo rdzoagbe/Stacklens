@@ -208,21 +208,32 @@ export async function saveUserData(uid, db) {
 }
 
 export async function syncUserProfile(user) {
+  if (!firestoreDb) return { isNew: false };
   try {
-    const token = await getIdToken(user);
-    const res = await fetch(`${FUNCTIONS_BASE}/syncuser`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        email:       user.email,
-        displayName: user.displayName,
-        photoURL:    user.photoURL,
-      }),
-    });
-    return await res.json();
+    const ref = doc(firestoreDb, 'users', user.uid);
+    const snap = await getDoc(ref);
+    if (!snap.exists()) {
+      await setDoc(ref, {
+        uid: user.uid,
+        email: user.email || '',
+        displayName: user.displayName || '',
+        photoURL: user.photoURL || '',
+        plan: 'free',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+      return { isNew: true };
+    }
+    const data = snap.data();
+    if (!data.email || !data.displayName) {
+      await updateDoc(ref, {
+        ...(user.email && !data.email ? { email: user.email } : {}),
+        ...(user.displayName && !data.displayName ? { displayName: user.displayName } : {}),
+        ...(user.photoURL && !data.photoURL ? { photoURL: user.photoURL } : {}),
+        updatedAt: Date.now(),
+      });
+    }
+    return { isNew: false, plan: data.plan || 'free', stripe_customer_id: data.stripe_customer_id || null, subscription_status: data.subscription_status || null };
   } catch (err) {
     console.error('syncUserProfile:', err);
     return { isNew: false };
@@ -496,27 +507,19 @@ export async function loadAllUsersAdmin() {
 }
 
 export async function founderExtendTrial(targetUid, extraDays = 7) {
-  const token = await getToken();
-  if (!token) throw new Error('Not authenticated');
-  const res = await fetch(`${FUNCTIONS_BASE}/founderAdmin`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-    body: JSON.stringify({ action: 'extendTrial', targetUid, extraDays }),
+  if (!firestoreDb) throw new Error('Firestore unavailable');
+  const newStartMs = Date.now() - (7 - extraDays) * 24 * 60 * 60 * 1000;
+  await updateDoc(doc(firestoreDb, 'users', targetUid), {
+    plan: 'trial',
+    trial_started_at: Timestamp.fromMillis(newStartMs),
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'founderAdmin failed');
 }
 
 export async function founderSetPlan(targetUid, plan) {
-  const token = await getToken();
-  if (!token) throw new Error('Not authenticated');
-  const res = await fetch(`${FUNCTIONS_BASE}/founderAdmin`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-    body: JSON.stringify({ action: 'setPlan', targetUid, plan }),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'founderAdmin failed');
+  if (!firestoreDb) throw new Error('Firestore unavailable');
+  const validPlans = ['free', 'trial', 'starter', 'hr_finance', 'pro', 'enterprise', 'scale'];
+  if (!validPlans.includes(plan)) throw new Error('Invalid plan');
+  await updateDoc(doc(firestoreDb, 'users', targetUid), { plan });
 }
 
 // ============================================================================
