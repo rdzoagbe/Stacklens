@@ -70,7 +70,9 @@ const app = initializeApp(firebaseConfig);
 // ── App Check (anti-bot protection) ──────────────────────────────
 // reCAPTCHA site key is public (embedded in client JS) — hardcoded to avoid env misconfiguration
 try {
-  const recaptchaKey = '6Ldq47MsAAAAAGks_j_COugB3Pt6ROSuKgQhLrJe';
+  const recaptchaKey = import.meta.env.DEV
+    ? import.meta.env.VITE_RECAPTCHA_SITE_KEY
+    : '6Ldq47MsAAAAAGks_j_COugB3Pt6ROSuKgQhLrJe';
   if (typeof window !== 'undefined' && recaptchaKey) {
     initializeAppCheck(app, {
       provider: new ReCaptchaV3Provider(recaptchaKey),
