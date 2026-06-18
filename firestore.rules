@@ -52,9 +52,9 @@ service cloud.firestore {
                        'is_founder', 'role']));
     }
 
-    // Founders may update only plan + trial_started_at on any user doc.
+    // Founders may update plan, trial, and profile fields on any user doc.
     function founderWriteSafe() {
-      let allowed = ['plan', 'trial_started_at'];
+      let allowed = ['plan', 'trial_started_at', 'displayName', 'email', 'photoURL', 'updatedAt'];
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(allowed);
     }
 

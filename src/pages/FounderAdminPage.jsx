@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
   Users, Clock, Shield, ChevronDown, ChevronUp, Search,
-  Zap, Crown, RefreshCw,
+  Zap, Crown, RefreshCw, Pencil, Check, X, ArrowLeft,
 } from 'lucide-react';
 import { loadAllUsersAdmin, founderExtendTrial, founderSetPlan } from '../firebase-config';
+import { getFirestore, doc, updateDoc } from 'firebase/firestore';
 import { useAuth } from '../hooks/useAuth';
 
 const PLAN_COLORS = {
@@ -55,12 +56,36 @@ function UserRow({ u, onAction }) {
   const [expanded, setExpanded] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState(u.plan || 'free');
   const [busy, setBusy] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editName, setEditName] = useState(u.displayName || '');
+  const [editEmail, setEditEmail] = useState(u.email || '');
 
   const created = toDate(u.created_at || u.trial_started_at);
   const trialStart = toDate(u.trial_started_at);
   const trialEnd = trialStart ? new Date(trialStart.getTime() + 7 * 24 * 60 * 60 * 1000) : null;
   const isTrialExpired = trialEnd && trialEnd < new Date();
   const plan = u.plan || 'free';
+  const hasProfile = u.displayName || u.email;
+
+  async function handleSaveProfile() {
+    setBusy(true);
+    try {
+      const db = getFirestore();
+      const updates = {};
+      if (editName.trim()) updates.displayName = editName.trim();
+      if (editEmail.trim()) updates.email = editEmail.trim();
+      if (Object.keys(updates).length === 0) { setEditing(false); return; }
+      updates.updatedAt = Date.now();
+      await updateDoc(doc(db, 'users', u.uid), updates);
+      toast.success('Profile updated');
+      setEditing(false);
+      onAction();
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function handleSetPlan() {
     if (selectedPlan === plan) return;
@@ -98,11 +123,12 @@ function UserRow({ u, onAction }) {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium text-white truncate">
-              {u.displayName || u.email || u.uid}
+              {u.displayName || u.email || `User ${u.uid.slice(0, 8)}…`}
             </span>
             {u.is_founder && <Crown size={13} className="text-amber-400 shrink-0" />}
+            {!hasProfile && <span className="text-[10px] text-slate-600 italic">click to add info</span>}
           </div>
-          <div className="text-xs text-slate-500 truncate">{u.email || '—'}</div>
+          <div className="text-xs text-slate-500 truncate">{u.email || `UID: ${u.uid.slice(0, 12)}…`}</div>
         </div>
         <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${PLAN_COLORS[plan] || PLAN_COLORS.free}`}>
           {plan.replace('_', ' ')}
@@ -115,6 +141,41 @@ function UserRow({ u, onAction }) {
 
       {expanded && (
         <div className="border-t border-slate-700/50 p-4 bg-slate-900/30 space-y-3">
+          {editing ? (
+            <div className="flex flex-wrap items-center gap-2 pb-2 border-b border-slate-700/30">
+              <input
+                type="text"
+                placeholder="Display name"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                className="bg-slate-800 border border-slate-600 text-slate-200 text-xs rounded-lg px-2 py-1.5 w-40"
+              />
+              <input
+                type="email"
+                placeholder="Email"
+                value={editEmail}
+                onChange={(e) => setEditEmail(e.target.value)}
+                className="bg-slate-800 border border-slate-600 text-slate-200 text-xs rounded-lg px-2 py-1.5 w-52"
+              />
+              <button onClick={handleSaveProfile} disabled={busy} className="p-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded-lg">
+                <Check size={13} />
+              </button>
+              <button onClick={() => setEditing(false)} className="p-1.5 bg-slate-700/50 hover:bg-slate-700 text-slate-400 rounded-lg">
+                <X size={13} />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 pb-2 border-b border-slate-700/30">
+              <span className="text-xs text-slate-400">
+                {u.displayName ? `${u.displayName}` : ''}{u.displayName && u.email ? ' · ' : ''}{u.email || ''}
+                {!hasProfile ? 'No profile info yet' : ''}
+              </span>
+              <button onClick={() => setEditing(true)} className="p-1 hover:bg-slate-700/50 rounded text-slate-500 hover:text-slate-300 transition-colors">
+                <Pencil size={12} />
+              </button>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
             <div>
               <span className="text-slate-500">UID:</span>
@@ -272,14 +333,19 @@ export function FounderAdminPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-            <Shield size={24} className="text-amber-400" />
-            Founder Admin
-          </h1>
-          <p className="text-sm text-slate-400 mt-1">
-            {users.length} registered users · Real-time analytics
-          </p>
+        <div className="flex items-center gap-3">
+          <Link to="/dashboard" className="p-2 hover:bg-slate-800 rounded-xl text-slate-400 hover:text-white transition-colors">
+            <ArrowLeft size={20} />
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+              <Shield size={24} className="text-amber-400" />
+              Founder Admin
+            </h1>
+            <p className="text-sm text-slate-400 mt-1">
+              {users.length} registered users · Real-time analytics
+            </p>
+          </div>
         </div>
         <button
           onClick={loadUsers}
