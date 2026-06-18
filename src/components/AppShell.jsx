@@ -174,14 +174,14 @@ export function SidebarFooter({ collapsed }) {
   return (
     <div className="border-t border-slate-800 p-3">
       {user?.is_founder && !collapsed && (
-        <div className="mb-2 px-2 py-1 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[10px] font-bold uppercase tracking-wider text-center">
+        <Link to="/founder-admin" className="block mb-2 px-2 py-1 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[10px] font-bold uppercase tracking-wider text-center hover:bg-amber-500/20 transition-colors cursor-pointer">
           ⚡ Founder mode
-        </div>
+        </Link>
       )}
       {user?.is_founder && collapsed && (
-        <div className="mb-2 flex justify-center" title="Founder mode active">
+        <Link to="/founder-admin" className="mb-2 flex justify-center hover:opacity-80 transition-opacity" title="Founder admin">
           <span className="text-amber-400 text-base">⚡</span>
-        </div>
+        </Link>
       )}
       <div
         className={cx(
