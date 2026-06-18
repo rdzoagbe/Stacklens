@@ -68,10 +68,11 @@ if (!FIREBASE_CONFIGURED) {
 const app = initializeApp(firebaseConfig);
 
 // ── App Check (anti-bot protection) ──────────────────────────────
-// Activates only when VITE_RECAPTCHA_SITE_KEY is set in .env
-// Silently does nothing otherwise — so local dev works without a key
+// reCAPTCHA site key is public (embedded in client JS) — hardcoded to avoid env misconfiguration
 try {
-  const recaptchaKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
+  const recaptchaKey = import.meta.env.DEV
+    ? import.meta.env.VITE_RECAPTCHA_SITE_KEY
+    : '6Ldq47MsAAAAAGks_j_COugB3Pt6ROSuKgQhLrJe';
   if (typeof window !== 'undefined' && recaptchaKey) {
     initializeAppCheck(app, {
       provider: new ReCaptchaV3Provider(recaptchaKey),
