@@ -75,6 +75,7 @@ function UserRow({ u, onAction }) {
       if (editName.trim()) updates.displayName = editName.trim();
       if (editEmail.trim()) updates.email = editEmail.trim();
       if (Object.keys(updates).length === 0) { setEditing(false); return; }
+      updates.updatedAt = Date.now();
       await updateDoc(doc(db, 'users', u.uid), updates);
       toast.success('Profile updated');
       setEditing(false);
