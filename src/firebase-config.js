@@ -144,32 +144,12 @@ async function getToken() {
 }
 
 // ============================================================================
-// AI PROXY — Anthropic calls go through Cloud Function only
+// AI PROXY — Cloudflare Worker (preferred) or GCP Cloud Function fallback
 // ============================================================================
 export async function callAI({ messages, system, max_tokens = 2000 }) {
-  const workerUrl    = import.meta.env.VITE_WORKER_URL;
-  const workerSecret = import.meta.env.VITE_WORKER_SECRET;
-
-  // Use Cloudflare Worker proxy when configured (API key stays server-side)
-  if (workerUrl && workerSecret) {
-    const res = await fetch(workerUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type':  'application/json',
-        'Authorization': `Bearer ${workerSecret}`,
-      },
-      body: JSON.stringify({ messages, system, max_tokens }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'AI call failed');
-    return data;
-  }
-
-  // Fallback: GCP Cloud Function (requires billing enabled)
   const token = await getToken();
   if (!token) throw new Error('Not authenticated');
 
-  // Use Cloudflare Worker when VITE_WORKER_URL is set; fall back to Cloud Function
   const url = import.meta.env.VITE_WORKER_URL || `${FUNCTIONS_BASE}/ai`;
 
   const res = await fetch(url, {

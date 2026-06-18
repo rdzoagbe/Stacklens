@@ -312,8 +312,8 @@ export function BillingPage({ noShell = false }) {
               <div className={"h-10 w-10 rounded-xl bg-gradient-to-br flex items-center justify-center text-xl mb-3 " + p.color}>
                 {p.icon}
               </div>
-              <div className="font-black text-lg text-white mb-0.5">{t(p.tName)}</div>
-              <div className="text-xs text-slate-500 mb-3 min-h-[2rem]">{t(p.tTag)}</div>
+              <div className="font-black text-lg text-white mb-0.5">{ft(p.tName)}</div>
+              <div className="text-xs text-slate-500 mb-3 min-h-[2rem]">{ft(p.tTag)}</div>
               <div className="mb-4">
                 {p.isTrial ? (
                   <div>
