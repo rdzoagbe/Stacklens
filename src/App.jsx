@@ -26,6 +26,7 @@ const SecurityCompliancePage = React.lazy(() => import('./pages/SecurityComplian
 const SettingsPage         = React.lazy(() => import('./pages/SettingsPage').then(m => ({ default: m.SettingsPage })));
 const FinanceDashboard     = React.lazy(() => import('./pages/FinancePage').then(m => ({ default: m.FinanceDashboard })));
 const ContractComparisonPage = React.lazy(() => import('./pages/ContractComparisonPage').then(m => ({ default: m.ContractComparisonPage })));
+const FounderAdminPage     = React.lazy(() => import('./pages/FounderAdminPage').then(m => ({ default: m.FounderAdminPage })));
 
 // Legal pages share one chunk (all resolved from the same dynamic import)
 const NotFound          = React.lazy(() => import('./pages/LegalPages').then(m => ({ default: m.NotFound })));
@@ -267,7 +268,7 @@ export default function App() {
           <Route path="/renewals" element={<Navigate to="/finance" replace />} />
           <Route path="/invoices" element={<Navigate to="/finance" replace />} />
           <Route path="/contracts" element={<Navigate to="/finance" replace />} />
-          <Route path="/founder-admin" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/founder-admin" element={<RequireAuth><FounderAdminPage /></RequireAuth>} />
           <Route path="*" element={<NotFound />} />
         </Routes>
           </PageBoundary>
