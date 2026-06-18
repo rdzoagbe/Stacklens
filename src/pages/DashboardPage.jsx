@@ -765,7 +765,7 @@ export function DashboardPage() {
       {showImport && importKind && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={() => setShowImport(false)}>
           <div className="bg-slate-950 border border-slate-700 rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto relative" onClick={e => e.stopPropagation()}>
-            <button onClick={() => setShowImport(false)} className="absolute top-4 right-4 w-8 h-8 bg-slate-800 rounded-lg text-slate-400 hover:text-white">✕</button>
+            <button onClick={() => setShowImport(false)} className="absolute top-4 right-4 z-10 w-8 h-8 bg-slate-800 border border-slate-700 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition-colors">✕</button>
             <ImportWizard defaultKind={importKind} onDone={() => { setShowImport(false); setImportKind(null); }} />
           </div>
         </div>
@@ -1185,7 +1185,7 @@ export function ImportWizard({ defaultKind = null, onDone = null }) {
   return (
     <div className="space-y-6">
       {/* Animated step progress */}
-      <div className="flex items-center mb-8">
+      <div className="flex items-center mb-8 pr-10">
         {STEP_LABELS.map((label, i) => {
           const done = step > i;
           const active = step === i;
