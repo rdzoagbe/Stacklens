@@ -3,12 +3,11 @@ import { Link, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { Shield, Lock, Download } from 'lucide-react';
 import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
+import { submitContactForm, mailtoFallback } from '../lib/contact';
 import { RDLogo } from '../components/ui';
 import { LangSelectorCompact } from '../components/AppShell';
 
 export function NotFound() {
-  const { language } = useLang();
-  const t = useTranslation(language);
   return <Navigate to="/" replace />;
 }
 
@@ -36,30 +35,14 @@ export function ContactPage() {
     e.preventDefault();
     if (!form.name || !form.email || !form.message) return;
     setSending(true);
+    const subjectLabel = subjects.find(s => s.value === form.subject)?.label || form.subject;
+    const payload = { name: form.name, email: form.email, subject: form.subject, message: `Subject: ${subjectLabel}\n\n${form.message}` };
     try {
-      // Send via Web3Forms (free, no backend needed)
-      const res = await fetch('https://api.web3forms.com/submit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          access_key: '88adb1a1-a43c-4395-b37f-b3dd7ac14411',
-          from_name: form.name,
-          email: form.email,
-          subject: `[Stacklens ${form.subject}] from ${form.name}`,
-          message: `Subject: ${subjects.find(s => s.value === form.subject)?.label || form.subject}\n\nFrom: ${form.name} (${form.email})\n\n${form.message}`,
-          to: 'hello@stacklens.fr',
-        }),
-      });
-      if (res.ok) {
-        setSent(true);
-        setForm({ name: '', email: '', subject: 'general', message: '' });
-      } else {
-        // Fallback: open mailto
-        window.location.href = `mailto:hello@stacklens.fr?subject=${encodeURIComponent(`[Stacklens ${form.subject}] ${form.name}`)}&body=${encodeURIComponent(form.message + '\n\nFrom: ' + form.name + ' (' + form.email + ')')}`;
-      }
+      await submitContactForm(payload);
+      setSent(true);
+      setForm({ name: '', email: '', subject: 'general', message: '' });
     } catch {
-      // Fallback: open mailto
-      window.location.href = `mailto:hello@stacklens.fr?subject=${encodeURIComponent(`[Stacklens ${form.subject}] ${form.name}`)}&body=${encodeURIComponent(form.message + '\n\nFrom: ' + form.name + ' (' + form.email + ')')}`;
+      mailtoFallback(payload);
     }
     setSending(false);
   };
@@ -501,7 +484,6 @@ export function LegalMentionsPage() {
 // ============================================================================
 
 export function AboutPage() {
-  const navigate = useNavigate();
   const { language } = useLang();
   const t = useTranslation(language);
   return (

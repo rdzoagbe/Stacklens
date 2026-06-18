@@ -5,6 +5,7 @@ import { useLang } from '../../contexts/LangContext';
 import { useTranslation } from '../../translations';
 import { useDbQuery, useDbMutations } from '../../hooks/useDbQuery';
 import { AppShell } from '../../components/AppShell';
+import { submitContactForm } from '../../lib/contact';
 
 // ── Google Workspace OAuth + Directory API ────────────────────────────────
 const GWS_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
@@ -1153,24 +1154,11 @@ function ContactFormModal({ type, userName, userEmail, onClose, t }) {
     e.preventDefault();
     if (!form.name || !form.email || !form.message) return;
     setSending(true);
+    const subject = isIntegration ? 'integration' : 'support';
+    const prefix = isIntegration ? 'Integration Request' : 'Support Request';
     try {
-      const res = await fetch('https://api.web3forms.com/submit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          access_key: '88adb1a1-a43c-4395-b37f-b3dd7ac14411',
-          from_name: form.name,
-          email: form.email,
-          subject: `[Stacklens ${isIntegration ? 'integration' : 'support'}] from ${form.name}`,
-          message: `Type: ${isIntegration ? 'Integration Request' : 'Support Request'}\n\nFrom: ${form.name} (${form.email})\n\n${form.message}`,
-          to: 'hello@stacklens.fr',
-        }),
-      });
-      if (res.ok) {
-        setSent(true);
-      } else {
-        throw new Error('API error');
-      }
+      await submitContactForm({ name: form.name, email: form.email, subject, message: `Type: ${prefix}\n\n${form.message}` });
+      setSent(true);
     } catch {
       toast.error(t('contact_error') || 'Could not send. Please try again.');
     }
