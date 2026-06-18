@@ -297,7 +297,7 @@ export function EmployeesPage() {
       <DirectorySyncBanner />
 
       {/* ── SPLIT VIEW ── */}
-      <div className="flex rounded-2xl border border-slate-800 bg-slate-900/40 overflow-hidden" style={{ minHeight: '60vh' }}>
+      <div className="flex rounded-2xl border border-slate-800 bg-slate-900/40 overflow-hidden" style={{ height: 'calc(100vh - 220px)' }}>
 
         {/* LEFT — Employee List */}
         <div className="w-full md:w-[38%] flex-shrink-0 border-r border-slate-800 flex flex-col">
