@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import toast from 'react-hot-toast';
-import { AlertTriangle, Check, CheckCircle, Eye, EyeOff, Loader, Plug, RefreshCw, Search, Users, X } from 'lucide-react';
+import { AlertTriangle, Check, CheckCircle, Eye, EyeOff, Loader, Plug, RefreshCw, Search, Send, Users, X } from 'lucide-react';
 import { useLang } from '../../contexts/LangContext';
 import { useTranslation } from '../../translations';
 import { useDbQuery, useDbMutations } from '../../hooks/useDbQuery';
@@ -1137,6 +1137,132 @@ function SalesforceModal({ onSubmit, onClose, loading }) {
   );
 }
 
+// ── Contact form modal (replaces mailto: links) ─────────────────────────
+function ContactFormModal({ type, userName, userEmail, onClose, t }) {
+  const [form, setForm] = useState({
+    name: userName || '',
+    email: userEmail || '',
+    message: '',
+  });
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+
+  const isIntegration = type === 'integration';
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.name || !form.email || !form.message) return;
+    setSending(true);
+    try {
+      const res = await fetch('https://api.web3forms.com/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          access_key: '88adb1a1-a43c-4395-b37f-b3dd7ac14411',
+          from_name: form.name,
+          email: form.email,
+          subject: `[Stacklens ${isIntegration ? 'integration' : 'support'}] from ${form.name}`,
+          message: `Type: ${isIntegration ? 'Integration Request' : 'Support Request'}\n\nFrom: ${form.name} (${form.email})\n\n${form.message}`,
+          to: 'hello@stacklens.fr',
+        }),
+      });
+      if (res.ok) {
+        setSent(true);
+      } else {
+        throw new Error('API error');
+      }
+    } catch {
+      toast.error(t('contact_error') || 'Could not send. Please try again.');
+    }
+    setSending(false);
+  };
+
+  if (sent) {
+    return (
+      <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-6">
+        <div className="bg-slate-900 rounded-3xl border border-slate-700 p-8 max-w-lg w-full text-center">
+          <div className="text-5xl mb-4">✉️</div>
+          <h3 className="text-xl font-bold text-white mb-2">{t('contact_sent_title') || 'Message sent!'}</h3>
+          <p className="text-slate-400 mb-6">{t('contact_sent_body') || "We'll get back to you soon."}</p>
+          <button onClick={onClose}
+            className="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl text-sm font-semibold text-white transition-all">
+            {t('close') || 'Close'}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-6">
+      <div className="bg-slate-900 rounded-3xl border border-slate-700 p-8 max-w-lg w-full">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <span className="text-3xl">{isIntegration ? '🔌' : '💬'}</span>
+            <div>
+              <h3 className="text-xl font-bold text-white">
+                {isIntegration ? t('request_integration') : (t('int_contact_support') || 'Contact Support')}
+              </h3>
+              <p className="text-sm text-slate-400">
+                {isIntegration ? t('int_need_different_sub') : t('int_need_help_sub')}
+              </p>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-400 mb-1.5">{t('contact_full_name') || 'Name'} *</label>
+              <input type="text" required value={form.name}
+                onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-400 mb-1.5">{t('contact_work_email') || 'Email'} *</label>
+              <input type="email" required value={form.email}
+                onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-400 mb-1.5">
+              {isIntegration
+                ? (t('int_which_tools') || 'Which tools would you like us to support?')
+                : (t('contact_message') || 'How can we help?')} *
+            </label>
+            <textarea required rows={4} value={form.message}
+              onChange={e => setForm(f => ({ ...f, message: e.target.value }))}
+              placeholder={isIntegration
+                ? (t('int_tools_placeholder') || 'e.g. Jira, HubSpot, Notion…')
+                : (t('int_support_placeholder') || 'Describe the issue or question…')}
+              className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all resize-none"
+            />
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={onClose}
+              className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-sm font-semibold text-slate-300 transition-colors">
+              {t('cancel')}
+            </button>
+            <button type="submit" disabled={sending || !form.message}
+              className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl text-sm font-semibold text-white transition-colors flex items-center justify-center gap-2">
+              {sending ? <Loader className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              {sending ? (t('sending') || 'Sending…') : (t('send') || 'Send')}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────────────
 export function IntegrationConnectors() {
   const { language } = useLang();
@@ -1168,6 +1294,7 @@ export function IntegrationConnectors() {
   const [asanaSyncing, setAsanaSyncing]         = useState(false);
   const [sfModal, setSfModal]                   = useState(false);
   const [sfSyncing, setSfSyncing]               = useState(false);
+  const [contactModal, setContactModal]         = useState(null);
 
   // Preload GIS and MSAL so popups fire synchronously on click
   useEffect(() => {
@@ -2024,6 +2151,16 @@ export function IntegrationConnectors() {
         />
       )}
 
+      {contactModal && (
+        <ContactFormModal
+          type={contactModal}
+          userName={db?.user?.displayName || ''}
+          userEmail={db?.user?.email || ''}
+          onClose={() => setContactModal(null)}
+          t={t}
+        />
+      )}
+
       {/* Stats header */}
       <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded-2xl p-6">
         <div className="flex items-center gap-4 mb-6">
@@ -2365,21 +2502,21 @@ export function IntegrationConnectors() {
 
       {/* Footer links */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8">
           <h3 className="text-xl font-bold text-white mb-2">{t('need_different_int')}</h3>
-          <p className="text-slate-400 mb-4 text-sm">{t('int_need_different_sub')}</p>
-          <a href={"mailto:hello@stacklens.fr?subject=" + encodeURIComponent("Integration Request — Stacklens")}
-            className="block w-full px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-semibold transition-all text-center">
+          <p className="text-slate-400 mb-6 text-sm">{t('int_need_different_sub')}</p>
+          <button onClick={() => setContactModal('integration')}
+            className="block w-full px-8 py-4 bg-slate-800 hover:bg-slate-700 text-white text-base rounded-xl font-bold transition-all text-center tracking-wide">
             {t('request_integration')}
-          </a>
+          </button>
         </div>
-        <div className="bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded-2xl p-6">
+        <div className="bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded-2xl p-8">
           <h3 className="text-xl font-bold text-white mb-2">{t('need_help')}</h3>
-          <p className="text-slate-400 mb-4 text-sm">{t('int_need_help_sub')}</p>
-          <a href={"mailto:hello@stacklens.fr?subject=" + encodeURIComponent("Support Request — Stacklens")}
-            className="block w-full px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-semibold transition-all text-center">
+          <p className="text-slate-400 mb-6 text-sm">{t('int_need_help_sub')}</p>
+          <button onClick={() => setContactModal('support')}
+            className="block w-full px-8 py-4 bg-blue-600 hover:bg-blue-500 text-white text-base rounded-xl font-bold transition-all text-center tracking-wide">
             {t('int_contact_support')}
-          </a>
+          </button>
         </div>
       </div>
     </div>
