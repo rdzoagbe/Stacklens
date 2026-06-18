@@ -2502,19 +2502,19 @@ export function IntegrationConnectors() {
 
       {/* Footer links */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8">
           <h3 className="text-xl font-bold text-white mb-2">{t('need_different_int')}</h3>
-          <p className="text-slate-400 mb-4 text-sm">{t('int_need_different_sub')}</p>
+          <p className="text-slate-400 mb-6 text-sm">{t('int_need_different_sub')}</p>
           <button onClick={() => setContactModal('integration')}
-            className="block w-full px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-semibold transition-all text-center">
+            className="block w-full px-8 py-4 bg-slate-800 hover:bg-slate-700 text-white text-base rounded-xl font-bold transition-all text-center tracking-wide">
             {t('request_integration')}
           </button>
         </div>
-        <div className="bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded-2xl p-6">
+        <div className="bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded-2xl p-8">
           <h3 className="text-xl font-bold text-white mb-2">{t('need_help')}</h3>
-          <p className="text-slate-400 mb-4 text-sm">{t('int_need_help_sub')}</p>
+          <p className="text-slate-400 mb-6 text-sm">{t('int_need_help_sub')}</p>
           <button onClick={() => setContactModal('support')}
-            className="block w-full px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-semibold transition-all text-center">
+            className="block w-full px-8 py-4 bg-blue-600 hover:bg-blue-500 text-white text-base rounded-xl font-bold transition-all text-center tracking-wide">
             {t('int_contact_support')}
           </button>
         </div>
