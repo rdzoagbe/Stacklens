@@ -52,15 +52,21 @@ service cloud.firestore {
                        'is_founder', 'role']));
     }
 
+    // Founders may update only plan + trial_started_at on any user doc.
+    function founderWriteSafe() {
+      let allowed = ['plan', 'trial_started_at'];
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(allowed);
+    }
+
     // /users/{uid}
     match /users/{uid} {
       allow get: if isOwner(uid) || isFounder();
       allow list: if isFounder();
       // Create only allowed if new doc has no protected fields (or plan='free')
       allow create: if isOwner(uid) && protectedFieldsSafe();
-      // Update: owner with field restrictions only — founder plan/trial changes go
-      // through the founderAdmin Cloud Function (Admin SDK, bypasses rules)
-      allow update: if isOwner(uid) && protectedFieldsSafe();
+      // Update: owner with field restrictions, OR founder can update plan/trial fields
+      allow update: if (isOwner(uid) && protectedFieldsSafe())
+                    || (isFounder() && founderWriteSafe());
       allow delete: if false;
     }
 
