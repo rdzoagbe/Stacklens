@@ -4,6 +4,7 @@ import { Check, CreditCard } from 'lucide-react';
 import {
   createBillingPortal, createCheckoutSession,
 } from '../../firebase-config';
+import { submitContactForm } from '../../lib/contact';
 import { resolvePlan, TRIAL_DAYS, getTrialState } from '../../lib/plan';
 import { useDbQuery } from '../../hooks/useDbQuery';
 import { useLang } from '../../contexts/LangContext';
@@ -429,7 +430,12 @@ export function BillingPage({ noShell = false }) {
                 </div>
                 <div className="flex gap-3 mt-6">
                   <button onClick={() => setShowContactModal(false)} className="flex-1 py-3 bg-slate-800 rounded-xl font-semibold text-sm hover:bg-slate-700 transition-colors">{t('cancel')}</button>
-                  <button onClick={() => { window.open('mailto:sales@stacklens.fr?subject=Enterprise%20Enquiry&body=Email%3A%20' + encodeURIComponent(contactEmail) + '%0ASize%3A%20' + encodeURIComponent(contactSize)); setContactSent(true); }}
+                  <button onClick={async () => {
+                      try {
+                        await submitContactForm({ name: contactEmail, email: contactEmail, subject: 'enterprise', message: `Enterprise Enquiry\n\nEmail: ${contactEmail}\nCompany Size: ${contactSize}` });
+                        setContactSent(true);
+                      } catch { toast.error(t('contact_error') || 'Could not send. Please try again.'); }
+                    }}
                     className="flex-1 py-3 bg-gradient-to-r from-amber-600 to-orange-600 hover:opacity-90 rounded-xl font-bold text-sm text-white transition-all">
                     {t('send_enquiry')}
                   </button>
