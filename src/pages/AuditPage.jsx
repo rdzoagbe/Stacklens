@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import toast from 'react-hot-toast';
-import { Download, Users } from 'lucide-react';
+import { Download, FileText, Users } from 'lucide-react';
 import { todayISO } from '../lib/db';
 import { computeToolDerivedStatus, computeToolDerivedRisk, computeAccessDerivedRiskFlag, formatMoney, getCurrency, convertCurrency, downloadText, toCsv } from '../lib/dataUtils';
 import { cx } from '../lib/utils';
@@ -10,6 +10,229 @@ import { useTranslation } from '../translations';
 import { Button, Card, CardBody, CardHeader, EmptyState, SkeletonRow } from '../components/ui';
 import { PlanGate } from '../components/gates';
 import { AppShell } from '../components/AppShell';
+
+function generateAuditReportHTML(derived, language, t) {
+  const fm = (n) => formatMoney(n, null, language);
+  const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+  const hScore = derived.healthScore;
+  const hColor = hScore >= 80 ? '#10b981' : hScore >= 60 ? '#f59e0b' : '#ef4444';
+  const hLabel = hScore >= 80 ? 'Healthy' : hScore >= 60 ? 'Needs Attention' : 'At Risk';
+  const wastedSpend = Math.round(derived.spend * 0.14);
+  const annualSavings = wastedSpend * 12;
+  const topSpend = [...derived.tools].filter(t => t.cost_per_month > 0).sort((a, b) => b.cost_per_month - a.cost_per_month).slice(0, 10);
+  const highRiskTools = derived.tools.filter(t => t.derived_risk === 'high');
+  const unusedTools = derived.tools.filter(t => t.derived_status === 'unused' || t.derived_status === 'orphaned');
+  const categorySpend = {};
+  derived.tools.forEach(t => { const c = t.category || 'Other'; categorySpend[c] = (categorySpend[c] || 0) + (t.cost_per_month || 0); });
+  const catRows = Object.entries(categorySpend).sort((a, b) => b[1] - a[1]);
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>SaaS Audit Report — Stacklens</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #1e293b; background: #fff; line-height: 1.6; }
+  .page { max-width: 800px; margin: 0 auto; padding: 48px 40px; }
+  @media print { .page { padding: 24px; } .no-print { display: none !important; } @page { margin: 1cm; } }
+  .header { border-bottom: 3px solid #3b82f6; padding-bottom: 24px; margin-bottom: 32px; display: flex; justify-content: space-between; align-items: flex-end; }
+  .brand { font-size: 28px; font-weight: 800; color: #0f172a; letter-spacing: -0.5px; }
+  .brand span { color: #3b82f6; }
+  .subtitle { color: #64748b; font-size: 13px; margin-top: 4px; }
+  .date { color: #94a3b8; font-size: 12px; text-align: right; }
+  h2 { font-size: 18px; font-weight: 700; color: #0f172a; margin: 32px 0 16px; padding-bottom: 8px; border-bottom: 1px solid #e2e8f0; }
+  h3 { font-size: 14px; font-weight: 600; color: #334155; margin: 16px 0 8px; }
+  .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin: 24px 0; }
+  .kpi { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; text-align: center; }
+  .kpi-value { font-size: 28px; font-weight: 800; color: #0f172a; }
+  .kpi-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; margin-top: 4px; }
+  .kpi-sub { font-size: 11px; color: #94a3b8; margin-top: 2px; }
+  .health-box { display: flex; align-items: center; gap: 24px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; margin: 16px 0; }
+  .health-score { width: 80px; height: 80px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: 800; color: white; flex-shrink: 0; }
+  .health-detail { flex: 1; }
+  .health-label { font-size: 18px; font-weight: 700; }
+  .health-desc { font-size: 13px; color: #64748b; margin-top: 4px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 12px 0; }
+  th { background: #f1f5f9; text-align: left; padding: 8px 12px; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; border-bottom: 2px solid #e2e8f0; }
+  td { padding: 8px 12px; border-bottom: 1px solid #f1f5f9; color: #334155; }
+  tr:nth-child(even) { background: #fafbfc; }
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; }
+  .pill-red { background: #fef2f2; color: #dc2626; }
+  .pill-amber { background: #fffbeb; color: #d97706; }
+  .pill-green { background: #f0fdf4; color: #16a34a; }
+  .pill-slate { background: #f1f5f9; color: #64748b; }
+  .savings-box { background: linear-gradient(135deg, #eff6ff, #f0fdf4); border: 1px solid #bfdbfe; border-radius: 12px; padding: 24px; margin: 24px 0; text-align: center; }
+  .savings-value { font-size: 36px; font-weight: 800; color: #16a34a; }
+  .savings-label { font-size: 13px; color: #64748b; margin-top: 4px; }
+  .bar { height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden; margin-top: 4px; }
+  .bar-fill { height: 100%; border-radius: 4px; }
+  .footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid #e2e8f0; text-align: center; color: #94a3b8; font-size: 11px; }
+  .actions { margin: 24px 0; text-align: center; }
+  .actions button { padding: 12px 32px; background: #3b82f6; color: white; border: none; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; margin: 0 8px; }
+  .actions button:hover { background: #2563eb; }
+  .actions button.secondary { background: #64748b; }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="header">
+    <div>
+      <div class="brand">Stack<span>lens</span></div>
+      <div class="subtitle">SaaS Audit Report</div>
+    </div>
+    <div class="date">Generated ${today}</div>
+  </div>
+
+  <div class="actions no-print">
+    <button onclick="window.print()">Print / Save as PDF</button>
+    <button class="secondary" onclick="window.close()">Close</button>
+  </div>
+
+  <h2>Executive Summary</h2>
+  <div class="health-box">
+    <div class="health-score" style="background:${hColor}">${hScore}</div>
+    <div class="health-detail">
+      <div class="health-label" style="color:${hColor}">${hLabel}</div>
+      <div class="health-desc">
+        Your SaaS stack has ${derived.tools.length} tools, ${derived.employees.filter(e => e.status === 'active').length} active employees,
+        and ${derived.access.filter(a => a.status === 'active').length} active permissions.
+        ${derived.highRiskCount > 0 ? derived.highRiskCount + ' high-risk tool' + (derived.highRiskCount > 1 ? 's' : '') + ' require attention.' : 'No high-risk tools detected.'}
+        ${derived.formerEmpAccess > 0 ? derived.formerEmpAccess + ' former employee access record' + (derived.formerEmpAccess > 1 ? 's' : '') + ' need revocation.' : ''}
+      </div>
+    </div>
+  </div>
+
+  <div class="kpi-grid">
+    <div class="kpi">
+      <div class="kpi-value">${derived.tools.length}</div>
+      <div class="kpi-label">Total Tools</div>
+      <div class="kpi-sub">${derived.activeTools} active, ${derived.unusedTools} unused</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-value">${fm(derived.spend)}</div>
+      <div class="kpi-label">Monthly Spend</div>
+      <div class="kpi-sub">${fm(derived.spend * 12)}/year</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-value" style="color:${derived.highRiskCount > 0 ? '#dc2626' : '#16a34a'}">${derived.highRiskCount}</div>
+      <div class="kpi-label">High Risk Tools</div>
+      <div class="kpi-sub">${derived.formerEmpAccess} former employee access</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-value">${derived.employees.length}</div>
+      <div class="kpi-label">Employees</div>
+      <div class="kpi-sub">${derived.employees.filter(e => e.status === 'active').length} active</div>
+    </div>
+  </div>
+
+  ${wastedSpend > 0 ? `
+  <div class="savings-box">
+    <div class="savings-value">${fm(annualSavings)}</div>
+    <div class="savings-label">Estimated annual savings opportunity (based on industry avg 14% SaaS waste)</div>
+  </div>` : ''}
+
+  <h2>Spend Breakdown by Category</h2>
+  <table>
+    <thead><tr><th>Category</th><th>Monthly Cost</th><th>Annual Cost</th><th>% of Total</th><th>Distribution</th></tr></thead>
+    <tbody>
+      ${catRows.map(([cat, cost]) => {
+        const pct = derived.spend > 0 ? Math.round((cost / derived.spend) * 100) : 0;
+        return `<tr>
+          <td><strong>${cat}</strong></td>
+          <td>${fm(cost)}</td>
+          <td>${fm(cost * 12)}</td>
+          <td>${pct}%</td>
+          <td><div class="bar"><div class="bar-fill" style="width:${pct}%;background:#3b82f6"></div></div></td>
+        </tr>`;
+      }).join('')}
+    </tbody>
+  </table>
+
+  <h2>Top Tools by Spend</h2>
+  <table>
+    <thead><tr><th>Tool</th><th>Category</th><th>Owner</th><th>Monthly Cost</th><th>Status</th><th>Risk</th></tr></thead>
+    <tbody>
+      ${topSpend.map(t => `<tr>
+        <td><strong>${t.name}</strong></td>
+        <td>${t.category || '—'}</td>
+        <td>${t.owner_email || 'Unassigned'}</td>
+        <td>${fm(t.cost_per_month)}</td>
+        <td><span class="pill ${t.derived_status === 'active' ? 'pill-green' : t.derived_status === 'unused' ? 'pill-amber' : 'pill-red'}">${t.derived_status}</span></td>
+        <td><span class="pill ${t.derived_risk === 'high' ? 'pill-red' : t.derived_risk === 'medium' ? 'pill-amber' : 'pill-green'}">${t.derived_risk}</span></td>
+      </tr>`).join('')}
+    </tbody>
+  </table>
+
+  ${highRiskTools.length > 0 ? `
+  <h2>High Risk Tools</h2>
+  <table>
+    <thead><tr><th>Tool</th><th>Category</th><th>Owner</th><th>Status</th><th>Last Used</th></tr></thead>
+    <tbody>
+      ${highRiskTools.map(t => `<tr>
+        <td><strong>${t.name}</strong></td>
+        <td>${t.category || '—'}</td>
+        <td>${t.owner_email || '<span class="pill pill-red">Unassigned</span>'}</td>
+        <td><span class="pill pill-red">${t.derived_status}</span></td>
+        <td>${t.last_used_date || 'Never'}</td>
+      </tr>`).join('')}
+    </tbody>
+  </table>` : ''}
+
+  ${unusedTools.length > 0 ? `
+  <h2>Unused & Orphaned Tools</h2>
+  <p style="color:#64748b;font-size:13px;margin-bottom:12px">These tools are either unused (no activity in 90+ days) or orphaned (no assigned owner). Consider decommissioning to reduce spend.</p>
+  <table>
+    <thead><tr><th>Tool</th><th>Monthly Cost</th><th>Status</th><th>Last Used</th><th>Potential Savings</th></tr></thead>
+    <tbody>
+      ${unusedTools.map(t => `<tr>
+        <td><strong>${t.name}</strong></td>
+        <td>${fm(t.cost_per_month || 0)}</td>
+        <td><span class="pill ${t.derived_status === 'orphaned' ? 'pill-red' : 'pill-amber'}">${t.derived_status}</span></td>
+        <td>${t.last_used_date || 'Never'}</td>
+        <td style="color:#16a34a;font-weight:600">${fm((t.cost_per_month || 0) * 12)}/yr</td>
+      </tr>`).join('')}
+      <tr style="font-weight:700;border-top:2px solid #e2e8f0">
+        <td>Total potential savings</td>
+        <td></td><td></td><td></td>
+        <td style="color:#16a34a">${fm(unusedTools.reduce((s, t) => s + (t.cost_per_month || 0), 0) * 12)}/yr</td>
+      </tr>
+    </tbody>
+  </table>` : ''}
+
+  ${derived.formerEmpAccess > 0 ? `
+  <h2>Security: Former Employee Access</h2>
+  <p style="color:#dc2626;font-size:13px;margin-bottom:12px;font-weight:600">These former employees still have active access to tools. Immediate revocation recommended.</p>
+  <table>
+    <thead><tr><th>Employee</th><th>Tool</th><th>Access Level</th><th>Granted</th></tr></thead>
+    <tbody>
+      ${derived.access.filter(a => a.derived_risk_flag === 'former_employee').map(a => `<tr>
+        <td><strong>${a.employee_name}</strong></td>
+        <td>${a.tool_name}</td>
+        <td><span class="pill ${a.access_level === 'admin' || a.access_level === 'owner' ? 'pill-red' : 'pill-amber'}">${a.access_level}</span></td>
+        <td>${a.granted_date || '—'}</td>
+      </tr>`).join('')}
+    </tbody>
+  </table>` : ''}
+
+  <h2>Recommendations</h2>
+  <ol style="padding-left:20px;color:#334155;font-size:14px;line-height:1.8">
+    ${derived.formerEmpAccess > 0 ? `<li><strong>Revoke ${derived.formerEmpAccess} former employee access records</strong> — Critical security risk. Former employees with active permissions can access company data.</li>` : ''}
+    ${highRiskTools.length > 0 ? `<li><strong>Address ${highRiskTools.length} high-risk tools</strong> — Assign owners to orphaned tools and review unused subscriptions.</li>` : ''}
+    ${unusedTools.length > 0 ? `<li><strong>Decommission ${unusedTools.length} unused/orphaned tools</strong> — Potential savings of ${fm(unusedTools.reduce((s, t) => s + (t.cost_per_month || 0), 0) * 12)}/year.</li>` : ''}
+    ${derived.tools.filter(t => !t.mfa_enabled && !t.mfa_required).length > 0 ? `<li><strong>Enable MFA on ${derived.tools.filter(t => !t.mfa_enabled && !t.mfa_required).length} tools</strong> — Multi-factor authentication should be required for all business-critical applications.</li>` : ''}
+    <li><strong>Schedule quarterly access reviews</strong> — Regular reviews prevent permission creep and ensure least-privilege access.</li>
+    <li><strong>Consolidate overlapping tools</strong> — Review tools in the same category for consolidation opportunities.</li>
+  </ol>
+
+  <div class="footer">
+    <p>Generated by <strong>Stacklens</strong> — SaaS Spend & Access Management</p>
+    <p>stacklens.fr · ${today}</p>
+  </div>
+</div>
+</body>
+</html>`;
+}
 
 export function AuditTabContent() {
   const { language } = useLang();
@@ -68,6 +291,13 @@ export function AuditTabContent() {
     toast.success('Access export downloaded');
   };
   const exportFullPackage = () => { exportTools(); setTimeout(exportEmployees, 300); setTimeout(exportAccess, 600); };
+  const generateReport = () => {
+    if (!derived) return;
+    const html = generateAuditReportHTML(derived, language, t);
+    const win = window.open('', '_blank');
+    if (win) { win.document.write(html); win.document.close(); }
+    else toast.error('Please allow popups to generate the report');
+  };
 
   const healthColor = (s) => s >= 80 ? "text-emerald-400" : s >= 60 ? "text-amber-400" : "text-red-400";
   const healthBg = (s) => s >= 80 ? "bg-emerald-500" : s >= 60 ? "bg-amber-500" : "bg-red-500";
@@ -143,8 +373,12 @@ export function AuditTabContent() {
         <div className="rounded-2xl border border-blue-500/20 bg-gradient-to-br from-slate-900 to-blue-950/20 p-6">
           <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-4">{t("audit_export_package")}</div>
           <p className="text-sm text-slate-400 mb-5">{t("audit_package_desc")}</p>
+          <button onClick={generateReport}
+            className="w-full flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:opacity-90 rounded-xl font-bold text-sm transition-all mb-3">
+            <FileText className="h-4 w-4" /> {t("generate_audit_report") || "Generate Audit Report"}
+          </button>
           <button onClick={exportFullPackage}
-            className="w-full flex items-center justify-center gap-2 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold text-sm transition-colors mb-3">
+            className="w-full flex items-center justify-center gap-2 py-3 bg-slate-800 hover:bg-slate-700 rounded-xl font-semibold text-sm transition-colors mb-3">
             <Download className="h-4 w-4" /> {t("audit_download_full")}
           </button>
           <div className="text-xs text-slate-600 text-center">{t("audit_three_files")}</div>
@@ -328,9 +562,19 @@ export function AuditExportPage() {
     <PlanGate requires="scale" feature="Audit Export"><AppShell
       title="Audit Export"
       right={
-        <Button onClick={exportAll}>
-          <Download className="h-4 w-4" /> Full Audit Package
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={() => {
+            if (!derived) return;
+            const html = generateAuditReportHTML(derived, language, t);
+            const win = window.open('', '_blank');
+            if (win) { win.document.write(html); win.document.close(); }
+          }}>
+            <FileText className="h-4 w-4" /> Audit Report
+          </Button>
+          <Button onClick={exportAll}>
+            <Download className="h-4 w-4" /> CSV Export
+          </Button>
+        </div>
       }
     >
       <div className="grid gap-5">

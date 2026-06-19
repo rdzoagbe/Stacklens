@@ -500,7 +500,6 @@ export function TrialPage() {
                 <li><Link to="/about" className="text-slate-300 hover:text-white transition-colors">{t('lp_footer_about')}</Link></li>
                 <li><Link to="/contact" className="text-slate-300 hover:text-white transition-colors">Contact</Link></li>
                 <li><Link to="/contact?subject=sales" className="text-slate-300 hover:text-white transition-colors">{t('lp_footer_sales')}</Link></li>
-                <li><Link to="/contact?subject=support" className="text-slate-300 hover:text-white transition-colors">Support</Link></li>
               </ul>
             </div>
 
