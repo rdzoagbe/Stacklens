@@ -569,9 +569,9 @@ export function AboutPage() {
             <Link to="/" className="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl text-sm font-semibold text-white transition-all">
               Get started free
             </Link>
-            <a href="mailto:hello@stacklens.fr" className="px-6 py-3 border border-slate-700 hover:border-slate-600 rounded-xl text-sm font-semibold text-slate-300 transition-all">
+            <Link to="/contact" className="px-6 py-3 border border-slate-700 hover:border-slate-600 rounded-xl text-sm font-semibold text-slate-300 transition-all">
               Contact us
-            </a>
+            </Link>
           </div>
         </section>
 
@@ -913,26 +913,26 @@ export function SecurityPage() {
         <div className="rounded-2xl border border-blue-500/20 bg-blue-500/5 p-8 mb-8 text-center">
           <h3 className="text-xl font-bold text-white mb-2">{t('found_security_issue')}</h3>
           <p className="text-slate-400 mb-4 max-w-lg mx-auto">We take every security report seriously. We aim to respond within 48 hours. Responsible disclosure is always acknowledged.</p>
-          <a href="mailto:hello@stacklens.fr" className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold transition-colors text-white">
+          <Link to="/contact?subject=support" className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold transition-colors text-white">
             <Lock className="w-4 h-4" />
-            hello@stacklens.fr
-          </a>
+            {t('report_vulnerability') || 'Report a Vulnerability'}
+          </Link>
         </div>
 
         <div className="rounded-2xl border border-white/10 bg-white/5 p-8 text-center">
           <h3 className="text-xl font-bold text-white mb-2">{t("hc_download_security_whitepaper")}</h3>
           <p className="text-slate-400 mb-4">{t('security_full_docs')}</p>
-          <a
-            href="mailto:hello@stacklens.fr?subject=Security%20Documentation%20Request&body=Hi%2C%0A%0AI%20would%20like%20to%20receive%20the%20Stacklens%20security%20documentation.%0A%0ACompany%3A%20%0AUse%20case%3A%20"
+          <Link
+            to="/contact?subject=enterprise"
             className="inline-flex items-center gap-2 px-6 py-3 border border-white/20 hover:border-white/40 rounded-xl font-semibold text-white transition-colors"
           >
             <Download className="w-4 h-4" />
-            Request Security Documentation
-          </a>
+            {t('request_security_docs') || 'Request Security Documentation'}
+          </Link>
         </div>
 
         <div className="mt-10 text-center text-xs text-slate-600">
-          Last updated: May 2026 · Questions? <a href="mailto:hello@stacklens.fr" className="text-blue-400 hover:underline">hello@stacklens.fr</a>
+          Last updated: May 2026 · Questions? <Link to="/contact" className="text-blue-400 hover:underline">hello@stacklens.fr</Link>
         </div>
       </div>
     </div>

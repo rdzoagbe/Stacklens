@@ -14,6 +14,7 @@ import {
 import { useDbQuery } from '../../hooks/useDbQuery';
 import { useLang } from '../../contexts/LangContext';
 import { useTranslation } from '../../translations';
+import { submitContactForm } from '../../lib/contact';
 import { Card, Modal, Pill, Select } from '../../components/ui';
 import { AppShell } from '../../components/AppShell';
 import { ContractComparisonPage } from '../ContractComparisonPage';
@@ -837,18 +838,18 @@ function InvoiceManager() {
                           className="px-3 py-1 bg-blue-600 hover:bg-blue-500 rounded text-sm transition-colors">View</button>
                         {invoice.status === 'pending_approval' && (
                           <button
-                          onClick={() => {
-                            const subject = encodeURIComponent("Invoice for Approval: " + invoice.id + " - " + invoice.vendor);
-                            const body = encodeURIComponent(
-                              "Hi Finance Team,\n\nPlease review and approve the following invoice:\n\n" +
+                          onClick={async () => {
+                            const msg = "Invoice for Approval: " + invoice.id + " - " + invoice.vendor + "\n\n" +
                               "Invoice #: " + invoice.id + "\n" +
                               "Vendor: " + invoice.vendor + "\n" +
                               "Amount: " + getCurrency(language) + invoice.amount.toLocaleString() + "\n" +
                               "Due Date: " + invoice.dueDate + "\n" +
                               "Category: " + invoice.category + "\n\n" +
-                              "Submitted by: " + invoice.submittedBy + "\n\nThank you"
-                            );
-                            window.open("mailto:hello@stacklens.fr?subject=" + subject + "&body=" + body);
+                              "Submitted by: " + invoice.submittedBy;
+                            try {
+                              await submitContactForm({ name: invoice.submittedBy || 'Finance', email: 'noreply@stacklens.fr', subject: 'invoice-approval', message: msg });
+                              toast.success(t('contact_sent_title') || 'Sent');
+                            } catch { toast.error(t('contact_error') || 'Could not send.'); }
                           }}
                           className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 rounded text-sm transition-colors">{t("hc_send_to_finance")}</button>
                         )}
@@ -891,13 +892,15 @@ function InvoiceManager() {
                 </button>
                 {selectedInvoice.status === "pending_approval" && (
                   <button
-                    onClick={() => {
-                      const subject = encodeURIComponent("Invoice for Approval: " + selectedInvoice.id + " - " + selectedInvoice.vendor);
-                      const body = encodeURIComponent("Hi Finance Team,\n\nPlease approve invoice " + selectedInvoice.id + " for " + selectedInvoice.vendor + " - $" + selectedInvoice.amount.toLocaleString() + "\n\nDue: " + selectedInvoice.dueDate + "\n\nThank you");
-                      window.open("mailto:hello@stacklens.fr?subject=" + subject + "&body=" + body);
+                    onClick={async () => {
+                      const msg = "Please approve invoice " + selectedInvoice.id + " for " + selectedInvoice.vendor + " - $" + selectedInvoice.amount.toLocaleString() + "\n\nDue: " + selectedInvoice.dueDate;
+                      try {
+                        await submitContactForm({ name: 'Finance', email: 'noreply@stacklens.fr', subject: 'invoice-approval', message: msg });
+                        toast.success(t('contact_sent_title') || 'Sent');
+                      } catch { toast.error(t('contact_error') || 'Could not send.'); }
                     }}
                     className="flex-1 px-4 py-3 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-semibold transition-colors">
-                    📧 Send to Finance
+                    {t("hc_send_to_finance") || 'Send to Finance'}
                   </button>
                 )}
               </div>

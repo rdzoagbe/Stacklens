@@ -499,9 +499,8 @@ export function TrialPage() {
               <ul className="space-y-3 text-sm">
                 <li><Link to="/about" className="text-slate-300 hover:text-white transition-colors">{t('lp_footer_about')}</Link></li>
                 <li><Link to="/contact" className="text-slate-300 hover:text-white transition-colors">Contact</Link></li>
-                <li><a href="mailto:hello@stacklens.fr" className="text-slate-300 hover:text-white transition-colors">Contact</a></li>
                 <li><Link to="/contact?subject=sales" className="text-slate-300 hover:text-white transition-colors">{t('lp_footer_sales')}</Link></li>
-                <li><a href="mailto:hello@stacklens.fr" className="text-slate-300 hover:text-white transition-colors">Support</a></li>
+                <li><Link to="/contact?subject=support" className="text-slate-300 hover:text-white transition-colors">Support</Link></li>
               </ul>
             </div>
 
@@ -537,7 +536,7 @@ export function TrialPage() {
             <div className="flex items-center gap-4 text-xs text-slate-500">
               <span>{t('lp_footer_made_in')}</span>
               <span className="text-slate-700">·</span>
-              <a href="mailto:hello@stacklens.fr" className="hover:text-white transition-colors">hello@stacklens.fr</a>
+              <Link to="/contact" className="hover:text-white transition-colors">hello@stacklens.fr</Link>
             </div>
           </div>
         </div>

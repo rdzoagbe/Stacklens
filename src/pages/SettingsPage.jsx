@@ -11,6 +11,7 @@ import {
 import { loadDb, saveDb, seedDbIfEmpty, todayISO } from '../lib/db';
 import { toCsv, downloadText } from '../lib/dataUtils';
 import { resolvePlan, getPlanLimits } from '../lib/plan';
+import { submitContactForm } from '../lib/contact';
 import { useDbQuery, useDbMutations } from '../hooks/useDbQuery';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../hooks/useAuth';
@@ -569,14 +570,13 @@ export function SettingsPage() {
                         desc: 'Permanently deletes your Stacklens account and all data',
                         btn: 'Delete Account',
                         danger: true,
-                        onClick: () => {
+                        onClick: async () => {
                           if (isDemo) { toast.error('Not available in demo mode.'); return; }
-                          window.location.href = 'mailto:hello@stacklens.fr?subject='
-                            + encodeURIComponent('Account Deletion Request')
-                            + '&body=' + encodeURIComponent(
-                                'Please delete my Stacklens account.\n\nEmail: '
-                                + (firebaseUser?.email || '')
-                              );
+                          try {
+                            const email = firebaseUser?.email || '';
+                            await submitContactForm({ name: email, email, subject: 'account-deletion', message: 'Please delete my Stacklens account.\n\nEmail: ' + email });
+                            toast.success(t('contact_sent_title') || 'Request sent');
+                          } catch { toast.error(t('contact_error') || 'Could not send. Please try again.'); }
                         },
                       },
                     ].map(item => (
