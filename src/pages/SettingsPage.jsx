@@ -20,7 +20,7 @@ import { useTranslation } from '../translations';
 import { Card, CardHeader, CardBody } from '../components/ui';
 import { RoleGate, can, getUserRole } from '../components/gates';
 import { AppShell } from '../components/AppShell';
-import { SlackNotifications } from './DashboardPage';
+import { SlackNotifications } from '../components/SlackNotifications';
 
 // ── Tab-level code splitting ────────────────────────────────────────────
 const LazyBillingPage          = React.lazy(() => import('./settings/BillingTab').then(m => ({ default: m.BillingPage })));
