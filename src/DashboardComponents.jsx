@@ -1,10 +1,10 @@
 import React from 'react';
-import { LineChart, Line, PieChart, Pie, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
+import { LineChart, Line, PieChart, Pie, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
 // ============================================================================
 // DASHBOARD CHARTS COMPONENT
 // ============================================================================
-export function DashboardCharts({ spend, riskCounts, topTools }) {
+export function DashboardCharts({ spend, riskCounts, _topTools }) {
   // Monthly spend trend data (last 6 months)
   const spendTrend = [
     { month: 'Sep', spend: spend * 0.85 },
@@ -260,7 +260,7 @@ export function ClickableMetric({ label, value, icon: Icon, onClick, tone = 'blu
 // ============================================================================
 import { Sparkles, TrendingDown, AlertTriangle } from 'lucide-react';
 
-export function AIInsights({ tools, employees, spend, accessData }) {
+export function AIInsights({ tools, _employees, _spend, _accessData }) {
   const insights = [];
 
   // Unused licenses

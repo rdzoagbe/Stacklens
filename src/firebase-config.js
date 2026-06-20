@@ -14,7 +14,6 @@ import {
   signInWithEmailAndPassword,
   sendEmailVerification,
   sendPasswordResetEmail,
-  signInWithRedirect,
   getRedirectResult,
   GoogleAuthProvider,
   OAuthProvider,
@@ -108,7 +107,7 @@ isSupported().then(ok => {
     // consent state when the user accepts/rejects cookies.
     if (typeof window !== 'undefined') {
       window.__firebaseAnalyticsSetConsent = function(consentState) {
-        try { firebaseSetConsent(consentState); } catch (e) { /* silent */ }
+        try { firebaseSetConsent(consentState); } catch { /* silent */ }
       };
       // If consent was given on a prior visit (stored in localStorage), apply it now
       try {
@@ -124,7 +123,7 @@ isSupported().then(ok => {
             });
           }
         }
-      } catch (e) { /* silent */ }
+      } catch { /* silent */ }
     }
   }
 });
@@ -188,7 +187,7 @@ export async function getUserPlanFromFirestore(uid) {
     const snap = await getDoc(doc(firestoreDb, 'users', uid));
     if (snap.exists()) return snap.data();
     return null;
-  } catch(e) {
+  } catch {
     return null;
   }
 }
@@ -406,7 +405,7 @@ export async function createBillingPortal() {
 
 
 // Email/Password Registration
-export async function registerWithEmail(email, password, displayName) {
+export async function registerWithEmail(email, password, _displayName) {
   try {
     const result = await createUserWithEmailAndPassword(auth, email, password);
     await sendEmailVerification(result.user);

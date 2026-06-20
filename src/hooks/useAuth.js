@@ -43,7 +43,7 @@ export function useAuth() {
           localStorage.setItem('sg_onboarded_' + redirectUser.uid, 'true');
           window.location.replace('/dashboard');
         });
-      } catch (e) { /* ignore parse errors */ }
+      } catch { /* ignore parse errors */ }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -59,14 +59,12 @@ export function useAuth() {
         let subscriptionStatus = null;
         let isFounder = false;
         let trialStartedAt = null;
-        let fsUserExists = false;
         try {
           const tokenResult = await fbUser.getIdTokenResult();
           const claimedPlan = tokenResult.claims?.plan;
 
           const fsUser = await getUserPlanFromFirestore(fbUser.uid);
           if (fsUser) {
-            fsUserExists = true;
             plan = (claimedPlan && claimedPlan !== 'free') ? claimedPlan : (fsUser.plan || 'free');
             stripeCustomerId   = fsUser.stripe_customer_id  || null;
             subscriptionStatus = fsUser.subscription_status || null;
@@ -81,7 +79,7 @@ export function useAuth() {
           } else if (claimedPlan && claimedPlan !== 'free') {
             plan = claimedPlan;
           }
-        } catch (e) { /* default to free */ }
+        } catch { /* default to free */ }
 
         if (!isFounder && !trialStartedAt && (!plan || plan === 'free') && !stripeCustomerId) {
           plan = 'trial';
@@ -179,7 +177,7 @@ export function useAuth() {
           db2.user.subscription_status = data.subscription_status;
           localStorage.setItem('accessguard_v1', JSON.stringify(db2));
         }
-      } catch (e) { /* ignore sync errors */ }
+      } catch { /* ignore sync errors */ }
       window.location.replace('/dashboard');
     }
     return googleUser;

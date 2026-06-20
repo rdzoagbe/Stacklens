@@ -1,24 +1,21 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
-  AlertTriangle, ArrowDown, ArrowUp, BarChart3, Boxes, Calendar,
-  CalendarClock, Check, CheckCircle, CreditCard, DollarSign, Download,
-  Filter, Mail, Search, Sparkles, Target, TrendingDown, TrendingUp,
-  Upload, Users, X,
+  AlertTriangle,
+  CalendarClock, DollarSign,
+  Sparkles,
 } from 'lucide-react';
 import { saveUserData } from '../../firebase-config';
 import { loadDb, saveDb, seedDbIfEmpty } from '../../lib/db';
 import {
-  buildRiskAlerts, computeToolDerivedRisk, convertCurrency,
-  formatMoney, getCurrency,
+  convertCurrency,
+  getCurrency,
 } from '../../lib/dataUtils';
-import { useDbQuery } from '../../hooks/useDbQuery';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../hooks/useAuth';
 import { useLang } from '../../contexts/LangContext';
 import { useTranslation } from '../../translations';
-import { Card } from '../../components/ui';
 
 function SpendTrendChart({ monthlyTrend, byCategory }) {
   const { language } = useLang();
@@ -26,7 +23,6 @@ function SpendTrendChart({ monthlyTrend, byCategory }) {
   const maxSpend = Math.max(...monthlyTrend.map(m => m.spend), 1);
   const colors = ['#3b82f6','#10b981','#f59e0b','#8b5cf6','#ef4444'];
   const totalMonthly = byCategory.reduce((s, c) => s + c.spend, 0);
-  const maxCatSpend = Math.max(...byCategory.map(c => c.spend), 1);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 lg:gap-5 mb-6">
@@ -48,8 +44,6 @@ function SpendTrendChart({ monthlyTrend, byCategory }) {
         <div className="flex items-end gap-2 md:gap-3" style={{height: '160px'}}>
           {monthlyTrend.map((m, idx) => {
             const isLast = idx === monthlyTrend.length - 1;
-            const prev = idx > 0 ? monthlyTrend[idx-1].spend : m.spend;
-            const change = m.spend - prev;
             return (
               <div key={m.month} className="flex-1 flex flex-col items-center gap-1 min-w-0 group">
                 <div className="text-xs text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -182,10 +176,9 @@ function BudgetModal({ current, totalSpend, language, onSave, onClear, onClose }
   );
 }
 
-export function FinanceOverviewTab({ financialData, showBudgetModal, setShowBudgetModal, budgetCap, setBudgetCap, selectedBill, setSelectedBill, showReclaimModal, setShowReclaimModal, categoryFilter, setCategoryFilter, setFinTab }) {
+export function FinanceOverviewTab({ financialData, showBudgetModal, setShowBudgetModal, budgetCap, setBudgetCap, selectedBill: _selectedBill, setSelectedBill: _setSelectedBill, showReclaimModal: _showReclaimModal, setShowReclaimModal: _setShowReclaimModal, categoryFilter: _categoryFilter, setCategoryFilter: _setCategoryFilter, setFinTab }) {
   const { language } = useLang();
   const t = useTranslation(language);
-  const navigate = useNavigate();
   const { user: firebaseUser } = useAuth();
   const qc = useQueryClient();
   const budgetSet = financialData.budgetLimit > 0;

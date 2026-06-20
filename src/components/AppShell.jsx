@@ -139,22 +139,6 @@ export function SidebarFooter({ collapsed }) {
   const { user, logout, isDemo, endDemo, firebaseUser } = useAuth();
   const navigate = useNavigate();
   const [userProfile, setUserProfile] = useState(null);
-  const { language, setLanguage } = useLang();
-  const [showLangMenu, setShowLangMenu] = useState(false);
-
-  const languages = [
-    { code: 'en', flag: '🇬🇧', name: 'English' },
-    { code: 'fr', flag: '🇫🇷', name: 'Français' },
-  ];
-
-  const currentLang = languages.find(l => l.code === language) || languages[0];
-
-  const changeLanguage = (code) => {
-    localStorage.setItem('language', code);
-    setLanguage(code);
-    setShowLangMenu(false);
-    window.location.reload();
-  };
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -552,7 +536,7 @@ export function PageBoundary({ children }) {
   return <ErrorBoundary key={pathname}>{children}</ErrorBoundary>;
 }
 
-export function AppShell({ subtitle, title, right, children }) {
+export function AppShell({ _subtitle, title, right, children }) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const { language } = useLang();

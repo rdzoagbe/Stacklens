@@ -1,14 +1,12 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import toast from 'react-hot-toast';
 import {
-  AlertTriangle, ArrowDown, ArrowUp, BarChart3, Boxes, Calendar,
-  CalendarClock, Check, CheckCircle, CreditCard, DollarSign, Download,
-  Filter, Mail, Search, Sparkles, Target, TrendingDown, TrendingUp,
-  Upload, Users, X,
+  CreditCard, Download,
+  Mail, Sparkles,
 } from 'lucide-react';
 import {
-  buildRiskAlerts, computeToolDerivedRisk, convertCurrency,
-  formatMoney, getCurrency,
+  convertCurrency,
+  getCurrency,
 } from '../../lib/dataUtils';
 import { useDbQuery } from '../../hooks/useDbQuery';
 import { useLang } from '../../contexts/LangContext';

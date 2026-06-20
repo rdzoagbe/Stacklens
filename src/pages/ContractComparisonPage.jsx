@@ -21,7 +21,7 @@ export function ContractComparisonPage() {
 
   // ── Analysis results ────────────────────────────────────────
   const [analysis, setAnalysis] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [, setLoading] = useState(false);
   const [loadingMsg, setLoadingMsg] = useState('');
 
   // ── Chat ────────────────────────────────────────────────────
@@ -116,7 +116,7 @@ Respond with this exact JSON structure:
       }]);
       setView('results');
       setActiveTab('overview');
-    } catch (e) {
+    } catch {
       toast.error('Analysis failed — please try again');
       setView('upload');
     } finally {
@@ -277,7 +277,7 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
                           text += ct.items.map(x=>x.str).join(" ") + " ";
                         }
                         setState(s => ({...s, text: text.trim() || "Could not extract.", fileName: file.name}));
-                      } catch (err) {
+                      } catch {
                         toast.error('PDF extraction failed');
                       }
                     } else if (name.endsWith(".docx") || name.endsWith(".doc")) {

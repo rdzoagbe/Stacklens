@@ -1,13 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
-  AlertTriangle, ArrowDown, ArrowUp, BarChart3, Boxes, Calendar,
-  CalendarClock, Check, CheckCircle, CreditCard, DollarSign, Download,
-  Filter, Mail, Search, Sparkles, Target, TrendingDown, TrendingUp,
-  Upload, Users, X,
+  AlertTriangle, Boxes,
+  Check, Sparkles, Target, TrendingDown,
 } from 'lucide-react';
 import {
-  buildRiskAlerts, computeToolDerivedRisk, convertCurrency,
-  formatMoney, getCurrency,
+  convertCurrency,
+  getCurrency,
 } from '../../lib/dataUtils';
 import { useDbQuery } from '../../hooks/useDbQuery';
 import { useLang } from '../../contexts/LangContext';
@@ -163,7 +161,7 @@ export function CostTabContent({ setFinTab }) {
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {quickWins.map((tool, idx) => (
+            {quickWins.map((tool, _idx) => (
               <div key={tool.id} className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex-1 min-w-0">

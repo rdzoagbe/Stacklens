@@ -10,7 +10,7 @@ import { useTranslation } from '../translations';
 import { Button, Input, Select, Modal } from '../components/ui';
 import { RoleGate } from '../components/gates';
 import { AppShell } from '../components/AppShell';
-import { Search, Plus, Pencil, Trash2, Check, Users, UserMinus, X, ChevronRight } from 'lucide-react';
+import { Search, Plus, Pencil, Trash2, Check, Users, UserMinus, X } from 'lucide-react';
 
 // ── Directory Sync Banner ─────────────────────────────────────────────────────
 
@@ -166,7 +166,7 @@ export function EmployeeForm({ initial, onSubmit, onClose }) {
 // ── Employees Page ────────────────────────────────────────────────────────────
 
 export function EmployeesPage() {
-  const { ready: ratesReady } = useCurrency();
+  useCurrency();
   const { data: db, isLoading } = useDbQuery();
   const { language } = useLang();
   const t = useTranslation(language);

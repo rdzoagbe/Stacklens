@@ -114,7 +114,7 @@ export const MODULE_PLANS = {
   analytics: ['pro', 'enterprise', 'scale', 'unlimited', 'growth'],
 };
 
-export function ModuleGate({ module, children, feature = 'this module' }) {
+export function ModuleGate({ module, children, _feature = 'this module' }) {
   const { language } = useLang();
   const t = useTranslation(language);
   const { user } = useAuth();
@@ -163,7 +163,7 @@ export function ModuleGate({ module, children, feature = 'this module' }) {
 // ── Plan limit banner ──────────────────────────────────────────────────────
 
 export function PlanLimitBanner({ resource = 'tools' }) {
-  const { plan, limits, usage, pct } = usePlanLimits();
+  const { limits, usage, pct } = usePlanLimits();
   const navigate  = useNavigate();
   const { language } = useLang();
   const t = useTranslation(language);

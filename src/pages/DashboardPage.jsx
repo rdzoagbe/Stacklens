@@ -5,7 +5,7 @@ import {
   Activity, AlertTriangle, BadgeCheck, Boxes,
   GitMerge, RefreshCw, Sparkles, Upload, UserMinus,
 } from 'lucide-react';
-import { todayISO, resetDb } from '../lib/db';
+import { resetDb } from '../lib/db';
 import {
   computeToolDerivedStatus, computeToolDerivedRisk,
   computeAccessDerivedRiskFlag, buildRiskAlerts, riskSeverityCounts,
@@ -162,7 +162,7 @@ function GettingStartedChecklist({ db }) {
 
 export function DashboardPage() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  useAuth();
 
   const { language } = useLang();
   const t = useTranslation(language);
@@ -172,7 +172,7 @@ export function DashboardPage() {
   const [assignToolId, setAssignToolId] = useState(null);
   const [assignToolName, setAssignToolName] = useState('');
   const [spendView, setSpendView] = useState('tool');
-  const { data: db, isLoading } = useDbQuery();
+  const { data: db } = useDbQuery();
   const muts = useDbMutations();
 
   const derived = useMemo(() => {

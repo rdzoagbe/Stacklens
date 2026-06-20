@@ -155,8 +155,6 @@ export function AnalyticsReportsPage() {
 
   const tools = db?.tools || [];
   const employees = db?.employees || [];
-  const access = db?.access || [];
-
   const activeTools = tools.filter(t => t.status === 'active');
   const totalSpend = activeTools.reduce((s, t) => s + Number(t.cost_per_month || 0), 0);
   const inactiveUsers = employees.filter(e => e.status === 'inactive' || e.status === 'former').length;

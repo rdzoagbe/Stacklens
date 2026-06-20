@@ -14,44 +14,6 @@ export function SecurityCompliancePage() {
   const [secActiveTab, setSecActiveTab] = useState('security');
   const { language } = useLang();
   const t = useTranslation(language);
-  const navigate = useNavigate();
-  const { data: db } = useDbQuery();
-  const tools = db?.tools || [];
-
-  // Calculate security metrics
-  const criticalTools = tools.filter(t => t.criticality === 'high' && t.status === 'active').length;
-  const orphanedTools = tools.filter(t => t.status === 'orphaned').length;
-  const highRiskTools = tools.filter(t => t.risk_score === 'high').length;
-
-  const securityScore = Math.max(0, 100 - (orphanedTools * 10) - (highRiskTools * 5));
-
-  const alerts = [
-    {
-      type: 'critical',
-      title: `${orphanedTools} orphaned tools detected`,
-      description: 'These tools have no assigned owner and may pose security risks',
-      tone: 'rose',
-      icon: AlertTriangle,
-      route: '/tools',
-    },
-    {
-      type: 'warning',
-      title: `${highRiskTools} high-risk tools need review`,
-      description: `${t('review_admin_access')} and usage patterns for these applications`,
-      tone: 'amber',
-      icon: AlertTriangle,
-      route: '/access',
-    },
-    {
-      type: 'info',
-      title: `${criticalTools} critical tools properly secured`,
-      description: 'All critical applications have assigned owners and active monitoring',
-      tone: 'green',
-      icon: BadgeCheck,
-      route: null,
-    },
-  ];
-
   return (
     <PlanGate requires="growth" feature="Security & Compliance"><AppShell title={t('security_title')}
       right={
@@ -92,7 +54,6 @@ function SecurityTabContent() {
 
   const orphanedTools = tools.filter(t => t.status === 'active' && !t.owner_email).length;
   const highRiskTools = tools.filter(t => computeToolDerivedRisk(t) === 'high').length;
-  const criticalTools = tools.filter(t => t.criticality === 'critical').length;
   const activeTools = tools.filter(t => t.status === 'active').length;
   const formerAccess = access.filter(a => {
     const emp = employees.find(e => e.id === a.employee_id);

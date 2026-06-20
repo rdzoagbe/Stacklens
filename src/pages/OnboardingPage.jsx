@@ -26,7 +26,7 @@ async function completeOnboarding(uid, profileData) {
 
 export function OnboardingPage() {
   const navigate = useNavigate();
-  const { user, firebaseUser } = useAuth();
+  const { firebaseUser } = useAuth();
   const { language } = useLang();
   const t = useTranslation(language);
   const [loading, setLoading] = useState(false);
@@ -70,7 +70,7 @@ export function OnboardingPage() {
 
     try {
       // Save onboarding data to Firestore
-      const { success, error } = await completeOnboarding(firebaseUser.uid, {
+      const { success, error: _error } = await completeOnboarding(firebaseUser.uid, {
         ...formData,
         onboardingCompleted: true,
         onboardingDate: new Date().toISOString()

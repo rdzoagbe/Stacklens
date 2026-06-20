@@ -20,7 +20,7 @@ export function ImportWizard({ defaultKind = null, onDone = null }) {
   const [imported, setImported] = useState(null);
   const [importing, setImporting] = useState(false);
   const [dragOver, setDragOver] = useState(false);
-  const [animDir, setAnimDir] = useState('forward');
+  const [, setAnimDir] = useState('forward');
 
   const goTo = (n) => { setAnimDir(n > step ? 'forward' : 'back'); setStep(n); };
 
