@@ -92,7 +92,7 @@ function GettingStartedChecklist({ db }) {
       const t = setTimeout(() => dismiss(), 4000);
       return () => clearTimeout(t);
     }
-  }, [allDone]);
+  }, [allDone, dismissed]);
 
   if (dismissed) return null;
 
@@ -230,12 +230,12 @@ export function DashboardPage() {
         <div className="flex items-center gap-2">
           <RoleGate requires="editor">
             <Button variant="secondary" size="sm" onClick={() => { setImportKind('tools'); setShowImport(true); }}>
-              <Upload className="h-3.5 w-3.5" />Import Data
+              <Upload className="h-3.5 w-3.5" />{t('dash_import_data')}
             </Button>
           </RoleGate>
           <RoleGate requires="admin">
-            <Button variant="secondary" size="sm" onClick={() => { if(window.confirm('This will clear ALL your data (tools, employees, access). Are you sure?')) { resetDb(); } }} title="Reset all data">
-              <RefreshCw className="h-3.5 w-3.5" /> Reset Data
+            <Button variant="secondary" size="sm" onClick={() => { if(window.confirm(t('dash_reset_confirm'))) { resetDb(); } }} title={t('dash_reset_title')}>
+              <RefreshCw className="h-3.5 w-3.5" /> {t('dash_reset_data')}
             </Button>
           </RoleGate>
           <LangSelectorCompact />
@@ -257,17 +257,17 @@ export function DashboardPage() {
                 <AlertTriangle className="h-7 w-7 text-rose-400" />
               </div>
               <div className="flex-1 min-w-0">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-rose-400">Priority · Act now</span>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-rose-400">{t('dash_priority')}</span>
                 <h2 className="text-xl lg:text-2xl font-bold text-white mb-1">
-                  {derived.formerAccess} ex-{derived.formerAccess === 1 ? 'employee' : 'employees'} can still access your tools
+                  {derived.formerAccess} {t('dash_former_access_title')}
                 </h2>
-                <p className="text-sm text-slate-400">Security risk and wasted licence spend. Fix it in one click.</p>
+                <p className="text-sm text-slate-400">{t('dash_former_access_desc')}</p>
               </div>
             </div>
             <div className="flex-shrink-0">
               <Button onClick={() => navigate('/offboarding')}
                 className="w-full lg:w-auto !bg-rose-500 hover:!bg-rose-400 !text-white !px-6 !py-3 !font-bold shadow-lg shadow-rose-900/30">
-                Remove their access →
+                {t('dash_remove_access')} →
               </Button>
             </div>
           </div>
@@ -282,15 +282,15 @@ export function DashboardPage() {
                 <Upload className="h-7 w-7 text-blue-400" />
               </div>
               <div className="flex-1">
-                <div className="text-[10px] font-bold uppercase tracking-widest text-blue-400 mb-1">Get started · Step 1 of 3</div>
-                <h2 className="text-xl lg:text-2xl font-bold text-white mb-1">Import your team and tools</h2>
-                <p className="text-sm text-slate-400">Upload a CSV or Excel file with your employees and SaaS tools. Stacklens maps everything in seconds.</p>
+                <div className="text-[10px] font-bold uppercase tracking-widest text-blue-400 mb-1">{t('dash_get_started')}</div>
+                <h2 className="text-xl lg:text-2xl font-bold text-white mb-1">{t('dash_import_team')}</h2>
+                <p className="text-sm text-slate-400">{t('dash_import_team_desc')}</p>
               </div>
             </div>
             <div className="flex-shrink-0">
               <Button onClick={() => { setImportKind('company'); setShowImport(true); }}
                 className="w-full lg:w-auto !bg-blue-500 hover:!bg-blue-400 !text-white !px-6 !py-3 !font-bold">
-                Upload my data →
+                {t('dash_upload_data')} →
               </Button>
             </div>
           </div>
@@ -307,7 +307,7 @@ export function DashboardPage() {
         const highRiskTools = derived.tools.filter(tool => tool.derived_risk === 'high').length;
         const score = hasData ? Math.max(0, Math.min(100, 100 - (orphanedToolsCount * 10) - (highRiskTools * 5) - (formerAccess * 8))) : null;
         const scoreColor = score === null ? '#475569' : score >= 80 ? '#10b981' : score >= 60 ? '#f59e0b' : '#ef4444';
-        const scoreLabel = score === null ? 'No data' : score >= 80 ? 'Good' : score >= 60 ? 'Needs Work' : 'Critical';
+        const scoreLabel = score === null ? t('dash_no_data') : score >= 80 ? t('dash_score_good') : score >= 60 ? t('dash_score_needs_work') : t('dash_score_critical');
         const labelBg = score === null ? 'bg-slate-700/40 text-slate-400' : score >= 80 ? 'bg-emerald-500/20 text-emerald-400' : score >= 60 ? 'bg-amber-500/20 text-amber-400' : 'bg-red-500/20 text-red-400';
         const toolsWithMfa = derived.tools.filter(tool => tool.mfa_required || tool.mfa_enabled).length;
         const mfaCoverage = totalTools > 0 ? Math.round((toolsWithMfa / totalTools) * 100) : null;
@@ -324,7 +324,7 @@ export function DashboardPage() {
             <Link to="/finance" className="lg:col-span-2">
               <div className="relative overflow-hidden rounded-2xl border border-emerald-500/20 bg-gradient-to-br from-slate-900 to-emerald-950/20 p-5 lg:p-6 h-full hover:border-emerald-500/40 transition-all group">
                 <div className="absolute top-0 right-0 w-40 h-full bg-gradient-to-l from-emerald-500/5 to-transparent pointer-events-none" />
-                <div className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-1">{t('monthly_spend') || 'Monthly Spend'}</div>
+                <div className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-1">{t('monthly_spend')}</div>
                 <div className="text-4xl lg:text-5xl font-black text-emerald-400 mb-1">
                   {getCurrency(language)}{convertCurrency(derived.spend || 0, language).toLocaleString()}
                 </div>
@@ -333,11 +333,11 @@ export function DashboardPage() {
                 </div>
                 <div className="flex gap-6">
                   <div>
-                    <div className="text-xs text-slate-500 mb-0.5">Tools tracked</div>
+                    <div className="text-xs text-slate-500 mb-0.5">{t('dash_tools_tracked')}</div>
                     <div className="text-lg font-black text-white">{totalTools}</div>
                   </div>
                   <div>
-                    <div className="text-xs text-slate-500 mb-0.5">Avg / employee</div>
+                    <div className="text-xs text-slate-500 mb-0.5">{t('dash_avg_per_employee')}</div>
                     <div className="text-lg font-black text-white">
                       {totalEmployees > 0 ? `${getCurrency(language)}${convertCurrency(avgPerEmployee, language).toLocaleString()}` : '—'}
                     </div>
@@ -349,7 +349,7 @@ export function DashboardPage() {
             {/* Security Score */}
             <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 lg:p-6 flex flex-col justify-between">
               <div className="flex items-center justify-between mb-3">
-                <span className="text-[11px] font-bold uppercase tracking-widest text-slate-400">{t('security_score') || 'Security Score'}</span>
+                <span className="text-[11px] font-bold uppercase tracking-widest text-slate-400">{t('security_score')}</span>
                 <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${labelBg}`}>{scoreLabel}</span>
               </div>
               <div className="flex items-center gap-4">
@@ -367,13 +367,13 @@ export function DashboardPage() {
                   </div>
                 </div>
                 <div className="space-y-1.5 flex-1 text-xs">
-                  <div className="flex justify-between"><span className="text-slate-400">MFA coverage</span><span className={mfaCoverage === null ? 'text-slate-500' : mfaCoverage >= 80 ? 'text-emerald-400' : 'text-amber-400'} >{mfaCoverage === null ? '—' : `${mfaCoverage}%`}</span></div>
-                  <div className="flex justify-between"><span className="text-slate-400">Ex-emp access</span><span className={formerAccess > 0 ? 'text-red-400' : 'text-emerald-400'}>{formerAccess} active</span></div>
-                  <div className="flex justify-between"><span className="text-slate-400">Overdue reviews</span><span className={overdueReviews > 0 ? 'text-amber-400' : 'text-emerald-400'}>{overdueReviews}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-400">{t('dash_mfa_coverage')}</span><span className={mfaCoverage === null ? 'text-slate-500' : mfaCoverage >= 80 ? 'text-emerald-400' : 'text-amber-400'} >{mfaCoverage === null ? '—' : `${mfaCoverage}%`}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-400">{t('dash_ex_emp_access')}</span><span className={formerAccess > 0 ? 'text-red-400' : 'text-emerald-400'}>{formerAccess} active</span></div>
+                  <div className="flex justify-between"><span className="text-slate-400">{t('dash_overdue_reviews')}</span><span className={overdueReviews > 0 ? 'text-amber-400' : 'text-emerald-400'}>{overdueReviews}</span></div>
                 </div>
               </div>
               <Link to="/security" className="mt-3 block">
-                <Button variant="secondary" className="w-full text-xs">Review score →</Button>
+                <Button variant="secondary" className="w-full text-xs">{t('dash_review_score')} →</Button>
               </Link>
             </div>
 
@@ -381,16 +381,16 @@ export function DashboardPage() {
             <div className="flex flex-col gap-3">
               <Link to="/security" className="flex-1">
                 <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-4 h-full hover:border-red-500/40 transition-all">
-                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">{t('security_alerts') || 'Security Alerts'}</div>
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">{t('security_alerts')}</div>
                   <div className="text-3xl font-black text-red-400">{derived.alerts.length || 0}</div>
                   <div className="text-xs text-slate-500">{derived.counts.critical||0} critical · {derived.counts.high||0} high</div>
                 </div>
               </Link>
               <Link to="/tools" className="flex-1">
                 <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 h-full hover:border-amber-500/40 transition-all">
-                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Wasted Spend</div>
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">{t('dash_wasted_spend')}</div>
                   <div className="text-3xl font-black text-amber-400">{getCurrency(language)}{convertCurrency(wastedSpend, language).toLocaleString()}</div>
-                  <div className="text-xs text-slate-500">Idle / unused licenses</div>
+                  <div className="text-xs text-slate-500">{t('dash_idle_licenses')}</div>
                 </div>
               </Link>
             </div>
@@ -405,11 +405,11 @@ export function DashboardPage() {
         <div className="lg:col-span-3 rounded-2xl border border-slate-800 bg-slate-900/60 p-5 lg:p-6">
           <div className="flex items-center justify-between mb-5">
             <div>
-              <h3 className="text-base font-semibold text-white">Spend Breakdown</h3>
-              <p className="text-xs text-slate-500 mt-0.5">Top items by monthly cost</p>
+              <h3 className="text-base font-semibold text-white">{t('dash_spend_breakdown')}</h3>
+              <p className="text-xs text-slate-500 mt-0.5">{t('dash_top_items')}</p>
             </div>
             <div className="flex gap-1.5">
-              {[['tool','By Tool'],['category','By Category'],['dept','By Dept']].map(([v,l]) => (
+              {[['tool',t('dash_by_tool')],['category',t('dash_by_category')],['dept',t('dash_by_dept')]].map(([v,l]) => (
                 <button key={v} onClick={() => setSpendView(v)}
                   className={`text-xs px-2.5 py-1.5 rounded-lg font-semibold transition-colors ${spendView === v ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
                   {l}
@@ -421,8 +421,8 @@ export function DashboardPage() {
           {spendRows.length === 0 ? (
             <div className="text-center py-8">
               <div className="text-3xl mb-2 opacity-40">💸</div>
-              <div className="text-sm text-slate-400 mb-1">No spend data yet</div>
-              <div className="text-xs text-slate-600">Import your tools to see spending</div>
+              <div className="text-sm text-slate-400 mb-1">{t('dash_no_spend')}</div>
+              <div className="text-xs text-slate-600">{t('dash_import_to_see')}</div>
             </div>
           ) : (
             <div className="space-y-3">
@@ -445,7 +445,7 @@ export function DashboardPage() {
                 </div>
               ))}
               <div className="pt-2 border-t border-slate-800 flex justify-end">
-                <Link to="/finance" className="text-xs text-blue-400 hover:text-blue-300 font-semibold">Full breakdown →</Link>
+                <Link to="/finance" className="text-xs text-blue-400 hover:text-blue-300 font-semibold">{t('dash_full_breakdown')} →</Link>
               </div>
             </div>
           )}
@@ -454,7 +454,7 @@ export function DashboardPage() {
         {/* Security Overview */}
         <div className="lg:col-span-2 rounded-2xl border border-slate-800 bg-slate-900/60 p-5 lg:p-6">
           <div className="flex items-center justify-between mb-5">
-            <h3 className="text-base font-semibold text-white">{t('critical_alerts') || 'Security Overview'}</h3>
+            <h3 className="text-base font-semibold text-white">{t('critical_alerts')}</h3>
             <div className="flex items-center gap-1.5">
               <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
               <Pill tone="blue" icon={Sparkles}>{t('live')}</Pill>
@@ -469,19 +469,19 @@ export function DashboardPage() {
                   <div className="text-sm font-semibold text-slate-100">{a.title}</div>
                   <div className="text-xs text-slate-500 mt-0.5 line-clamp-1">{a.body}</div>
                 </div>
-                <Link to={a.action.to} className="text-xs text-blue-400 hover:text-blue-300 flex-shrink-0 font-semibold">Fix →</Link>
+                <Link to={a.action.to} className="text-xs text-blue-400 hover:text-blue-300 flex-shrink-0 font-semibold">{t('dash_fix')} →</Link>
               </div>
             )) : (
               <div className="flex items-center gap-3 rounded-xl p-4 bg-emerald-500/5 border border-emerald-500/20">
                 <BadgeCheck className="h-5 w-5 text-emerald-400 flex-shrink-0" />
-                <div className="text-sm text-emerald-400 font-semibold">All clear — no critical issues</div>
+                <div className="text-sm text-emerald-400 font-semibold">{t('dash_all_clear')}</div>
               </div>
             )}
           </div>
 
           {derived.alerts.length > 4 && (
             <Link to="/security" className="mt-3 block">
-              <Button variant="secondary" className="w-full text-xs">See all {derived.alerts.length} alerts →</Button>
+              <Button variant="secondary" className="w-full text-xs">{t('dash_see_all_alerts')} ({derived.alerts.length}) →</Button>
             </Link>
           )}
         </div>
@@ -495,8 +495,8 @@ export function DashboardPage() {
           actions.push({
             id: 'former-' + a.id, severity: 'critical', icon: '🔴',
             title: `${a.employee_name || 'Ex-employee'} still has access to ${a.tool_name || 'a tool'}`,
-            reason: 'Left the company but access was not revoked.',
-            action: 'Revoke',
+            reason: t('dash_left_not_revoked'),
+            action: t('dash_revoke'),
             onAction: () => muts.updateAccess.mutate({ id: a.id, patch: { status: 'revoked' } }, { onSuccess: () => toast.success(t('revoked')) }),
           });
         });
@@ -504,9 +504,9 @@ export function DashboardPage() {
         (derived.tools || []).filter(tool => !tool.owner_email).slice(0, 4).forEach(tool => {
           actions.push({
             id: 'noowner-' + tool.id, severity: 'high', icon: '🟡',
-            title: `${tool.name} has no assigned owner`,
-            reason: `${getCurrency(language)}${convertCurrency(tool.cost_per_month||0,language).toLocaleString()}/mo — nobody responsible`,
-            action: 'Assign',
+            title: `${tool.name} ${t('dash_no_owner')}`,
+            reason: `${getCurrency(language)}${convertCurrency(tool.cost_per_month||0,language).toLocaleString()}/mo — ${t('dash_nobody_responsible')}`,
+            action: t('dash_assign'),
             toolId: tool.id, toolName: tool.name, needsOwner: true,
           });
         });
@@ -514,9 +514,9 @@ export function DashboardPage() {
         (derived.tools || []).filter(tool => tool.derived_risk === 'high' && !tool.mfa_required && !tool.mfa_enabled).slice(0, 3).forEach(tool => {
           actions.push({
             id: 'mfa-' + tool.id, severity: 'high', icon: '🛡️',
-            title: `${tool.name} is high risk with no MFA`,
+            title: `${tool.name} ${t('dash_high_risk_no_mfa')}`,
             reason: `Owner: ${tool.owner_email || 'none'} · Last used: ${tool.last_used_date || 'unknown'}`,
-            action: 'Review', link: '/security',
+            action: t('review'), link: '/security',
           });
         });
 
@@ -526,9 +526,9 @@ export function DashboardPage() {
           const pct = Math.round((derived.spend / _budgetCap) * 100);
           actions.push({
             id: 'budget-exceeded', severity: 'high', icon: '💰',
-            title: `Monthly spend is ${pct}% of your budget cap`,
+            title: `${pct}% ${t('dash_budget_exceeded')}`,
             reason: `Cap: ${getCurrency(language)}${convertCurrency(_budgetCap,language).toLocaleString()}/mo · Current: ${getCurrency(language)}${convertCurrency(derived.spend,language).toLocaleString()}`,
-            action: 'Finance', link: '/finance',
+            action: t('nav_finance'), link: '/finance',
           });
         }
 
@@ -537,9 +537,9 @@ export function DashboardPage() {
         (derived.tools || []).filter(tool => tool.cost_per_month > 0 && (!tool.last_used_date || new Date(tool.last_used_date).getTime() < sixtyDaysAgo)).slice(0, 3).forEach(tool => {
           actions.push({
             id: 'idle-' + tool.id, severity: 'medium', icon: '💸',
-            title: `${tool.name} — ${getCurrency(language)}${convertCurrency(tool.cost_per_month||0,language).toLocaleString()}/mo possibly wasted`,
+            title: `${tool.name} — ${getCurrency(language)}${convertCurrency(tool.cost_per_month||0,language).toLocaleString()}/mo ${t('dash_possibly_wasted')}`,
             reason: `Last used: ${tool.last_used_date || 'never'}`,
-            action: 'Review', link: '/tools',
+            action: t('review'), link: '/tools',
           });
         });
 
@@ -553,7 +553,7 @@ export function DashboardPage() {
                 <div className="p-1.5 bg-red-500/20 rounded-lg">
                   <AlertTriangle className="h-4 w-4 text-red-400" />
                 </div>
-                <span className="text-base font-semibold text-slate-100">{t('action_inbox') || 'Action Inbox'}</span>
+                <span className="text-base font-semibold text-slate-100">{t('action_inbox')}</span>
                 <span className="text-xs px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 font-semibold border border-red-500/30">{actions.length}</span>
               </div>
               {actions.length > 6 && (
@@ -600,14 +600,14 @@ export function DashboardPage() {
 
       {/* ── ROW 4: Quick Actions ── */}
       <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 lg:p-6">
-        <h3 className="text-sm font-semibold text-white mb-4">{t('quick_actions') || 'Quick Actions'}</h3>
+        <h3 className="text-sm font-semibold text-white mb-4">{t('quick_actions')}</h3>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <Link to="/offboarding">
             <button className="flex items-center gap-3 p-4 rounded-xl border border-slate-700 bg-slate-950/40 hover:bg-slate-900/80 hover:border-slate-600 transition-all text-left w-full">
               <UserMinus className="h-5 w-5 text-slate-400 flex-shrink-0" />
               <div>
-                <div className="text-sm font-semibold text-white">{t('revoke_departing_access') || 'Offboard Employee'}</div>
-                <div className="text-xs text-slate-500">Revoke all access at once</div>
+                <div className="text-sm font-semibold text-white">{t('revoke_departing_access')}</div>
+                <div className="text-xs text-slate-500">{t('dash_revoke_all')}</div>
               </div>
             </button>
           </Link>
@@ -615,8 +615,8 @@ export function DashboardPage() {
             <button className="flex items-center gap-3 p-4 rounded-xl border border-slate-700 bg-slate-950/40 hover:bg-slate-900/80 hover:border-slate-600 transition-all text-left w-full">
               <GitMerge className="h-5 w-5 text-slate-400 flex-shrink-0" />
               <div>
-                <div className="text-sm font-semibold text-white">{t('review_admin_access') || 'Review Admin Access'}</div>
-                <div className="text-xs text-slate-500">{(derived.access||[]).filter(a=>a.status==='active').length} pending reviews</div>
+                <div className="text-sm font-semibold text-white">{t('review_admin_access')}</div>
+                <div className="text-xs text-slate-500">{(derived.access||[]).filter(a=>a.status==='active').length} {t('dash_pending_reviews')}</div>
               </div>
             </button>
           </Link>
@@ -624,8 +624,8 @@ export function DashboardPage() {
             <button className="flex items-center gap-3 p-4 rounded-xl border border-slate-700 bg-slate-950/40 hover:bg-slate-900/80 hover:border-slate-600 transition-all text-left w-full">
               <Boxes className="h-5 w-5 text-slate-400 flex-shrink-0" />
               <div>
-                <div className="text-sm font-semibold text-white">{t('assign_owners') || 'Assign Tool Owners'}</div>
-                <div className="text-xs text-slate-500">{derived.tools.filter(t=>!t.owner_email).length} tools unassigned</div>
+                <div className="text-sm font-semibold text-white">{t('assign_owners')}</div>
+                <div className="text-xs text-slate-500">{derived.tools.filter(t=>!t.owner_email).length} {t('dash_tools_unassigned')}</div>
               </div>
             </button>
           </Link>
@@ -633,7 +633,7 @@ export function DashboardPage() {
             <button className="flex items-center gap-3 p-4 rounded-xl border border-slate-700 bg-slate-950/40 hover:bg-slate-900/80 hover:border-slate-600 transition-all text-left w-full">
               <Activity className="h-5 w-5 text-slate-400 flex-shrink-0" />
               <div>
-                <div className="text-sm font-semibold text-white">{t('reclaim_licenses') || 'Reclaim Idle Licenses'}</div>
+                <div className="text-sm font-semibold text-white">{t('reclaim_licenses')}</div>
                 <div className="text-xs text-slate-500">Save ~{getCurrency(language)}{convertCurrency(Math.round((derived.spend||0)*0.14),language).toLocaleString()}/mo</div>
               </div>
             </button>
@@ -653,8 +653,8 @@ export function DashboardPage() {
       {showAssignOwner && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={() => setShowAssignOwner(false)}>
           <div className="bg-slate-950 border border-slate-700 rounded-2xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
-            <h3 className="text-lg font-bold text-white mb-1">Assign tool owner</h3>
-            <p className="text-sm text-slate-400 mb-4">Who should own {assignToolName}?</p>
+            <h3 className="text-lg font-bold text-white mb-1">{t('dash_assign_owner')}</h3>
+            <p className="text-sm text-slate-400 mb-4">{t('dash_who_should_own')} {assignToolName}?</p>
             <div className="space-y-2 max-h-[50vh] overflow-y-auto">
               {(db?.employees || []).filter(e => e.status === 'active').map(emp => (
                 <button key={emp.id}
@@ -670,16 +670,16 @@ export function DashboardPage() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-semibold text-slate-200 truncate">{emp.full_name}</div>
-                    <div className="text-xs text-slate-500 truncate">{emp.email} · {emp.department || 'No dept'}</div>
+                    <div className="text-xs text-slate-500 truncate">{emp.email} · {emp.department || t('dash_no_dept')}</div>
                   </div>
                 </button>
               ))}
               {(db?.employees || []).filter(e => e.status === 'active').length === 0 && (
-                <div className="text-center py-6 text-sm text-slate-500">{t('assign_no_active_employees') || 'No active employees. Import your team first.'}</div>
+                <div className="text-center py-6 text-sm text-slate-500">{t('assign_no_active_employees')}</div>
               )}
             </div>
             <div className="mt-4 flex justify-end">
-              <Button variant="secondary" onClick={() => setShowAssignOwner(false)}>Cancel</Button>
+              <Button variant="secondary" onClick={() => setShowAssignOwner(false)}>{t('cancel')}</Button>
             </div>
           </div>
         </div>
