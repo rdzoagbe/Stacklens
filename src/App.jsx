@@ -25,7 +25,6 @@ const OffboardingPage      = React.lazy(() => import('./pages/OffboardingPage').
 const SecurityCompliancePage = React.lazy(() => import('./pages/SecurityCompliancePage').then(m => ({ default: m.SecurityCompliancePage })));
 const SettingsPage         = React.lazy(() => import('./pages/SettingsPage').then(m => ({ default: m.SettingsPage })));
 const FinanceDashboard     = React.lazy(() => import('./pages/FinancePage').then(m => ({ default: m.FinanceDashboard })));
-const ContractComparisonPage = React.lazy(() => import('./pages/ContractComparisonPage').then(m => ({ default: m.ContractComparisonPage })));
 const FounderAdminPage     = React.lazy(() => import('./pages/FounderAdminPage').then(m => ({ default: m.FounderAdminPage })));
 
 // Legal pages share one chunk (all resolved from the same dynamic import)

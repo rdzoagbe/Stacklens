@@ -45,7 +45,7 @@ function ChecklistItems() {
 
 export function OffboardingPage() {
   const { language } = useLang();
-  const { ready: ratesReady } = useCurrency();
+  useCurrency();
   const t = useTranslation(language);
   const { data: db, isLoading } = useDbQuery();
   const muts = useDbMutations();
@@ -387,7 +387,7 @@ export function OffboardingPage() {
                   ) : (
                     <>
                       <div className="space-y-2 mb-4 max-h-[280px] overflow-y-auto pr-1">
-                        {activeRecords.map((r, idx) => (
+                        {activeRecords.map((r) => (
                           <div key={r.id} className="flex items-center gap-3 p-3 rounded-xl border border-slate-800 bg-slate-950/40">
                             <div className="flex-shrink-0">
                               <input type="checkbox" checked={Boolean(checked[r.id])}

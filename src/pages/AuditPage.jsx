@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import toast from 'react-hot-toast';
 import { Download, FileText, Users } from 'lucide-react';
 import { todayISO } from '../lib/db';
-import { computeToolDerivedStatus, computeToolDerivedRisk, computeAccessDerivedRiskFlag, formatMoney, getCurrency, convertCurrency, downloadText, toCsv } from '../lib/dataUtils';
+import { computeToolDerivedStatus, computeToolDerivedRisk, computeAccessDerivedRiskFlag, formatMoney, getCurrency, downloadText, toCsv } from '../lib/dataUtils';
 import { cx } from '../lib/utils';
 import { useDbQuery } from '../hooks/useDbQuery';
 import { useLang } from '../contexts/LangContext';
@@ -11,7 +11,7 @@ import { Button, Card, CardBody, CardHeader, EmptyState, SkeletonRow } from '../
 import { PlanGate } from '../components/gates';
 import { AppShell } from '../components/AppShell';
 
-function generateAuditReportHTML(derived, language, t) {
+function generateAuditReportHTML(derived, language, _t) {
   const fm = (n) => formatMoney(n, null, language);
   const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
   const hScore = derived.healthScore;
@@ -300,7 +300,6 @@ export function AuditTabContent() {
   };
 
   const healthColor = (s) => s >= 80 ? "text-emerald-400" : s >= 60 ? "text-amber-400" : "text-red-400";
-  const healthBg = (s) => s >= 80 ? "bg-emerald-500" : s >= 60 ? "bg-amber-500" : "bg-red-500";
 
   if (isLoading || !derived) return (
     <div className="flex items-center justify-center py-20 text-slate-500">Loading audit data...</div>

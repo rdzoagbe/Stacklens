@@ -170,7 +170,7 @@ describe('saveDb overflow trimming', () => {
       id: `a${i}`,
       last_accessed_date: new Date(Date.now() - i * 86400000).toISOString().slice(0, 10),
     }));
-    const db = { tools: [], employees: [], access, user: {} };
+    const _db = { tools: [], employees: [], access, user: {} };
 
     // Manually invoke trim logic by checking that after a huge db is stored,
     // only most-recent records are preserved

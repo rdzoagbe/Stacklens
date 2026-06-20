@@ -1,7 +1,7 @@
 // ── Utility functions ──────────────────────────────────────────────
 // Pure functions with no React dependencies. Safe to import anywhere.
 
-import { format, subDays, parseISO, differenceInDays, isValid } from 'date-fns';
+import { format, parseISO, isValid } from 'date-fns';
 
 let _uidCounter = 0;
 export function uid(prefix = "id") {

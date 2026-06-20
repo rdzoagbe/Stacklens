@@ -25,7 +25,6 @@ export function ExecutiveDashboard({ data }) {
   const annualSavings = potentialSavings * 12;
   const roi = totalSpend > 0 ? ((potentialSavings / totalSpend) * 100).toFixed(1) : 0;
   const highRiskTools = data?.tools?.filter(tool => tool.derived_risk === 'high').length || 0;
-  const efficiencyScore = Math.min(100, Math.max(0, 85 + (potentialSavings === 0 ? 10 : 0) - (highRiskTools * 2)));
   const criticalAlerts = data?.alerts?.filter(a => a.severity === 'critical').length || 0;
   const categorySpend = {};
   data?.tools?.forEach(tool => {

@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
 import {
   buildRiskAlerts, computeToolDerivedRisk,
 } from '../lib/dataUtils';
@@ -49,12 +48,10 @@ export function ExecutivePageWrapper() {
 }
 
 export function FinanceDashboard() {
-  const navigate = useNavigate();
   const { language } = useLang();
   const t = useTranslation(language);
   const { data: db } = useDbQuery();
   const [finTab, setFinTab] = useState('overview');
-  const [timeRange, setTimeRange] = useState('month');
   const [showBudgetModal, setShowBudgetModal] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [showReclaimModal, setShowReclaimModal] = useState(false);

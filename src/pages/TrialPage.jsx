@@ -15,15 +15,13 @@ export function TrialPage() {
   const { language } = useLang();
   const t = useTranslation(language);
 
-  const { login, startDemo, isAuthed, isDemo: isDemoUser, firebaseUser } = useAuth();
+  const { login, startDemo, isAuthed, firebaseUser } = useAuth();
 
   // If already authenticated on mount, redirect away from landing page
   useEffect(() => {
     // Use a small delay so Firebase auth state settles before we check
     const timer = setTimeout(() => {
       if (isAuthed || firebaseUser) {
-        const uid = firebaseUser?.uid;
-        const done = uid ? localStorage.getItem('sg_onboarded_' + uid) === 'true' : false;
         navigate('/dashboard', { replace: true });
       }
     }, 300);
@@ -33,18 +31,15 @@ export function TrialPage() {
   }, []);
 
   const [showAuth, setShowAuth] = useState(false);
-  const [showEmailForm, setShowEmailForm] = useState(false);
+  const [, setShowEmailForm] = useState(false);
   const [authTab, setAuthTab] = useState('signin');
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
   const [authName, setAuthName] = useState('');
-  const [authConfirm, setAuthConfirm] = useState('');
   const [magicSent, setMagicSent] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState('');
-  const [currentTestimonial, setCurrentTestimonial] = useState(0);
-  const [activeFaq, setActiveFaq] = useState(null);
-  const [activeStep, setActiveStep] = useState(0);
+  const [, setCurrentTestimonial] = useState(0);
   const [loading, setLoading] = useState(false);
 
   // Analytics tracking helper
@@ -56,16 +51,6 @@ export function TrialPage() {
 
   // No fake testimonials — we're in early access. Real testimonials come from real customers.
   const testimonials = [];
-
-  // FAQs
-  const faqs = [
-    { q: "How long does setup take?", a: "Under 5 minutes. Upload a CSV or Excel file with your tools and employees. Stacklens maps everything automatically." },
-    { q: "Do I need to install anything?", a: "No. 100% cloud-based. Works in your browser." },
-    { q: "Do you support Google Workspace / Microsoft 365 sync?", a: "Yes — OAuth-based directory sync is available now for Google Workspace, Microsoft 365, and Okta. CSV/Excel import also works great and takes 5 minutes." },
-    { q: "How much can I save?", a: "It depends on your stack size. Most companies with 50+ tools have 10-30% waste they don't know about — idle licenses, forgotten subscriptions, ex-employee access." },
-    { q: "Is my data secure?", a: "Yes. Your data is hosted on Google Cloud Platform in the EU (Firebase). GDPR-compliant by design. Data is encrypted in transit and at rest. You own your data and can export or delete it at any time." },
-    { q: "Why is it so much cheaper than Zylo or Torii?", a: "They're built for enterprises with 1,000+ employees and dedicated procurement teams. Stacklens is built for SMBs — simpler feature set, lower infrastructure costs, solo founder. Different market, different price." },
-  ];
 
   // Auto-rotate testimonials
   useEffect(() => {
@@ -84,7 +69,7 @@ export function TrialPage() {
       if (provider.id === 'google') {
         await login();
       } else if (provider.id === 'microsoft') {
-        const { user, error } = await signInWithMicrosoft();
+        const { error } = await signInWithMicrosoft();
         if (error) {
           toast.error('Microsoft sign-in failed: ' + error);
           setLoading(false);
@@ -102,23 +87,6 @@ export function TrialPage() {
       toast.error(t('signin_failed_try_again'));
       setLoading(false);
     }
-  };
-
-  // Handle email magic link
-  const handleEmailSubmit = async (email) => {
-    setLoading(true);
-
-    const { error } = await sendMagicLink(email);
-
-    if (!error) {
-      setShowEmailForm(false);
-      setShowAuth(false);
-      toast.success(t('magic_link_sent'));
-    } else {
-      toast.error(t('could_not_send_email') + ' ' + error + '. ' + (language === 'fr' ? 'Essayez plutôt la connexion Google.' : 'Try Google sign-in instead.'));
-    }
-
-    setLoading(false);
   };
 
   return (

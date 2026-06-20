@@ -1,86 +1,23 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import toast from 'react-hot-toast';
-import { useNavigate } from 'react-router-dom';
 import {
-  AlertTriangle, ArrowDown, ArrowUp, BadgeCheck, BarChart3, Boxes, Calendar,
-  CalendarClock, Check, CheckCircle, CreditCard, DollarSign, Download,
-  Filter, Loader, Mail, Search, Send, Sparkles, Target, TrendingDown,
-  TrendingUp, Upload, Users, X,
+  AlertTriangle, BadgeCheck, Calendar,
+  CalendarClock, CheckCircle, Download,
+  Loader, Mail, Send, Sparkles,
+  Upload,
 } from 'lucide-react';
 import {
-  buildRiskAlerts, computeToolDerivedRisk, convertCurrency,
-  formatMoney, getCurrency,
+  convertCurrency,
+  getCurrency,
 } from '../../lib/dataUtils';
 import { useDbQuery } from '../../hooks/useDbQuery';
 import { useLang } from '../../contexts/LangContext';
 import { useTranslation } from '../../translations';
 import { submitContactForm } from '../../lib/contact';
 import { Card, Modal, Pill, Select } from '../../components/ui';
-import { AppShell } from '../../components/AppShell';
 import { ContractComparisonPage } from '../ContractComparisonPage';
 
-function openNegotiateEmail(renewal, language) {
-  const subject = encodeURIComponent(`Renewal Negotiation: ${renewal.app}`);
-  const body = encodeURIComponent(`Hi,
-
-I'm reaching out regarding the upcoming renewal for ${renewal.app} on ${renewal.renewalDate}.
-
-Current details:
-- Annual cost: ${getCurrency(language)}${renewal.cost.toLocaleString()}
-- Contract owner: ${renewal.owner}
-- Auto-renewal: ${renewal.autoRenew ? 'Yes' : 'No'}
-
-I'd like to discuss:
-1. Pricing options for renewal
-2. Usage optimization opportunities  
-3. Contract term flexibility
-
-Can we schedule a call this week?
-
-Best regards`);
-  
-  window.location.href = `mailto:vendor@${renewal.app.toLowerCase()}.com?subject=${subject}&body=${body}`;
-}
-
-function ContractsRenewalsHub() {
-  const { language } = useLang();
-  const t = useTranslation(language);
-  const [cTab, setCTab] = useState('renewals');
-  const TABS = [
-    { id: 'renewals',  label: '🔔 Renewals' },
-    { id: 'invoices',  label: '📤 Invoices' },
-    { id: 'contracts', label: '📄 Contracts' },
-  ];
-  return (
-    <AppShell title={t("nav_contracts")}
-      data-tour="tour-contracts-header"
-      right={
-        <div className="flex gap-1 p-1 bg-slate-900 rounded-xl border border-slate-800">
-          {TABS.map(tab => (
-            <button key={tab.id} onClick={() => setCTab(tab.id)}
-              className={"px-3 py-1.5 rounded-lg text-sm font-semibold transition-all " + (cTab === tab.id ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white')}>
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      }
-    >
-      <div data-tour="tour-contracts-header">
-      {cTab === 'renewals'  && <RenewalsTabContent />}
-      {cTab === 'invoices'  && <InvoicesTabContent />}
-      {cTab === 'contracts' && <ContractsTabContent />}
-      </div>
-    </AppShell>
-  );
-}
-
-function RenewalsTabContent() {
-  const { data: db } = useDbQuery();
-  return <RenewalAlerts />;
-}
-
 export function RenewalAlerts() {
-  const navigate = useNavigate();
   const { language } = useLang();
   const t = useTranslation(language);
   const { data: db } = useDbQuery();
@@ -430,7 +367,7 @@ export function RenewalAlerts() {
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {topNegotiations.map((opp, idx) => (
+            {topNegotiations.map((opp, _idx) => (
               <div key={opp.id} className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex-1 min-w-0">
@@ -632,15 +569,9 @@ export function RenewalAlerts() {
 }
 
 
-function InvoicesTabContent() {
-  const { language } = useLang();
-  const t = useTranslation(language);
-  return <InvoiceManager />;
-}
-
+// eslint-disable-next-line no-unused-vars
 function InvoiceManager() {
-  const navigate = useNavigate();
-  const { language, setLanguage } = useLang();
+  const { language } = useLang();
   const t = useTranslation(language);
 
 

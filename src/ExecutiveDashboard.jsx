@@ -9,15 +9,13 @@ import {
   ArrowUp,
   ArrowDown
 } from 'lucide-react';
-import { 
-  LineChart, 
-  Line, 
-  BarChart,
-  Bar,
-  XAxis, 
-  YAxis, 
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
   CartesianGrid,
-  Tooltip, 
+  Tooltip,
   ResponsiveContainer,
   Cell,
   PieChart as RPieChart,

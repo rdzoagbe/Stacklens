@@ -12,13 +12,13 @@ import { loadDb, saveDb, seedDbIfEmpty, todayISO } from '../lib/db';
 import { toCsv, downloadText } from '../lib/dataUtils';
 import { resolvePlan, getPlanLimits } from '../lib/plan';
 import { submitContactForm } from '../lib/contact';
-import { useDbQuery, useDbMutations } from '../hooks/useDbQuery';
+import { useDbQuery } from '../hooks/useDbQuery';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../hooks/useAuth';
 import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
 import { Card, CardHeader, CardBody } from '../components/ui';
-import { RoleGate, can, getUserRole } from '../components/gates';
+import { RoleGate, can } from '../components/gates';
 import { AppShell } from '../components/AppShell';
 import { SlackNotifications } from '../components/SlackNotifications';
 
@@ -35,7 +35,7 @@ function TabLoader() {
 }
 
 export function SettingsPage() {
-  const { language, setLanguage } = useLang();
+  const { language } = useLang();
   const t = useTranslation(language);
   const navigate = useNavigate();
   const { data: db } = useDbQuery();
@@ -78,7 +78,7 @@ export function SettingsPage() {
   const saved = JSON.parse(localStorage.getItem('sg_general') || '{}');
   const [orgName, setOrgName] = useState(saved.orgName || 'My Organisation');
   const [timezone, setTimezone] = useState(saved.timezone || 'Europe/London');
-  const [currency, setCurrency] = useState(saved.currency || 'GBP (£)');
+  const [currency] = useState(saved.currency || 'GBP (£)');
   const [dateFormat, setDateFormat] = useState(saved.dateFormat || 'DD/MM/YYYY');
 
   const savedSec = JSON.parse(localStorage.getItem('sg_security') || '{}');
@@ -141,8 +141,6 @@ export function SettingsPage() {
   const [inviteRole, setInviteRole] = useState('viewer');
   const [inviteSent, setInviteSent] = useState(false);
   const [inviteSending, setInviteSending] = useState(false);
-  const [showRoleInfo, setShowRoleInfo] = useState(false);
-  const myRole = getUserRole();
 
   const saveMembers = (next) => {
     const withoutOwner = next.filter(m => m.id !== 'owner');

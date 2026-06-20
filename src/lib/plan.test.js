@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { resolvePlan, getTrialState, getPlanLimits, PLAN_TIERS, TRIAL_DAYS, TRIAL_MS } from './plan';
 
 const DAY = 24 * 60 * 60 * 1000;

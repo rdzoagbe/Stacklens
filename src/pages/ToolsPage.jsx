@@ -163,7 +163,7 @@ export function ToolForm({ initial, employees, onSubmit, onClose }) {
 
 export function ToolsPage() {
   const { data: db, isLoading } = useDbQuery();
-  const { language, setLanguage } = useLang();
+  const { language } = useLang();
   const t = useTranslation(language);
   const muts = useDbMutations();
 
