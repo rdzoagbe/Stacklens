@@ -15,19 +15,19 @@ export function DataTab({ db, firebaseUser, isDemo, qc, t }) {
           <div className="grid sm:grid-cols-3 gap-3">
             {[
               {
-                label: 'Tools & Licenses',
-                desc: 'All tool records, costs, owners',
+                label: t('set_tools_licenses'),
+                desc: t('set_tools_desc'),
                 icon: Boxes,
                 onClick: () => {
                   downloadText(`stacklens_tools_${todayISO()}.csv`, toCsv(db?.tools || [],
                     ["name","category","owner_email","criticality","url","derived_status","last_used_date","cost_per_month","derived_risk","notes"]
                   ));
-                  toast.success('Tools exported');
+                  toast.success(t('set_tools_exported'));
                 },
               },
               {
-                label: 'Employees & Access',
-                desc: 'Employee directory and access map',
+                label: t('set_emp_access'),
+                desc: t('set_emp_desc'),
                 icon: Users,
                 onClick: () => {
                   downloadText(`stacklens_employees_${todayISO()}.csv`, toCsv(db?.employees || [],
@@ -36,18 +36,18 @@ export function DataTab({ db, firebaseUser, isDemo, qc, t }) {
                   setTimeout(() => downloadText(`stacklens_access_${todayISO()}.csv`, toCsv(db?.access || [],
                     ["tool_name","employee_name","employee_email","access_level","granted_date","last_accessed_date","last_reviewed_date","status","derived_risk_flag"]
                   )), 300);
-                  toast.success('Employees & access exported');
+                  toast.success(t('set_emp_exported'));
                 },
               },
               {
-                label: 'Audit Log',
-                desc: 'Full history of all actions',
+                label: t('set_audit_log'),
+                desc: t('set_audit_desc'),
                 icon: Download,
                 onClick: () => {
                   downloadText(`stacklens_audit_${todayISO()}.csv`, toCsv(db?.audit_log || [],
                     ["action","user","timestamp","details"]
                   ));
-                  toast.success('Audit log exported');
+                  toast.success(t('set_audit_exported'));
                 },
               },
             ].map(({ label, desc, icon: Icon, onClick }) => (
@@ -69,42 +69,42 @@ export function DataTab({ db, firebaseUser, isDemo, qc, t }) {
           <div className="space-y-3">
             {[
               {
-                label: 'Delete all tool data',
-                desc: 'Removes all tools, employees and access records',
-                btn: 'Delete Tools',
+                label: t('set_del_tools'),
+                desc: t('set_del_tools_desc'),
+                btn: t('set_del_tools_btn'),
                 onClick: () => {
-                  if (isDemo) { toast.error('Not available in demo mode.'); return; }
-                  if (!window.confirm('Delete ALL tools, employees and access records? This cannot be undone.')) return;
+                  if (isDemo) { toast.error(t('set_demo_error')); return; }
+                  if (!window.confirm(t('set_del_tools_confirm'))) return;
                   const cur = loadDb() || seedDbIfEmpty();
                   cur.tools = []; cur.employees = []; cur.access = [];
                   saveDb(cur);
                   if (firebaseUser?.uid) saveUserData(firebaseUser.uid, cur).catch(() => {});
                   qc.invalidateQueries({ queryKey: ['db'] });
-                  toast.success('All tool data deleted');
+                  toast.success(t('set_del_tools_done'));
                 },
               },
               {
-                label: 'Delete all employee data',
-                desc: 'Removes all employee and access records',
-                btn: 'Delete Employees',
+                label: t('set_del_emp'),
+                desc: t('set_del_emp_desc'),
+                btn: t('set_del_emp_btn'),
                 onClick: () => {
-                  if (isDemo) { toast.error('Not available in demo mode.'); return; }
-                  if (!window.confirm('Delete ALL employees and access records? This cannot be undone.')) return;
+                  if (isDemo) { toast.error(t('set_demo_error')); return; }
+                  if (!window.confirm(t('set_del_emp_confirm'))) return;
                   const cur = loadDb() || seedDbIfEmpty();
                   cur.employees = []; cur.access = [];
                   saveDb(cur);
                   if (firebaseUser?.uid) saveUserData(firebaseUser.uid, cur).catch(() => {});
                   qc.invalidateQueries({ queryKey: ['db'] });
-                  toast.success('All employee data deleted');
+                  toast.success(t('set_del_emp_done'));
                 },
               },
               {
-                label: 'Delete account',
-                desc: 'Permanently deletes your Stacklens account and all data',
-                btn: 'Delete Account',
+                label: t('set_del_account'),
+                desc: t('set_del_account_desc'),
+                btn: t('set_del_account_btn'),
                 danger: true,
                 onClick: async () => {
-                  if (isDemo) { toast.error('Not available in demo mode.'); return; }
+                  if (isDemo) { toast.error(t('set_demo_error')); return; }
                   try {
                     const email = firebaseUser?.email || '';
                     await submitContactForm({ name: email, email, subject: 'account-deletion', message: 'Please delete my Stacklens account.\n\nEmail: ' + email });

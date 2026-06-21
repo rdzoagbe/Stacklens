@@ -49,15 +49,15 @@ export function NotificationsTab({ firebaseUser, qc, t }) {
       <CardBody>
         <div className="space-y-1">
           {[
-            { label: 'Renewal due in 30 days',      sub: 'SaaS contract coming up for renewal — sent by email',  val: notifRenewal,    set: setNotifRenewal,    key: 'renewal',    live: true },
-            { label: 'New tool added to inventory',  sub: 'When a tool is added via import or manually',           val: notifNewTool,    set: setNotifNewTool,    key: 'newTool' },
-            { label: 'Orphaned tool detected',       sub: 'Tools with no assigned owner',                          val: notifOrphaned,   set: setNotifOrphaned,   key: 'orphaned' },
-            { label: 'High-risk access granted',     sub: 'Admin access given to a new user',                      val: notifHighRisk,   set: setNotifHighRisk,   key: 'highRisk' },
-            { label: 'Employee offboarding initiated', sub: 'When an offboarding task is started',                 val: notifOffboard,   set: setNotifOffboard,   key: 'offboard' },
-            { label: 'Compliance report ready',      sub: 'Weekly compliance digest',                              val: notifCompliance, set: setNotifCompliance, key: 'compliance' },
-            { label: 'Weekly summary email',         sub: 'Overview of spend, risk and usage',                     val: notifWeekly,     set: setNotifWeekly,     key: 'weekly' },
-            { label: 'Invoice approval required',    sub: 'New invoice needs sign-off',                            val: notifInvoice,    set: setNotifInvoice,    key: 'invoice' },
-            { label: t('budget_limit'),              sub: 'Monthly spend passes your set limit',                   val: notifBudget,     set: setNotifBudget,     key: 'budget' },
+            { label: t('notif_renewal'),             sub: t('notif_renewal_sub'),    val: notifRenewal,    set: setNotifRenewal,    key: 'renewal',    live: true },
+            { label: t('notif_new_tool'),            sub: t('notif_new_tool_sub'),   val: notifNewTool,    set: setNotifNewTool,    key: 'newTool' },
+            { label: t('notif_orphaned'),            sub: t('notif_orphaned_sub'),   val: notifOrphaned,   set: setNotifOrphaned,   key: 'orphaned' },
+            { label: t('notif_high_risk'),           sub: t('notif_high_risk_sub'),  val: notifHighRisk,   set: setNotifHighRisk,   key: 'highRisk' },
+            { label: t('notif_offboard'),            sub: t('notif_offboard_sub'),   val: notifOffboard,   set: setNotifOffboard,   key: 'offboard' },
+            { label: t('notif_compliance'),          sub: t('notif_compliance_sub'), val: notifCompliance, set: setNotifCompliance, key: 'compliance' },
+            { label: t('notif_weekly'),              sub: t('notif_weekly_sub'),     val: notifWeekly,     set: setNotifWeekly,     key: 'weekly' },
+            { label: t('notif_invoice'),             sub: t('notif_invoice_sub'),    val: notifInvoice,    set: setNotifInvoice,    key: 'invoice' },
+            { label: t('budget_limit'),              sub: t('notif_budget_sub'),     val: notifBudget,     set: setNotifBudget,     key: 'budget' },
           ].map(n => (
             <div key={n.key} className="flex items-center justify-between py-3.5 border-b border-slate-800 last:border-0">
               <div>
