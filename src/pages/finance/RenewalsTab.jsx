@@ -28,10 +28,8 @@ export function RenewalAlerts() {
   const [page, setPage] = useState(0);
   const PAGE_SIZE = 10;
 
-  const tools = db?.tools || [];
-
-  // Build renewals from real tools with renewal_date
   const renewals = useMemo(() => {
+    const tools = db?.tools || [];
     const today = new Date();
     return tools
       .filter(t => t.status === 'active' && t.renewal_date)
@@ -55,11 +53,11 @@ export function RenewalAlerts() {
           monthlyCost,
           annualCost,
           owner: tool.owner_name || tool.owner_email || '—',
-          autoRenew: tool.auto_renew !== false, // default true
+          autoRenew: tool.auto_renew !== false,
           status,
         };
       });
-  }, [tools]);
+  }, [db]);
 
   // KPIs
   const overdue = renewals.filter(r => r.status === 'overdue');
@@ -254,10 +252,10 @@ export function RenewalAlerts() {
     return 'bg-slate-500/20 text-slate-400 border-slate-500/30';
   };
   const getStatusLabel = (status, days) => {
-    if (status === 'overdue') return Math.abs(days) + 'd overdue';
-    if (status === 'critical') return days + 'd left';
-    if (status === 'urgent') return days + 'd left';
-    if (status === 'upcoming') return days + 'd left';
+    if (status === 'overdue') return Math.abs(days) + t('ren_d_overdue');
+    if (status === 'critical') return days + t('ren_d_left');
+    if (status === 'urgent') return days + t('ren_d_left');
+    if (status === 'upcoming') return days + t('ren_d_left');
     return days + 'd';
   };
 
@@ -269,7 +267,7 @@ export function RenewalAlerts() {
         <div className="flex items-center justify-between gap-4 bg-slate-900/60 border border-slate-800 rounded-xl px-4 py-3">
           <div className="flex items-center gap-2 text-sm text-slate-400 min-w-0">
             <span className="text-base">💬</span>
-            <span className="truncate">Send renewal digest to <span className="text-purple-400 font-semibold">{slackChannel}</span></span>
+            <span className="truncate">{t('ren_send_digest')} <span className="text-purple-400 font-semibold">{slackChannel}</span></span>
           </div>
           <button
             onClick={sendSlackAlert}
@@ -281,11 +279,11 @@ export function RenewalAlerts() {
             }`}
           >
             {slackSending ? (
-              <><Loader className="h-4 w-4 animate-spin" /> Sending…</>
+              <><Loader className="h-4 w-4 animate-spin" /> {t('ren_sending')}</>
             ) : slackSent ? (
-              <><CheckCircle className="h-4 w-4" /> Sent!</>
+              <><CheckCircle className="h-4 w-4" /> {t('ren_sent')}</>
             ) : (
-              <><Send className="h-4 w-4" /> Send now</>
+              <><Send className="h-4 w-4" /> {t('ren_send_now')}</>
             )}
           </button>
         </div>
@@ -294,24 +292,24 @@ export function RenewalAlerts() {
       {/* ── Row 1: KPI Strip ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-blue-500">
-          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Annual Spend at Risk</div>
+          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t('ren_annual_risk')}</div>
           <div className="text-3xl font-black text-blue-400">{getCurrency(language)}{convertCurrency(Math.round(totalAtRisk), language).toLocaleString()}</div>
-          <div className="text-sm text-slate-500 mt-1">next 90 days</div>
+          <div className="text-sm text-slate-500 mt-1">{t('ren_next_90')}</div>
         </div>
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-red-500">
-          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Critical</div>
+          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t('ren_critical')}</div>
           <div className="text-3xl font-black text-red-400">{overdue.length + critical.length}</div>
-          <div className="text-sm text-slate-500 mt-1">≤ 14 days or overdue</div>
+          <div className="text-sm text-slate-500 mt-1">{t('ren_14_or_overdue')}</div>
         </div>
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-amber-500">
-          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Upcoming</div>
+          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t('ren_upcoming')}</div>
           <div className="text-3xl font-black text-amber-400">{urgent.length + upcoming.length}</div>
-          <div className="text-sm text-slate-500 mt-1">15–90 days</div>
+          <div className="text-sm text-slate-500 mt-1">{t('ren_15_90')}</div>
         </div>
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-purple-500">
-          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Auto-Renewing</div>
+          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t('ren_auto_renewing')}</div>
           <div className="text-3xl font-black text-purple-400">{autoRenewing.length}</div>
-          <div className="text-sm text-slate-500 mt-1">may auto-charge</div>
+          <div className="text-sm text-slate-500 mt-1">{t('ren_may_charge')}</div>
         </div>
       </div>
 
@@ -323,27 +321,27 @@ export function RenewalAlerts() {
               <div className="flex items-center gap-2 mb-2">
                 <AlertTriangle className="h-5 w-5 text-red-400" />
                 <span className="text-xs font-semibold uppercase tracking-wider text-red-400">
-                  {mostUrgent.status === 'overdue' ? 'Overdue Renewal' : 'Critical Renewal'}
+                  {mostUrgent.status === 'overdue' ? t('ren_overdue_renewal') : t('ren_critical_renewal')}
                 </span>
               </div>
               <div className="text-2xl lg:text-3xl font-black text-white mb-1">{mostUrgent.app}</div>
               <div className="text-sm text-slate-400 mb-3">
                 {mostUrgent.status === 'overdue' ? (
-                  <span className="text-red-400 font-semibold">{Math.abs(mostUrgent.daysUntil)} days overdue</span>
+                  <span className="text-red-400 font-semibold">{Math.abs(mostUrgent.daysUntil)} {t('ren_days_overdue')}</span>
                 ) : (
-                  <>Renews in <span className="text-red-400 font-semibold">{mostUrgent.daysUntil} days</span></>
+                  <>{t('ren_renews_in')} <span className="text-red-400 font-semibold">{mostUrgent.daysUntil} {t('days')}</span></>
                 )} · {getCurrency(language)}{convertCurrency(Math.round(mostUrgent.annualCost), language).toLocaleString()}/year
-                {mostUrgent.autoRenew && <span className="ml-2 text-amber-400">· Auto-renewing</span>}
+                {mostUrgent.autoRenew && <span className="ml-2 text-amber-400">· {t('ren_auto_renewing')}</span>}
               </div>
             </div>
             <div className="flex flex-col sm:flex-row gap-2 flex-shrink-0">
               <button onClick={() => sendNegotiationEmail(mostUrgent)}
                 className="px-5 py-2.5 bg-red-600 hover:bg-red-500 rounded-xl font-semibold text-sm text-white transition-colors flex items-center gap-2 whitespace-nowrap">
-                <Mail className="h-4 w-4" /> Negotiate Now
+                <Mail className="h-4 w-4" /> {t('ren_negotiate_now')}
               </button>
               <button onClick={exportICS}
                 className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl font-semibold text-sm text-slate-300 transition-colors flex items-center gap-2 whitespace-nowrap">
-                <Calendar className="h-4 w-4" /> Add to Calendar
+                <Calendar className="h-4 w-4" /> {t('ren_add_calendar')}
               </button>
             </div>
           </div>
@@ -380,17 +378,17 @@ export function RenewalAlerts() {
                 </div>
                 <div className="mt-3 pt-3 border-t border-slate-800/50 space-y-1">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-slate-500">Annual</span>
+                    <span className="text-slate-500">{t('ren_annual')}</span>
                     <span className="text-white font-semibold">{getCurrency(language)}{convertCurrency(Math.round(opp.annualCost), language).toLocaleString()}</span>
                   </div>
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-slate-500">Potential save</span>
+                    <span className="text-slate-500">{t('ren_potential_save')}</span>
                     <span className="text-emerald-400 font-semibold">{getCurrency(language)}{convertCurrency(Math.round(opp.annualCost * 0.15), language).toLocaleString()}/yr</span>
                   </div>
                 </div>
                 <button onClick={() => sendNegotiationEmail(opp)}
                   className="mt-3 w-full px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/30 rounded-lg text-xs font-semibold text-emerald-400 transition-colors">
-                  Negotiate →
+                  {t('ren_negotiate_arrow')}
                 </button>
               </div>
             ))}
@@ -403,26 +401,26 @@ export function RenewalAlerts() {
         <div className="p-4 border-b border-slate-800">
           <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
             <div className="flex-1 min-w-0">
-              <h3 className="text-base font-semibold text-white">All Renewals</h3>
-              <p className="text-xs text-slate-500">{filtered.length} {filtered.length === 1 ? 'renewal' : 'renewals'} shown</p>
+              <h3 className="text-base font-semibold text-white">{t('ren_all_renewals')}</h3>
+              <p className="text-xs text-slate-500">{filtered.length} {filtered.length === 1 ? t('ren_renewal') : t('ren_renewals')} {t('ren_renewals_shown')}</p>
             </div>
             <div className="flex gap-2 flex-wrap items-center">
               {/* View toggle */}
               <div className="flex gap-1 p-1 bg-slate-800 rounded-lg">
                 <button onClick={() => setView('list')}
                   className={"px-2.5 py-1 rounded-md text-xs font-semibold transition-all " + (view === 'list' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white')}>
-                  List
+                  {t('ren_list')}
                 </button>
                 <button onClick={() => setView('calendar')}
                   className={"px-2.5 py-1 rounded-md text-xs font-semibold transition-all " + (view === 'calendar' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white')}>
-                  Calendar
+                  {t('ren_calendar')}
                 </button>
               </div>
               <select value={sortBy} onChange={e => setSortBy(e.target.value)}
                 className="px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-slate-300 outline-none">
-                <option value="date">Sort: Date</option>
-                <option value="cost">Sort: Cost</option>
-                <option value="app">Sort: A–Z</option>
+                <option value="date">{t('ren_sort_date')}</option>
+                <option value="cost">{t('ren_sort_cost')}</option>
+                <option value="app">{t('ren_sort_az')}</option>
               </select>
               <button onClick={exportICS}
                 className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-xs font-semibold text-slate-300 transition-colors flex items-center gap-1.5">
@@ -432,11 +430,11 @@ export function RenewalAlerts() {
           </div>
           <div className="flex gap-2 mt-3 flex-wrap">
             {[
-              ['all', 'All', renewals.length],
-              ['overdue', 'Overdue', overdue.length],
-              ['critical', 'Critical', critical.length + urgent.length],
-              ['upcoming', 'Upcoming', upcoming.length],
-              ['auto', 'Auto-Renew', autoRenewing.length],
+              ['all', t('ren_filter_all'), renewals.length],
+              ['overdue', t('ren_overdue_renewal'), overdue.length],
+              ['critical', t('ren_critical'), critical.length + urgent.length],
+              ['upcoming', t('ren_upcoming'), upcoming.length],
+              ['auto', t('ren_auto_renew'), autoRenewing.length],
             ].map(([val, label, count]) => (
               <button key={val} onClick={() => setFilter(val)}
                 className={"px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap " + (filter === val ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white')}>
@@ -451,8 +449,8 @@ export function RenewalAlerts() {
             <div className="inline-flex p-3 rounded-2xl bg-slate-800 mb-3">
               <Calendar className="h-6 w-6 text-slate-500" />
             </div>
-            <h3 className="text-base font-semibold text-white mb-1">No renewals to show</h3>
-            <p className="text-sm text-slate-500">{filter !== 'all' ? 'Try a different filter.' : 'Add renewal dates to your tools to track them here.'}</p>
+            <h3 className="text-base font-semibold text-white mb-1">{t('ren_no_renewals')}</h3>
+            <p className="text-sm text-slate-500">{filter !== 'all' ? t('ren_try_filter') : t('ren_add_dates')}</p>
           </div>
         ) : view === 'list' ? (
           <>
@@ -460,12 +458,12 @@ export function RenewalAlerts() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-800 bg-slate-950/50">
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">App</th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">Renewal Date</th>
-                    <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
-                    <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden lg:table-cell">Annual</th>
-                    <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden lg:table-cell">Auto</th>
-                    <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Action</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('ren_app_col')}</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">{t('ren_renewal_date')}</th>
+                    <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('th_status')}</th>
+                    <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden lg:table-cell">{t('ren_annual')}</th>
+                    <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden lg:table-cell">{t('ren_auto_col')}</th>
+                    <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('ren_action_col')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -488,15 +486,15 @@ export function RenewalAlerts() {
                       </td>
                       <td className="py-3 px-4 text-center hidden lg:table-cell">
                         {r.autoRenew ? (
-                          <span className="text-xs text-amber-400">⚠ Yes</span>
+                          <span className="text-xs text-amber-400">⚠ {t('ren_yes')}</span>
                         ) : (
-                          <span className="text-xs text-slate-500">No</span>
+                          <span className="text-xs text-slate-500">{t('ren_no')}</span>
                         )}
                       </td>
                       <td className="py-3 px-4 text-center">
                         <button onClick={() => sendNegotiationEmail(r)}
                           className="px-3 py-1 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 rounded-lg text-xs font-semibold text-blue-400 transition-colors">
-                          Negotiate
+                          {t('ren_negotiate')}
                         </button>
                       </td>
                     </tr>
@@ -507,19 +505,19 @@ export function RenewalAlerts() {
             {totalPages > 1 && (
               <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-slate-800 bg-slate-950/30">
                 <span className="text-xs text-slate-500">
-                  Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, filtered.length)} of {filtered.length}
+                  {t('ren_showing')} {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, filtered.length)} {t('ren_of')} {filtered.length}
                 </span>
                 <div className="flex items-center gap-1">
                   <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}
                     className="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-400 text-xs hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
-                    ‹ Prev
+                    ‹ {t('ren_prev')}
                   </button>
                   <span className="px-3 py-1 text-xs text-slate-300 font-semibold">
-                    Page {page + 1} / {totalPages}
+                    {t('ren_page')} {page + 1} / {totalPages}
                   </span>
                   <button onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1}
                     className="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-400 text-xs hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
-                    Next ›
+                    {t('ren_next_page')} ›
                   </button>
                 </div>
               </div>
@@ -529,12 +527,12 @@ export function RenewalAlerts() {
           /* Calendar view */
           <div className="p-4 lg:p-6 space-y-5">
             {calendarMonths.length === 0 ? (
-              <div className="text-center py-10 text-slate-500 text-sm">No renewals match the current filter.</div>
+              <div className="text-center py-10 text-slate-500 text-sm">{t('ren_no_match')}</div>
             ) : calendarMonths.map(month => (
               <div key={month.key}>
                 <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-800">
                   <h3 className="text-sm font-bold text-white uppercase tracking-wider">{month.label}</h3>
-                  <span className="text-xs text-slate-500">{month.items.length} {month.items.length === 1 ? 'renewal' : 'renewals'} · {getCurrency(language)}{convertCurrency(Math.round(month.total), language).toLocaleString()}</span>
+                  <span className="text-xs text-slate-500">{month.items.length} {month.items.length === 1 ? t('ren_renewal') : t('ren_renewals')} · {getCurrency(language)}{convertCurrency(Math.round(month.total), language).toLocaleString()}</span>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                   {month.items.map(r => (
@@ -549,12 +547,12 @@ export function RenewalAlerts() {
                         </span>
                       </div>
                       <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-800/50">
-                        <span className="text-xs text-slate-500">Annual</span>
+                        <span className="text-xs text-slate-500">{t('ren_annual')}</span>
                         <span className="text-sm font-semibold text-white">{getCurrency(language)}{convertCurrency(Math.round(r.annualCost), language).toLocaleString()}</span>
                       </div>
                       <button onClick={() => sendNegotiationEmail(r)}
                         className="mt-3 w-full px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 rounded-lg text-xs font-semibold text-blue-400 transition-colors">
-                        Negotiate →
+                        {t('ren_negotiate_arrow')}
                       </button>
                     </div>
                   ))}
