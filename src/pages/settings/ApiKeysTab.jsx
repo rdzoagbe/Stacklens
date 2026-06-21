@@ -26,7 +26,7 @@ export function ApiKeysTab({ t }) {
         <CardBody>
           {showNewKey && (
             <div className="mb-4 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-              <div className="text-sm font-bold text-emerald-400 mb-1">✓ New API key generated — copy it now, it won&apos;t be shown again</div>
+              <div className="text-sm font-bold text-emerald-400 mb-1">✓ {t('set_api_new_msg')}</div>
               <div className="font-mono text-xs bg-slate-900 px-3 py-2 rounded-lg text-white break-all">{showNewKey}</div>
               <button onClick={() => { navigator.clipboard.writeText(showNewKey); }} className="text-xs text-emerald-400 mt-2 hover:underline">{t("hc_copy_to_clipboard")}</button>
             </div>
@@ -40,24 +40,24 @@ export function ApiKeysTab({ t }) {
                   <div className="font-mono text-xs text-slate-500">{k.prefix}</div>
                 </div>
                 <div className="text-right text-xs text-slate-600">
-                  <div>Created {k.created}</div>
-                  <div>Last used: {k.lastUsed}</div>
+                  <div>{t('set_created')} {k.created}</div>
+                  <div>{t('set_last_used')} {k.lastUsed}</div>
                 </div>
-                <button onClick={() => { if (window.confirm(`Revoke key "${k.name}"? This cannot be undone.`)) saveApiKeys(apiKeys.filter(x => x.id !== k.id)); }} className="text-xs text-rose-500 hover:text-rose-400 transition-colors flex-shrink-0">{t('revoke')}</button>
+                <button onClick={() => { if (window.confirm(t('set_revoke_confirm').replace('{name}', k.name))) saveApiKeys(apiKeys.filter(x => x.id !== k.id)); }} className="text-xs text-rose-500 hover:text-rose-400 transition-colors flex-shrink-0">{t('revoke')}</button>
               </div>
             ))}
           </div>
         </CardBody>
       </Card>
       <Card>
-        <CardHeader title="Generate New Key" subtitle="Name it so you remember what it's for" />
+        <CardHeader title={t('set_gen_new_key')} subtitle={t('set_gen_key_sub')} />
         <CardBody>
           <div className="flex gap-3">
             <input value={newKeyName} onChange={e => setNewKeyName(e.target.value)}
               className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm outline-none focus:border-emerald-500 transition-colors" placeholder={t('key_name_placeholder')} />
             <button onClick={generateApiKey}
               className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-semibold text-sm transition-colors whitespace-nowrap">
-              Generate Key
+              {t('set_gen_key_btn')}
             </button>
           </div>
         </CardBody>
