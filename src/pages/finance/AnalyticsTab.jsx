@@ -15,12 +15,9 @@ export function AnalyticsTabContent() {
   const { language } = useLang();
   const t = useTranslation(language);
   const { data: db } = useDbQuery();
-  const tools = db?.tools || [];
-  const employees = db?.employees || [];
-  const access = db?.access || [];
 
-  // Dedupe tools by name (in case there are still legacy duplicates)
   const uniqueTools = useMemo(() => {
+    const tools = db?.tools || [];
     const seen = new Set();
     return tools.filter(t => {
       const key = (t.name || '').toLowerCase();
@@ -28,7 +25,10 @@ export function AnalyticsTabContent() {
       seen.add(key);
       return true;
     });
-  }, [tools]);
+  }, [db]);
+
+  const employees = useMemo(() => db?.employees || [], [db]);
+  const access = useMemo(() => db?.access || [], [db]);
 
   const activeTools = uniqueTools.filter(t => t.status === 'active');
   const totalSpend = activeTools.reduce((s, t) => s + Number(t.cost_per_month || 0), 0);
