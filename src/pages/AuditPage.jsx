@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import toast from 'react-hot-toast';
 import { Download, FileText, Users } from 'lucide-react';
 import { todayISO } from '../lib/db';
-import { computeToolDerivedStatus, computeToolDerivedRisk, computeAccessDerivedRiskFlag, formatMoney, getCurrency, downloadText, toCsv } from '../lib/dataUtils';
+import { computeToolDerivedStatus, computeToolDerivedRisk, computeAccessDerivedRiskFlag, formatMoney, downloadText, toCsv } from '../lib/dataUtils';
 import { cx } from '../lib/utils';
 import { useDbQuery } from '../hooks/useDbQuery';
 import { useLang } from '../contexts/LangContext';
@@ -274,21 +274,21 @@ export function AuditTabContent() {
     const headers = ["Name","Category","Owner","Criticality","Status","Risk","Monthly Cost","Last Used","URL"];
     const rows = derived.tools.map(t => [t.name, t.category, t.owner_email||'Unassigned', t.criticality, t.derived_status, t.derived_risk, t.cost_per_month||0, t.last_used_date||'Never', t.url||'']);
     downloadText(`stacklens_tools_${todayISO()}.csv`, toCsv(headers, rows));
-    toast.success('Tools export downloaded');
+    toast.success(t('aud_tools_exported'));
   };
   const exportEmployees = () => {
     if (!derived) return;
     const headers = ["Name","Email","Department","Role","Status","Start Date","End Date"];
     const rows = derived.employees.map(e => [e.full_name, e.email, e.department, e.role, e.status, e.start_date||'', e.end_date||'']);
     downloadText(`stacklens_employees_${todayISO()}.csv`, toCsv(headers, rows));
-    toast.success('Employees export downloaded');
+    toast.success(t('aud_emp_exported'));
   };
   const exportAccess = () => {
     if (!derived) return;
     const headers = ["Tool","Employee","Email","Access Level","Granted","Last Accessed","Last Reviewed","Status","Risk Flag"];
     const rows = derived.access.map(a => [a.tool_name, a.employee_name, a.employee_email, a.access_level, a.granted_date||'', a.last_accessed_date||'', a.last_reviewed_date||'', a.status, a.derived_risk_flag||'none']);
     downloadText(`stacklens_access_${todayISO()}.csv`, toCsv(headers, rows));
-    toast.success('Access export downloaded');
+    toast.success(t('aud_access_exported'));
   };
   const exportFullPackage = () => { exportTools(); setTimeout(exportEmployees, 300); setTimeout(exportAccess, 600); };
   const generateReport = () => {
@@ -296,13 +296,13 @@ export function AuditTabContent() {
     const html = generateAuditReportHTML(derived, language, t);
     const win = window.open('', '_blank');
     if (win) { win.document.write(html); win.document.close(); }
-    else toast.error('Please allow popups to generate the report');
+    else toast.error(t('aud_popup_error'));
   };
 
   const healthColor = (s) => s >= 80 ? "text-emerald-400" : s >= 60 ? "text-amber-400" : "text-red-400";
 
   if (isLoading || !derived) return (
-    <div className="flex items-center justify-center py-20 text-slate-500">Loading audit data...</div>
+    <div className="flex items-center justify-center py-20 text-slate-500">{t('aud_loading')}</div>
   );
 
   return (
@@ -331,7 +331,7 @@ export function AuditTabContent() {
             </div>
             <div>
               <div className={`text-lg font-semibold ${healthColor(derived.healthScore)}`}>
-                {derived.healthScore >= 80 ? 'Audit Ready' : derived.healthScore >= 60 ? 'Needs Attention' : 'At Risk'}
+                {derived.healthScore >= 80 ? t('aud_audit_ready') : derived.healthScore >= 60 ? t('aud_needs_attention') : t('aud_at_risk')}
               </div>
               <p className="text-sm text-slate-500 mt-1">
                 {derived.healthScore >= 80
@@ -347,24 +347,24 @@ export function AuditTabContent() {
         {/* Quick Stats */}
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
-            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Tools</div>
+            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t('aud_tools')}</div>
             <div className="text-2xl font-black text-white">{derived.activeTools}</div>
-            <div className="text-xs text-slate-500">{derived.unusedTools} unused</div>
+            <div className="text-xs text-slate-500">{derived.unusedTools} {t('aud_unused')}</div>
           </div>
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
-            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Employees</div>
+            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t('aud_employees')}</div>
             <div className="text-2xl font-black text-white">{derived.employees.length}</div>
-            <div className="text-xs text-slate-500">{derived.employees.filter(e => e.status === 'active').length} active</div>
+            <div className="text-xs text-slate-500">{derived.employees.filter(e => e.status === 'active').length} {t('aud_active')}</div>
           </div>
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
-            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Access Records</div>
+            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t('aud_access_records')}</div>
             <div className="text-2xl font-black text-white">{derived.access.length}</div>
-            <div className="text-xs text-slate-500">{derived.access.filter(a => a.status === 'active').length} active</div>
+            <div className="text-xs text-slate-500">{derived.access.filter(a => a.status === 'active').length} {t('aud_active')}</div>
           </div>
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
-            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Risk Items</div>
+            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t('aud_risk_items')}</div>
             <div className="text-2xl font-black text-red-400">{derived.highRiskCount + derived.formerEmpAccess}</div>
-            <div className="text-xs text-slate-500">{derived.highRiskCount} tools, {derived.formerEmpAccess} access</div>
+            <div className="text-xs text-slate-500">{derived.highRiskCount} {t('aud_tools_count')}, {derived.formerEmpAccess} {t('aud_access_count')}</div>
           </div>
         </div>
 
@@ -374,7 +374,7 @@ export function AuditTabContent() {
           <p className="text-sm text-slate-400 mb-5">{t("audit_package_desc")}</p>
           <button onClick={generateReport}
             className="w-full flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:opacity-90 rounded-xl font-bold text-sm transition-all mb-3">
-            <FileText className="h-4 w-4" /> {t("generate_audit_report") || "Generate Audit Report"}
+            <FileText className="h-4 w-4" /> {t("generate_audit_report")}
           </button>
           <button onClick={exportFullPackage}
             className="w-full flex items-center justify-center gap-2 py-3 bg-slate-800 hover:bg-slate-700 rounded-xl font-semibold text-sm transition-colors mb-3">
@@ -388,24 +388,24 @@ export function AuditTabContent() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-5">
         {[
           {
-            title: 'Tools Inventory',
-            desc: 'Complete SaaS tool registry with ownership, risk level, cost, and status',
+            title: t('aud_tools_inventory'),
+            desc: t('aud_tools_inv_desc'),
             count: derived.tools.length,
             fn: exportTools,
             color: 'blue',
             preview: derived.tools.slice(0,3).map(t => ({ name: t.name, status: t.derived_status, risk: t.derived_risk })),
           },
           {
-            title: 'Employee Directory',
-            desc: 'Staff directory with department, role, employment status, and dates',
+            title: t('aud_emp_directory'),
+            desc: t('aud_emp_dir_desc'),
             count: derived.employees.length,
             fn: exportEmployees,
             color: 'emerald',
             preview: derived.employees.slice(0,3).map(e => ({ name: e.full_name, dept: e.department, status: e.status })),
           },
           {
-            title: 'Access Records',
-            desc: 'Every permission record with risk flags, review dates, and access levels',
+            title: t('aud_access_records_title'),
+            desc: t('aud_access_rec_desc'),
             count: derived.access.length,
             fn: exportAccess,
             color: 'purple',
@@ -415,13 +415,13 @@ export function AuditTabContent() {
           <div key={item.title} className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 lg:p-6">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-base font-semibold text-white">{item.title}</h3>
-              <span className="text-xs text-slate-500">{item.count} records</span>
+              <span className="text-xs text-slate-500">{item.count} {t('aud_records')}</span>
             </div>
             <p className="text-sm text-slate-400 mb-4">{item.desc}</p>
 
             {/* Mini preview table */}
             <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-3 mb-4">
-              <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-600 mb-2">Preview</div>
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-600 mb-2">{t('aud_preview')}</div>
               <div className="space-y-1.5">
                 {item.preview.map((row, idx) => (
                   <div key={idx} className="flex items-center justify-between text-xs">
@@ -434,12 +434,12 @@ export function AuditTabContent() {
                   </div>
                 ))}
               </div>
-              {item.count > 3 && <div className="text-[10px] text-slate-600 mt-1.5">+ {item.count - 3} more</div>}
+              {item.count > 3 && <div className="text-[10px] text-slate-600 mt-1.5">+ {item.count - 3} {t('aud_more')}</div>}
             </div>
 
             <button onClick={item.fn}
               className="w-full flex items-center justify-center gap-2 py-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl font-semibold text-sm transition-colors">
-              <Download className="h-4 w-4" /> Export CSV
+              <Download className="h-4 w-4" /> {t('aud_export_csv')}
             </button>
           </div>
         ))}
@@ -453,7 +453,7 @@ export function AuditTabContent() {
               <h2 className="text-base font-semibold text-white">{t("audit_usage_dist")}</h2>
               <p className="text-sm text-slate-500">{t("audit_usage_sub")}</p>
             </div>
-            <span className="text-xs text-slate-500">{derived.topToolsByUsers.length} tools with users</span>
+            <span className="text-xs text-slate-500">{derived.topToolsByUsers.length} {t('aud_tools_with_users')}</span>
           </div>
           <div className="space-y-3">
             {derived.topToolsByUsers.map(([name, count], idx) => {
@@ -468,7 +468,7 @@ export function AuditTabContent() {
                   </div>
                   <div className="w-20 text-right">
                     <span className="text-sm font-semibold text-white">{count}</span>
-                    <span className="text-xs text-slate-500 ml-1">users</span>
+                    <span className="text-xs text-slate-500 ml-1">{t('aud_users')}</span>
                   </div>
                 </div>
               );
@@ -555,11 +555,11 @@ export function AuditExportPage() {
   const healthColor = (score) =>
     score >= 80 ? "text-emerald-400" : score >= 60 ? "text-amber-400" : "text-rose-400";
   const healthLabel = (score) =>
-    score >= 80 ? "Healthy" : score >= 60 ? "Needs attention" : "At risk";
+    score >= 80 ? t('aud_healthy') : score >= 60 ? t('aud_needs_attn') : t('aud_at_risk');
 
   return (
     <PlanGate requires="scale" feature="Audit Export"><AppShell
-      title="Audit Export"
+      title={t('aud_audit_export')}
       right={
         <div className="flex gap-2">
           <Button onClick={() => {
@@ -568,10 +568,10 @@ export function AuditExportPage() {
             const win = window.open('', '_blank');
             if (win) { win.document.write(html); win.document.close(); }
           }}>
-            <FileText className="h-4 w-4" /> Audit Report
+            <FileText className="h-4 w-4" /> {t('aud_audit_report')}
           </Button>
           <Button onClick={exportAll}>
-            <Download className="h-4 w-4" /> CSV Export
+            <Download className="h-4 w-4" /> {t('aud_csv_export')}
           </Button>
         </div>
       }
@@ -624,13 +624,13 @@ export function AuditExportPage() {
                 <div className="flex justify-between"><span className="text-slate-400">{t('total_access_records')}</span><span className="font-bold text-white">{derived?.access.length ?? "—"}</span></div>
                 <div className="flex justify-between"><span className="text-slate-400">{t('active')}</span><span className="font-bold text-emerald-400">{derived?.access.filter(a => a.status === "active").length ?? "—"}</span></div>
                 <div className="flex justify-between"><span className="text-slate-400">{t("hc_former_employee_access")}</span><span className="font-bold text-rose-400">{derived?.formerEmpAccess ?? "—"}</span></div>
-                <div className="flex justify-between"><span className="text-slate-400">Employees</span><span className="font-bold text-slate-300">{derived?.employees.length ?? "—"}</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">{t('aud_employees')}</span><span className="font-bold text-slate-300">{derived?.employees.length ?? "—"}</span></div>
               </div>
             </CardBody>
           </Card>
           <Card>
             <CardBody>
-              <div className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-3">Spend</div>
+              <div className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-3">{t('aud_spend')}</div>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between"><span className="text-slate-400">{t('monthly_total')}</span><span className="font-bold text-white">{derived ? formatMoney(derived.spend, null, language) : "—"}</span></div>
                 <div className="flex justify-between"><span className="text-slate-400">{t('annual_projection')}</span><span className="font-bold text-blue-400">{derived ? formatMoney(derived.spend * 12, null, language) : "—"}</span></div>
@@ -643,10 +643,10 @@ export function AuditExportPage() {
         <div className="grid gap-5 grid-cols-1 lg:grid-cols-2">
           {/* Tool login / user counts */}
           <Card>
-            <CardHeader title="Users logged into tools" subtitle={t('all_permissions_sub')} />
+            <CardHeader title={t('aud_users_logged')} subtitle={t('all_permissions_sub')} />
             <CardBody>
               {isLoading || !derived ? <SkeletonRow cols={3} /> : derived.topToolsByUsers.length === 0 ? (
-                <EmptyState icon={Users} title="No access data" body="Import access records to see tool usage." />
+                <EmptyState icon={Users} title={t('aud_no_access')} body={t('aud_no_access_desc')} />
               ) : (
                 <div className="space-y-3">
                   {derived.topToolsByUsers.map(([toolName, count]) => {
@@ -655,7 +655,7 @@ export function AuditExportPage() {
                       <div key={toolName}>
                         <div className="flex items-center justify-between mb-1 text-sm">
                           <span className="text-slate-300 font-medium">{toolName}</span>
-                          <span className="text-slate-400">{count} user{count !== 1 ? "s" : ""} <span className="text-slate-600">({pct}%)</span></span>
+                          <span className="text-slate-400">{count} {count !== 1 ? t('aud_users') : t('aud_user')} <span className="text-slate-600">({pct}%)</span></span>
                         </div>
                         <div className="h-2 w-full rounded-full bg-slate-800">
                           <div className="h-2 rounded-full bg-blue-500 transition-all" style={{ width: `${Math.min(pct, 100)}%` }} />
@@ -670,22 +670,22 @@ export function AuditExportPage() {
 
           {/* Export buttons */}
           <Card>
-            <CardHeader title="Export reports" subtitle="Timestamped CSV files" />
+            <CardHeader title={t('aud_export_reports')} subtitle={t('aud_export_reports_sub')} />
             <CardBody>
               <div className="space-y-3">
                 {[
-                  { label: "Tools report", sub: "Inventory, ownership, status, risk, spend", fn: exportTools, count: derived?.tools.length },
-                  { label: "Employees report", sub: "Directory with department, role, dates, status", fn: exportEmployees, count: derived?.employees.length },
-                  { label: "Access report", sub: "Tool-to-employee mappings and risk flags", fn: exportAccess, count: derived?.access.length },
+                  { label: t('aud_tools_report'), sub: t('aud_tools_report_sub'), fn: exportTools, count: derived?.tools.length },
+                  { label: t('aud_emp_report'), sub: t('aud_emp_report_sub'), fn: exportEmployees, count: derived?.employees.length },
+                  { label: t('aud_access_report'), sub: t('aud_access_report_sub'), fn: exportAccess, count: derived?.access.length },
                 ].map(({ label, sub, fn, count }) => (
                   <div key={label} className="flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-950/30 p-4">
                     <div>
                       <div className="text-sm font-semibold text-white">{label}</div>
                       <div className="text-xs text-slate-500 mt-0.5">{sub}</div>
-                      {count !== undefined && <div className="text-xs text-slate-600 mt-0.5">{count} records</div>}
+                      {count !== undefined && <div className="text-xs text-slate-600 mt-0.5">{count} {t('aud_records')}</div>}
                     </div>
                     <Button size="sm" variant="secondary" onClick={fn}>
-                      <Download className="h-4 w-4" /> Export
+                      <Download className="h-4 w-4" /> {t('aud_export')}
                     </Button>
                   </div>
                 ))}
@@ -695,7 +695,7 @@ export function AuditExportPage() {
                     <div className="text-xs text-slate-500 mt-0.5">{t('all_three_reports')}</div>
                   </div>
                   <Button size="sm" onClick={exportAll}>
-                    <Download className="h-4 w-4" /> Export all
+                    <Download className="h-4 w-4" /> {t('aud_export_all')}
                   </Button>
                 </div>
               </div>
@@ -705,17 +705,17 @@ export function AuditExportPage() {
 
         {/* Summary */}
         <Card>
-          <CardHeader title="Audit summary" subtitle="Auto-generated compliance overview" />
+          <CardHeader title={t('aud_audit_summary')} subtitle={t('aud_audit_summary_sub')} />
           <CardBody>
             {isLoading || !derived ? <SkeletonRow cols={4} /> : (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {[
-                  { icon: "✅", title: "Active tools", text: `${derived.activeTools} of ${derived.tools.length} tools are active and accounted for.`, ok: true },
-                  derived.unusedTools > 0 && { icon: "⚠️", title: "Unused tools", text: `${derived.unusedTools} tools are unused or orphaned — consider reviewing or decommissioning.`, ok: false },
-                  derived.highRiskCount > 0 && { icon: "🔴", title: "High-risk tools", text: `${derived.highRiskCount} tool${derived.highRiskCount !== 1 ? "s" : ""} flagged as high-risk require immediate review.`, ok: false },
-                  derived.formerEmpAccess > 0 && { icon: "🚨", title: "Former employee access", text: `${derived.formerEmpAccess} access record${derived.formerEmpAccess !== 1 ? "s" : ""} belong to offboarded employees and should be revoked.`, ok: false },
-                  derived.formerEmpAccess === 0 && { icon: "✅", title: "No ghost access", text: "No active access records linked to offboarded employees.", ok: true },
-                  { icon: "💰", title: "Monthly spend", text: `Total SaaS spend is ${getCurrency(language)}{convertCurrency(derived.spend  || 0, language).toLocaleString()}/month (${getCurrency(language)}{convertCurrency(derived.spend * 12  || 0, language).toLocaleString()}/year).`, ok: true },
+                  { icon: "✅", title: t('aud_active_tools'), text: t('aud_active_tools_text').replace('{active}', derived.activeTools).replace('{total}', derived.tools.length), ok: true },
+                  derived.unusedTools > 0 && { icon: "⚠️", title: t('aud_unused_tools'), text: t('aud_unused_tools_text').replace('{count}', derived.unusedTools), ok: false },
+                  derived.highRiskCount > 0 && { icon: "🔴", title: t('aud_high_risk_tools'), text: t('aud_high_risk_text').replace('{count}', derived.highRiskCount), ok: false },
+                  derived.formerEmpAccess > 0 && { icon: "🚨", title: t('aud_former_access'), text: t('aud_former_access_text').replace('{count}', derived.formerEmpAccess), ok: false },
+                  derived.formerEmpAccess === 0 && { icon: "✅", title: t('aud_no_ghost'), text: t('aud_no_ghost_text'), ok: true },
+                  { icon: "💰", title: t('aud_monthly_spend'), text: t('aud_spend_text').replace('{monthly}', formatMoney(derived.spend, null, language)).replace('{annual}', formatMoney(derived.spend * 12, null, language)), ok: true },
                 ].filter(Boolean).map((item) => (
                   <div key={item.title} className={cx(
                     "rounded-xl border p-4 text-sm",
