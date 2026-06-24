@@ -56,7 +56,7 @@ export function OffboardingPage() {
   const pre = params.get("employee") || "";
 
   const employees = useMemo(() => db?.employees || [], [db]);
-  const access = db?.access || [];
+  const access = useMemo(() => db?.access || [], [db]);
 
   const [tab, setTab] = useState("queue"); // "queue" | "history"
   const [employeeId, setEmployeeId] = useState(pre || "");

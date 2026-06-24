@@ -79,7 +79,7 @@ export function FinanceDashboard() {
   React.useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (db?.user?.budget_cap && db.user.budget_cap !== budgetCap) setBudgetCap(db.user.budget_cap);
-  }, [db?.user?.budget_cap]);
+  }, [db?.user?.budget_cap, budgetCap]);
   const _financialData = {totalMonthlySpend:_totalSpend,budgetLimit:budgetCap||0,lastMonthSpend:_totalSpend*0.95||45200,upcomingBills:_bills,byCategory:_byCategory,monthlyTrend:_trend,isReal:_fReal,toolCount:_tools.filter(t=>t.status!=='archived').length};
 
   const TABS = [

@@ -22,11 +22,10 @@ export function LicenseManagement() {
   const [page, setPage] = useState(0);
   const PAGE_SIZE = 15;
 
-  const tools = db?.tools || [];
-  const access = db?.access || [];
-
   // Build per-app license data from real records (deduped by name)
   const licenseData = useMemo(() => {
+    const tools = db?.tools || [];
+    const access = db?.access || [];
     const seen = new Set();
     return tools
       .filter(t => t.status === 'active')
@@ -62,7 +61,7 @@ export function LicenseManagement() {
           health,
         };
       });
-  }, [tools, access]);
+  }, [db]);
 
   // Filter
   const filtered = useMemo(() => {

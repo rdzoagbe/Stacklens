@@ -58,7 +58,7 @@ export function TrialPage() {
       setCurrentTestimonial((prev) => (prev + 1) % testimonials.length);
     }, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [testimonials.length]);
 
   // Handle SSO provider click
   const handleSSOClick = async (provider) => {

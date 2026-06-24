@@ -20,24 +20,22 @@ export function CostTabContent({ setFinTab }) {
   const [page, setPage] = useState(0);
   const PAGE_SIZE = 15;
 
-  const tools = db?.tools || [];
-  const access = db?.access || [];
-
   const enriched = useMemo(() => {
+    const tools = db?.tools || [];
+    const access = db?.access || [];
     return tools
       .filter(t => t.status === 'active')
       .map(tool => {
         const activeUsers = access.filter(a => a.tool_id === tool.id && a.status === 'active').length;
         const cost = Number(tool.cost_per_month || 0);
         const costPerUser = activeUsers > 0 ? cost / activeUsers : cost;
-        // Waste: no users OR cost-per-user > $200 OR no logins in 30 days
         const noUsers = activeUsers === 0;
         const expensive = activeUsers > 0 && costPerUser > 200;
         const wasteFlag = noUsers || expensive;
         const wasteReason = noUsers ? 'no-users' : expensive ? 'expensive' : null;
         return { ...tool, activeUsers, cost, costPerUser, wasteFlag, wasteReason };
       });
-  }, [tools, access]);
+  }, [db]);
 
   const filtered = useMemo(() => {
     return enriched
