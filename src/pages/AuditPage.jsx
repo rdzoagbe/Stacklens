@@ -11,6 +11,8 @@ import { Button, Card, CardBody, CardHeader, EmptyState, SkeletonRow } from '../
 import { PlanGate } from '../components/gates';
 import { AppShell } from '../components/AppShell';
 
+const escHtml = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
 function generateAuditReportHTML(derived, language, _t) {
   const fm = (n) => formatMoney(n, null, language);
   const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -139,7 +141,7 @@ function generateAuditReportHTML(derived, language, _t) {
       ${catRows.map(([cat, cost]) => {
         const pct = derived.spend > 0 ? Math.round((cost / derived.spend) * 100) : 0;
         return `<tr>
-          <td><strong>${cat}</strong></td>
+          <td><strong>${escHtml(cat)}</strong></td>
           <td>${fm(cost)}</td>
           <td>${fm(cost * 12)}</td>
           <td>${pct}%</td>
@@ -154,12 +156,12 @@ function generateAuditReportHTML(derived, language, _t) {
     <thead><tr><th>Tool</th><th>Category</th><th>Owner</th><th>Monthly Cost</th><th>Status</th><th>Risk</th></tr></thead>
     <tbody>
       ${topSpend.map(t => `<tr>
-        <td><strong>${t.name}</strong></td>
-        <td>${t.category || '—'}</td>
-        <td>${t.owner_email || 'Unassigned'}</td>
+        <td><strong>${escHtml(t.name)}</strong></td>
+        <td>${escHtml(t.category || '—')}</td>
+        <td>${escHtml(t.owner_email || 'Unassigned')}</td>
         <td>${fm(t.cost_per_month)}</td>
-        <td><span class="pill ${t.derived_status === 'active' ? 'pill-green' : t.derived_status === 'unused' ? 'pill-amber' : 'pill-red'}">${t.derived_status}</span></td>
-        <td><span class="pill ${t.derived_risk === 'high' ? 'pill-red' : t.derived_risk === 'medium' ? 'pill-amber' : 'pill-green'}">${t.derived_risk}</span></td>
+        <td><span class="pill ${t.derived_status === 'active' ? 'pill-green' : t.derived_status === 'unused' ? 'pill-amber' : 'pill-red'}">${escHtml(t.derived_status)}</span></td>
+        <td><span class="pill ${t.derived_risk === 'high' ? 'pill-red' : t.derived_risk === 'medium' ? 'pill-amber' : 'pill-green'}">${escHtml(t.derived_risk)}</span></td>
       </tr>`).join('')}
     </tbody>
   </table>
@@ -170,11 +172,11 @@ function generateAuditReportHTML(derived, language, _t) {
     <thead><tr><th>Tool</th><th>Category</th><th>Owner</th><th>Status</th><th>Last Used</th></tr></thead>
     <tbody>
       ${highRiskTools.map(t => `<tr>
-        <td><strong>${t.name}</strong></td>
-        <td>${t.category || '—'}</td>
-        <td>${t.owner_email || '<span class="pill pill-red">Unassigned</span>'}</td>
-        <td><span class="pill pill-red">${t.derived_status}</span></td>
-        <td>${t.last_used_date || 'Never'}</td>
+        <td><strong>${escHtml(t.name)}</strong></td>
+        <td>${escHtml(t.category || '—')}</td>
+        <td>${t.owner_email ? escHtml(t.owner_email) : '<span class="pill pill-red">Unassigned</span>'}</td>
+        <td><span class="pill pill-red">${escHtml(t.derived_status)}</span></td>
+        <td>${escHtml(t.last_used_date || 'Never')}</td>
       </tr>`).join('')}
     </tbody>
   </table>` : ''}
@@ -186,10 +188,10 @@ function generateAuditReportHTML(derived, language, _t) {
     <thead><tr><th>Tool</th><th>Monthly Cost</th><th>Status</th><th>Last Used</th><th>Potential Savings</th></tr></thead>
     <tbody>
       ${unusedTools.map(t => `<tr>
-        <td><strong>${t.name}</strong></td>
+        <td><strong>${escHtml(t.name)}</strong></td>
         <td>${fm(t.cost_per_month || 0)}</td>
-        <td><span class="pill ${t.derived_status === 'orphaned' ? 'pill-red' : 'pill-amber'}">${t.derived_status}</span></td>
-        <td>${t.last_used_date || 'Never'}</td>
+        <td><span class="pill ${t.derived_status === 'orphaned' ? 'pill-red' : 'pill-amber'}">${escHtml(t.derived_status)}</span></td>
+        <td>${escHtml(t.last_used_date || 'Never')}</td>
         <td style="color:#16a34a;font-weight:600">${fm((t.cost_per_month || 0) * 12)}/yr</td>
       </tr>`).join('')}
       <tr style="font-weight:700;border-top:2px solid #e2e8f0">
@@ -207,10 +209,10 @@ function generateAuditReportHTML(derived, language, _t) {
     <thead><tr><th>Employee</th><th>Tool</th><th>Access Level</th><th>Granted</th></tr></thead>
     <tbody>
       ${derived.access.filter(a => a.derived_risk_flag === 'former_employee').map(a => `<tr>
-        <td><strong>${a.employee_name}</strong></td>
-        <td>${a.tool_name}</td>
-        <td><span class="pill ${a.access_level === 'admin' || a.access_level === 'owner' ? 'pill-red' : 'pill-amber'}">${a.access_level}</span></td>
-        <td>${a.granted_date || '—'}</td>
+        <td><strong>${escHtml(a.employee_name)}</strong></td>
+        <td>${escHtml(a.tool_name)}</td>
+        <td><span class="pill ${a.access_level === 'admin' || a.access_level === 'owner' ? 'pill-red' : 'pill-amber'}">${escHtml(a.access_level)}</span></td>
+        <td>${escHtml(a.granted_date || '—')}</td>
       </tr>`).join('')}
     </tbody>
   </table>` : ''}

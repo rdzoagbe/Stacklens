@@ -207,6 +207,7 @@ exports.createPortal = onRequest({ secrets: [STRIPE_SECRET_KEY], cors: true, tim
   cors(req, res, async () => {
     if (req.method === 'OPTIONS') return res.status(204).send('');
     if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
+    if (!await verifyAppCheck(req, res)) return;
     const decoded = await verifyAuth(req, res); if (!decoded) return;
     const allowed = await checkRateLimit(decoded.uid, res, CHECKOUT_RATE_LIMIT, 'portal'); if (!allowed) return;
     try {
@@ -286,6 +287,7 @@ exports.syncuser = onRequest({ cors: true }, async (req, res) => {
   cors(req, res, async () => {
     if (req.method === 'OPTIONS') return res.status(204).send('');
     if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
+    if (!await verifyAppCheck(req, res)) return;
     const decoded = await verifyAuth(req, res); if (!decoded) return;
     const allowed = await checkRateLimit(decoded.uid, res, SYNCUSER_RATE_LIMIT, 'syncuser'); if (!allowed) return;
     const { email, displayName, photoURL } = req.body;
@@ -339,9 +341,10 @@ exports.sendInvite = onRequest({ cors: true, secrets: [SENDGRID_API_KEY] }, asyn
       const sgMail = require('@sendgrid/mail');
       sgMail.setApiKey(SENDGRID_API_KEY.value());
 
+      const esc = (s) => String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
       const signupUrl = 'https://stacklens.fr/?signup=true';
-      const from = inviterName || decoded.name || 'Your team';
-      const org  = orgName || 'Stacklens';
+      const from = esc(inviterName || decoded.name || 'Your team');
+      const org  = esc(orgName || 'Stacklens');
 
       await sgMail.send({
         to: inviteeEmail,
