@@ -93,7 +93,7 @@ jobs:
 
       - name: Install functions dependencies
         working-directory: functions
-        run: npm ci
+        run: npm ci --legacy-peer-deps
 
       - name: Install Firebase CLI
         run: npm install -g firebase-tools
