@@ -62,19 +62,37 @@ jobs:
         with:
           persist-credentials: false
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
       - name: Download dist artifact
         uses: actions/download-artifact@v4
         with:
           name: dist
           path: dist/
 
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+
+      - name: Write service account credentials
+        env:
+          SA_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_ACCESSGUARD_V2 }}
+        run: |
+          echo "$SA_JSON" > "$RUNNER_TEMP/sa.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/sa.json" >> "$GITHUB_ENV"
+
       - name: Deploy to Firebase Hosting
-        uses: FirebaseExtended/action-hosting-deploy@v0
-        with:
-          repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_ACCESSGUARD_V2 }}
-          projectId: accessguard-v2
-          channelId: live
+        run: |
+          set +e
+          OUT=$(firebase deploy --only hosting --project accessguard-v2 --non-interactive 2>&1)
+          CODE=$?
+          echo "$OUT"
+          if [ $CODE -ne 0 ] && echo "$OUT" | grep -q "current active version"; then
+            echo "::notice::Identical version already live — no-op deploy, treating as success."
+            exit 0
+          fi
+          exit $CODE
 
   deploy-functions:
     runs-on: ubuntu-latest
