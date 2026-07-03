@@ -94,6 +94,9 @@ jobs:
           fi
           exit $CODE
 
+      - name: Deploy Firestore rules
+        run: firebase deploy --only firestore:rules --project accessguard-v2 --non-interactive
+
   deploy-functions:
     runs-on: ubuntu-latest
     needs: build
