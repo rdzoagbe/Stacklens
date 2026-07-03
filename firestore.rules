@@ -52,6 +52,17 @@ service cloud.firestore {
                        'is_founder', 'role']));
     }
 
+    // Once a trial has been started, the owner can NEVER change or clear
+    // trial_started_at. This defeats the trial-replay attack: without it, a
+    // user could write plan='free' + delete trial_started_at, then re-trigger
+    // the trial-start path to reset their 7-day trial indefinitely. Founders
+    // (Admin SDK / founderWriteSafe path) are exempt and may still reset trials.
+    function trialStampImmutable() {
+      return resource == null
+          || !resource.data.keys().hasAny(['trial_started_at'])
+          || request.resource.data.get('trial_started_at', null) == resource.data.trial_started_at;
+    }
+
     // Founders may update plan, trial, and profile fields on any user doc.
     function founderWriteSafe() {
       let allowed = ['plan', 'trial_started_at', 'displayName', 'email', 'photoURL', 'updatedAt'];
@@ -64,8 +75,9 @@ service cloud.firestore {
       allow list: if isFounder();
       // Create only allowed if new doc has no protected fields (or plan='free')
       allow create: if isOwner(uid) && protectedFieldsSafe();
-      // Update: owner with field restrictions, OR founder can update plan/trial fields
-      allow update: if (isOwner(uid) && protectedFieldsSafe())
+      // Update: owner with field restrictions (and trial stamp immutable),
+      // OR founder can update plan/trial fields
+      allow update: if (isOwner(uid) && protectedFieldsSafe() && trialStampImmutable())
                     || (isFounder() && founderWriteSafe());
       allow delete: if false;
     }
