@@ -95,7 +95,16 @@ jobs:
           exit $CODE
 
       - name: Deploy Firestore rules
-        run: firebase deploy --only firestore:rules --project accessguard-v2 --non-interactive
+        run: |
+          set +e
+          OUT=$(firebase deploy --only firestore:rules --project accessguard-v2 --non-interactive 2>&1)
+          CODE=$?
+          echo "$OUT"
+          if [ $CODE -ne 0 ] && echo "$OUT" | grep -qi "does not have permission"; then
+            echo "::warning::Firestore rules NOT deployed — the CI service account lacks Firestore Rules permission. Grant roles/firebaserules.admin to github-action-1157772310@accessguard-v2.iam.gserviceaccount.com to enable automatic rules deploys."
+            exit 0
+          fi
+          exit $CODE
 
   deploy-functions:
     runs-on: ubuntu-latest
