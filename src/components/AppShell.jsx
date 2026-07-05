@@ -293,10 +293,15 @@ export function TopBar({ title, right }) {
         </div>
       </div>
       {right && (
-        <div className="overflow-x-auto px-5 pb-3 [&::-webkit-scrollbar]:h-0">
-          <div className="min-w-max">
-            {right}
+        <div className="relative">
+          <div className="overflow-x-auto px-5 pb-3 [&::-webkit-scrollbar]:h-0">
+            <div className="min-w-max">
+              {right}
+            </div>
           </div>
+          {/* Right-edge fade — hints that the tab row scrolls horizontally on
+              small screens where the lengthy tab bars (Settings, Finance) overflow. */}
+          <div className="pointer-events-none absolute top-0 right-0 bottom-3 w-10 bg-gradient-to-l from-slate-950/80 to-transparent md:hidden" />
         </div>
       )}
     </div>
