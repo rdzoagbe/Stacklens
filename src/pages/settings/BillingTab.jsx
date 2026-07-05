@@ -9,6 +9,7 @@ import { resolvePlan, TRIAL_DAYS, getTrialState } from '../../lib/plan';
 import { useDbQuery } from '../../hooks/useDbQuery';
 import { useLang } from '../../contexts/LangContext';
 import { useTranslation } from '../../translations';
+import { usePlanPricing } from '../../contexts/CurrencyContext';
 import { Pill } from '../../components/ui';
 import { AppShell } from '../../components/AppShell';
 
@@ -23,6 +24,7 @@ export function BillingPage({ noShell = false }) {
   const { language } = useLang();
   const t = useTranslation(language);
   const plan = resolvePlan(db?.user);
+  const pricing = usePlanPricing();
   const [billing, setBilling] = useState('monthly');
   const [showContactModal, setShowContactModal] = useState(false);
   const [contactEmail, setContactEmail] = useState('');
@@ -177,16 +179,16 @@ export function BillingPage({ noShell = false }) {
 
   const getPrice = (p) => {
     if (p.isTrial) return t('free_trial_label');
-    if (p.isFree || p.id === 'free') return '€0';
+    if (p.isFree || p.id === 'free') return pricing.format(0);
     if (p.id === 'enterprise' && !p.monthly) return t('contact_sales');
     const v = billing === 'monthly' ? p.monthly : p.annual;
-    return billing === 'monthly' ? '€' + v + '/mo' : '€' + v + '/yr';
+    return pricing.format(v);
   };
 
   const getSaving = (p) => {
     if (!p.monthly || !p.annual) return null;
     const saved = p.monthly * 12 - p.annual;
-    return saved > 0 ? `Save €${saved}/yr` : null;
+    return saved > 0 ? `Save ${pricing.format(saved)}/yr` : null;
   };
 
   const [upgrading, setUpgrading] = useState(false);
@@ -324,7 +326,7 @@ export function BillingPage({ noShell = false }) {
                 ) : (
                   <span className="text-xl md:text-3xl font-black text-white">{getPrice(p)}</span>
                 )}
-                {p.monthly && !p.isTrial && <span className="text-xs text-slate-500 ml-1">/{billing === 'monthly' ? t('monthly') : 'yr'}</span>}
+                {p.monthly && !p.isTrial && <span className="text-xs text-slate-500 ml-1">/{billing === 'monthly' ? 'mo' : 'yr'}</span>}
               </div>
               {getSaving(p) && billing === 'annual' && (
                 <span className="text-xs text-emerald-400 font-bold mb-3 block">{getSaving(p)}</span>
