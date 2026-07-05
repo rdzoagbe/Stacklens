@@ -874,10 +874,10 @@ export function SecurityPage() {
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-16">
           {[
-            { icon: "🛡️", label: "SOC 2 Type II", sub: "Annually audited" },
-            { icon: "🇪🇺", label: "GDPR", sub: "EU data residency" },
-            { icon: "🔐", label: "ISO 27001", sub: "Framework aligned" },
-            { icon: "🏥", label: "HIPAA", sub: "Ready on request" },
+            { icon: "🇪🇺", label: "GDPR-native", sub: "Built for EU privacy law" },
+            { icon: "🔐", label: "Encrypted", sub: "In transit & at rest" },
+            { icon: "💳", label: "Stripe payments", sub: "PCI-DSS via Stripe" },
+            { icon: "🔒", label: "Data isolation", sub: "Per-customer, walled off" },
           ].map(b => (
             <div key={b.label} className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-5 text-center hover:border-emerald-500/40 transition-all">
               <div className="text-4xl mb-2">{b.icon}</div>
@@ -889,14 +889,14 @@ export function SecurityPage() {
 
         <div className="space-y-5 mb-16">
           {[
-            { icon: "🔒", title: "End-to-End Encryption", body: "All data encrypted in transit using TLS 1.3 and at rest using AES-256. Your SaaS inventory, employee records, and access data are never stored in plaintext. Encryption keys are rotated quarterly." },
-            { icon: "🏗️", title: "Infrastructure & Hosting", body: "Stacklens runs on Google Cloud Platform (Firebase/GCP), hosted in the EU (europe-west1) by default. We use isolated, per-organisation Firestore databases. No data is ever co-mingled between customers." },
-            { icon: "👤", title: "Data Access Controls", body: "Only you and users you explicitly invite can access your workspace. Stacklens staff have zero access to your data by default. Any internal access requires approval, is time-limited, and fully audit-logged." },
-            { icon: "🔑", title: "Authentication & SSO", body: "We support Google OAuth 2.0, Magic Link (passwordless), and SAML 2.0 for enterprise plans. Multi-factor authentication (MFA) is available on all plans and can be enforced organisation-wide by admins." },
-            { icon: "📋", title: "Tamper-Proof Audit Logs", body: "Every action in Stacklens — logins, access grants, revocations, data exports — is logged with timestamp, user identity, and IP. Logs are immutable and retained for 12 months (Enterprise: 7 years)." },
-            { icon: "🗑️", title: "Data Portability & Deletion", body: "You own your data. Export everything in CSV or JSON at any time from Settings. When you cancel, all your data is permanently deleted within 30 days. We do not sell or share your data with any third party." },
+            { icon: "🔐", title: "Encryption in Transit & at Rest", body: "All traffic is served over HTTPS/TLS, and your data is encrypted at rest by our cloud provider (Google Cloud, AES-256). Your SaaS inventory, employee records, and access data are never stored in plaintext." },
+            { icon: "🏗️", title: "Infrastructure & Hosting", body: "Stacklens runs on Google Cloud Platform (Firebase/GCP) with per-customer isolated data — no data is ever co-mingled between customers. Your database records are stored in the EU; some processing (AI features, billing) currently runs on Google/Stripe infrastructure in the US." },
+            { icon: "👤", title: "Data Access Controls", body: "Only you and the users you explicitly invite can access your workspace. Your data lives in a database record scoped to your account; other customers cannot read it. We never sell or share your data with third parties." },
+            { icon: "🔑", title: "Authentication", body: "Sign in with Google OAuth 2.0, a passwordless Magic Link, or email and password — all handled by Google Firebase Authentication. Two-factor authentication is available through your Google account. (SAML/SSO is on our roadmap for enterprise plans.)" },
+            { icon: "🤖", title: "Abuse & Bot Protection", body: "Every sensitive request is protected by Firebase App Check (reCAPTCHA), and our APIs enforce per-user rate limits. Payment data is handled entirely by Stripe — card details never touch our servers." },
+            { icon: "📋", title: "Activity Logging", body: "Stacklens keeps an in-app audit trail of key actions — access grants, revocations, and changes — so you can review what happened in your workspace and when. You can export it at any time." },
+            { icon: "🗑️", title: "Data Portability & Deletion", body: "You own your data. Export everything in CSV or JSON at any time from Settings. When you cancel, your data is permanently deleted. We do not sell or share your data with any third party." },
             { icon: "🔍", title: "Vulnerability Disclosure", body: "We take every security report seriously. If you discover a vulnerability, email hello@stacklens.fr with details. We aim to respond within 48 hours and acknowledge responsible disclosure." },
-            { icon: "📡", title: "Uptime & Reliability", body: "Stacklens runs on Google Firebase infrastructure with automatic scaling and redundancy. We target 99.5% uptime. For any service issues, contact hello@stacklens.fr." },
           ].map(item => (
             <div key={item.title} className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 hover:border-slate-700 transition-all">
               <div className="flex items-start gap-4">

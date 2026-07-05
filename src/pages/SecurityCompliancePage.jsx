@@ -227,10 +227,10 @@ function SecurityTabContent() {
           <h2 className="text-base font-semibold text-white mb-4">{t("security_compliance")}</h2>
           <div className="space-y-3">
             {[
-              { name: 'SOC 2 Type II', status: 'compliant', desc: 'Service Organization Control' },
               { name: 'GDPR', status: 'compliant', desc: 'General Data Protection Regulation' },
-              { name: 'HIPAA', status: tools.length > 0 ? 'review' : 'non-compliant', desc: 'Health Insurance Portability' },
-              { name: 'ISO 27001', status: 'compliant', desc: 'Information Security Management' },
+              { name: 'SOC 2 Type II', status: 'review', desc: 'On our roadmap — not yet certified' },
+              { name: 'ISO 27001', status: 'review', desc: 'On our roadmap — not yet certified' },
+              { name: 'HIPAA', status: 'non-compliant', desc: 'Not supported' },
             ].map((c) => (
               <div key={c.name} className="flex items-center justify-between p-3.5 rounded-xl border border-slate-800 bg-slate-950/30">
                 <div>
