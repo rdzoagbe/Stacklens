@@ -159,6 +159,27 @@ export function TrialPage() {
         </div>
       </section>
 
+      {/* ── TRUST SIGNALS ── */}
+      <section className="relative z-10 px-6 pb-8">
+        <div className="max-w-5xl mx-auto">
+          <p className="text-center text-xs font-semibold uppercase tracking-wider text-slate-500 mb-6">{t('lp_trust_heading')}</p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {[
+              { icon: '🇪🇺', label: t('lp_trust_1'), sub: t('lp_trust_1_sub') },
+              { icon: '🔒', label: t('lp_trust_2'), sub: t('lp_trust_2_sub') },
+              { icon: '💳', label: t('lp_trust_3'), sub: t('lp_trust_3_sub') },
+              { icon: '✅', label: t('lp_trust_4'), sub: t('lp_trust_4_sub') },
+            ].map((b) => (
+              <div key={b.label} className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4 text-center hover:border-slate-700 transition-colors">
+                <div className="text-2xl mb-1.5">{b.icon}</div>
+                <div className="text-sm font-bold text-white">{b.label}</div>
+                <div className="text-xs text-slate-500 mt-0.5 leading-snug">{b.sub}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ── HOW IT WORKS — 3-step visual flow ── */}
       <section className="relative z-10 py-20 px-6 border-t border-slate-900">
         <div className="max-w-5xl mx-auto">
