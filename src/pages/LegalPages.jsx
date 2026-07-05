@@ -6,6 +6,7 @@ import { useTranslation } from '../translations';
 import { submitContactForm, mailtoFallback } from '../lib/contact';
 import { RDLogo } from '../components/ui';
 import { LangSelectorCompact } from '../components/AppShell';
+import { LEGAL_ENTITY } from '../lib/constants';
 
 export function NotFound() {
   return <Navigate to="/" replace />;
@@ -191,7 +192,7 @@ export function DpaPage() {
         <div className="space-y-8 text-sm text-slate-300 leading-relaxed">
           <section>
             <h2 className="text-lg font-semibold text-white mb-3">{t('dpa_s1_title')}</h2>
-            <p>{t('dpa_s1_body')}</p>
+            <p>{t('dpa_s1_body').replace('{publisher}', LEGAL_ENTITY.publisher).replace('{status}', LEGAL_ENTITY.status.toLowerCase())}</p>
           </section>
 
           <section>
@@ -394,20 +395,20 @@ export function LegalMentionsPage() {
           {/* SECTION 1 — Éditeur (LCEN Art. 6 III — REQUIRED) */}
           <section>
             <h2 className="text-lg font-semibold text-white mb-3">{t('legal_publisher_title')}</h2>
-            <p><strong>Stacklens</strong></p>
-            <p>{t('legal_published_by')}: Roland Dzoagbe</p>
+            <p><strong>{LEGAL_ENTITY.brand}</strong></p>
+            <p>{t('legal_published_by')}: {LEGAL_ENTITY.publisher}</p>
             <p>{t('legal_status')}: {t('legal_status_value')}</p>
-            <p>SIRET : 10483872700014</p>
-            <p>Email : <a href="mailto:hello@stacklens.fr" className="text-blue-400 hover:text-blue-300">hello@stacklens.fr</a></p>
-            <p>{t('legal_phone')}: 09 53 26 97 91</p>
-            <p>{t('legal_address')}: Paris, France</p>
+            <p>SIRET : {LEGAL_ENTITY.siret}</p>
+            <p>Email : <a href={`mailto:${LEGAL_ENTITY.email}`} className="text-blue-400 hover:text-blue-300">{LEGAL_ENTITY.email}</a></p>
+            <p>{t('legal_phone')}: {LEGAL_ENTITY.phone}</p>
+            <p>{t('legal_address')}: {LEGAL_ENTITY.city}</p>
           </section>
 
           {/* SECTION 2 — Directeur de publication */}
           <section>
             <h2 className="text-lg font-semibold text-white mb-3">{t('legal_publication_director_title')}</h2>
-            <p>Roland Dzoagbe</p>
-            <p>Email : <a href="mailto:hello@stacklens.fr" className="text-blue-400 hover:text-blue-300">hello@stacklens.fr</a></p>
+            <p>{LEGAL_ENTITY.director}</p>
+            <p>Email : <a href={`mailto:${LEGAL_ENTITY.email}`} className="text-blue-400 hover:text-blue-300">{LEGAL_ENTITY.email}</a></p>
           </section>
 
           {/* SECTION 3 — Hébergement */}
@@ -610,7 +611,7 @@ export function PrivacyPage() {
           <section>
             <h2 className="text-xl font-bold mb-3 text-white">{t('privacy_s1_title')}</h2>
             <p>{t('privacy_s1_body')}</p>
-            <p className="mt-2"><strong>Stacklens</strong> — Roland Dzoagbe<br/>Paris, France<br/>Email: <a href="mailto:hello@stacklens.fr" className="text-blue-400 hover:text-blue-300">hello@stacklens.fr</a></p>
+            <p className="mt-2"><strong>{LEGAL_ENTITY.brand}</strong> — {LEGAL_ENTITY.publisher}<br/>{LEGAL_ENTITY.city}<br/>Email: <a href={`mailto:${LEGAL_ENTITY.email}`} className="text-blue-400 hover:text-blue-300">{LEGAL_ENTITY.email}</a></p>
           </section>
 
           <section>
@@ -740,7 +741,7 @@ export function TermsPage() {
         <div className="space-y-10 text-sm text-slate-300 leading-relaxed">
           <section>
             <h2 className="text-xl font-bold mb-3 text-white">{t('terms_s1_title')}</h2>
-            <p>{t('terms_s1_body')}</p>
+            <p>{t('terms_s1_body').replace('{publisher}', LEGAL_ENTITY.publisher)}</p>
           </section>
 
           <section>
