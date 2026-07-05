@@ -423,6 +423,7 @@ export function TrialPage() {
               { q: t('lp_faq5_q'), a: t('lp_faq5_a') },
               { q: t('lp_faq6_q'), a: t('lp_faq6_a') },
               { q: t('lp_faq7_q'), a: t('lp_faq7_a') },
+              { q: t('lp_faq8_q'), a: t('lp_faq8_a') },
             ].map((f, i) => (
               <details
                 key={i}
