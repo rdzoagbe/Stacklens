@@ -9,11 +9,13 @@ import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
 import { RDLogo, ScrollToTop } from '../components/ui';
 import { LangSelectorCompact, _openCookieBanner } from '../components/AppShell';
+import { usePlanPricing } from '../contexts/CurrencyContext';
 
 export function TrialPage() {
   const navigate = useNavigate();
   const { language } = useLang();
   const t = useTranslation(language);
+  const pricing = usePlanPricing();
 
   const { login, startDemo, isAuthed, firebaseUser } = useAuth();
 
@@ -347,11 +349,11 @@ export function TrialPage() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             {[
-              { name: 'Free', price: '€0', sub: 'Forever', features: ['10 tools', '25 employees', 'Shadow IT discovery', 'Basic alerts'], cta: 'Start free', highlight: false },
-              { name: 'Starter', price: '€29', sub: '/month', features: ['100 tools', '250 employees', 'Renewal alerts', 'CSV import', '5 team seats'], cta: 'Start trial', highlight: false },
-              { name: 'HR & Finance', price: '€49', sub: '/month', features: ['Finance Board', 'People & HR Board', 'Access tracking', 'Offboarding queue', '10 team seats'], cta: 'Start trial', highlight: false, badge: 'NEW' },
-              { name: 'Pro', price: '€79', sub: '/month', features: ['500 tools', '1,500 employees', 'AI recommendations', 'Full security suite', '15 team seats'], cta: 'Start trial', highlight: true },
-              { name: 'Enterprise', price: '€299', sub: '/month', features: ['Unlimited everything', 'SSO / SAML', 'API access', 'Dedicated support'], cta: 'Contact sales', highlight: false },
+              { name: 'Free', eur: 0, sub: 'Forever', features: ['10 tools', '25 employees', 'Shadow IT discovery', 'Basic alerts'], cta: 'Start free', highlight: false },
+              { name: 'Starter', eur: 29, sub: '/month', features: ['100 tools', '250 employees', 'Renewal alerts', 'CSV import', '5 team seats'], cta: 'Start trial', highlight: false },
+              { name: 'HR & Finance', eur: 49, sub: '/month', features: ['Finance Board', 'People & HR Board', 'Access tracking', 'Offboarding queue', '10 team seats'], cta: 'Start trial', highlight: false, badge: 'NEW' },
+              { name: 'Pro', eur: 79, sub: '/month', features: ['500 tools', '1,500 employees', 'AI recommendations', 'Full security suite', '15 team seats'], cta: 'Start trial', highlight: true },
+              { name: 'Enterprise', eur: 299, sub: '/month', features: ['Unlimited everything', 'SSO / SAML', 'API access', 'Dedicated support'], cta: 'Contact sales', highlight: false },
             ].map((p, i) => (
               <div
                 key={i}
@@ -372,7 +374,7 @@ export function TrialPage() {
                 )}
                 <div className="text-sm font-semibold text-slate-400 mb-2">{p.name}</div>
                 <div className="flex items-baseline gap-1 mb-5">
-                  <span className="text-4xl font-black text-white">{p.price}</span>
+                  <span className="text-4xl font-black text-white">{pricing.format(p.eur)}</span>
                   <span className="text-sm text-slate-500">{p.sub}</span>
                 </div>
                 <ul className="space-y-2 mb-6">
@@ -405,6 +407,11 @@ export function TrialPage() {
           <p className="text-center text-xs text-slate-500 mt-8">
             {t('lp_pricing_fine_print')}
           </p>
+          {pricing.isLocal && (
+            <p className="text-center text-xs text-slate-600 mt-2">
+              {t('lp_pricing_local_note').replace('{code}', pricing.code)}
+            </p>
+          )}
         </div>
       </section>
 
