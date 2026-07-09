@@ -515,7 +515,17 @@ export function DemoBanner() {
 export class ErrorBoundary extends React.Component {
   constructor(props) { super(props); this.state = { hasError: false, error: null }; }
   static getDerivedStateFromError(error) { return { hasError: true, error }; }
-  componentDidCatch(error, info) { console.error('ErrorBoundary caught:', error, info); }
+  componentDidCatch(error, info) {
+    console.error('ErrorBoundary caught:', error, info);
+    // A lazy chunk that failed to load after a deploy reaches here as a thrown
+    // error (not always via vite:preloadError). Reload once to fetch fresh assets.
+    const msg = String(error?.message || '');
+    const isChunkError = /dynamically imported module|Importing a module script failed|Failed to fetch/i.test(msg);
+    if (isChunkError && sessionStorage.getItem('sg_chunk_reloaded') !== '1') {
+      sessionStorage.setItem('sg_chunk_reloaded', '1');
+      window.location.reload();
+    }
+  }
   render() {
     if (this.state.hasError) {
       return (

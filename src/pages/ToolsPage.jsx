@@ -165,6 +165,9 @@ export function ToolsPage() {
   const { data: db, isLoading } = useDbQuery();
   const { language } = useLang();
   const t = useTranslation(language);
+  // Alias for use inside the tools table, where the map's item is named `t`
+  // and shadows the translation function.
+  const tr = t;
   const muts = useDbMutations();
 
   const [q, setQ] = useState("");
@@ -407,7 +410,7 @@ export function ToolsPage() {
                                     <div className="flex flex-wrap gap-1.5">
                                       {evidence.map((r, j) => (
                                         <span key={j} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-800 text-[10px] text-slate-400 border border-slate-700">
-                                          {t(r.key) || r.fallback}
+                                          {tr(r.key) || r.fallback}
                                         </span>
                                       ))}
                                     </div>
@@ -416,12 +419,12 @@ export function ToolsPage() {
                               })()}
                               <div className="flex items-center justify-between mb-3">
                                 <h4 className="text-sm font-semibold text-purple-400">Employees using {t.name} ({getToolEmployees(t.id, t.name).length})</h4>
-                                <Link to="/employees" className="text-xs text-slate-500 hover:text-purple-400 transition-colors">{t("drill_view_all_employees") || "View all employees"} →</Link>
+                                <Link to="/employees" className="text-xs text-slate-500 hover:text-purple-400 transition-colors">{tr("drill_view_all_employees") || "View all employees"} →</Link>
                               </div>
                               {(() => {
                                 const toolEmps = getToolEmployees(t.id, t.name);
                                 if (toolEmps.length === 0) return (
-                                  <div className="text-center py-4 text-sm text-slate-500">{t("drill_no_employees") || "No employees currently assigned to this tool"}</div>
+                                  <div className="text-center py-4 text-sm text-slate-500">{tr("drill_no_employees") || "No employees currently assigned to this tool"}</div>
                                 );
                                 return (
                                   <div className="grid gap-2">
