@@ -188,13 +188,13 @@ export function DashboardPage() {
       ...a,
       derived_risk_flag: computeAccessDerivedRiskFlag(a, employeesById, toolsById),
     }));
-    const alerts = buildRiskAlerts({ ...db, tools, access });
+    const alerts = buildRiskAlerts({ ...db, tools, access }, t);
     const counts = riskSeverityCounts(alerts);
     const spend = tools.reduce((sum, tool) => sum + Number(tool.cost_per_month || 0), 0);
     const highRiskTools = tools.filter((tool) => tool.derived_risk === "high").length;
     const formerAccess = access.filter((a) => a.derived_risk_flag === "former_employee").length;
     return { tools, access, alerts, counts, spend, highRiskTools, formerAccess };
-  }, [db]);
+  }, [db, t]);
 
   // ── Derived spend-breakdown rows ──────────────────────────────────────────
   const spendRows = useMemo(() => {
@@ -234,7 +234,7 @@ export function DashboardPage() {
             </Button>
           </RoleGate>
           <RoleGate requires="admin">
-            <Button variant="secondary" size="sm" onClick={() => { if(window.confirm(t('dash_reset_confirm'))) { resetDb(); } }} title={t('dash_reset_title')}>
+            <Button variant="secondary" size="sm" onClick={async () => { if(window.confirm(t('dash_reset_confirm'))) { const ok = await resetDb(); if (ok) toast.success(t('dash_reset_done')); } }} title={t('dash_reset_title')}>
               <RefreshCw className="h-3.5 w-3.5" /> {t('dash_reset_data')}
             </Button>
           </RoleGate>
@@ -368,7 +368,7 @@ export function DashboardPage() {
                 </div>
                 <div className="space-y-1.5 flex-1 text-xs">
                   <div className="flex justify-between"><span className="text-slate-400">{t('dash_mfa_coverage')}</span><span className={mfaCoverage === null ? 'text-slate-500' : mfaCoverage >= 80 ? 'text-emerald-400' : 'text-amber-400'} >{mfaCoverage === null ? '—' : `${mfaCoverage}%`}</span></div>
-                  <div className="flex justify-between"><span className="text-slate-400">{t('dash_ex_emp_access')}</span><span className={formerAccess > 0 ? 'text-red-400' : 'text-emerald-400'}>{formerAccess} active</span></div>
+                  <div className="flex justify-between"><span className="text-slate-400">{t('dash_ex_emp_access')}</span><span className={formerAccess > 0 ? 'text-red-400' : 'text-emerald-400'}>{formerAccess} {t('dash_active')}</span></div>
                   <div className="flex justify-between"><span className="text-slate-400">{t('dash_overdue_reviews')}</span><span className={overdueReviews > 0 ? 'text-amber-400' : 'text-emerald-400'}>{overdueReviews}</span></div>
                 </div>
               </div>
@@ -383,7 +383,7 @@ export function DashboardPage() {
                 <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-4 h-full hover:border-red-500/40 transition-all">
                   <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">{t('security_alerts')}</div>
                   <div className="text-3xl font-black text-red-400">{derived.alerts.length || 0}</div>
-                  <div className="text-xs text-slate-500">{derived.counts.critical||0} critical · {derived.counts.high||0} high</div>
+                  <div className="text-xs text-slate-500">{derived.counts.critical||0} {t('sev_critical')} · {derived.counts.high||0} {t('sev_high')}</div>
                 </div>
               </Link>
               <Link to="/tools" className="flex-1">

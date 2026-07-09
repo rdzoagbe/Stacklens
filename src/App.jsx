@@ -10,6 +10,7 @@ import { AppShell, CookieBanner, ErrorBoundary, PageBoundary } from './component
 import { FloatingChatbotGated } from './components/FloatingChatbot';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useTranslation } from './translations';
+import { setQueryClient } from './lib/db';
 import { Toaster } from 'react-hot-toast';
 
 // ── Route-level code splitting ────────────────────────────────────────────────
@@ -179,6 +180,9 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+// Let resetDb() clear on-screen data instantly via the shared cache.
+setQueryClient(queryClient);
 
 
 

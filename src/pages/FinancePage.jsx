@@ -35,7 +35,7 @@ export function ExecutivePageWrapper() {
     tools: db.tools.map(t => ({ ...t, derived_risk: computeToolDerivedRisk(t) })),
     employees: db.employees || [],
     access: db.access || [],
-    alerts: buildRiskAlerts({ tools: db.tools, access: db.access || [], employees: db.employees || [] })
+    alerts: buildRiskAlerts({ tools: db.tools, access: db.access || [], employees: db.employees || [] }, t)
   };
   
   return (

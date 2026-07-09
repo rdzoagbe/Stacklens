@@ -61,7 +61,10 @@ export function computeAccessDerivedRiskFlag(accessRow, employeesById, toolsById
   return 'none';
 }
 
-export function buildRiskAlerts(db) {
+export function buildRiskAlerts(db, t) {
+  // `t` is optional: when the caller passes the translation fn, alert text is
+  // localized; without it (tests, non-UI callers) we fall back to English.
+  const tr = (key, fallback) => (t ? t(key) : fallback);
   const employeesById = Object.fromEntries(db.employees.map((e) => [e.id, e]));
 
   const orphanedTools        = db.tools.filter((t) => !t.owner_email);
@@ -88,45 +91,46 @@ export function buildRiskAlerts(db) {
 
   if (orphanedTools.length) alerts.push({
     id: 'orphaned_tools', severity: 'critical',
-    title: 'Tools without owners detected',
-    body: `${orphanedTools.length} tool(s) have no owner assigned.`,
-    action: { label: 'Review Tools', to: '/tools', icon: Boxes },
+    title: tr('alert_orphaned_title', 'Tools without owners detected'),
+    body: tr('alert_orphaned_body', '{n} tool(s) have no owner assigned.').replace('{n}', orphanedTools.length),
+    action: { label: tr('alert_orphaned_action', 'Review Tools'), to: '/tools', icon: Boxes },
   });
 
   if (formerEmployeeAccess.length) alerts.push({
     id: 'former_employee_access', severity: 'critical',
-    title: 'Former employees still have access',
-    body: `${formerEmployeeAccess.length} active access record(s) belong to offboarded employees.`,
-    action: { label: 'Offboarding', to: '/offboarding', icon: UserMinus },
+    title: tr('alert_former_title', 'Former employees still have access'),
+    body: tr('alert_former_body', '{n} active access record(s) belong to offboarded employees.').replace('{n}', formerEmployeeAccess.length),
+    action: { label: tr('alert_former_action', 'Offboarding'), to: '/offboarding', icon: UserMinus },
   });
 
   if (adminOverdueReview.length) alerts.push({
     id: 'admin_overdue_review', severity: 'high',
-    title: 'Admin access overdue for review',
-    body: `${adminOverdueReview.length} admin access record(s) have not been reviewed in 6+ months.`,
-    action: { label: 'Access Map', to: '/access', icon: GitMerge },
+    title: tr('alert_admin_title', 'Admin access overdue for review'),
+    body: tr('alert_admin_body', '{n} admin access record(s) have not been reviewed in 6+ months.').replace('{n}', adminOverdueReview.length),
+    action: { label: tr('alert_admin_action', 'Access Map'), to: '/access', icon: GitMerge },
   });
 
   if (toolsUnused90.length) alerts.push({
     id: 'tools_unused_90', severity: 'high',
-    title: 'Tools unused for 90+ days',
-    body: `${toolsUnused90.length} tool(s) have not been used in 90+ days.`,
-    action: { label: 'Audit Export', to: '/audit', icon: Download },
+    title: tr('alert_unused_title', 'Tools unused for 90+ days'),
+    body: tr('alert_unused_body', '{n} tool(s) have not been used in 90+ days.').replace('{n}', toolsUnused90.length),
+    action: { label: tr('alert_unused_action', 'Audit Export'), to: '/audit', icon: Download },
   });
 
   if (needsReview.length) alerts.push({
     id: 'needs_review', severity: 'medium',
-    title: 'Access records need review',
-    body: `${needsReview.length} access record(s) are due for annual review.`,
-    action: { label: 'Review Access', to: '/access', icon: GitMerge },
+    title: tr('alert_review_title', 'Access records need review'),
+    body: tr('alert_review_body', '{n} access record(s) are due for annual review.').replace('{n}', needsReview.length),
+    action: { label: tr('alert_review_action', 'Review Access'), to: '/access', icon: GitMerge },
   });
 
   const spend = db.tools.reduce((sum, t) => sum + Number(t.cost_per_month || 0), 0);
   if (spend > 1000) alerts.push({
     id: 'spend_watch', severity: 'medium',
-    title: 'Monthly spend exceeds threshold',
-    body: `Current tool spend is ${getCurrency(localStorage.getItem('language') || 'en')}${Math.round(spend)} / month.`,
-    action: { label: 'Tools', to: '/tools', icon: Boxes },
+    title: tr('alert_spend_title', 'Monthly spend exceeds threshold'),
+    body: tr('alert_spend_body', 'Current tool spend is {amount} / month.')
+      .replace('{amount}', `${getCurrency(localStorage.getItem('language') || 'en')}${Math.round(spend)}`),
+    action: { label: tr('alert_spend_action', 'Tools'), to: '/tools', icon: Boxes },
   });
 
   return alerts.slice(0, 7);
