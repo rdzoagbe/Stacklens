@@ -29,6 +29,13 @@ let _firestoreUid = null;
 
 export function setFirestoreUid(newUid) { _firestoreUid = newUid; }
 
+// The app reads all data through React Query (queryKey: ['db']). Registering the
+// client here lets resetDb() clear the on-screen data instantly, instead of
+// waiting for a full page reload.
+let _queryClient = null;
+
+export function setQueryClient(qc) { _queryClient = qc; }
+
 export function loadDb() {
   const raw = localStorage.getItem(LS_KEY);
   if (!raw) return null;
@@ -195,7 +202,7 @@ export async function resetDb() {
       } catch (e) {
         console.error('✗ Firestore reset failed:', e);
         alert('Failed to reset cloud data. Please check your connection and try again.');
-        return;
+        return false;
       }
     }
 
@@ -232,10 +239,19 @@ export async function resetDb() {
     localStorage.removeItem('sg_sf_refresh_token');
     localStorage.removeItem('sg_sf_last_sync');
 
-    await new Promise(r => setTimeout(r, 500));
-    window.location.reload();
+    // Clear the data on screen immediately by resetting the React Query cache,
+    // so the reset feels instant. Falls back to a reload if the client wasn't
+    // registered (e.g. an unexpected call site).
+    if (_queryClient) {
+      _queryClient.setQueryData(['db'], emptyDb);
+      _queryClient.invalidateQueries();
+    } else {
+      window.location.reload();
+    }
+    return true;
   } catch (e) {
     console.error('Reset failed:', e);
     alert('Reset failed: ' + e.message + '. Please try again.');
+    return false;
   }
 }

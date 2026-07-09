@@ -64,7 +64,7 @@ function SecurityTabContent() {
   const scoreColor = securityScore >= 80 ? '#10b981' : securityScore >= 60 ? '#f59e0b' : '#ef4444';
   const scoreLabel = securityScore >= 80 ? 'Good' : securityScore >= 60 ? 'Needs Work' : 'Critical';
 
-  const alerts = buildRiskAlerts({ tools, access, employees });
+  const alerts = buildRiskAlerts({ tools, access, employees }, t);
   const criticalAlerts = alerts.filter(a => a.severity === 'critical');
   const highAlerts = alerts.filter(a => a.severity === 'high');
   const mediumAlerts = alerts.filter(a => a.severity === 'medium');

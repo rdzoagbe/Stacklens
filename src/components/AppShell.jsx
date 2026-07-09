@@ -86,7 +86,7 @@ export function Sidebar({ collapsed, setCollapsed }) {
             {!collapsed ? <div className="text-xs text-slate-300">{t('live_risk_checks')}</div> : null}
           </div>
           {!collapsed ? (
-            <div className="mt-2 text-xs text-slate-500">Real-time invalidation via React Query.</div>
+            <div className="mt-2 text-xs text-slate-500">{t('realtime_desc')}</div>
           ) : null}
         </div>
       </div>
