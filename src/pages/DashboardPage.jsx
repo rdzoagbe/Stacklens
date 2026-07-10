@@ -17,7 +17,7 @@ import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
 import { Button, Pill } from '../components/ui';
 import { RoleGate } from '../components/gates';
-import { AppShell, LangSelectorCompact } from '../components/AppShell';
+import { AppShell } from '../components/AppShell';
 import { ImportWizard } from '../components/ImportWizard';
 
 // Re-export for lazy-loading in App.jsx
@@ -238,7 +238,6 @@ export function DashboardPage() {
               <RefreshCw className="h-3.5 w-3.5" /> {t('dash_reset_data')}
             </Button>
           </RoleGate>
-          <LangSelectorCompact />
         </div>
       }>
 
