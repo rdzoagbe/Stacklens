@@ -12,7 +12,7 @@ import { useTranslation } from '../translations';
 import { RDLogo, Button, Modal } from '../components/ui';
 import {
   LayoutDashboard, Boxes, Users, GitMerge, UserMinus, Shield, BarChart3, Settings,
-  ChevronDown, BadgeX, ExternalLink,
+  ChevronDown, BadgeX, ExternalLink, Languages,
 } from 'lucide-react';
 
 export const NAV = [
@@ -124,9 +124,77 @@ export function Sidebar({ collapsed, setCollapsed }) {
             </Link>
           );
         })}
+
+        <LangSidebarSelector collapsed={collapsed} />
       </nav>
 
       <SidebarFooter collapsed={collapsed} />
+    </div>
+  );
+}
+
+// Language switcher rendered as a sidebar nav row (under Settings). Options
+// expand inline instead of a floating dropdown, so nothing can clip them.
+function LangSidebarSelector({ collapsed }) {
+  const { language, setLanguage } = useLang();
+  const [open, setOpen] = React.useState(false);
+  const optionsRef = React.useRef(null);
+  const t = useTranslation(language);
+
+  // The row sits at the bottom of the scrollable nav — bring the expanded
+  // options into view on short screens.
+  React.useEffect(() => {
+    if (open) optionsRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [open]);
+  const langs = [
+    { code: 'en', flag: '🇬🇧', name: 'English' },
+    { code: 'fr', flag: '🇫🇷', name: 'Français' },
+  ];
+  const current = langs.find(l => l.code === language) || langs[0];
+
+  if (collapsed) {
+    // No room for a list — one tap switches to the other language.
+    const next = langs[(langs.findIndex(l => l.code === current.code) + 1) % langs.length];
+    return (
+      <button
+        onClick={() => setLanguage(next.code)}
+        className="mb-1 flex w-full items-center justify-center rounded-2xl px-3 py-2.5 text-slate-300 hover:bg-slate-900/60 transition"
+        title={`${t('language')}: ${current.name}`}
+      >
+        <span className="text-base leading-none">{current.flag}</span>
+      </button>
+    );
+  }
+
+  return (
+    <div className="mb-1">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-[14px] text-slate-300 hover:bg-slate-900/60 transition"
+      >
+        <Languages className="h-4 w-4" />
+        <span className="flex-1 text-left">{t('language')}</span>
+        <span className="text-xs text-slate-500">{current.flag} {current.code.toUpperCase()}</span>
+        <ChevronDown className={cx('h-3.5 w-3.5 transition-transform', open ? 'rotate-180' : '')} />
+      </button>
+      {open && (
+        <div ref={optionsRef} className="mt-1 ml-7 space-y-0.5">
+          {langs.map(l => (
+            <button
+              key={l.code}
+              onClick={() => { setLanguage(l.code); setOpen(false); }}
+              className={cx(
+                'flex w-full items-center gap-2 rounded-xl px-3 py-2 text-[13px] transition',
+                language === l.code
+                  ? 'bg-blue-600/15 text-blue-200 border border-blue-600/30'
+                  : 'text-slate-300 hover:bg-slate-900/60'
+              )}
+            >
+              <span>{l.flag}</span><span>{l.name}</span>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
