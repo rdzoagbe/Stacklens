@@ -326,7 +326,7 @@ export function BillingPage({ noShell = false }) {
                 ) : (
                   <span className="text-xl md:text-3xl font-black text-white">{getPrice(p)}</span>
                 )}
-                {p.monthly && !p.isTrial && <span className="text-xs text-slate-500 ml-1">/{billing === 'monthly' ? 'mo' : 'yr'}</span>}
+                {p.monthly > 0 && !p.isTrial && <span className="text-xs text-slate-500 ml-1">/{billing === 'monthly' ? 'mo' : 'yr'}</span>}
               </div>
               {getSaving(p) && billing === 'annual' && (
                 <span className="text-xs text-emerald-400 font-bold mb-3 block">{getSaving(p)}</span>
