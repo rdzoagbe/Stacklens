@@ -68,8 +68,6 @@ const CURRENCY_SYMBOL = {
   CHF: 'CHF ', SGD: 'S$', HKD: 'HK$', INR: '₹', BRL: 'R$', MXN: 'MX$',
   AED: 'AED ', ZAR: 'R', SEK: 'kr', NOK: 'kr', DKK: 'kr', PLN: 'zł',
 };
-const PRICING_FX_KEY = 'sg_pricing_fx_eur';
-
 export function detectPricingCurrency() {
   try {
     const langs = (typeof navigator !== 'undefined' && (navigator.languages || [navigator.language])) || [];
@@ -84,44 +82,20 @@ export function detectPricingCurrency() {
   return 'EUR';
 }
 
-async function fetchEurRates() {
-  try {
-    const cached = JSON.parse(localStorage.getItem(PRICING_FX_KEY) || '{}');
-    if (cached.rates && cached.ts && Date.now() - cached.ts < CACHE_TTL) return cached.rates;
-    const res = await fetch('https://open.er-api.com/v6/latest/EUR');
-    const data = await res.json();
-    if (data.rates) {
-      localStorage.setItem(PRICING_FX_KEY, JSON.stringify({ rates: data.rates, ts: Date.now() }));
-      return data.rates;
-    }
-  } catch { /* offline / blocked — fall back to EUR display */ }
-  return null;
-}
-
-// Returns { code, symbol, isLocal, format(eurAmount) } for marketing plan prices.
-// Currency follows the app language so it updates live when the user switches:
-// French → EUR, English → USD. (Stripe still bills each customer in their own
-// local currency at checkout via Adaptive Pricing.)
+// Returns { code, symbol, isLocal, format(amount) } for marketing plan prices.
+// Currency follows the app language and updates live when the user switches:
+// French → EUR, English → USD. Prices are shown as the SAME round figure in
+// each currency (e.g. €29 / $29) rather than a live-converted amount, so the
+// pricing page reads clean and intentional. (Stripe bills each customer in
+// their own local currency at checkout via Adaptive Pricing.)
 export function usePlanPricing() {
   const { language } = useLang();
   const code = language === 'fr' ? 'EUR' : 'USD';
-  const [rates, setRates] = React.useState(null);
-  React.useEffect(() => {
-    let alive = true;
-    if (code !== 'EUR') fetchEurRates().then(r => { if (alive) setRates(r); });
-    return () => { alive = false; };
-  }, [code]);
-
   const symbol = CURRENCY_SYMBOL[code] || '€';
-  const format = React.useCallback((eur) => {
-    if (code === 'EUR' || !rates || !rates[code]) return '€' + eur;
-    if (eur === 0) return symbol + '0';
-    const local = eur * rates[code];
-    // round JPY-like currencies to nearest 10, others to nearest whole unit
-    const rounded = code === 'JPY' ? Math.round(local / 10) * 10 : Math.round(local);
-    return symbol + rounded.toLocaleString();
-  }, [rates, code, symbol]);
-
+  const format = React.useCallback(
+    (amount) => symbol + Number(amount || 0).toLocaleString(),
+    [symbol]
+  );
   return { code, symbol, isLocal: code !== 'EUR', format };
 }
 
