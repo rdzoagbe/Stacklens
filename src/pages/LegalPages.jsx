@@ -798,7 +798,7 @@ export function TermsPage() {
             <div className="bg-slate-900/80 border border-amber-500/30 rounded-xl p-5">
               <p className="text-sm font-semibold text-white mb-1">{t('terms_s5_cancel_title')}</p>
               <p className="text-xs text-slate-400 mb-3">{t('terms_s5_cancel_law')}</p>
-              <Link to="/app/settings?tab=billing" className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-400 text-sm font-medium rounded-lg transition-colors">
+              <Link to="/settings?tab=billing" className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-400 text-sm font-medium rounded-lg transition-colors">
                 🔴 {t('terms_s5_cancel_btn')}
               </Link>
             </div>

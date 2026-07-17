@@ -552,7 +552,7 @@ export function TrialExpiredBanner() {
         <span className="font-semibold">{t('trial_expired_banner_title') || 'Your free trial has ended'}</span>
         <span className="text-amber-100 hidden sm:inline">— {t('trial_expired_banner_sub') || 'Upgrade to keep your team\'s SaaS stack visible and actionable.'}</span>
       </div>
-      <button onClick={() => navigate('/app/settings?tab=billing')}
+      <button onClick={() => navigate('/settings?tab=billing')}
         className="bg-white text-amber-600 hover:bg-amber-50 px-3 py-1 rounded-lg text-xs font-bold transition-all flex-shrink-0">
         {t('upgrade_now') || 'Upgrade now'} →
       </button>

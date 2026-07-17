@@ -43,6 +43,18 @@ export function SettingsPage() {
   const [saveMsg, setSaveMsg] = useState('');
   const [stripeMsg, setStripeMsg] = useState('');
 
+  // Deep-link to a specific tab, e.g. /settings?tab=billing from "Upgrade now".
+  // Own effect on searchParams so it also syncs if the tab param changes while
+  // the page stays mounted.
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    const VALID_TABS = ['general', 'team', 'billing', 'notifications', 'integrations', 'security', 'api', 'data'];
+    if (tabParam && VALID_TABS.includes(tabParam)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setActiveTab(tabParam);
+    }
+  }, [searchParams]);
+
   useEffect(() => {
     const success = searchParams.get('success');
     const cancelled = searchParams.get('cancelled');
