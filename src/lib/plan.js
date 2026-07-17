@@ -1,3 +1,15 @@
+import { FOUNDER_EMAILS } from './constants';
+
+// True if this user should have founder access — either the Firestore
+// is_founder flag, or their email is in the founder allowlist (so founder
+// access survives an account delete/recreate).
+export function isFounderUser(user) {
+  if (!user) return false;
+  if (user.is_founder === true) return true;
+  const email = (user.email || '').toLowerCase();
+  return !!email && FOUNDER_EMAILS.includes(email);
+}
+
 // Plan tiers — higher = more access
 export const PLAN_TIERS = {
   free: 0,
@@ -39,7 +51,7 @@ export const TRIAL_MS = TRIAL_DAYS * 24 * 60 * 60 * 1000;
  */
 export function resolvePlan(user) {
   if (!user) return 'free';
-  if (user.is_founder === true) return 'scale';
+  if (isFounderUser(user)) return 'scale';
   const stored = user.plan || user.subscription_plan;
   if (stored && stored !== 'trial' && stored !== 'free') return stored;
   if (stored === 'trial') {

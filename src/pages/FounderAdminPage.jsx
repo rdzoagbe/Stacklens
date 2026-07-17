@@ -8,6 +8,7 @@ import {
 import { loadAllUsersAdmin, founderExtendTrial, founderSetPlan } from '../firebase-config';
 import { getFirestore, doc, updateDoc } from 'firebase/firestore';
 import { useAuth } from '../hooks/useAuth';
+import { isFounderUser } from '../lib/plan';
 
 const PLAN_COLORS = {
   free: 'bg-slate-700 text-slate-300',
@@ -259,7 +260,7 @@ export function FounderAdminPage() {
   }
 
   useEffect(() => {
-    if (!user?.is_founder) {
+    if (!isFounderUser(user)) {
       navigate('/dashboard', { replace: true });
       return;
     }
@@ -328,7 +329,7 @@ export function FounderAdminPage() {
     return { planCounts, activeTrial, recentSignups, weeklySignups };
   }, [users]);
 
-  if (!user?.is_founder) return null;
+  if (!isFounderUser(user)) return null;
 
   return (
     <div className="space-y-6">
