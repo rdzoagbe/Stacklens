@@ -255,6 +255,31 @@ export async function signInWithGoogleWorkspace() {
   }
 }
 
+// Maps a raw Firebase auth error (message string or Error) to a translation key
+// for a friendly, user-facing message. Returns '' for cases we should stay
+// silent on (e.g. the user closed the popup themselves). The UI resolves the
+// key with t() and falls back to 'err_auth_generic'.
+export function authErrorKey(raw) {
+  const code = (String(raw?.code || raw?.message || raw || '').match(/auth\/[\w-]+/) || [])[0] || '';
+  switch (code) {
+    case 'auth/user-disabled':            return 'err_auth_disabled';
+    case 'auth/wrong-password':
+    case 'auth/invalid-credential':       return 'err_auth_bad_creds';
+    case 'auth/user-not-found':           return 'err_auth_no_account';
+    case 'auth/invalid-email':            return 'err_auth_invalid_email';
+    case 'auth/email-already-in-use':     return 'err_auth_email_used';
+    case 'auth/weak-password':            return 'err_auth_weak_pw';
+    case 'auth/too-many-requests':        return 'err_auth_too_many';
+    case 'auth/network-request-failed':   return 'err_auth_network';
+    case 'auth/account-exists-with-different-credential': return 'err_auth_diff_cred';
+    case 'auth/popup-closed-by-user':
+    case 'auth/cancelled-popup-request':
+    case 'auth/popup-blocked':
+    case 'auth/user-cancelled':           return '';   // user dismissed — stay silent
+    default:                              return 'err_auth_generic';
+  }
+}
+
 export async function signInWithGoogle() {
   try {
     const result = await signInWithPopup(auth, googleProvider);

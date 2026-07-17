@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { Check, ChevronDown, ChevronRight, Lock, Mail, Play, Shield } from 'lucide-react';
-import { sendMagicLink, signInWithMicrosoft, signInWithEmail, resetPassword, registerWithEmail } from '../firebase-config';
+import { sendMagicLink, signInWithMicrosoft, signInWithEmail, resetPassword, registerWithEmail, authErrorKey } from '../firebase-config';
 import { saveDb, seedDbIfEmpty } from '../lib/db';
 import { useAuth } from '../hooks/useAuth';
 import { useLang } from '../contexts/LangContext';
@@ -73,7 +73,8 @@ export function TrialPage() {
       } else if (provider.id === 'microsoft') {
         const { error } = await signInWithMicrosoft();
         if (error) {
-          toast.error('Microsoft sign-in failed: ' + error);
+          const key = authErrorKey(error);
+          if (key) toast.error(t(key)); // '' = user closed the popup → stay silent
           setLoading(false);
         }
         // onAuthChange handles the rest if sign-in succeeded
@@ -86,7 +87,8 @@ export function TrialPage() {
       }
     } catch (error) {
       console.error('Auth error:', error);
-      toast.error(t('signin_failed_try_again'));
+      const key = authErrorKey(error);
+      if (key) toast.error(t(key));
       setLoading(false);
     }
   };
@@ -620,7 +622,7 @@ export function TrialPage() {
                           if (!authPassword) { setAuthError(t('lp_enter_password')); setLoading(false); return; }
                           const { user, error } = await signInWithEmail(authEmail, authPassword);
                           if (error) {
-                            setAuthError(error.replace('Firebase: ','').replace('(auth/wrong-password).','— wrong password').replace('(auth/user-not-found).','— no account found').replace('(auth/invalid-credential).','— invalid email or password'));
+                            setAuthError(t(authErrorKey(error) || 'err_auth_generic'));
                             setLoading(false); return;
                           }
                           if (user) {
@@ -635,7 +637,7 @@ export function TrialPage() {
                         className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl text-white font-bold text-sm transition-all shadow-lg shadow-blue-500/20">
                         {loading ? t('lp_signing_in') : t('lp_sign_in_btn')}
                       </button>
-                      <button onClick={async()=>{if(!authEmail){setAuthError(t('lp_enter_email_first'));return;}const{error}=await resetPassword(authEmail);if(!error)toast.success(t('password_reset_sent'));else setAuthError(error);}} className="w-full text-xs text-slate-500 hover:text-slate-300 transition-colors mt-1 text-center block">{t('forgot_password')}</button>
+                      <button onClick={async()=>{if(!authEmail){setAuthError(t('lp_enter_email_first'));return;}const{error}=await resetPassword(authEmail);if(!error)toast.success(t('password_reset_sent'));else setAuthError(t(authErrorKey(error) || 'err_auth_generic'));}} className="w-full text-xs text-slate-500 hover:text-slate-300 transition-colors mt-1 text-center block">{t('forgot_password')}</button>
 
                       {/* Divider */}
                       <div className="flex items-center gap-3 my-1">
@@ -650,7 +652,7 @@ export function TrialPage() {
                           setLoading(true); setAuthError('');
                           const { error } = await sendMagicLink(authEmail);
                           if (!error) { setMagicSent(true); }
-                          else { setAuthError('Could not send link: ' + error); }
+                          else { setAuthError(t(authErrorKey(error) || 'err_auth_generic')); }
                           setLoading(false);
                         }}
                         disabled={loading}
@@ -741,7 +743,7 @@ export function TrialPage() {
                           setLoading(true); setAuthError('');
                           const { user, error } = await registerWithEmail(authEmail, authPassword, authName);
                           if (error) {
-                            setAuthError(error.replace('Firebase: ','').replace('(auth/email-already-in-use).','— email already registered').replace('(auth/weak-password).','— password too weak'));
+                            setAuthError(t(authErrorKey(error) || 'err_auth_generic'));
                             setLoading(false); return;
                           }
                           if (user) {
