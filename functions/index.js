@@ -45,22 +45,22 @@ async function verifyAuth(req, res) {
   catch { res.status(401).json({ error: 'Invalid auth token' }); return null; }
 }
 
-async function verifyAppCheck(req, res) {
+// App Check runs in MONITORING mode (matching the console posture for Auth and
+// Firestore). The web client does not attach an App Check token to these calls,
+// and hard-blocking on it here returned 401 to legitimate, signed-in users —
+// which broke checkout/portal/AI entirely. We still verify a token when one is
+// present (so real signal is kept once the reCAPTCHA registration is restored
+// and the client starts sending tokens), but we never hard-block on it. The
+// enforced gates for these endpoints remain verifyAuth + per-user rate limits.
+async function verifyAppCheck(req) {
   const appCheckToken = req.headers['x-firebase-appcheck'];
-  if (!appCheckToken) {
-    if (process.env.NODE_ENV === 'production' || process.env.FUNCTIONS_EMULATOR !== 'true') {
-      res.status(401).json({ error: 'App Check token required' });
-      return false;
-    }
-    return true;
-  }
+  if (!appCheckToken) return true;
   try {
     await admin.appCheck().verifyToken(appCheckToken);
-    return true;
   } catch {
-    res.status(401).json({ error: 'Invalid App Check token' });
-    return false;
+    console.warn('App Check token present but failed verification — allowing (monitoring mode).');
   }
+  return true;
 }
 
 

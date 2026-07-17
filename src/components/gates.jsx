@@ -149,7 +149,7 @@ export function ModuleGate({ module, children, _feature = 'this module' }) {
         {' '}({recommendedPrice})
       </p>
       <button
-        onClick={() => navigate('/app/settings?tab=billing')}
+        onClick={() => navigate('/settings?tab=billing')}
         className="px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-blue-500/20"
       >
         {t('view_plans_upgrade')}

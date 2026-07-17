@@ -46,6 +46,13 @@ export function SettingsPage() {
   useEffect(() => {
     const success = searchParams.get('success');
     const cancelled = searchParams.get('cancelled');
+    // Deep-link to a specific tab, e.g. /settings?tab=billing from "Upgrade now".
+    const tabParam = searchParams.get('tab');
+    const VALID_TABS = ['general', 'team', 'billing', 'notifications', 'integrations', 'security', 'api', 'data'];
+    if (tabParam && VALID_TABS.includes(tabParam)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setActiveTab(tabParam);
+    }
     if (success === 'true') {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setActiveTab('billing');
