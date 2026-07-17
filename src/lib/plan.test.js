@@ -1,7 +1,25 @@
 import { describe, it, expect } from 'vitest';
-import { resolvePlan, getTrialState, getPlanLimits, PLAN_TIERS, TRIAL_DAYS, TRIAL_MS } from './plan';
+import { resolvePlan, getTrialState, getPlanLimits, isFounderUser, PLAN_TIERS, TRIAL_DAYS, TRIAL_MS } from './plan';
 
 const DAY = 24 * 60 * 60 * 1000;
+
+describe('isFounderUser', () => {
+  it('is true for the founder email (case-insensitive)', () => {
+    expect(isFounderUser({ email: 'rolanddzoagbe@gmail.com' })).toBe(true);
+    expect(isFounderUser({ email: 'ROLANDDZOAGBE@Gmail.com' })).toBe(true);
+  });
+  it('is true for the is_founder flag', () => {
+    expect(isFounderUser({ is_founder: true })).toBe(true);
+  });
+  it('is false for other users and empty input', () => {
+    expect(isFounderUser({ email: 'someone@else.com' })).toBe(false);
+    expect(isFounderUser({ email: '' })).toBe(false);
+    expect(isFounderUser(null)).toBe(false);
+  });
+  it('grants scale plan via resolvePlan for the founder email', () => {
+    expect(resolvePlan({ email: 'rolanddzoagbe@gmail.com', plan: 'free' })).toBe('scale');
+  });
+});
 
 describe('resolvePlan', () => {
   it('returns free for null user', () => {

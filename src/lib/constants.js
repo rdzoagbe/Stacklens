@@ -42,3 +42,9 @@ export const ROLES = {
   editor: { level: 2, label: 'Editor' },
   viewer: { level: 1, label: 'Viewer' },
 };
+
+// Emails that always get founder access (founder-admin page, top plan), even if
+// the Firestore `is_founder` flag isn't set — so it survives account
+// delete/recreate. Kept in sync with the isFounder() email list in
+// firestore.rules. Lowercase.
+export const FOUNDER_EMAILS = ['rolanddzoagbe@gmail.com'];

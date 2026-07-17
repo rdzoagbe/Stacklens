@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { loadUserData, logConsent } from '../firebase-config';
-import { resolvePlan, getTrialState, getPlanLimits } from '../lib/plan';
+import { resolvePlan, getTrialState, getPlanLimits, isFounderUser } from '../lib/plan';
 import { cx } from '../lib/utils';
 import { useDbQuery } from '../hooks/useDbQuery';
 import { useAuth } from '../hooks/useAuth';
@@ -147,8 +147,8 @@ function LangSidebarSelector({ collapsed }) {
     if (open) optionsRef.current?.scrollIntoView({ block: 'nearest' });
   }, [open]);
   const langs = [
-    { code: 'en', flag: '🇬🇧', name: 'English' },
-    { code: 'fr', flag: '🇫🇷', name: 'Français' },
+    { code: 'en', name: 'English' },
+    { code: 'fr', name: 'Français' },
   ];
   const current = langs.find(l => l.code === language) || langs[0];
 
@@ -158,10 +158,10 @@ function LangSidebarSelector({ collapsed }) {
     return (
       <button
         onClick={() => setLanguage(next.code)}
-        className="mb-1 flex w-full items-center justify-center rounded-2xl px-3 py-2.5 text-slate-300 hover:bg-slate-900/60 transition"
+        className="mb-1 flex w-full items-center justify-center rounded-2xl px-3 py-2.5 text-xs font-semibold text-slate-300 hover:bg-slate-900/60 transition"
         title={`${t('language')}: ${current.name}`}
       >
-        <span className="text-base leading-none">{current.flag}</span>
+        {current.code.toUpperCase()}
       </button>
     );
   }
@@ -174,7 +174,7 @@ function LangSidebarSelector({ collapsed }) {
       >
         <Languages className="h-4 w-4" />
         <span className="flex-1 text-left">{t('language')}</span>
-        <span className="text-xs text-slate-500">{current.flag} {current.code.toUpperCase()}</span>
+        <span className="text-xs text-slate-500">{current.code.toUpperCase()}</span>
         <ChevronDown className={cx('h-3.5 w-3.5 transition-transform', open ? 'rotate-180' : '')} />
       </button>
       {open && (
@@ -190,7 +190,7 @@ function LangSidebarSelector({ collapsed }) {
                   : 'text-slate-300 hover:bg-slate-900/60'
               )}
             >
-              <span>{l.flag}</span><span>{l.name}</span>
+              <span>{l.name}</span>
             </button>
           ))}
         </div>
@@ -226,12 +226,12 @@ export function SidebarFooter({ collapsed }) {
 
   return (
     <div className="border-t border-slate-800 p-3">
-      {user?.is_founder && !collapsed && (
+      {isFounderUser(user) && !collapsed && (
         <Link to="/founder-admin" className="block mb-2 px-2 py-1 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[10px] font-bold uppercase tracking-wider text-center hover:bg-amber-500/20 transition-colors cursor-pointer">
           ⚡ Founder mode
         </Link>
       )}
-      {user?.is_founder && collapsed && (
+      {isFounderUser(user) && collapsed && (
         <Link to="/founder-admin" className="mb-2 flex justify-center hover:opacity-80 transition-opacity" title="Founder admin">
           <span className="text-amber-400 text-base">⚡</span>
         </Link>
@@ -293,15 +293,14 @@ export function LangSelectorCompact() {
   const { language, setLanguage } = useLang();
   const [open, setOpen] = React.useState(false);
   const langs = [
-    { code: 'en', flag: '🇬🇧', name: 'EN' },
-    { code: 'fr', flag: '🇫🇷', name: 'FR' },
+    { code: 'en', name: 'English' },
+    { code: 'fr', name: 'Français' },
   ];
   const current = langs.find(l => l.code === language) || langs[0];
   return (
     <div className="relative">
       <button onClick={() => setOpen(o => !o)} className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-800/60 border border-slate-700 rounded-lg text-sm text-slate-300 hover:text-white hover:bg-slate-800 transition-all">
-        <span>{current.flag}</span>
-        <span className="text-xs font-semibold">{current.name}</span>
+        <span className="text-xs font-semibold">{current.code.toUpperCase()}</span>
         <ChevronDown className="w-3 h-3" />
       </button>
       {open && (
@@ -309,7 +308,7 @@ export function LangSelectorCompact() {
           {langs.map(l => (
             <button key={l.code} onClick={() => { setLanguage(l.code); setOpen(false); }}
               className={"w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-slate-800 transition-colors " + (language === l.code ? 'text-blue-400' : 'text-slate-300')}>
-              <span>{l.flag}</span><span>{l.name}</span>
+              <span>{l.name}</span>
             </button>
           ))}
         </div>
