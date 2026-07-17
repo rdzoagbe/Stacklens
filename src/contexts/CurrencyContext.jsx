@@ -99,8 +99,12 @@ async function fetchEurRates() {
 }
 
 // Returns { code, symbol, isLocal, format(eurAmount) } for marketing plan prices.
+// Currency follows the app language so it updates live when the user switches:
+// French → EUR, English → USD. (Stripe still bills each customer in their own
+// local currency at checkout via Adaptive Pricing.)
 export function usePlanPricing() {
-  const code = React.useMemo(() => detectPricingCurrency(), []);
+  const { language } = useLang();
+  const code = language === 'fr' ? 'EUR' : 'USD';
   const [rates, setRates] = React.useState(null);
   React.useEffect(() => {
     let alive = true;
