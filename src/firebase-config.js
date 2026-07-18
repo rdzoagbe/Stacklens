@@ -569,7 +569,7 @@ export async function founderSetPlan(targetUid, plan) {
 export async function founderEnrichProfiles() {
   const token = await getToken();
   if (!token) throw new Error('Not authenticated');
-  const res = await fetch(`${FUNCTIONS_BASE}/founderAdmin`, {
+  const res = await fetch(`${FUNCTIONS_BASE}/founderops`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
     body: JSON.stringify({ action: 'enrichProfiles' }),
@@ -583,7 +583,7 @@ export async function founderEnrichProfiles() {
 export async function founderDeleteUser(targetUid) {
   const token = await getToken();
   if (!token) throw new Error('Not authenticated');
-  const res = await fetch(`${FUNCTIONS_BASE}/founderAdmin`, {
+  const res = await fetch(`${FUNCTIONS_BASE}/founderops`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
     body: JSON.stringify({ action: 'deleteUser', targetUid }),
