@@ -1,9 +1,39 @@
 import React, { useState, useEffect, useRef } from 'react';
 import toast from 'react-hot-toast';
 import { AlertTriangle, BarChart3, Check, Download, FileText, Sparkles, Target, Upload } from 'lucide-react';
+import * as pdfjsLib from 'pdfjs-dist';
+import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+import mammoth from 'mammoth/mammoth.browser';
 import { callAI } from '../firebase-config';
 import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
+
+// pdf.js needs a worker; Vite bundles it as a same-origin asset (no CDN, CSP-safe).
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+
+// Extract plain text from an uploaded contract file (PDF / DOCX / plain text).
+// Returns the extracted text, or throws with a user-friendly message.
+export async function extractContractText(file) {
+  const name = file.name.toLowerCase();
+  if (name.endsWith('.pdf')) {
+    const ab = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: ab }).promise;
+    let text = '';
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const pg = await pdf.getPage(i);
+      const ct = await pg.getTextContent();
+      text += ct.items.map(x => x.str).join(' ') + '\n';
+    }
+    return text.trim();
+  }
+  if (name.endsWith('.docx')) {
+    const ab = await file.arrayBuffer();
+    const { value } = await mammoth.extractRawText({ arrayBuffer: ab });
+    return (value || '').trim();
+  }
+  // .txt / .md / .rtf / .doc (legacy) → read as text
+  return (await file.text()).trim();
+}
 
 export function ContractComparisonPage() {
   const { language } = useLang();
@@ -263,32 +293,20 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
                   {state.fileName || t('cc_upload_file')}
                   <input type="file" accept=".pdf,.docx,.doc,.txt,.rtf,.md" className="hidden" onChange={async(e)=>{
                     const file = e.target.files?.[0];
+                    e.target.value = ''; // allow re-selecting the same file
                     if (!file) return;
-                    const name = file.name.toLowerCase();
-                    const reader = new FileReader();
-                    if (name.endsWith(".pdf")) {
-                      try {
-                        const ab = await file.arrayBuffer();
-                        const pdf = await window.pdfjsLib.getDocument({data:ab}).promise;
-                        let text = "";
-                        for (let i=1; i<=pdf.numPages; i++) {
-                          const pg = await pdf.getPage(i);
-                          const ct = await pg.getTextContent();
-                          text += ct.items.map(x=>x.str).join(" ") + " ";
-                        }
-                        setState(s => ({...s, text: text.trim() || "Could not extract.", fileName: file.name}));
-                      } catch {
-                        toast.error('PDF extraction failed');
+                    const toastId = toast.loading(t('cc_extracting') || 'Extracting text…');
+                    try {
+                      const text = await extractContractText(file);
+                      if (!text) {
+                        toast.error(t('cc_extract_empty') || 'No readable text found — this file may be a scanned image.', { id: toastId });
+                        return;
                       }
-                    } else if (name.endsWith(".docx") || name.endsWith(".doc")) {
-                      reader.onload = ev => {
-                        const m = [...ev.target.result.matchAll(/<w:t[^>]*>([^<]+)<\/w:t>/g)];
-                        setState(s => ({...s, text: m.map(x => x[1]).join(" "), fileName: file.name}));
-                      };
-                      reader.readAsText(file);
-                    } else {
-                      reader.onload = ev => setState(s => ({...s, text: ev.target.result, fileName: file.name}));
-                      reader.readAsText(file);
+                      setState(s => ({...s, text, fileName: file.name}));
+                      toast.success(t('cc_extract_ok') || 'Text extracted', { id: toastId });
+                    } catch (err) {
+                      console.error('Contract extraction failed:', err);
+                      toast.error(t('cc_extract_fail') || 'Could not read this file — try pasting the text instead.', { id: toastId });
                     }
                   }}/>
                 </label>
