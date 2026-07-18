@@ -210,6 +210,11 @@ exports.createCheckout = onRequest({ secrets: [STRIPE_SECRET_KEY], cors: true, t
         cancel_url: 'https://stacklens.fr/settings?cancelled=true',
         subscription_data: { metadata: { firebase_uid: decoded.uid } },
         allow_promotion_codes: true,
+        // Collect the billing address and (for businesses) a VAT/tax ID so
+        // invoices are legally complete per the buyer's jurisdiction.
+        billing_address_collection: 'required',
+        tax_id_collection: { enabled: true },
+        customer_update: { name: 'auto', address: 'auto' },
       });
       return res.json({ url: session.url });
     } catch (err) { console.error('Checkout error:', err); return res.status(500).json({ error: err.message }); }
