@@ -42,7 +42,14 @@ async function verifyAuth(req, res) {
   const token = header.startsWith('Bearer ') ? header.slice(7) : null;
   if (!token) { res.status(401).json({ error: 'Missing auth token' }); return null; }
   try { return await admin.auth().verifyIdToken(token); }
-  catch { res.status(401).json({ error: 'Invalid auth token' }); return null; }
+  catch (err) {
+    // Surface WHY verification failed — the code (e.g. auth/id-token-expired,
+    // auth/argument-error) and message are not secrets, and hiding them made a
+    // systemic rejection of valid tokens undiagnosable in production.
+    console.error('verifyIdToken failed:', err?.code, err?.message);
+    res.status(401).json({ error: 'Invalid auth token', code: err?.code || null, detail: (err?.message || '').slice(0, 300) });
+    return null;
+  }
 }
 
 // App Check runs in MONITORING mode (matching the console posture for Auth and
