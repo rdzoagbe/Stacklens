@@ -5,7 +5,12 @@
 
 const { onRequest } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
-const admin = require('firebase-admin');
+// firebase-admin v14 removed the legacy namespaced API (admin.auth(), admin.firestore(), …)
+// — only the modular entry points exist now.
+const { initializeApp } = require('firebase-admin/app');
+const { getAuth } = require('firebase-admin/auth');
+const { getFirestore, Timestamp } = require('firebase-admin/firestore');
+const { getAppCheck } = require('firebase-admin/app-check');
 
 // Explicitly allow stacklens.fr and Firebase preview domains
 const ALLOWED_ORIGINS = [
@@ -27,7 +32,7 @@ const cors = require('cors')({
   credentials: true,
 });
 
-admin.initializeApp();
+initializeApp();
 
 const ANTHROPIC_API_KEY     = defineSecret('ANTHROPIC_API_KEY');
 const STRIPE_SECRET_KEY     = defineSecret('STRIPE_SECRET_KEY');
@@ -41,13 +46,11 @@ async function verifyAuth(req, res) {
   const header = req.headers.authorization || '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : null;
   if (!token) { res.status(401).json({ error: 'Missing auth token' }); return null; }
-  try { return await admin.auth().verifyIdToken(token); }
+  try { return await getAuth().verifyIdToken(token); }
   catch (err) {
-    // Surface WHY verification failed — the code (e.g. auth/id-token-expired,
-    // auth/argument-error) and message are not secrets, and hiding them made a
-    // systemic rejection of valid tokens undiagnosable in production.
+    // Log the reason server-side; the client only needs to know the token was rejected.
     console.error('verifyIdToken failed:', err?.code, err?.message);
-    res.status(401).json({ error: 'Invalid auth token', code: err?.code || null, detail: (err?.message || '').slice(0, 300) });
+    res.status(401).json({ error: 'Invalid auth token' });
     return null;
   }
 }
@@ -63,7 +66,7 @@ async function verifyAppCheck(req) {
   const appCheckToken = req.headers['x-firebase-appcheck'];
   if (!appCheckToken) return true;
   try {
-    await admin.appCheck().verifyToken(appCheckToken);
+    await getAppCheck().verifyToken(appCheckToken);
   } catch {
     console.warn('App Check token present but failed verification — allowing (monitoring mode).');
   }
@@ -72,7 +75,7 @@ async function verifyAppCheck(req) {
 
 
 async function checkRateLimit(uid, res, limit = RATE_LIMIT, keyPrefix = 'ai') {
-  const db = admin.firestore();
+  const db = getFirestore();
   const now = Date.now();
   const windowStart = now - limit.windowMs;
   const ref = db.collection('rate_limits').doc(`${keyPrefix}_${uid}`);
@@ -102,7 +105,7 @@ function sanitizeMessages(messages) {
 }
 
 async function getOrCreateCustomer(stripe, uid, email, name) {
-  const db = admin.firestore();
+  const db = getFirestore();
   const snap = await db.collection('users').doc(uid).get();
   // If we have a stored customer ID, verify it exists in current Stripe mode
   if (snap.exists && snap.data().stripe_customer_id) {
@@ -219,7 +222,7 @@ exports.createPortal = onRequest({ secrets: [STRIPE_SECRET_KEY], cors: true, tim
     const allowed = await checkRateLimit(decoded.uid, res, CHECKOUT_RATE_LIMIT, 'portal'); if (!allowed) return;
     try {
       const stripe = require('stripe')(STRIPE_SECRET_KEY.value());
-      const snap = await admin.firestore().collection('users').doc(decoded.uid).get();
+      const snap = await getFirestore().collection('users').doc(decoded.uid).get();
       const customerId = snap.exists ? snap.data().stripe_customer_id : null;
       if (!customerId) return res.status(400).json({ error: 'No billing account found' });
       const session = await stripe.billingPortal.sessions.create({ customer: customerId, return_url: 'https://stacklens.fr/app/settings?tab=billing' });
@@ -235,7 +238,7 @@ exports.stripeWebhook = onRequest({ secrets: [STRIPE_SECRET_KEY, STRIPE_WEBHOOK_
   let event;
   try { event = stripe.webhooks.constructEvent(req.rawBody, req.headers['stripe-signature'], STRIPE_WEBHOOK_SECRET.value()); }
   catch (err) { return res.status(400).send(`Webhook Error: ${err.message}`); }
-  const db = admin.firestore();
+  const db = getFirestore();
   try {
     switch (event.type) {
       case 'checkout.session.completed': {
@@ -250,7 +253,7 @@ exports.stripeWebhook = onRequest({ secrets: [STRIPE_SECRET_KEY, STRIPE_WEBHOOK_
           const sub = await stripe.subscriptions.retrieve(session.subscription);
           const plan = getPlanFromSubscription(sub);
           await db.collection('users').doc(uid).set({ plan, stripe_subscription_id: sub.id, stripe_customer_id: session.customer, subscription_status: sub.status, plan_updated_at: Date.now() }, { merge: true });
-          await admin.auth().setCustomUserClaims(uid, { plan });
+          await getAuth().setCustomUserClaims(uid, { plan });
           console.log(`Plan updated for uid=${uid} to ${plan}`);
         } else {
           console.warn('checkout.session.completed: could not find uid for customer', session.customer);
@@ -267,7 +270,7 @@ exports.stripeWebhook = onRequest({ secrets: [STRIPE_SECRET_KEY, STRIPE_WEBHOOK_
         if (uid) {
           const plan = getPlanFromSubscription(sub);
           await db.collection('users').doc(uid).set({ plan, subscription_status: sub.status, plan_updated_at: Date.now() }, { merge: true });
-          await admin.auth().setCustomUserClaims(uid, { plan });
+          await getAuth().setCustomUserClaims(uid, { plan });
         }
         break;
       }
@@ -280,7 +283,7 @@ exports.stripeWebhook = onRequest({ secrets: [STRIPE_SECRET_KEY, STRIPE_WEBHOOK_
         }
         if (uid) {
           await db.collection('users').doc(uid).set({ plan: 'free', subscription_status: 'cancelled', stripe_subscription_id: null, plan_updated_at: Date.now() }, { merge: true });
-          await admin.auth().setCustomUserClaims(uid, { plan: 'free' });
+          await getAuth().setCustomUserClaims(uid, { plan: 'free' });
         }
         break;
       }
@@ -299,7 +302,7 @@ exports.syncuser = onRequest({ cors: true }, async (req, res) => {
     const allowed = await checkRateLimit(decoded.uid, res, SYNCUSER_RATE_LIMIT, 'syncuser'); if (!allowed) return;
     const { email, displayName, photoURL } = req.body;
     const uid = decoded.uid;
-    const userRef = admin.firestore().collection('users').doc(uid);
+    const userRef = getFirestore().collection('users').doc(uid);
     const snap = await userRef.get();
     if (!snap.exists) {
       await userRef.set({ uid, email: email || decoded.email || '', displayName: displayName || decoded.name || '', photoURL: photoURL || decoded.picture || '', plan: 'free', createdAt: Date.now(), updatedAt: Date.now() });
@@ -319,9 +322,9 @@ exports.refreshClaims = onRequest({ cors: true }, async (req, res) => {
     if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
     const decoded = await verifyAuth(req, res); if (!decoded) return;
     // Read current Firestore plan and sync it to claims
-    const snap = await admin.firestore().collection('users').doc(decoded.uid).get();
+    const snap = await getFirestore().collection('users').doc(decoded.uid).get();
     const plan = snap.exists ? (snap.data().plan || 'free') : 'free';
-    await admin.auth().setCustomUserClaims(decoded.uid, { plan });
+    await getAuth().setCustomUserClaims(decoded.uid, { plan });
     return res.json({ plan });
   });
 });
@@ -397,7 +400,7 @@ exports.founderAdmin = onRequest({ cors: true, timeoutSeconds: 30 }, async (req,
 
     if (!await checkRateLimit(decoded.uid, res, FOUNDER_RATE_LIMIT, 'founderAdmin')) return;
 
-    const db = admin.firestore();
+    const db = getFirestore();
     const callerSnap = await db.collection('users').doc(decoded.uid).get();
     if (!callerSnap.exists || !callerSnap.data().is_founder) {
       return res.status(403).json({ error: 'Forbidden' });
@@ -414,7 +417,7 @@ exports.founderAdmin = onRequest({ cors: true, timeoutSeconds: 30 }, async (req,
         const newStartMs = Date.now() - (7 - days) * 24 * 60 * 60 * 1000;
         await db.collection('users').doc(targetUid).update({
           plan: 'trial',
-          trial_started_at: admin.firestore.Timestamp.fromMillis(newStartMs),
+          trial_started_at: Timestamp.fromMillis(newStartMs),
         });
         return res.json({ ok: true });
       }
@@ -445,7 +448,7 @@ exports.renewalAlerts = onSchedule({
 }, async () => {
   const sgMail = require('@sendgrid/mail');
   sgMail.setApiKey(SENDGRID_API_KEY.value());
-  const db = admin.firestore();
+  const db = getFirestore();
   const today = new Date();
   const in30 = new Date(today); in30.setDate(today.getDate() + 30);
   const todayStr = today.toISOString().slice(0,10);
@@ -505,7 +508,7 @@ exports.weeklySummary = onSchedule({
 }, async () => {
   const sgMail = require('@sendgrid/mail');
   sgMail.setApiKey(SENDGRID_API_KEY.value());
-  const db = admin.firestore();
+  const db = getFirestore();
   const today = new Date();
   const in30 = new Date(today); in30.setDate(today.getDate() + 30);
   const todayStr = today.toISOString().slice(0, 10);
