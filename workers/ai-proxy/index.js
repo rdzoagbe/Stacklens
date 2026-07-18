@@ -134,8 +134,11 @@ export default {
     const max_tokens = Math.max(1, Math.min(safeTokens, MAX_TOKENS));
 
     const anthropicBody = {
-      model:      'claude-sonnet-4-20250514',
+      // claude-sonnet-4-20250514 was retired 2026-06-15; claude-sonnet-5 is its
+      // designated replacement. Thinking disabled to match the old behavior.
+      model:      'claude-sonnet-5',
       max_tokens,
+      thinking:   { type: 'disabled' },
       messages:   sanitized,
     };
     if (system) anthropicBody.system = system;
