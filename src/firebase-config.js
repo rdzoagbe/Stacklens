@@ -150,19 +150,27 @@ export async function callAI({ messages, system, max_tokens = 2000 }) {
   const token = await getToken();
   if (!token) throw new Error('Not authenticated');
 
-  const url = import.meta.env.VITE_WORKER_URL || `${FUNCTIONS_BASE}/ai`;
+  const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
+  const payload = JSON.stringify({ messages, system, max_tokens });
 
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type':  'application/json',
-      'Authorization': `Bearer ${token}`,
-    },
-    body: JSON.stringify({ messages, system, max_tokens }),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'AI call failed');
-  return data;
+  // Try the Cloudflare Worker first (if configured), then fall back to the
+  // Firebase Cloud Function so the AI keeps working if the Worker is down or
+  // misconfigured. Both verify the Firebase ID token and proxy to Anthropic.
+  const workerUrl = import.meta.env.VITE_WORKER_URL;
+  const endpoints = workerUrl ? [workerUrl, `${FUNCTIONS_BASE}/ai`] : [`${FUNCTIONS_BASE}/ai`];
+
+  let lastError = 'AI call failed';
+  for (const url of endpoints) {
+    try {
+      const res = await fetch(url, { method: 'POST', headers, body: payload });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) return data;
+      lastError = data.error || `AI error (${res.status})`;
+    } catch (err) {
+      lastError = err?.message || 'AI network error';
+    }
+  }
+  throw new Error(lastError);
 }
 
 // ============================================================================
