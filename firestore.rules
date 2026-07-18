@@ -8,14 +8,19 @@ service cloud.firestore {
     function isOwner(uid) {
       return isSignedIn() && request.auth.uid == uid;
     }
-    // Founder access: either the user's is_founder flag, or their verified email
-    // is in the founder allowlist (kept in sync with FOUNDER_EMAILS in
-    // src/lib/constants.js) — so founder access survives an account recreate.
+    // Founder access: the founder's UID, their verified email, or the
+    // is_founder flag on their user doc. The UID allowlist exists because the
+    // founder's Google sign-in was created without an email claim (OAuth
+    // reconfiguration mishap), so the email check alone cannot match their
+    // token. Kept in sync with FOUNDER_EMAILS in src/lib/constants.js.
     function isFounderEmail() {
       return isSignedIn() && request.auth.token.email == 'rolanddzoagbe@gmail.com';
     }
+    function isFounderUid() {
+      return isSignedIn() && request.auth.uid == 'bxIYrZ76z1QKo5ZMpGvEG8GGbNM2';
+    }
     function isFounder() {
-      return isFounderEmail() ||
+      return isFounderEmail() || isFounderUid() ||
         (isSignedIn()
          && exists(/databases/$(database)/documents/users/$(request.auth.uid))
          && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('is_founder', false) == true);
