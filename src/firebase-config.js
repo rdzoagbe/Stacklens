@@ -564,6 +564,21 @@ export async function founderSetPlan(targetUid, plan) {
   await updateDoc(doc(firestoreDb, 'users', targetUid), { plan });
 }
 
+// Ask the founderAdmin function to backfill missing displayName/email on
+// /users docs from Firebase Auth (accounts created while syncuser was broken).
+export async function founderEnrichProfiles() {
+  const token = await getToken();
+  if (!token) throw new Error('Not authenticated');
+  const res = await fetch(`${FUNCTIONS_BASE}/founderAdmin`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    body: JSON.stringify({ action: 'enrichProfiles' }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Profile enrichment failed');
+  return data;
+}
+
 // ============================================================================
 // 7-DAY TRIAL — start trial for a new user
 // Sets plan='trial' and trial_started_at on /users/{uid}.
