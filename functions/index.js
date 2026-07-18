@@ -393,6 +393,11 @@ exports.sendInvite = onRequest({ cors: true, secrets: [SENDGRID_API_KEY] }, asyn
 // checked server-side before any write.
 const FOUNDER_RATE_LIMIT = { maxCalls: 30, windowMs: 60 * 60 * 1000 };
 const VALID_PLANS = ['free', 'trial', 'starter', 'hr_finance', 'pro', 'enterprise', 'scale'];
+// Founder allowlist, kept in sync with firestore.rules and src/lib/constants.js.
+// The UID entry exists because the founder's Google sign-in carries no email
+// claim, so neither the email check nor the is_founder doc flag can identify them.
+const FOUNDER_UIDS   = ['bxIYrZ76z1QKo5ZMpGvEG8GGbNM2'];
+const FOUNDER_EMAILS = ['rolanddzoagbe@gmail.com'];
 
 exports.founderAdmin = onRequest({ cors: true, timeoutSeconds: 30 }, async (req, res) => {
   cors(req, res, async () => {
@@ -406,16 +411,49 @@ exports.founderAdmin = onRequest({ cors: true, timeoutSeconds: 30 }, async (req,
 
     const db = getFirestore();
     const callerSnap = await db.collection('users').doc(decoded.uid).get();
-    if (!callerSnap.exists || !callerSnap.data().is_founder) {
+    const isFounderCaller =
+      FOUNDER_UIDS.includes(decoded.uid) ||
+      FOUNDER_EMAILS.includes((decoded.email || '').toLowerCase()) ||
+      (callerSnap.exists && callerSnap.data().is_founder === true);
+    if (!isFounderCaller) {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
     const { action, targetUid, plan, extraDays } = req.body;
-    if (!targetUid || typeof targetUid !== 'string') {
-      return res.status(400).json({ error: 'targetUid required' });
-    }
 
     try {
+      // Backfill displayName/email on /users docs from Firebase Auth. Accounts
+      // created while syncuser was broken (firebase-admin v14 outage) have bare
+      // docs; Auth still knows their profile, so copy it over once.
+      if (action === 'enrichProfiles') {
+        const snap = await db.collection('users').get();
+        const missing = snap.docs.filter(d => !d.data().displayName || !d.data().email);
+        let updated = 0;
+        for (let i = 0; i < missing.length; i += 100) {
+          const batch = missing.slice(i, i + 100);
+          const result = await getAuth().getUsers(batch.map(d => ({ uid: d.id })));
+          const byUid = new Map(result.users.map(au => [au.uid, au]));
+          for (const d of batch) {
+            const au = byUid.get(d.id);
+            if (!au) continue;
+            const data = d.data();
+            const authEmail = au.email || au.providerData?.[0]?.email || null;
+            const authName  = au.displayName || au.providerData?.[0]?.displayName || null;
+            const updates = {};
+            if (!data.displayName && authName) updates.displayName = authName;
+            if (!data.email && authEmail) updates.email = authEmail;
+            if (Object.keys(updates).length) {
+              await d.ref.update(updates);
+              updated++;
+            }
+          }
+        }
+        return res.json({ ok: true, checked: missing.length, updated });
+      }
+
+      if (!targetUid || typeof targetUid !== 'string') {
+        return res.status(400).json({ error: 'targetUid required' });
+      }
       if (action === 'extendTrial') {
         const days = typeof extraDays === 'number' ? extraDays : 7;
         const newStartMs = Date.now() - (7 - days) * 24 * 60 * 60 * 1000;

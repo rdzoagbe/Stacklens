@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
   Users, Clock, Shield, Search,
   Zap, Crown, RefreshCw, Pencil, Check, X, ArrowLeft,
 } from 'lucide-react';
-import { loadAllUsersAdmin, founderExtendTrial, founderSetPlan } from '../firebase-config';
+import { loadAllUsersAdmin, founderExtendTrial, founderSetPlan, founderEnrichProfiles } from '../firebase-config';
 import { getFirestore, doc, updateDoc } from 'firebase/firestore';
 import { useAuth } from '../hooks/useAuth';
 import { isFounderUser } from '../lib/plan';
@@ -206,6 +206,7 @@ export function FounderAdminPage() {
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState('recent');
   const [filterPlan, setFilterPlan] = useState('all');
+  const enrichedRef = useRef(false);
 
   async function loadUsers() {
     setLoading(true);
@@ -229,7 +230,20 @@ export function FounderAdminPage() {
       setLoading(true);
       try {
         const data = await loadAllUsersAdmin();
-        if (!cancelled) setUsers(data);
+        if (cancelled) return;
+        setUsers(data);
+        // Once per visit: if any account is missing its name/email, ask the
+        // server to backfill from Firebase Auth, then reload the list.
+        if (!enrichedRef.current && data.some(u => !u.displayName || !u.email)) {
+          enrichedRef.current = true;
+          try {
+            const r = await founderEnrichProfiles();
+            if (!cancelled && r.updated > 0) {
+              const fresh = await loadAllUsersAdmin();
+              if (!cancelled) setUsers(fresh);
+            }
+          } catch { /* best-effort — table still renders with UIDs */ }
+        }
       } catch (err) {
         if (!cancelled) toast.error('Failed to load users: ' + err.message);
       } finally {
