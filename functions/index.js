@@ -433,6 +433,8 @@ exports.founderAdmin = onRequest({ cors: true, timeoutSeconds: 30 }, async (req,
           const batch = missing.slice(i, i + 100);
           const result = await getAuth().getUsers(batch.map(d => ({ uid: d.id })));
           const byUid = new Map(result.users.map(au => [au.uid, au]));
+          const writeBatch = db.batch();
+          let hasWrites = false;
           for (const d of batch) {
             const au = byUid.get(d.id);
             if (!au) continue;
@@ -443,10 +445,12 @@ exports.founderAdmin = onRequest({ cors: true, timeoutSeconds: 30 }, async (req,
             if (!data.displayName && authName) updates.displayName = authName;
             if (!data.email && authEmail) updates.email = authEmail;
             if (Object.keys(updates).length) {
-              await d.ref.update(updates);
+              writeBatch.update(d.ref, updates);
+              hasWrites = true;
               updated++;
             }
           }
+          if (hasWrites) await writeBatch.commit();
         }
         return res.json({ ok: true, checked: missing.length, updated });
       }
