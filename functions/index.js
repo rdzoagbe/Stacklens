@@ -387,7 +387,7 @@ exports.sendInvite = onRequest({ cors: true, secrets: [SENDGRID_API_KEY] }, asyn
   });
 });
 
-// ── /founderAdmin ─────────────────────────────────────────────────────────
+// ── /founderops (renamed from founderAdmin — 'admin' URLs get eaten by ad-blockers) ─────────────────────────────────────────────────────────
 // Privileged operations (extend trial, set plan) for users with is_founder=true.
 // Uses Admin SDK so it bypasses Firestore rules — the caller's founder status is
 // checked server-side before any write.
@@ -399,7 +399,7 @@ const VALID_PLANS = ['free', 'trial', 'starter', 'hr_finance', 'pro', 'enterpris
 const FOUNDER_UIDS   = ['bxIYrZ76z1QKo5ZMpGvEG8GGbNM2'];
 const FOUNDER_EMAILS = ['rolanddzoagbe@gmail.com'];
 
-exports.founderAdmin = onRequest({ cors: true, timeoutSeconds: 30 }, async (req, res) => {
+exports.founderops = onRequest({ cors: true, timeoutSeconds: 30 }, async (req, res) => {
   cors(req, res, async () => {
     if (req.method === 'OPTIONS') return res.status(204).send('');
     if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
