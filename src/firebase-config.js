@@ -67,19 +67,29 @@ if (!FIREBASE_CONFIGURED) {
 const app = initializeApp(firebaseConfig);
 
 // ── App Check (anti-bot protection) ──────────────────────────────
-// reCAPTCHA site key is public (embedded in client JS) — hardcoded to avoid env misconfiguration
-try {
-  const recaptchaKey = import.meta.env.DEV
-    ? import.meta.env.VITE_RECAPTCHA_SITE_KEY
-    : '6Ldq47MsAAAAAGks_j_COugB3Pt6ROSuKgQhLrJe';
-  if (typeof window !== 'undefined' && recaptchaKey) {
-    initializeAppCheck(app, {
-      provider: new ReCaptchaV3Provider(recaptchaKey),
-      isTokenAutoRefreshEnabled: true,
-    });
+// TEMPORARILY DISABLED. The reCAPTCHA v3 registration for this web app is
+// broken (exchangeRecaptchaV3Token returns 400), so App Check can't mint a
+// token. With it initialized, the Auth SDK keeps trying to attach a failing
+// App Check token to token refreshes, which corrupts the ID token flow and
+// causes 401s on auth-gated calls (checkout, AI, Firestore). Since App Check
+// currently provides zero protection (broken + monitoring mode), we skip
+// initializing it. Re-enable once the reCAPTCHA v3 key is re-registered in
+// Firebase Console → App Check, then flip APP_CHECK_ENABLED back on.
+const APP_CHECK_ENABLED = false;
+if (APP_CHECK_ENABLED) {
+  try {
+    const recaptchaKey = import.meta.env.DEV
+      ? import.meta.env.VITE_RECAPTCHA_SITE_KEY
+      : '6Ldq47MsAAAAAGks_j_COugB3Pt6ROSuKgQhLrJe';
+    if (typeof window !== 'undefined' && recaptchaKey) {
+      initializeAppCheck(app, {
+        provider: new ReCaptchaV3Provider(recaptchaKey),
+        isTokenAutoRefreshEnabled: true,
+      });
+    }
+  } catch (e) {
+    console.warn('App Check initialization skipped:', e?.message);
   }
-} catch (e) {
-  console.warn('App Check initialization skipped:', e?.message);
 }
 
 // Auth and Firestore are guarded — if Firebase credentials are missing the app
