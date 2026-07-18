@@ -3,9 +3,9 @@ import { useNavigate, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
   Users, Clock, Shield, Search,
-  Zap, Crown, RefreshCw, Pencil, Check, X, ArrowLeft,
+  Zap, Crown, RefreshCw, Pencil, Check, X, ArrowLeft, Trash2,
 } from 'lucide-react';
-import { loadAllUsersAdmin, founderExtendTrial, founderSetPlan, founderEnrichProfiles } from '../firebase-config';
+import { loadAllUsersAdmin, founderExtendTrial, founderSetPlan, founderEnrichProfiles, founderDeleteUser } from '../firebase-config';
 import { getFirestore, doc, updateDoc } from 'firebase/firestore';
 import { useAuth } from '../hooks/useAuth';
 import { isFounderUser } from '../lib/plan';
@@ -104,6 +104,21 @@ function UserTableRow({ u, onAction }) {
     }
   }
 
+  async function handleDelete() {
+    const who = u.displayName || u.email || `user ${u.uid.slice(0, 8)}…`;
+    if (!window.confirm(`Delete ${who}?\n\nThis permanently removes their sign-in account and ALL their data. This cannot be undone.`)) return;
+    setBusy(true);
+    try {
+      await founderDeleteUser(u.uid);
+      toast.success(`Deleted ${who}`);
+      onAction();
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   // Expiry: trial end date for trials, Stripe period end for paid plans.
   let expiryCell;
   if (plan === 'trial' && trialEnd) {
@@ -190,6 +205,16 @@ function UserTableRow({ u, onAction }) {
               className="px-2 py-0.5 text-[10px] bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 rounded-md transition-colors"
             >
               +7d
+            </button>
+          )}
+          {!u.is_founder && (
+            <button
+              onClick={handleDelete}
+              disabled={busy}
+              title="Delete user permanently"
+              className="p-1 text-slate-600 hover:text-red-400 hover:bg-red-500/10 rounded-md transition-colors disabled:opacity-40"
+            >
+              <Trash2 size={14} />
             </button>
           )}
         </div>

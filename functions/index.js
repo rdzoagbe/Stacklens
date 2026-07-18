@@ -474,6 +474,20 @@ exports.founderAdmin = onRequest({ cors: true, timeoutSeconds: 30 }, async (req,
         await db.collection('users').doc(targetUid).update({ plan });
         return res.json({ ok: true });
       }
+      // Permanently remove a user: Auth account + /users doc + /userdata doc.
+      if (action === 'deleteUser') {
+        if (FOUNDER_UIDS.includes(targetUid) || targetUid === decoded.uid) {
+          return res.status(400).json({ error: 'Cannot delete the founder account' });
+        }
+        try {
+          await getAuth().deleteUser(targetUid);
+        } catch (err) {
+          if (err.code !== 'auth/user-not-found') throw err;
+        }
+        await db.collection('users').doc(targetUid).delete();
+        await db.collection('userdata').doc(targetUid).delete();
+        return res.json({ ok: true });
+      }
       return res.status(400).json({ error: 'Unknown action' });
     } catch (err) {
       console.error('founderAdmin error:', err);

@@ -579,6 +579,20 @@ export async function founderEnrichProfiles() {
   return data;
 }
 
+// Permanently delete a user (Auth account + /users + /userdata) via founderAdmin.
+export async function founderDeleteUser(targetUid) {
+  const token = await getToken();
+  if (!token) throw new Error('Not authenticated');
+  const res = await fetch(`${FUNCTIONS_BASE}/founderAdmin`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    body: JSON.stringify({ action: 'deleteUser', targetUid }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Delete failed');
+  return data;
+}
+
 // ============================================================================
 // 7-DAY TRIAL — start trial for a new user
 // Sets plan='trial' and trial_started_at on /users/{uid}.
