@@ -160,7 +160,11 @@ exports.ai = onRequest({ secrets: [ANTHROPIC_API_KEY], cors: true, timeoutSecond
     const system = req.body.system ? String(req.body.system).slice(0, 5000) : undefined;
     const max_tokens = Math.min(Number(req.body.max_tokens) || 2000, 4000);
     try {
-      const body = { model: 'claude-sonnet-4-20250514', max_tokens, messages: sanitized };
+      // claude-sonnet-4-20250514 was retired 2026-06-15; claude-sonnet-5 is its
+      // designated replacement. Thinking disabled to keep the old latency/token
+      // behavior (Sonnet 5 defaults to adaptive thinking, which spends output
+      // tokens inside max_tokens and could truncate the JSON analyses).
+      const body = { model: 'claude-sonnet-5', max_tokens, thinking: { type: 'disabled' }, messages: sanitized };
       if (system) body.system = system;
       const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
