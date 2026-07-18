@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
-  Users, Clock, Shield, ChevronDown, ChevronUp, Search,
+  Users, Clock, Shield, Search,
   Zap, Crown, RefreshCw, Pencil, Check, X, ArrowLeft,
 } from 'lucide-react';
 import { loadAllUsersAdmin, founderExtendTrial, founderSetPlan } from '../firebase-config';
@@ -21,16 +21,6 @@ const PLAN_COLORS = {
 };
 
 const VALID_PLANS = ['free', 'trial', 'starter', 'hr_finance', 'pro', 'enterprise', 'scale'];
-
-function timeAgo(date) {
-  if (!date) return '—';
-  const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
-  if (seconds < 60) return 'just now';
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-  if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
-  return date.toLocaleDateString();
-}
 
 function toDate(v) {
   if (!v) return null;
@@ -53,9 +43,7 @@ function KpiCard({ icon: Icon, label, value, sub, color = 'text-white' }) {
   );
 }
 
-function UserRow({ u, onAction }) {
-  const [expanded, setExpanded] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState(u.plan || 'free');
+function UserTableRow({ u, onAction }) {
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState(u.displayName || '');
@@ -65,6 +53,7 @@ function UserRow({ u, onAction }) {
   const trialStart = toDate(u.trial_started_at);
   const trialEnd = trialStart ? new Date(trialStart.getTime() + 7 * 24 * 60 * 60 * 1000) : null;
   const isTrialExpired = trialEnd && trialEnd < new Date();
+  const subEnd = toDate(u.subscription_current_period_end);
   const plan = u.plan || 'free';
   const hasProfile = u.displayName || u.email;
 
@@ -88,12 +77,12 @@ function UserRow({ u, onAction }) {
     }
   }
 
-  async function handleSetPlan() {
-    if (selectedPlan === plan) return;
+  async function handlePlanChange(newPlan) {
+    if (newPlan === plan) return;
     setBusy(true);
     try {
-      await founderSetPlan(u.uid, selectedPlan);
-      toast.success(`Plan set to ${selectedPlan} for ${u.email || u.uid}`);
+      await founderSetPlan(u.uid, newPlan);
+      toast.success(`Plan set to ${newPlan.replace('_', ' ')} for ${u.displayName || u.email || u.uid.slice(0, 8)}`);
       onAction();
     } catch (err) {
       toast.error(err.message);
@@ -106,7 +95,7 @@ function UserRow({ u, onAction }) {
     setBusy(true);
     try {
       await founderExtendTrial(u.uid, days);
-      toast.success(`Trial extended by ${days} days for ${u.email || u.uid}`);
+      toast.success(`Trial extended by ${days} days for ${u.displayName || u.email || u.uid.slice(0, 8)}`);
       onAction();
     } catch (err) {
       toast.error(err.message);
@@ -115,126 +104,97 @@ function UserRow({ u, onAction }) {
     }
   }
 
+  // Expiry: trial end date for trials, Stripe period end for paid plans.
+  let expiryCell;
+  if (plan === 'trial' && trialEnd) {
+    expiryCell = isTrialExpired
+      ? <span className="text-red-400">Expired {trialEnd.toLocaleDateString()}</span>
+      : <span className="text-emerald-400">{trialEnd.toLocaleDateString()}</span>;
+  } else if (subEnd) {
+    expiryCell = <span className="text-slate-300">{subEnd.toLocaleDateString()}</span>;
+  } else {
+    expiryCell = <span className="text-slate-600">—</span>;
+  }
+
   return (
-    <div className="border border-slate-700/50 rounded-xl bg-slate-800/40 overflow-hidden">
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center gap-3 p-3 hover:bg-slate-700/30 transition-colors text-left"
-      >
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-white truncate">
-              {u.displayName || u.email || `User ${u.uid.slice(0, 8)}…`}
-            </span>
-            {u.is_founder && <Crown size={13} className="text-amber-400 shrink-0" />}
-            {!hasProfile && <span className="text-[10px] text-slate-600 italic">click to add info</span>}
-          </div>
-          <div className="text-xs text-slate-500 truncate">{u.email || `UID: ${u.uid.slice(0, 12)}…`}</div>
-        </div>
-        <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${PLAN_COLORS[plan] || PLAN_COLORS.free}`}>
-          {plan.replace('_', ' ')}
-        </span>
-        <span className="text-xs text-slate-500 hidden sm:block w-20 text-right">
-          {created ? timeAgo(created) : '—'}
-        </span>
-        {expanded ? <ChevronUp size={14} className="text-slate-500" /> : <ChevronDown size={14} className="text-slate-500" />}
-      </button>
-
-      {expanded && (
-        <div className="border-t border-slate-700/50 p-4 bg-slate-900/30 space-y-3">
-          {editing ? (
-            <div className="flex flex-wrap items-center gap-2 pb-2 border-b border-slate-700/30">
-              <input
-                type="text"
-                placeholder="Display name"
-                value={editName}
-                onChange={(e) => setEditName(e.target.value)}
-                className="bg-slate-800 border border-slate-600 text-slate-200 text-xs rounded-lg px-2 py-1.5 w-40"
-              />
-              <input
-                type="email"
-                placeholder="Email"
-                value={editEmail}
-                onChange={(e) => setEditEmail(e.target.value)}
-                className="bg-slate-800 border border-slate-600 text-slate-200 text-xs rounded-lg px-2 py-1.5 w-52"
-              />
-              <button onClick={handleSaveProfile} disabled={busy} className="p-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded-lg">
-                <Check size={13} />
-              </button>
-              <button onClick={() => setEditing(false)} className="p-1.5 bg-slate-700/50 hover:bg-slate-700 text-slate-400 rounded-lg">
-                <X size={13} />
-              </button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 pb-2 border-b border-slate-700/30">
-              <span className="text-xs text-slate-400">
-                {u.displayName ? `${u.displayName}` : ''}{u.displayName && u.email ? ' · ' : ''}{u.email || ''}
-                {!hasProfile ? 'No profile info yet' : ''}
-              </span>
-              <button onClick={() => setEditing(true)} className="p-1 hover:bg-slate-700/50 rounded text-slate-500 hover:text-slate-300 transition-colors">
-                <Pencil size={12} />
-              </button>
-            </div>
-          )}
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-            <div>
-              <span className="text-slate-500">UID:</span>
-              <div className="text-slate-300 font-mono text-[11px] truncate">{u.uid}</div>
-            </div>
-            <div>
-              <span className="text-slate-500">Registered:</span>
-              <div className="text-slate-300">{created ? created.toLocaleDateString() : '—'}</div>
-            </div>
-            <div>
-              <span className="text-slate-500">Trial started:</span>
-              <div className="text-slate-300">{trialStart ? trialStart.toLocaleDateString() : '—'}</div>
-            </div>
-            <div>
-              <span className="text-slate-500">Trial status:</span>
-              <div className={isTrialExpired ? 'text-red-400' : 'text-emerald-400'}>
-                {!trialStart ? '—' : isTrialExpired ? 'Expired' : `Ends ${trialEnd.toLocaleDateString()}`}
-              </div>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-700/30">
-            <select
-              value={selectedPlan}
-              onChange={(e) => setSelectedPlan(e.target.value)}
-              className="bg-slate-800 border border-slate-600 text-slate-300 text-xs rounded-lg px-2 py-1.5"
-              disabled={busy}
-            >
-              {VALID_PLANS.map(p => (
-                <option key={p} value={p}>{p.replace('_', ' ')}</option>
-              ))}
-            </select>
-            <button
-              onClick={handleSetPlan}
-              disabled={busy || selectedPlan === plan}
-              className="px-3 py-1.5 text-xs bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white rounded-lg transition-colors"
-            >
-              Set plan
+    <tr className="border-b border-slate-800 hover:bg-slate-800/40 transition-colors">
+      <td className="px-4 py-3 align-middle">
+        {editing ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              type="text"
+              placeholder="Name"
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              className="bg-slate-800 border border-slate-600 text-slate-200 text-xs rounded-lg px-2 py-1.5 w-36"
+            />
+            <input
+              type="email"
+              placeholder="Email"
+              value={editEmail}
+              onChange={(e) => setEditEmail(e.target.value)}
+              className="bg-slate-800 border border-slate-600 text-slate-200 text-xs rounded-lg px-2 py-1.5 w-48"
+            />
+            <button onClick={handleSaveProfile} disabled={busy} className="p-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded-lg">
+              <Check size={13} />
             </button>
-            <div className="w-px h-5 bg-slate-700 mx-1 hidden sm:block" />
+            <button onClick={() => setEditing(false)} className="p-1.5 bg-slate-700/50 hover:bg-slate-700 text-slate-400 rounded-lg">
+              <X size={13} />
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="text-sm font-medium text-white truncate">
+                  {u.displayName || (hasProfile ? '' : `User ${u.uid.slice(0, 8)}…`)}
+                  {!u.displayName && u.email ? u.email : ''}
+                </span>
+                {u.is_founder && <Crown size={13} className="text-amber-400 shrink-0" />}
+              </div>
+              <div className="text-xs text-slate-500 truncate">{u.displayName ? (u.email || '') : (hasProfile ? '' : 'no profile yet')}</div>
+            </div>
+            <button
+              onClick={() => setEditing(true)}
+              title="Edit name/email"
+              className="p-1 hover:bg-slate-700/50 rounded text-slate-600 hover:text-slate-300 transition-colors shrink-0"
+            >
+              <Pencil size={12} />
+            </button>
+          </div>
+        )}
+      </td>
+      <td className="px-4 py-3 text-sm text-slate-300 whitespace-nowrap align-middle">
+        {created ? created.toLocaleDateString() : '—'}
+      </td>
+      <td className="px-4 py-3 align-middle">
+        <select
+          value={plan}
+          onChange={(e) => handlePlanChange(e.target.value)}
+          disabled={busy}
+          className={`text-xs font-semibold rounded-lg px-2 py-1.5 border cursor-pointer disabled:opacity-50 bg-slate-800 border-slate-600 ${(PLAN_COLORS[plan] || '').includes('text-') ? PLAN_COLORS[plan].split(' ').find(c => c.startsWith('text-')) : 'text-slate-300'}`}
+        >
+          {VALID_PLANS.map(p => (
+            <option key={p} value={p}>{p.replace('_', ' ')}</option>
+          ))}
+        </select>
+      </td>
+      <td className="px-4 py-3 text-sm whitespace-nowrap align-middle">
+        <div className="flex items-center gap-2">
+          {expiryCell}
+          {plan === 'trial' && (
             <button
               onClick={() => handleExtendTrial(7)}
               disabled={busy}
-              className="px-3 py-1.5 text-xs bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 rounded-lg transition-colors"
+              title="Extend trial by 7 days"
+              className="px-2 py-0.5 text-[10px] bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 rounded-md transition-colors"
             >
-              +7 days trial
+              +7d
             </button>
-            <button
-              onClick={() => handleExtendTrial(14)}
-              disabled={busy}
-              className="px-3 py-1.5 text-xs bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 rounded-lg transition-colors"
-            >
-              +14 days
-            </button>
-          </div>
+          )}
         </div>
-      )}
-    </div>
+      </td>
+    </tr>
   );
 }
 
@@ -427,10 +387,22 @@ export function FounderAdminPage() {
           <p>No users found</p>
         </div>
       ) : (
-        <div className="space-y-2">
-          {filtered.map(u => (
-            <UserRow key={u.uid} u={u} onAction={loadUsers} />
-          ))}
+        <div className="border border-slate-700/50 rounded-xl bg-slate-800/40 overflow-x-auto">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="border-b border-slate-700/50 bg-slate-900/40">
+                <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">User Name</th>
+                <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Registered</th>
+                <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Plan</th>
+                <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Expiry</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map(u => (
+                <UserTableRow key={u.uid} u={u} onAction={loadUsers} />
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
