@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { Check, CreditCard } from 'lucide-react';
 import {
-  createBillingPortal, createCheckoutSession,
+  createBillingPortal, createCheckoutSession, logLegalAcceptance,
 } from '../../firebase-config';
-import { submitContactForm } from '../../lib/contact';
 import { resolvePlan, TRIAL_DAYS, getTrialState } from '../../lib/plan';
 import { useDbQuery } from '../../hooks/useDbQuery';
 import { useLang } from '../../contexts/LangContext';
@@ -26,10 +26,6 @@ export function BillingPage({ noShell = false }) {
   const plan = resolvePlan(db?.user);
   const pricing = usePlanPricing();
   const [billing, setBilling] = useState('monthly');
-  const [showContactModal, setShowContactModal] = useState(false);
-  const [contactEmail, setContactEmail] = useState('');
-  const [contactSize, setContactSize] = useState('1-10');
-  const [contactSent, setContactSent] = useState(false);
 
   const _trialState = getTrialState(db?.user);
   const trialDaysLeft = _trialState.daysLeft;
@@ -204,12 +200,14 @@ export function BillingPage({ noShell = false }) {
   };
 
   const upgrade = async (id) => {
-    if (id === 'enterprise') { setShowContactModal(true); return; }
     if (id === 'free' || id === 'startup') return;
     if (id === 'scale') { document.getElementById('billing-plans')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
     const priceId = PRICE_IDS[id]?.[billing] || PRICE_IDS[id]?.monthly;
     if (!priceId) { toast.error('Plan not available. Contact us!'); return; }
     setUpgrading(true);
+    // GDPR/LCEN audit trail: record that the user proceeded to checkout having
+    // been shown the Terms/Privacy/DPA notice (best-effort, never blocks).
+    if (db?.user?.uid) logLegalAcceptance(db.user.uid, db.user.email, id);
     try {
       const { url, error } = await createCheckoutSession(priceId);
       if (error) throw new Error(error);
@@ -343,11 +341,6 @@ export function BillingPage({ noShell = false }) {
                 <div className="text-center py-2.5 rounded-xl bg-slate-800/60 text-slate-400 text-xs font-semibold">
                   {isTrial ? '✓ ' + t('active_trial') : '✓ ' + t('current_plan')}
                 </div>
-              ) : p.id === 'enterprise' ? (
-                <button onClick={() => setShowContactModal(true)}
-                  className={"w-full py-2.5 rounded-xl border text-xs font-bold transition-all " + p.border + " text-amber-300 hover:bg-amber-500/10"}>
-                  {t('contact_sales')}
-                </button>
               ) : (
                 <button onClick={() => upgrade(p.id)} disabled={upgrading}
                   className={"w-full py-2.5 rounded-xl font-bold transition-all text-xs text-white bg-gradient-to-r hover:opacity-90 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed " + p.color}>
@@ -358,6 +351,14 @@ export function BillingPage({ noShell = false }) {
           );
         })}
       </div>
+
+      <p className="text-center text-xs text-slate-500">
+        {t('bill_agree_prefix')}{' '}
+        <Link to="/terms" className="text-slate-400 underline hover:text-white transition-colors">{t('bill_terms')}</Link>,{' '}
+        <Link to="/privacy" className="text-slate-400 underline hover:text-white transition-colors">{t('bill_privacy')}</Link>{' '}
+        {t('bill_and')}{' '}
+        <Link to="/dpa" className="text-slate-400 underline hover:text-white transition-colors">{t('bill_dpa')}</Link>.
+      </p>
 
       {isTrial && (
         <div className="rounded-2xl bg-slate-900/60 border border-slate-800 p-6">
@@ -403,50 +404,6 @@ export function BillingPage({ noShell = false }) {
         </div>
       )}
 
-      {showContactModal && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-6">
-          <div className="bg-slate-900 rounded-3xl border border-white/10 p-8 max-w-md w-full">
-            <h3 className="text-2xl font-bold mb-2">{t('talk_to_sales')}</h3>
-            <p className="text-slate-400 text-sm mb-6">{t('plan_enterprise_tag')}</p>
-            {contactSent ? (
-              <div className="text-center py-8">
-                <div className="text-4xl mb-3">✅</div>
-                <div className="font-bold text-white mb-1">Message sent!</div>
-                <div className="text-sm text-slate-400">Our sales team will contact you within 1 business day.</div>
-                <button onClick={() => { setShowContactModal(false); setContactSent(false); }} className="mt-6 px-6 py-2 bg-slate-800 rounded-xl text-sm font-semibold hover:bg-slate-700 transition-colors">{t('close')}</button>
-              </div>
-            ) : (
-              <>
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-sm font-medium text-slate-300 block mb-1.5">{t('work_email')}</label>
-                    <input value={contactEmail} onChange={e => setContactEmail(e.target.value)}
-                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm outline-none focus:border-emerald-500 transition-colors" placeholder="you@company.com" />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-slate-300 block mb-1.5">{t('company_size')}</label>
-                    <select value={contactSize} onChange={e => setContactSize(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm outline-none focus:border-emerald-500 transition-colors">
-                      {['1–10','11–50','51–200','201–500','500+'].map(o => <option key={o}>{o}</option>)}
-                    </select>
-                  </div>
-                </div>
-                <div className="flex gap-3 mt-6">
-                  <button onClick={() => setShowContactModal(false)} className="flex-1 py-3 bg-slate-800 rounded-xl font-semibold text-sm hover:bg-slate-700 transition-colors">{t('cancel')}</button>
-                  <button onClick={async () => {
-                      try {
-                        await submitContactForm({ name: contactEmail, email: contactEmail, subject: 'enterprise', message: `Enterprise Enquiry\n\nEmail: ${contactEmail}\nCompany Size: ${contactSize}` });
-                        setContactSent(true);
-                      } catch { toast.error(t('contact_error') || 'Could not send. Please try again.'); }
-                    }}
-                    className="flex-1 py-3 bg-gradient-to-r from-amber-600 to-orange-600 hover:opacity-90 rounded-xl font-bold text-sm text-white transition-all">
-                    {t('send_enquiry')}
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 
