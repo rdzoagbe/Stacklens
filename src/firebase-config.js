@@ -579,6 +579,24 @@ export async function founderEnrichProfiles() {
   return data;
 }
 
+// ── API key management (server-backed; only hashes are stored) ──────────────
+async function callApiKeys(body) {
+  const token = await getToken();
+  if (!token) throw new Error('Not authenticated');
+  const res = await fetch(`${FUNCTIONS_BASE}/apikeys`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'API key request failed');
+  return data;
+}
+export const apiKeysList   = () => callApiKeys({ action: 'list' });
+export const apiKeysCreate = (name) => callApiKeys({ action: 'create', name });
+export const apiKeysRevoke = (keyId) => callApiKeys({ action: 'revoke', keyId });
+export const API_BASE_URL = `${FUNCTIONS_BASE}/api/v1`;
+
 // Permanently delete a user (Auth account + /users + /userdata) via founderAdmin.
 export async function founderDeleteUser(targetUid) {
   const token = await getToken();

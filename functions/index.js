@@ -502,6 +502,162 @@ exports.founderops = onRequest({ cors: true, timeoutSeconds: 30 }, async (req, r
 });
 
 
+// ── API keys + public read-only REST API ─────────────────────────────────
+// Keys are random secrets shown once; only their SHA-256 hash is stored (as
+// the doc ID, so lookup is a direct get). API calls are Enterprise-plan gated.
+const nodeCrypto = require('crypto');
+const API_RATE_LIMIT = { maxCalls: 120, windowMs: 60 * 60 * 1000 };
+const API_PLANS = new Set(['enterprise', 'scale', 'unlimited', 'professional']);
+const MAX_API_KEYS_PER_USER = 5;
+
+function hashApiKey(secret) {
+  return nodeCrypto.createHash('sha256').update(secret).digest('hex');
+}
+
+// Authenticated key management for the Settings → API keys tab.
+exports.apikeys = onRequest({ cors: true, timeoutSeconds: 30 }, async (req, res) => {
+  cors(req, res, async () => {
+    if (req.method === 'OPTIONS') return res.status(204).send('');
+    if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
+    const decoded = await verifyAuth(req, res); if (!decoded) return;
+    const db = getFirestore();
+    const { action, name, keyId } = req.body || {};
+    try {
+      if (action === 'list') {
+        const snap = await db.collection('api_keys').where('uid', '==', decoded.uid).get();
+        const keys = snap.docs
+          .map(d => {
+            const k = d.data();
+            return {
+              keyId: d.id,
+              name: k.name,
+              prefix: k.prefix,
+              created_at: k.created_at?.toDate?.()?.toISOString() || null,
+              last_used_at: k.last_used_at?.toDate?.()?.toISOString() || null,
+            };
+          })
+          .sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
+        return res.json({ keys });
+      }
+      if (action === 'create') {
+        const existing = await db.collection('api_keys').where('uid', '==', decoded.uid).get();
+        if (existing.size >= MAX_API_KEYS_PER_USER) {
+          return res.status(400).json({ error: `Key limit reached (${MAX_API_KEYS_PER_USER}). Revoke a key first.` });
+        }
+        const secret = 'sk_live_' + nodeCrypto.randomBytes(24).toString('hex');
+        const prefix = secret.slice(0, 15) + '…';
+        await db.collection('api_keys').doc(hashApiKey(secret)).set({
+          uid: decoded.uid,
+          name: String(name || 'API key').slice(0, 60),
+          prefix,
+          created_at: Timestamp.now(),
+          last_used_at: null,
+        });
+        return res.json({ key: secret, prefix });
+      }
+      if (action === 'revoke') {
+        if (!keyId || typeof keyId !== 'string') return res.status(400).json({ error: 'keyId required' });
+        const ref = db.collection('api_keys').doc(keyId);
+        const snap = await ref.get();
+        if (!snap.exists || snap.data().uid !== decoded.uid) return res.status(404).json({ error: 'Key not found' });
+        await ref.delete();
+        return res.json({ ok: true });
+      }
+      return res.status(400).json({ error: 'Unknown action' });
+    } catch (err) {
+      console.error('apikeys error:', err);
+      return res.status(500).json({ error: 'Internal error' });
+    }
+  });
+});
+
+// Public read-only API: GET .../api/v1/{tools|employees|spend}
+// Auth: Authorization: Bearer sk_live_...
+exports.api = onRequest({ timeoutSeconds: 30 }, async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+  res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  if (req.method === 'OPTIONS') return res.status(204).send('');
+  if (req.method !== 'GET') return res.status(405).json({ error: 'GET only' });
+
+  const header = req.headers.authorization || '';
+  const secret = header.startsWith('Bearer ') ? header.slice(7) : null;
+  if (!secret || !secret.startsWith('sk_live_')) {
+    return res.status(401).json({ error: 'Missing API key. Send it as: Authorization: Bearer sk_live_...' });
+  }
+
+  try {
+    const db = getFirestore();
+    const keySnap = await db.collection('api_keys').doc(hashApiKey(secret)).get();
+    if (!keySnap.exists) return res.status(401).json({ error: 'Invalid API key' });
+    const { uid } = keySnap.data();
+
+    const userSnap = await db.collection('users').doc(uid).get();
+    const plan = userSnap.exists ? (userSnap.data().plan || 'free') : 'free';
+    const isFounder = FOUNDER_UIDS.includes(uid) || (userSnap.exists && userSnap.data().is_founder === true);
+    if (!API_PLANS.has(plan) && !isFounder) {
+      return res.status(403).json({ error: 'API access requires the Enterprise plan.' });
+    }
+
+    if (!await checkRateLimit(uid, res, API_RATE_LIMIT, 'api')) return;
+    keySnap.ref.update({ last_used_at: Timestamp.now() }).catch(() => {});
+
+    const dataSnap = await db.collection('userdata').doc(uid).get();
+    const data = dataSnap.exists ? dataSnap.data() : {};
+    const tools = Array.isArray(data.tools) ? data.tools : [];
+    const employees = Array.isArray(data.employees) ? data.employees : [];
+
+    const path = (req.path || '/').replace(/\/+$/, '') || '/';
+    const ENDPOINTS = ['/v1/tools', '/v1/employees', '/v1/spend'];
+
+    if (path === '/' || path === '/v1') {
+      return res.json({ ok: true, version: 'v1', endpoints: ENDPOINTS, docs: 'https://stacklens.fr/settings?tab=api' });
+    }
+    if (path === '/v1/tools') {
+      return res.json({
+        count: tools.length,
+        data: tools.map(t => ({
+          id: t.id, name: t.name, category: t.category, status: t.status,
+          cost_per_month: t.cost_per_month ?? null, owner_email: t.owner_email || null,
+          criticality: t.criticality || null, risk_score: t.risk_score || null,
+          last_used_date: t.last_used_date || null, url: t.url || null,
+        })),
+      });
+    }
+    if (path === '/v1/employees') {
+      return res.json({
+        count: employees.length,
+        data: employees.map(e => ({
+          id: e.id, full_name: e.full_name, email: e.email, department: e.department || null,
+          role: e.role || null, status: e.status || null,
+          start_date: e.start_date || null, end_date: e.end_date || null,
+        })),
+      });
+    }
+    if (path === '/v1/spend') {
+      const active = tools.filter(t => t.status !== 'cancelled');
+      const total = active.reduce((s, t) => s + (Number(t.cost_per_month) || 0), 0);
+      const byCategory = {};
+      active.forEach(t => {
+        const c = t.category || 'other';
+        byCategory[c] = (byCategory[c] || 0) + (Number(t.cost_per_month) || 0);
+      });
+      return res.json({
+        currency: 'EUR',
+        total_monthly: total,
+        total_annual: total * 12,
+        tool_count: active.length,
+        by_category: byCategory,
+      });
+    }
+    return res.status(404).json({ error: 'Unknown endpoint', available: ENDPOINTS });
+  } catch (err) {
+    console.error('api error:', err);
+    return res.status(500).json({ error: 'Internal error' });
+  }
+});
+
+
 // ── Renewal Alert Emails (SendGrid) ──────────────────────────────────────
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 
