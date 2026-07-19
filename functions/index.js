@@ -1,6 +1,7 @@
 /**
  * Stacklens Cloud Functions
  * Secrets: ANTHROPIC_API_KEY, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET
+ * (secret versions bind at deploy time — redeploy after adding a new version)
  */
 
 const { onRequest } = require('firebase-functions/v2/https');
