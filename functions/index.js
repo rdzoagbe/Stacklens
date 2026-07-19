@@ -76,6 +76,8 @@ async function verifyAppCheck(req) {
 
 
 async function checkRateLimit(uid, res, limit = RATE_LIMIT, keyPrefix = 'ai') {
+  // Founder accounts are exempt — they test every flow repeatedly.
+  if (FOUNDER_UIDS.includes(uid)) return true;
   const db = getFirestore();
   const now = Date.now();
   const windowStart = now - limit.windowMs;
