@@ -175,7 +175,9 @@ export function BillingPage({ noShell = false }) {
     return saved > 0 ? `Save ${pricing.format(saved)}/yr` : null;
   };
 
-  const [upgrading, setUpgrading] = useState(false);
+  // Holds the id of the plan whose checkout is in flight (null when idle) so
+  // only the clicked card shows the spinner — a bare boolean lit up every card.
+  const [upgrading, setUpgrading] = useState(null);
 
   const PRICE_IDS = {
     starter:    { monthly: 'price_1TMhOt1yFs6IziIVgJGBbzoG', annual: 'price_1TMhfK1yFs6IziIVOtbhpy23' },
@@ -192,7 +194,7 @@ export function BillingPage({ noShell = false }) {
     if (id === 'scale') { document.getElementById('billing-plans')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
     const priceId = PRICE_IDS[id]?.[billing] || PRICE_IDS[id]?.monthly;
     if (!priceId) { toast.error('Plan not available. Contact us!'); return; }
-    setUpgrading(true);
+    setUpgrading(id);
     // GDPR/LCEN audit trail: record that the user proceeded to checkout having
     // been shown the Terms/Privacy/DPA notice (best-effort, never blocks).
     if (db?.user?.uid) logLegalAcceptance(db.user.uid, db.user.email, id);
@@ -203,7 +205,7 @@ export function BillingPage({ noShell = false }) {
     } catch (err) {
       toast.error('Could not start checkout: ' + err.message);
     } finally {
-      setUpgrading(false);
+      setUpgrading(null);
     }
   };
 
@@ -256,9 +258,9 @@ export function BillingPage({ noShell = false }) {
               </div>
             </div>
             <div className="flex-shrink-0 text-right">
-              <button onClick={() => upgrade('scale')} disabled={upgrading}
+              <button onClick={() => upgrade('scale')} disabled={!!upgrading}
                 className="px-7 py-3.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white font-black rounded-xl transition-all shadow-lg shadow-amber-500/30 text-sm block mb-2 disabled:opacity-50 disabled:cursor-not-allowed">
-                {upgrading ? '...' : t('upgrade_now') + ' ✨'}
+                {upgrading === 'scale' ? '...' : t('upgrade_now') + ' ✨'}
               </button>
               <p className="text-xs text-slate-500">{t('cancel_anytime')}</p>
             </div>
@@ -330,9 +332,9 @@ export function BillingPage({ noShell = false }) {
                   {isTrial ? '✓ ' + t('active_trial') : '✓ ' + t('current_plan')}
                 </div>
               ) : (
-                <button onClick={() => upgrade(p.id)} disabled={upgrading}
+                <button onClick={() => upgrade(p.id)} disabled={!!upgrading}
                   className={"w-full py-2.5 rounded-xl font-bold transition-all text-xs text-white bg-gradient-to-r hover:opacity-90 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed " + p.color}>
-                  {upgrading ? '...' : (isTrial ? t('upgrade_now').split('—')[0].trim() : 'Upgrade')}
+                  {upgrading === p.id ? '...' : (isTrial ? t('upgrade_now').split('—')[0].trim() : 'Upgrade')}
                 </button>
               )}
             </div>
