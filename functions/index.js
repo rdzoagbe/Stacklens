@@ -215,6 +215,9 @@ exports.createCheckout = onRequest({ secrets: [STRIPE_SECRET_KEY], cors: true, t
         billing_address_collection: 'required',
         tax_id_collection: { enabled: true },
         customer_update: { name: 'auto', address: 'auto' },
+        // Stripe Tax is configured in the dashboard (France head office, SaaS
+        // category, FR registration) — calculates the right VAT per country.
+        automatic_tax: { enabled: true },
       });
       return res.json({ url: session.url });
     } catch (err) { console.error('Checkout error:', err); return res.status(500).json({ error: err.message }); }
@@ -514,6 +517,25 @@ function hashApiKey(secret) {
   return nodeCrypto.createHash('sha256').update(secret).digest('hex');
 }
 
+// Large arrays (employees, access, audit_log) are stored as slices in the
+// /userdata/{uid}/chunks subcollection (Firestore 1MB doc limit — see the
+// client's saveUserData). Every server-side reader of userdata must reassemble
+// through this helper; pre-chunking docs pass through unchanged.
+async function assembleUserdata(docSnap) {
+  const data = docSnap.exists ? docSnap.data() : {};
+  if (data._chunks) {
+    const chunkSnap = await docSnap.ref.collection('chunks').get();
+    const byId = {};
+    chunkSnap.forEach(d => { byId[d.id] = d.data().items || []; });
+    for (const [key, count] of Object.entries(data._chunks)) {
+      const arr = [];
+      for (let i = 0; i < count; i++) arr.push(...(byId[`${key}_${i}`] || []));
+      data[key] = arr;
+    }
+  }
+  return data;
+}
+
 // Authenticated key management for the Settings → API keys tab.
 exports.apikeys = onRequest({ cors: true, timeoutSeconds: 30 }, async (req, res) => {
   cors(req, res, async () => {
@@ -603,19 +625,7 @@ exports.api = onRequest({ timeoutSeconds: 30 }, async (req, res) => {
     keySnap.ref.update({ last_used_at: Timestamp.now() }).catch(() => {});
 
     const dataSnap = await db.collection('userdata').doc(uid).get();
-    const data = dataSnap.exists ? dataSnap.data() : {};
-    // Large arrays are stored as slices in the chunks subcollection (Firestore
-    // 1MB doc limit) — reassemble them; pre-chunking docs pass through as-is.
-    if (data._chunks) {
-      const chunkSnap = await db.collection('userdata').doc(uid).collection('chunks').get();
-      const byId = {};
-      chunkSnap.forEach(d => { byId[d.id] = d.data().items || []; });
-      for (const [key, count] of Object.entries(data._chunks)) {
-        const arr = [];
-        for (let i = 0; i < count; i++) arr.push(...(byId[`${key}_${i}`] || []));
-        data[key] = arr;
-      }
-    }
+    const data = await assembleUserdata(dataSnap);
     const tools = Array.isArray(data.tools) ? data.tools : [];
     const employees = Array.isArray(data.employees) ? data.employees : [];
 
@@ -733,11 +743,37 @@ exports.renewalAlerts = onSchedule({
 });
 
 // ── Weekly Summary Email (every Monday 09:00 Europe/Paris) ───────────────
+// One short, plain-language insight paragraph for the weekly email, written by
+// the AI from this week's facts. Best-effort: any failure returns '' and the
+// email goes out without it.
+async function weeklyAiInsight(apiKey, facts) {
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-5',
+        max_tokens: 300,
+        thinking: { type: 'disabled' },
+        messages: [{
+          role: 'user',
+          content: `You are the SaaS spend advisor inside Stacklens. Based on this week's facts for one customer, write 2-3 short, friendly, plain-English sentences for the top of their Monday summary email. Lead with the single most valuable action (money wasted, ex-employee access, or an imminent renewal). No greetings, no markdown, no bullet points — just the sentences. Facts: ${JSON.stringify(facts)}`,
+        }],
+      }),
+    });
+    const out = await res.json();
+    if (!res.ok) return '';
+    return (out.content?.[0]?.text || '').trim();
+  } catch {
+    return '';
+  }
+}
+
 exports.weeklySummary = onSchedule({
   schedule: 'every monday 09:00',
   timeZone: 'Europe/Paris',
   region: 'us-central1',
-  secrets: [SENDGRID_API_KEY],
+  secrets: [SENDGRID_API_KEY, ANTHROPIC_API_KEY],
 }, async () => {
   const sgMail = require('@sendgrid/mail');
   sgMail.setApiKey(SENDGRID_API_KEY.value());
@@ -751,7 +787,7 @@ exports.weeklySummary = onSchedule({
   let sent = 0;
 
   for (const docSnap of snapshot.docs) {
-    const data  = docSnap.data();
+    const data  = await assembleUserdata(docSnap);
     const email = data?.user?.email;
     if (!email) continue;
     // Respect opt-out (default: send)
@@ -768,6 +804,28 @@ exports.weeklySummary = onSchedule({
     const highRisk      = access.filter(a => a.derived_risk_flag === 'high' || a.access_level === 'admin').length;
     const upcoming      = tools.filter(t => t.renewal_date >= todayStr && t.renewal_date <= in30Str);
     const activeEmps    = employees.filter(e => e.status === 'active').length;
+
+    // Money on the table: unused/orphaned tools still billing every month.
+    const idleTools    = activeTools.filter(t => t.status === 'unused' || t.status === 'orphaned');
+    const idleMonthly  = idleTools.reduce((s, t) => s + (Number(t.cost_per_month) || 0), 0);
+    // Former employees whose access was never revoked.
+    const inactiveEmails = new Set(
+      employees.filter(e => e.status && e.status !== 'active')
+        .map(e => (e.email || '').toLowerCase()).filter(Boolean)
+    );
+    const exEmployeeAccess = access.filter(a =>
+      a.status !== 'revoked' && inactiveEmails.has((a.employee_email || '').toLowerCase())
+    ).length;
+
+    const insight = await weeklyAiInsight(ANTHROPIC_API_KEY.value(), {
+      monthly_spend_eur: monthlySpend,
+      idle_spend_eur_per_month: idleMonthly,
+      idle_tool_names: idleTools.slice(0, 5).map(t => t.name),
+      ex_employee_access_count: exEmployeeAccess,
+      renewals_next_30_days: upcoming.slice(0, 5).map(t => ({ name: t.name, date: t.renewal_date, cost_per_month: t.cost_per_month })),
+      orphaned_tools: orphaned,
+      high_risk_access: highRisk,
+    });
 
     // Health score: same formula as the dashboard
     const healthScore = Math.max(0, Math.round(100 - (highRisk * 10) - (orphaned * 3)));
@@ -817,6 +875,8 @@ exports.weeklySummary = onSchedule({
 
     // ── Alerts section ────────────────────────────────────────────────────
     const alerts = [];
+    if (idleMonthly > 0) alerts.push(`💸 <strong style="color:#f59e0b">€${fmt(idleMonthly)}/mo</strong> going to ${idleTools.length} unused or orphaned tool${idleTools.length > 1 ? 's' : ''} — €${fmt(idleMonthly * 12)}/yr recoverable`);
+    if (exEmployeeAccess > 0) alerts.push(`🚪 <strong style="color:#ef4444">${exEmployeeAccess} access grant${exEmployeeAccess > 1 ? 's' : ''}</strong> still active for former employees`);
     if (orphaned > 0) alerts.push(`⚠️ <strong style="color:#f59e0b">${orphaned} orphaned tool${orphaned > 1 ? 's' : ''}</strong> with no assigned owner`);
     if (highRisk  > 0) alerts.push(`🔴 <strong style="color:#ef4444">${highRisk} high-risk access record${highRisk > 1 ? 's' : ''}</strong> need review`);
 
@@ -843,6 +903,12 @@ exports.weeklySummary = onSchedule({
       Here's what's happening across your <strong style="color:white">${activeTools.length} active tools</strong>
       and <strong style="color:white">${activeEmps} employees</strong>.
     </p>
+
+    ${insight ? `
+    <div style="padding:14px 16px;background:linear-gradient(135deg,#1e1b4b 0%,#1e293b 100%);border-left:3px solid #6366f1;border-radius:8px;margin:0 0 20px">
+      <div style="color:#a5b4fc;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">✨ This week's insight</div>
+      <div style="color:#e2e8f0;font-size:13px;line-height:1.6">${insight}</div>
+    </div>` : ''}
 
     <!-- Stat cards -->
     <table style="width:100%;border-collapse:collapse;margin-bottom:4px">
@@ -878,7 +944,9 @@ exports.weeklySummary = onSchedule({
       await sgMail.send({
         to: email,
         from: { email: 'hello@stacklens.fr', name: 'Stacklens' },
-        subject: `📊 Your weekly SaaS summary — €${fmt(monthlySpend)}/mo · Score ${healthScore}`,
+        subject: idleMonthly > 0
+          ? `📊 Weekly SaaS summary — €${fmt(monthlySpend)}/mo · €${fmt(idleMonthly)}/mo recoverable`
+          : `📊 Your weekly SaaS summary — €${fmt(monthlySpend)}/mo · Score ${healthScore}`,
         html,
       });
       sent++;
