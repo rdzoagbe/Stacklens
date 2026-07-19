@@ -221,6 +221,11 @@ exports.createCheckout = onRequest({ secrets: [STRIPE_SECRET_KEY], cors: true, t
         // Stripe Tax is configured in the dashboard (France head office, SaaS
         // category, FR registration) — calculates the right VAT per country.
         automatic_tax: { enabled: true },
+        // Require an explicit "I agree to the Terms of Service" checkbox on
+        // the payment page. Stripe stores the consent with the session — the
+        // contract-acceptance proof. Uses the Terms URL set in Stripe
+        // Dashboard → Settings → Public details.
+        consent_collection: { terms_of_service: 'required' },
       });
       return res.json({ url: session.url });
     } catch (err) {
