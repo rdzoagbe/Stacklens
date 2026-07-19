@@ -75,9 +75,15 @@ export function saveDb(db) {
     localStorage.setItem(LS_KEY, serialized);
   }
   if (_firestoreUid && db?.user?.is_authenticated && !db?.user?.is_demo) {
-    saveUserData(_firestoreUid, db).catch(() => {});
+    // Debounced: rapid consecutive edits produce one cloud write (the chunked
+    // backup is several documents per save; un-debounced bursts previously
+    // exhausted the Firestore write queue).
+    clearTimeout(_cloudSaveTimer);
+    const uid = _firestoreUid;
+    _cloudSaveTimer = setTimeout(() => { saveUserData(uid, db).catch(() => {}); }, 1500);
   }
 }
+let _cloudSaveTimer = null;
 
 export async function hydrateFromFirestore(uid) {
   _firestoreUid = uid;

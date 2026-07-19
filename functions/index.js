@@ -604,6 +604,18 @@ exports.api = onRequest({ timeoutSeconds: 30 }, async (req, res) => {
 
     const dataSnap = await db.collection('userdata').doc(uid).get();
     const data = dataSnap.exists ? dataSnap.data() : {};
+    // Large arrays are stored as slices in the chunks subcollection (Firestore
+    // 1MB doc limit) — reassemble them; pre-chunking docs pass through as-is.
+    if (data._chunks) {
+      const chunkSnap = await db.collection('userdata').doc(uid).collection('chunks').get();
+      const byId = {};
+      chunkSnap.forEach(d => { byId[d.id] = d.data().items || []; });
+      for (const [key, count] of Object.entries(data._chunks)) {
+        const arr = [];
+        for (let i = 0; i < count; i++) arr.push(...(byId[`${key}_${i}`] || []));
+        data[key] = arr;
+      }
+    }
     const tools = Array.isArray(data.tools) ? data.tools : [];
     const employees = Array.isArray(data.employees) ? data.employees : [];
 
