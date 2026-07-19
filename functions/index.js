@@ -201,8 +201,8 @@ exports.createCheckout = onRequest({ secrets: [STRIPE_SECRET_KEY], cors: true, t
       'price_1TBUkO0E2aOcllaPOuw3UBPM','price_1TBUoe0E2aOcllaP5J7bvqWK',
     ]);
     if (!ALLOWED_PRICE_IDS.has(priceId)) return res.status(400).json({ error: 'Invalid priceId' });
+    const stripe = require('stripe')(STRIPE_SECRET_KEY.value());
     try {
-      const stripe = require('stripe')(STRIPE_SECRET_KEY.value());
       const customerId = await getOrCreateCustomer(stripe, decoded.uid, decoded.email, decoded.name);
       const session = await stripe.checkout.sessions.create({
         customer: customerId,
@@ -223,7 +223,20 @@ exports.createCheckout = onRequest({ secrets: [STRIPE_SECRET_KEY], cors: true, t
         automatic_tax: { enabled: true },
       });
       return res.json({ url: session.url });
-    } catch (err) { console.error('Checkout error:', err); return res.status(500).json({ error: err.message }); }
+    } catch (err) {
+      console.error('Checkout error:', err);
+      let detail = err.message;
+      // "No such price/customer" means the bound secret key belongs to a
+      // different Stripe account than the one holding our live objects.
+      // Surface which account the key is for so the mismatch is visible.
+      if (err.code === 'resource_missing') {
+        try {
+          const acct = await stripe.accounts.retrieve();
+          detail += ` — server key belongs to Stripe account ${acct.id}`;
+        } catch { detail += ' — could not identify the Stripe account of the server key'; }
+      }
+      return res.status(500).json({ error: detail });
+    }
   });
 });
 
