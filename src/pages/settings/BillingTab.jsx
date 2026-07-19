@@ -189,14 +189,28 @@ export function BillingPage({ noShell = false }) {
     unlimited:  { monthly: 'price_1TMhNk1yFs6IziIVPkv7RiLc', annual: 'price_1TMhNk1yFs6IziIViMLzewdQ' },
   };
 
-  const upgrade = async (id) => {
+  // Explicit contract step: Upgrade opens the agreement dialog; checkout only
+  // starts from proceedToCheckout() once the user has ticked "I agree".
+  const [consentPlan, setConsentPlan] = useState(null);
+  const [consentChecked, setConsentChecked] = useState(false);
+
+  const upgrade = (id) => {
     if (id === 'free' || id === 'startup') return;
     if (id === 'scale') { document.getElementById('billing-plans')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
     const priceId = PRICE_IDS[id]?.[billing] || PRICE_IDS[id]?.monthly;
     if (!priceId) { toast.error('Plan not available. Contact us!'); return; }
+    setConsentChecked(false);
+    setConsentPlan(id);
+  };
+
+  const proceedToCheckout = async () => {
+    const id = consentPlan;
+    if (!id) return;
+    const priceId = PRICE_IDS[id]?.[billing] || PRICE_IDS[id]?.monthly;
+    setConsentPlan(null);
     setUpgrading(id);
-    // GDPR/LCEN audit trail: record that the user proceeded to checkout having
-    // been shown the Terms/Privacy/DPA notice (best-effort, never blocks).
+    // GDPR/LCEN audit trail: the user explicitly accepted the Terms/Privacy/DPA
+    // in the dialog above (best-effort, never blocks).
     if (db?.user?.uid) logLegalAcceptance(db.user.uid, db.user.email, id);
     try {
       const { url, error } = await createCheckoutSession(priceId);
@@ -349,6 +363,32 @@ export function BillingPage({ noShell = false }) {
         {t('bill_and')}{' '}
         <Link to="/dpa" className="text-slate-400 underline hover:text-white transition-colors">{t('bill_dpa')}</Link>.
       </p>
+
+      {consentPlan && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={() => setConsentPlan(null)}>
+          <div className="w-full max-w-md rounded-2xl bg-slate-900 border border-slate-700 p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-white mb-2">{t('consent_title')}</h3>
+            <p className="text-sm text-slate-400 mb-4">{t('consent_intro')}</p>
+            <div className="flex flex-col gap-1.5 mb-4 text-sm">
+              <Link to="/terms" target="_blank" className="text-indigo-400 underline hover:text-indigo-300">{t('bill_terms')}</Link>
+              <Link to="/privacy" target="_blank" className="text-indigo-400 underline hover:text-indigo-300">{t('bill_privacy')}</Link>
+              <Link to="/dpa" target="_blank" className="text-indigo-400 underline hover:text-indigo-300">{t('bill_dpa')}</Link>
+            </div>
+            <label className="flex items-start gap-2.5 text-sm text-slate-300 mb-5 cursor-pointer">
+              <input type="checkbox" checked={consentChecked} onChange={e => setConsentChecked(e.target.checked)} className="mt-0.5 accent-indigo-500" />
+              <span>{t('consent_check')}</span>
+            </label>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setConsentPlan(null)}
+                className="px-4 py-2 rounded-xl text-sm font-semibold text-slate-300 bg-slate-800 hover:bg-slate-700 transition-colors">
+                {t('cancel')}</button>
+              <button onClick={proceedToCheckout} disabled={!consentChecked}
+                className="px-4 py-2 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-indigo-500 to-purple-500 hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-all">
+                {t('consent_continue')}</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isTrial && (
         <div className="rounded-2xl bg-slate-900/60 border border-slate-800 p-6">
