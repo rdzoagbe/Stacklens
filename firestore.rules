@@ -100,6 +100,13 @@ service cloud.firestore {
       allow read: if isOwner(uid);
       allow write: if isOwner(uid);
     }
+    // /userdata/{uid}/chunks/** — size-capped slices of the large arrays
+    // (employees, access, audit_log); rules don't cascade to subcollections,
+    // so the owner grant must be repeated here.
+    match /userdata/{uid}/{document=**} {
+      allow read: if isOwner(uid);
+      allow write: if isOwner(uid);
+    }
 
     // /rate_limits/{uid}
     match /rate_limits/{uid} {

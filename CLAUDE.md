@@ -33,8 +33,8 @@ There is a **husky pre-commit hook** that runs ESLint on staged files — commit
 
 The app uses a **dual-layer persistence model**:
 
-1. **localStorage** (`LS_KEY = 'saasguard_db'`) — primary read path. All app state (tools, employees, access, contracts, invoices, licenses) lives here as a single JSON blob.
-2. **Firestore** (`/userdata/{uid}`) — cloud backup. Writes are fire-and-forget via `saveDb()`. On sign-in, `hydrateFromFirestore()` pulls cloud → localStorage (local wins if it has more data).
+1. **localStorage** (`LS_KEY = 'accessguard_v1'`) — primary read path. All app state (tools, employees, access, contracts, invoices, licenses) lives here as a single JSON blob.
+2. **Firestore** (`/userdata/{uid}`) — cloud backup. Writes are debounced fire-and-forget via `saveDb()`. Large arrays (employees, access, audit_log) are stored as size-capped slices in the `/userdata/{uid}/chunks` subcollection (Firestore 1MB doc limit) and reassembled by `loadUserData()`. On sign-in, `hydrateFromFirestore()` pulls cloud → localStorage (local wins if it has more data).
 
 `useDbQuery()` (TanStack Query, `queryKey: ['db']`) reads localStorage. `useDbMutations()` wraps writes that call `saveDb()`. To update data anywhere: mutate via `useDbMutations()`, never write to localStorage directly.
 

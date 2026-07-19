@@ -38,6 +38,7 @@ import {
   orderBy,
   serverTimestamp,
   Timestamp,
+  writeBatch,
 } from 'firebase/firestore';
 import { getAnalytics, isSupported, setConsent as firebaseSetConsent } from 'firebase/analytics';
 import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
@@ -191,7 +192,22 @@ export async function loadUserData(uid) {
   if (!firestoreDb) return null;
   try {
     const snap = await getDoc(doc(firestoreDb, 'userdata', uid));
-    return snap.exists() ? snap.data() : null;
+    if (!snap.exists()) return null;
+    const data = snap.data();
+    // Reassemble chunked arrays (see saveUserData). Pre-chunking docs have no
+    // _chunks field and pass through unchanged.
+    if (data._chunks) {
+      const chunkSnap = await getDocs(collection(firestoreDb, 'userdata', uid, 'chunks'));
+      const byId = {};
+      chunkSnap.forEach(d => { byId[d.id] = d.data().items || []; });
+      for (const [key, count] of Object.entries(data._chunks)) {
+        const arr = [];
+        for (let i = 0; i < count; i++) arr.push(...(byId[`${key}_${i}`] || []));
+        data[key] = arr;
+      }
+      delete data._chunks;
+    }
+    return data;
   } catch (err) {
     console.error('loadUserData:', err);
     return null;
@@ -210,14 +226,56 @@ export async function getUserPlanFromFirestore(uid) {
   }
 }
 
+// Firestore rejects documents over 1MB. Real customer data (hundreds of
+// employees, thousands of access records) blows past that as a single doc —
+// every write then fails and the SDK's retry queue floods ("Write stream
+// exhausted"). So the unbounded arrays are stored as size-capped slices in a
+// /userdata/{uid}/chunks subcollection, reassembled on load. Small collections
+// (tools, contracts, invoices, licenses, user, settings) stay inline.
+const CHUNKED_KEYS = ['employees', 'access', 'audit_log'];
+const CHUNK_MAX_CHARS = 500000; // ~500KB serialized per slice
+
 export async function saveUserData(uid, db) {
   if (!firestoreDb) return;
   try {
-    await setDoc(
-      doc(firestoreDb, 'userdata', uid),
-      { ...db, _uid: uid, _updatedAt: Date.now() },
-      { merge: false }
-    );
+    const meta = { ...db, _uid: uid, _updatedAt: Date.now() };
+    const chunkCounts = {};
+    const batch = writeBatch(firestoreDb);
+    const chunksRef = collection(firestoreDb, 'userdata', uid, 'chunks');
+
+    for (const key of CHUNKED_KEYS) {
+      const arr = Array.isArray(db[key]) ? db[key] : [];
+      delete meta[key];
+      const slices = [];
+      let current = [];
+      let size = 0;
+      for (const item of arr) {
+        const itemSize = JSON.stringify(item).length;
+        if (size + itemSize > CHUNK_MAX_CHARS && current.length) {
+          slices.push(current);
+          current = [];
+          size = 0;
+        }
+        current.push(item);
+        size += itemSize;
+      }
+      if (current.length || slices.length === 0) slices.push(current);
+      chunkCounts[key] = slices.length;
+      slices.forEach((items, i) => batch.set(doc(chunksRef, `${key}_${i}`), { items }));
+    }
+    meta._chunks = chunkCounts;
+    batch.set(doc(firestoreDb, 'userdata', uid), meta);
+
+    // Remove slices left over from a previous, larger save.
+    const existing = await getDocs(chunksRef);
+    existing.forEach(d => {
+      const m = d.id.match(/^(.+)_(\d+)$/);
+      if (!m || !(m[1] in chunkCounts) || Number(m[2]) >= chunkCounts[m[1]]) {
+        batch.delete(d.ref);
+      }
+    });
+
+    await batch.commit();
   } catch (err) {
     console.error('saveUserData:', err);
     throw err;
