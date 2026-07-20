@@ -517,11 +517,54 @@ exports.founderops = onRequest({ cors: true, timeoutSeconds: 30 }, async (req, r
         await db.collection('userdata').doc(targetUid).delete();
         return res.json({ ok: true });
       }
+      // Recent client-side crashes captured by the clientErrors endpoint.
+      if (action === 'listErrors') {
+        const snap = await db.collection('client_errors').orderBy('at', 'desc').limit(50).get();
+        return res.json({ errors: snap.docs.map(d => d.data()) });
+      }
       return res.status(400).json({ error: 'Unknown action' });
     } catch (err) {
       console.error('founderAdmin error:', err);
       return res.status(500).json({ error: 'Internal error' });
     }
+  });
+});
+
+// ── Client crash reporting ───────────────────────────────────────────────
+// The SPA posts uncaught errors here (see src/main.jsx). No auth: crashes can
+// happen before sign-in. Abuse is bounded by strict size caps, a small
+// per-instance throttle, and the capped client_errors collection (pruned to
+// ~300 docs). Client access to the collection is blocked by default-deny rules.
+let _errReports = 0;
+setInterval(() => { _errReports = 0; }, 60 * 1000).unref?.();
+exports.clientErrors = onRequest({ cors: true, timeoutSeconds: 10 }, async (req, res) => {
+  cors(req, res, async () => {
+    if (req.method === 'OPTIONS') return res.status(204).send('');
+    if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
+    if (_errReports++ > 120) return res.status(429).json({ error: 'Too many reports' });
+    try {
+      const b = req.body || {};
+      const doc = {
+        message: String(b.message || '').slice(0, 500),
+        stack:   String(b.stack   || '').slice(0, 1500),
+        url:     String(b.url     || '').slice(0, 200),
+        ua:      String(b.ua      || '').slice(0, 200),
+        at: new Date().toISOString(),
+      };
+      if (!doc.message) return res.status(400).json({ error: 'message required' });
+      console.error('CLIENT ERROR:', doc.message, '@', doc.url);
+      const db = getFirestore();
+      await db.collection('client_errors').add(doc);
+      if (Math.random() < 0.05) {
+        const old = await db.collection('client_errors').orderBy('at', 'desc').offset(300).limit(100).get();
+        if (!old.empty) {
+          const batch = db.batch();
+          old.forEach(d => batch.delete(d.ref));
+          await batch.commit();
+        }
+      }
+      return res.json({ ok: true });
+    } catch { return res.status(500).json({ error: 'failed' }); }
   });
 });
 
@@ -703,6 +746,53 @@ exports.api = onRequest({ timeoutSeconds: 30 }, async (req, res) => {
 
 // ── Daily Alerts (SendGrid) ──────────────────────────────────────────────
 const { onSchedule } = require('firebase-functions/v2/scheduler');
+
+// ── Weekly data backup ───────────────────────────────────────────────────
+// Copies every /userdata doc (+ its chunks subcollection) into /backups so a
+// client-side bug that corrupts or wipes a user's blob can be recovered from a
+// copy no client code can touch (default-deny rules; Admin SDK only). Keeps
+// ~5 weeks, pruning older snapshots.
+exports.weeklyBackup = onSchedule({
+  schedule: 'every sunday 03:00',
+  timeZone: 'Europe/Paris',
+  region: 'us-central1',
+  timeoutSeconds: 540,
+}, async () => {
+  const db = getFirestore();
+  const now = new Date();
+  const stamp = now.toISOString().slice(0, 10);
+  const snap = await db.collection('userdata').get();
+  let backed = 0;
+  for (const docSnap of snap.docs) {
+    try {
+      const backupRef = db.collection('backups').doc(`${docSnap.id}__${stamp}`);
+      await backupRef.set({ uid: docSnap.id, created_at: stamp, data: docSnap.data() });
+      const chunks = await docSnap.ref.collection('chunks').get();
+      let batch = db.batch(); let n = 0;
+      for (const c of chunks.docs) {
+        batch.set(backupRef.collection('chunks').doc(c.id), c.data());
+        if (++n % 400 === 0) { await batch.commit(); batch = db.batch(); }
+      }
+      if (n % 400 !== 0 || n === 0) await batch.commit();
+      backed++;
+    } catch (err) {
+      console.error('weeklyBackup failed for', docSnap.id, err?.message);
+    }
+  }
+  const cutoff = new Date(now); cutoff.setDate(cutoff.getDate() - 35);
+  const olds = await db.collection('backups').where('created_at', '<', cutoff.toISOString().slice(0, 10)).get();
+  for (const o of olds.docs) {
+    const cs = await o.ref.collection('chunks').get();
+    let batch = db.batch(); let n = 0;
+    for (const c of cs.docs) {
+      batch.delete(c.ref);
+      if (++n % 400 === 0) { await batch.commit(); batch = db.batch(); }
+    }
+    batch.delete(o.ref);
+    await batch.commit();
+  }
+  console.log('Weekly backup:', backed, 'users backed up;', olds.size, 'old snapshots pruned');
+});
 
 // Rollout switch: while true, alert emails only go to founder accounts so the
 // feature can be validated live before customers receive anything. Flip to

@@ -51,6 +51,41 @@ jobs:
           path: dist/
           retention-days: 1
 
+  # Staging: every PR gets its own throwaway preview URL (expires in 7 days)
+  # so risky UI changes can be clicked through before touching stacklens.fr.
+  # Uses the production backend — it's a hosting preview, not a data sandbox.
+  # Non-blocking: a preview failure never gates a merge (build stays the gate).
+  preview:
+    runs-on: ubuntu-latest
+    needs: build
+    continue-on-error: true
+    permissions:
+      contents: read
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Download dist artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+
+      - name: Write service account credentials
+        env:
+          SA_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_ACCESSGUARD_V2 }}
+        run: |
+          echo "$SA_JSON" > "$RUNNER_TEMP/sa.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/sa.json" >> "$GITHUB_ENV"
+
+      - name: Deploy preview channel
+        run: firebase hosting:channel:deploy "pr-${{ github.event.number }}" --expires 7d --project accessguard-v2 --non-interactive
+
   deploy:
     runs-on: ubuntu-latest
     needs: build

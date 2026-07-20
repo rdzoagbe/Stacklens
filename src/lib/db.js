@@ -103,7 +103,11 @@ export async function hydrateFromFirestore(uid) {
 
     const freshLocal = loadDb();
     const localTs = freshLocal?._saved_at || 0;
-    const cloudTs = cloudData?._saved_at  || 0;
+    // The cloud copy is stamped _updatedAt by saveUserData (the local blob's
+    // _saved_at is added at serialize time and never reaches the cloud), so
+    // reading only _saved_at made cloudTs 0 — local silently won every time,
+    // losing newer data saved from another device.
+    const cloudTs = cloudData?._saved_at || cloudData?._updatedAt || 0;
 
     // Billing fields always come from Firestore (only the webhook can set them)
     const mergeBilling = (target, cloud) => {
