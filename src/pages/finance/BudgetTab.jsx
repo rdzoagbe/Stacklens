@@ -1,6 +1,8 @@
 import React, { useMemo, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
-import { Upload, FileText, TrendingUp, AlertTriangle, CheckCircle2, X } from 'lucide-react';
+import { Upload, FileText, TrendingUp, AlertTriangle, CheckCircle2, X, Printer, FileSpreadsheet } from 'lucide-react';
+import { downloadText } from '../../lib/dataUtils';
+import { buildBudgetCsv, buildBudgetReportHtml, openPrintReport } from '../../lib/budget-report';
 import { useDbQuery, useDbMutations } from '../../hooks/useDbQuery';
 import { useLang } from '../../contexts/LangContext';
 import { useTranslation } from '../../translations';
@@ -186,6 +188,35 @@ export function BudgetTabContent() {
     over: { icon: AlertTriangle, cls: 'text-red-400',     label: t('budget_over') },
   };
 
+  // ── Board-ready exports ──
+  const exportLabels = {
+    title: t('budget_report_title'), department: t('budget_department'), annual: t('budget_annual'),
+    monthly: t('budget_monthly_burn'), spent: t('budget_spent_ytd'), projected: t('budget_projected'),
+    status: t('budget_consumption'), total: t('budget_total'), unallocated: t('budget_unallocated'),
+    onTrack: t('budget_on_track'), atRisk: t('budget_at_risk'), over: t('budget_over'),
+    runRate: t('budget_run_rate'), actuals: t('budget_actuals_12m'), nextYear: t('budget_next_year'),
+    generated: t('budget_report_generated'), method: t('budget_estimate_note'),
+  };
+  const exportPdf = () => {
+    try {
+      openPrintReport(buildBudgetReportHtml({
+        rows, totals, unallocated, year,
+        cards: {
+          runRate: cur(runRateAnnual), runRateSub: cur(totals.monthly + unallocated) + '/mo',
+          actuals: invoiceActuals12m > 0 ? cur(invoiceActuals12m) : '—', actualsSub: invoiceActuals12m > 0 ? t('budget_from_invoices') : '',
+          nextYear: cur(suggestedNextYear), nextYearSub: t('budget_next_year_hint'),
+        },
+        labels: exportLabels, cur,
+        company: db?.user?.company || db?.user?.email || '',
+        generatedAt: new Date().toLocaleDateString(language),
+      }));
+    } catch { toast.error(t('budget_export_popup')); }
+  };
+  const exportCsv = () => {
+    downloadText(`stacklens-budget-${year}.csv`,
+      buildBudgetCsv({ rows, totals, unallocated, year, labels: exportLabels, sep: language === 'en' ? ',' : ';' }));
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -210,6 +241,14 @@ export function BudgetTabContent() {
           </button>
           <input ref={fileRef} type="file" accept=".csv,.txt" className="hidden"
             onChange={e => { const f = e.target.files?.[0]; if (f) importCsv(f); e.target.value = ''; }} />
+          <button onClick={exportPdf} title={t('budget_export_pdf')}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-semibold transition-colors">
+            <Printer size={15} /> PDF
+          </button>
+          <button onClick={exportCsv} title={t('budget_export_csv')}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-semibold transition-colors">
+            <FileSpreadsheet size={15} /> Excel
+          </button>
         </div>
       </div>
       <p className="text-xs text-slate-600">{t('budget_csv_hint')} · {t('budget_estimate_note')}</p>
