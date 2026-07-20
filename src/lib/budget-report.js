@@ -77,6 +77,70 @@ export function buildBudgetReportHtml({ rows, totals, unallocated, year, cards, 
   </body></html>`;
 }
 
+// Direct-download PDF (jsPDF + autotable, dynamically imported): header,
+// three stat cards, styled department table with colored status, footnotes.
+export async function buildBudgetPdfBlob({ rows, totals, unallocated, year, cards, labels, cur, company, generatedAt }) {
+  const { jsPDF } = await import('jspdf');
+  const autoTable = (await import('jspdf-autotable')).default;
+  const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+  const cap = (s) => String(s).replace(/(^|\s)\w/g, ch => ch.toUpperCase());
+
+  doc.setFontSize(20); doc.setFont(undefined, 'bold'); doc.setTextColor(15, 23, 42);
+  doc.text('Stacklens', 40, 50);
+  doc.setFontSize(12); doc.setFont(undefined, 'normal'); doc.setTextColor(51, 65, 85);
+  doc.text(`${labels.title} — ${year}`, 40, 68);
+  doc.setFontSize(9); doc.setTextColor(120, 120, 120);
+  if (company) doc.text(String(company), 555, 50, { align: 'right' });
+  doc.text(`${labels.generated} ${generatedAt}`, 555, 64, { align: 'right' });
+
+  const cardsY = 92; const cardW = 165;
+  [[labels.runRate, cards.runRate, cards.runRateSub],
+   [labels.actuals, cards.actuals, cards.actualsSub],
+   [labels.nextYear, cards.nextYear, cards.nextYearSub]].forEach((c, i) => {
+    const x = 40 + i * (cardW + 10);
+    doc.setDrawColor(226, 232, 240);
+    doc.roundedRect(x, cardsY, cardW, 54, 6, 6);
+    doc.setFontSize(7); doc.setTextColor(120, 120, 120); doc.setFont(undefined, 'normal');
+    doc.text(String(c[0]).toUpperCase().slice(0, 40), x + 10, cardsY + 14);
+    doc.setFontSize(14); doc.setTextColor(15, 23, 42); doc.setFont(undefined, 'bold');
+    doc.text(String(c[1]), x + 10, cardsY + 33);
+    doc.setFont(undefined, 'normal'); doc.setFontSize(8); doc.setTextColor(120, 120, 120);
+    doc.text(String(c[2] || '').slice(0, 42), x + 10, cardsY + 46);
+  });
+
+  const statusText = (r) => r.status === 'over' ? labels.over : r.status === 'risk' ? labels.atRisk : r.status === 'ok' ? labels.onTrack : '—';
+  const statusColor = { over: [220, 38, 38], risk: [217, 119, 6], ok: [5, 150, 105] };
+  autoTable(doc, {
+    startY: cardsY + 72,
+    head: [[labels.department, labels.annual, labels.monthly, labels.spent, labels.projected, labels.status]],
+    body: rows.map(r => [
+      cap(r.dept), r.budget > 0 ? cur(r.budget) : '—', cur(r.monthly),
+      cur(r.spentYtd) + (r.budget > 0 ? ` (${Math.round((r.spentYtd / r.budget) * 100)}%)` : ''),
+      cur(r.projected), statusText(r),
+    ]),
+    foot: [[labels.total, totals.budget > 0 ? cur(totals.budget) : '—', cur(totals.monthly), cur(totals.spentYtd), cur(totals.projected), '']],
+    styles: { fontSize: 9, textColor: [15, 23, 42] },
+    headStyles: { fillColor: [239, 246, 255], textColor: [30, 41, 59], fontStyle: 'bold' },
+    footStyles: { fillColor: [248, 250, 252], textColor: [15, 23, 42], fontStyle: 'bold' },
+    didParseCell: (d) => {
+      if (d.section === 'body' && d.column.index === 5) {
+        const c = statusColor[rows[d.row.index]?.status];
+        if (c) { d.cell.styles.textColor = c; d.cell.styles.fontStyle = 'bold'; }
+      }
+    },
+  });
+
+  let y = (doc.lastAutoTable?.finalY || cardsY + 72) + 18;
+  if (unallocated > 0) {
+    doc.setFontSize(9); doc.setTextColor(146, 64, 14);
+    doc.text(`${labels.unallocated}: ${cur(unallocated)}/mo`, 40, y);
+    y += 14;
+  }
+  doc.setFontSize(8); doc.setTextColor(148, 163, 184);
+  doc.text(doc.splitTextToSize(String(labels.method), 515), 40, y);
+  return doc.output('blob');
+}
+
 // Real .xlsx workbook (bold headers, column widths, number formats, colored
 // status) — exceljs is dynamically imported so its weight only loads on click.
 export async function buildBudgetXlsxBlob({ rows, totals, unallocated, year, labels }) {

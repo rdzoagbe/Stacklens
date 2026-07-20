@@ -2,7 +2,7 @@ import React, { useMemo, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import { Upload, FileText, TrendingUp, AlertTriangle, CheckCircle2, X, Printer, FileSpreadsheet } from 'lucide-react';
 import { downloadText } from '../../lib/dataUtils';
-import { buildBudgetCsv, buildBudgetReportHtml, buildBudgetXlsxBlob, downloadBlob, openPrintReport } from '../../lib/budget-report';
+import { buildBudgetCsv, buildBudgetPdfBlob, buildBudgetXlsxBlob, downloadBlob } from '../../lib/budget-report';
 import { useDbQuery, useDbMutations } from '../../hooks/useDbQuery';
 import { useLang } from '../../contexts/LangContext';
 import { useTranslation } from '../../translations';
@@ -199,9 +199,9 @@ export function BudgetTabContent() {
     runRate: t('budget_run_rate'), actuals: t('budget_actuals_12m'), nextYear: t('budget_next_year'),
     generated: t('budget_report_generated'), method: t('budget_estimate_note'),
   };
-  const exportPdf = () => {
+  const exportPdf = async () => {
     try {
-      openPrintReport(buildBudgetReportHtml({
+      const blob = await buildBudgetPdfBlob({
         rows, totals, unallocated, year,
         cards: {
           runRate: cur(runRateAnnual), runRateSub: cur(totals.monthly + unallocated) + '/mo',
@@ -211,8 +211,9 @@ export function BudgetTabContent() {
         labels: exportLabels, cur,
         company: db?.user?.company || db?.user?.email || '',
         generatedAt: new Date().toLocaleDateString(language),
-      }));
-    } catch { toast.error(t('budget_export_popup')); }
+      });
+      downloadBlob(`stacklens-budget-${year}.pdf`, blob);
+    } catch (err) { toast.error(t('budget_export_failed') + ': ' + (err.message || '')); }
   };
   const exportExcel = async () => {
     try {
