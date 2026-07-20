@@ -2,7 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { loadUserData, logConsent } from '../firebase-config';
+import { loadUserData, logConsent, workspaceMine, workspaceRead } from '../firebase-config';
+import { enterSharedView, exitSharedView, getSharedView } from '../lib/db';
+import { useQueryClient } from '@tanstack/react-query';
 import { resolvePlan, getTrialState, getPlanLimits, isFounderUser } from '../lib/plan';
 import { cx } from '../lib/utils';
 import { useDbQuery } from '../hooks/useDbQuery';
@@ -559,6 +561,70 @@ export function TrialExpiredBanner() {
   );
 }
 
+// ── Shared workspaces: offer banner + read-only viewing banner ───────────
+// Module-level cache so the list is fetched once per page load, not on every
+// navigation (AppShell remounts per page).
+let _workspacesPromise = null;
+
+export function SharedWorkspaceBanner() {
+  const { language } = useLang();
+  const t = useTranslation(language);
+  const { firebaseUser, isDemo } = useAuth();
+  const qc = useQueryClient();
+  const [workspaces, setWorkspaces] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const shared = getSharedView();
+
+  useEffect(() => {
+    if (!firebaseUser || isDemo) return;
+    if (!_workspacesPromise) _workspacesPromise = workspaceMine().catch(() => ({ workspaces: [] }));
+    let alive = true;
+    _workspacesPromise.then(r => { if (alive) setWorkspaces(r.workspaces || []); });
+    return () => { alive = false; };
+  }, [firebaseUser, isDemo]);
+
+  const openWorkspace = async (w) => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const { data } = await workspaceRead(w.owner_uid);
+      enterSharedView(data, { owner_uid: w.owner_uid, owner_email: w.owner_email });
+      qc.invalidateQueries({ queryKey: ['db'] });
+      toast.success(t('ws_opened'));
+    } catch (err) {
+      toast.error(t('ws_open_failed') + ': ' + (err.message || ''));
+    } finally { setBusy(false); }
+  };
+
+  if (shared) {
+    return (
+      <div className="flex flex-wrap items-center justify-center gap-3 bg-amber-500/10 border-b border-amber-500/30 px-4 py-2 text-sm">
+        <span className="text-amber-300 font-semibold">
+          👁 {t('ws_viewing')} <span className="font-mono">{shared.owner_email || shared.owner_uid}</span> — {t('ws_readonly')}
+        </span>
+        <button onClick={() => { exitSharedView(); qc.invalidateQueries({ queryKey: ['db'] }); }}
+          className="px-3 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-xs font-bold transition-colors">
+          {t('ws_exit')}
+        </button>
+      </div>
+    );
+  }
+  if (!workspaces.length) return null;
+  return (
+    <div className="flex flex-wrap items-center justify-center gap-3 bg-indigo-500/10 border-b border-indigo-500/30 px-4 py-2 text-sm">
+      <span className="text-indigo-300">
+        🤝 {workspaces.length > 1 ? t('ws_offer_many') : `${workspaces[0].owner_email || 'Un collègue'} ${t('ws_offer')}`}
+      </span>
+      {workspaces.map(w => (
+        <button key={w.owner_uid} onClick={() => openWorkspace(w)} disabled={busy}
+          className="px-3 py-1 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-200 text-xs font-bold transition-colors disabled:opacity-50">
+          {t('ws_view')}{workspaces.length > 1 ? ` — ${w.owner_email || w.owner_uid}` : ''}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function DemoBanner() {
   const { isDemo } = useAuth();
   const navigate = useNavigate();
@@ -634,6 +700,7 @@ export function AppShell({ _subtitle, title, right, children }) {
     <div className="min-h-screen bg-slate-950 text-slate-100 overflow-x-hidden">
       <div className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.18),transparent_52%),radial-gradient(circle_at_bottom,rgba(99,102,241,0.10),transparent_55%)]" />
       <DemoBanner />
+      <SharedWorkspaceBanner />
       <TrialExpiredBanner />
       <div className="flex flex-col md:flex-row w-full overflow-x-hidden md:h-screen">
         <div className="hidden md:block flex-shrink-0">

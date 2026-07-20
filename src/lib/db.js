@@ -74,6 +74,9 @@ export function saveDb(db) {
     }
     localStorage.setItem(LS_KEY, serialized);
   }
+  // A shared-view copy (someone else's workspace, read-only) must NEVER be
+  // synced to the cloud — neither to the owner's doc nor over the viewer's own.
+  if (db?._shared_view) return;
   if (_firestoreUid && db?.user?.is_authenticated && !db?.user?.is_demo) {
     // Debounced: rapid consecutive edits produce one cloud write (the chunked
     // backup is several documents per save; un-debounced bursts previously
@@ -85,8 +88,46 @@ export function saveDb(db) {
 }
 let _cloudSaveTimer = null;
 
+// ── Shared workspaces (read-only viewer mode) ────────────────────────────
+// Entering a shared view stashes the viewer's own blob and replaces it with
+// the owner's data flagged _shared_view + role 'viewer' (all existing
+// RoleGates hide edit controls). saveDb refuses to cloud-sync the flagged
+// copy, and hydration restores the viewer's own workspace on reload.
+const OWN_BACKUP_KEY = 'sg_own_workspace_backup';
+
+export function enterSharedView(sharedDb, meta) {
+  const current = localStorage.getItem(LS_KEY);
+  try {
+    if (current && !JSON.parse(current)?._shared_view) localStorage.setItem(OWN_BACKUP_KEY, current);
+  } catch { /* unreadable blob — don't overwrite an existing backup with it */ }
+  const view = {
+    ...sharedDb,
+    _shared_view: meta, // { owner_uid, owner_email }
+    user: { ...(sharedDb.user || {}), role: 'viewer', is_authenticated: true, is_demo: false },
+  };
+  localStorage.setItem(LS_KEY, JSON.stringify(view));
+  return view;
+}
+
+export function exitSharedView() {
+  const backup = localStorage.getItem(OWN_BACKUP_KEY);
+  if (backup) {
+    localStorage.setItem(LS_KEY, backup);
+    localStorage.removeItem(OWN_BACKUP_KEY);
+  } else {
+    localStorage.removeItem(LS_KEY);
+  }
+}
+
+export function getSharedView() {
+  try { return JSON.parse(localStorage.getItem(LS_KEY) || 'null')?._shared_view || null; } catch { return null; }
+}
+
 export async function hydrateFromFirestore(uid) {
   _firestoreUid = uid;
+  // Never hydrate over (or cloud-compare against) a shared-view copy —
+  // put the viewer's own workspace back first.
+  if (getSharedView()) exitSharedView();
   try {
     const cloudData = await loadUserData(uid);
     const localData = loadDb();
