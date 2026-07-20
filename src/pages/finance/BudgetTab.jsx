@@ -7,7 +7,7 @@ import { useDbQuery, useDbMutations } from '../../hooks/useDbQuery';
 import { useLang } from '../../contexts/LangContext';
 import { useTranslation } from '../../translations';
 import { getCurrency, convertCurrency } from '../../lib/currency';
-import { callAI } from '../../firebase-config';
+import { callAI, invoiceInboxAddress, invoiceInboxList, invoiceInboxAck } from '../../firebase-config';
 import { UNALLOCATED, allocateSpendByDepartment, parseBudgetCsv, monthlyAmountFromInvoice } from '../../lib/budget';
 
 function yearElapsedFraction(year) {
@@ -37,7 +37,26 @@ export function BudgetTabContent() {
   const [drafts, setDrafts] = useState({}); // department -> input string while editing
 
   // Invoice import modal state
-  const [importState, setImportState] = useState(null); // null | {phase:'working',done,total} | {phase:'review',rows,errors}
+  const [importState, setImportState] = useState(null); // null | {phase:'working',done,total} | {phase:'review',rows,errors,inboxIds?}
+
+  // Email-in inbox: unique address + invoices that arrived by email
+  const [inboxAddress, setInboxAddress] = useState('');
+  const [inboxItems, setInboxItems] = useState([]);
+  React.useEffect(() => {
+    let alive = true;
+    invoiceInboxAddress().then(r => { if (alive) setInboxAddress(r.address || ''); }).catch(() => {});
+    invoiceInboxList().then(r => { if (alive) setInboxItems(r.items || []); }).catch(() => {});
+    return () => { alive = false; };
+  }, []);
+
+  const reviewInboxItems = () => {
+    setImportState({
+      phase: 'review',
+      errors: [],
+      inboxIds: inboxItems.map(i => i.id),
+      rows: inboxItems.map(i => ({ ...i, monthly: monthlyAmountFromInvoice(i), include: true })),
+    });
+  };
 
   const budgets = useMemo(() => (db?.budgets || []).filter(b => b.year === year), [db, year]);
   // All department keys are matched case-insensitively — "Sales" from an
@@ -156,11 +175,17 @@ export function BudgetTabContent() {
   };
 
   const applyInvoices = () => {
-    const selected = (importState?.rows || []).filter(r => r.include).map(({ include: _i, ...r }) => r);
-    if (!selected.length) { setImportState(null); return; }
-    importInvoices.mutate(selected, {
-      onSuccess: () => toast.success(`${selected.length} ${t('budget_inv_applied')}`),
-    });
+    const selected = (importState?.rows || []).filter(r => r.include).map(({ include: _i, id: _id, ...r }) => r);
+    const inboxIds = importState?.inboxIds;
+    if (selected.length) {
+      importInvoices.mutate(selected, {
+        onSuccess: () => toast.success(`${selected.length} ${t('budget_inv_applied')}`),
+      });
+    }
+    // Reviewed email invoices leave the staging inbox whether applied or unticked.
+    if (inboxIds?.length) {
+      invoiceInboxAck(inboxIds).then(() => setInboxItems([])).catch(() => {});
+    }
     setImportState(null);
   };
 
@@ -261,6 +286,28 @@ export function BudgetTabContent() {
         </div>
       </div>
       <p className="text-xs text-slate-600">{t('budget_csv_hint')} · {t('budget_estimate_note')}</p>
+
+      {inboxAddress && (
+        <p className="text-xs text-slate-500">
+          📧 {t('budget_inbox_hint')}{' '}
+          <button onClick={() => { navigator.clipboard?.writeText(inboxAddress); toast.success(t('budget_inbox_copied')); }}
+            className="font-mono text-indigo-400 hover:text-indigo-300 underline decoration-dotted" title={t('budget_inbox_copy')}>
+            {inboxAddress}
+          </button>
+        </p>
+      )}
+
+      {inboxItems.length > 0 && (
+        <div className="rounded-2xl bg-emerald-500/5 border border-emerald-500/20 p-4 flex items-center justify-between gap-3">
+          <div className="text-sm text-emerald-300 font-semibold">
+            📬 {inboxItems.length} {t('budget_inbox_pending')}
+          </div>
+          <button onClick={reviewInboxItems}
+            className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold transition-colors shrink-0">
+            {t('budget_inbox_review')}
+          </button>
+        </div>
+      )}
 
       <div className="grid sm:grid-cols-3 gap-4">
         <div className="rounded-2xl bg-slate-900/60 border border-slate-800 p-4">

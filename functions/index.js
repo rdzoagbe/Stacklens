@@ -744,6 +744,169 @@ exports.api = onRequest({ timeoutSeconds: 30 }, async (req, res) => {
 });
 
 
+// ── Invoice email inbox ──────────────────────────────────────────────────
+// Each user gets a unique address invoices-{token}@in.stacklens.fr. SendGrid
+// Inbound Parse posts incoming mail to invoiceInbound; PDF attachments are
+// text-extracted and AI-parsed server-side, then staged in /inbox_invoices
+// for review in the Budget tab. Nothing touches the user's data blob until
+// they apply the rows client-side (client remains the blob's only writer).
+const INBOX_DOMAIN = 'in.stacklens.fr';
+
+exports.invoiceInbox = onRequest({ cors: true, timeoutSeconds: 30 }, async (req, res) => {
+  cors(req, res, async () => {
+    if (req.method === 'OPTIONS') return res.status(204).send('');
+    if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
+    const decoded = await verifyAuth(req, res); if (!decoded) return;
+    const db = getFirestore();
+    const { action, ids } = req.body || {};
+    try {
+      if (action === 'get') {
+        const userRef = db.collection('users').doc(decoded.uid);
+        const snap = await userRef.get();
+        let token = snap.exists ? snap.data().invoice_inbox_token : null;
+        if (!token) {
+          token = nodeCrypto.randomBytes(6).toString('hex');
+          await db.collection('inbox_tokens').doc(token).set({ uid: decoded.uid, created_at: new Date().toISOString() });
+          await userRef.set({ invoice_inbox_token: token }, { merge: true });
+        }
+        return res.json({ address: `invoices-${token}@${INBOX_DOMAIN}` });
+      }
+      if (action === 'list') {
+        const snap = await db.collection('inbox_invoices').doc(decoded.uid)
+          .collection('items').orderBy('received_at', 'desc').limit(50).get();
+        return res.json({ items: snap.docs.map(d => ({ id: d.id, ...d.data() })) });
+      }
+      if (action === 'ack') {
+        if (!Array.isArray(ids) || !ids.length || ids.length > 100) return res.status(400).json({ error: 'ids required' });
+        const batch = db.batch();
+        ids.forEach(id => batch.delete(
+          db.collection('inbox_invoices').doc(decoded.uid).collection('items').doc(String(id))));
+        await batch.commit();
+        return res.json({ ok: true });
+      }
+      return res.status(400).json({ error: 'Unknown action' });
+    } catch (err) {
+      console.error('invoiceInbox error:', err);
+      return res.status(500).json({ error: 'Internal error' });
+    }
+  });
+});
+
+function parseMultipart(req) {
+  return new Promise((resolve, reject) => {
+    const Busboy = require('busboy');
+    const bb = Busboy({ headers: req.headers, limits: { fileSize: 10 * 1024 * 1024, files: 8 } });
+    const fields = {}; const files = [];
+    bb.on('field', (name, val) => { fields[name] = val; });
+    bb.on('file', (name, stream, info) => {
+      const chunks = [];
+      stream.on('data', c => chunks.push(c));
+      stream.on('limit', () => stream.resume());
+      stream.on('end', () => files.push({ filename: info.filename || name, mimeType: info.mimeType || '', buffer: Buffer.concat(chunks) }));
+    });
+    bb.on('error', reject);
+    bb.on('finish', () => resolve({ fields, files }));
+    bb.end(req.rawBody);
+  });
+}
+
+const INVOICE_EXTRACT_PROMPT = `You are an invoice data extractor. Below are one or more supplier invoices (raw text). For EACH invoice, extract the fields and return ONLY a JSON array (no markdown, no commentary):
+[{"file_index": 1, "vendor": "supplier name", "amount": 123.45, "currency": "EUR", "invoice_date": "YYYY-MM-DD", "period_start": "YYYY-MM-DD or null", "period_end": "YYYY-MM-DD or null", "billing_cycle": "monthly" | "yearly" | "quarterly" | "one_time"}]
+Rules: amount is the total including tax. billing_cycle is your best inference from the service period or wording (a 12-month period = yearly). Use null when a field is not present. vendor is the company SELLING the service.`;
+
+async function extractInvoicesWithAI(apiKey, texts) {
+  const rows = [];
+  for (let i = 0; i < texts.length; i += 5) {
+    const batch = texts.slice(i, i + 5);
+    const content = INVOICE_EXTRACT_PROMPT + '\n\n' +
+      batch.map((b, j) => `--- INVOICE ${j + 1} (${b.name}) ---\n${b.text}`).join('\n\n');
+    try {
+      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-5', max_tokens: 2000, thinking: { type: 'disabled' },
+          messages: [{ role: 'user', content }],
+        }),
+      });
+      const out = await resp.json();
+      if (!resp.ok) { console.warn('extractInvoicesWithAI api error:', out?.error?.message); continue; }
+      const raw = (out.content?.[0]?.text || '[]').replace(/```json|```/g, '').trim();
+      const parsed = JSON.parse(raw);
+      (Array.isArray(parsed) ? parsed : []).forEach(p => {
+        const amount = Number(p.amount || 0);
+        const vendor = String(p.vendor || '').trim().slice(0, 120);
+        if (!vendor || !(amount > 0)) return;
+        rows.push({
+          vendor, amount,
+          currency: String(p.currency || 'EUR').slice(0, 8),
+          invoice_date: p.invoice_date || null,
+          period_start: p.period_start || null,
+          period_end: p.period_end || null,
+          billing_cycle: ['monthly', 'yearly', 'quarterly', 'one_time'].includes(p.billing_cycle) ? p.billing_cycle : 'one_time',
+          file: batch[(p.file_index || 1) - 1]?.name || '',
+          source: 'email',
+        });
+      });
+    } catch (e) { console.warn('extractInvoicesWithAI failed:', e?.message); }
+  }
+  return rows;
+}
+
+// SendGrid Inbound Parse webhook. Unauthenticated by nature — bounded by the
+// token lookup (unknown tokens dropped), attachment caps, and a per-instance
+// throttle. Always answers 200 so SendGrid never retry-loops.
+let _inboundCount = 0;
+setInterval(() => { _inboundCount = 0; }, 60 * 1000).unref?.();
+exports.invoiceInbound = onRequest({ cors: false, timeoutSeconds: 120, memory: '512MiB', secrets: [ANTHROPIC_API_KEY] }, async (req, res) => {
+  if (req.method !== 'POST') return res.status(405).send('POST only');
+  if (_inboundCount++ > 60) return res.status(200).send('throttled');
+  try {
+    const { fields, files } = await parseMultipart(req);
+    const to = String(fields.to || fields.envelope || '');
+    const m = to.match(/invoices-([a-z0-9]{8,16})@/i);
+    if (!m) return res.status(200).send('ignored');
+    const db = getFirestore();
+    const tokenSnap = await db.collection('inbox_tokens').doc(m[1].toLowerCase()).get();
+    if (!tokenSnap.exists) return res.status(200).send('unknown token');
+    const uid = tokenSnap.data().uid;
+
+    const pdfParse = require('pdf-parse');
+    const texts = [];
+    for (const f of files.slice(0, 5)) {
+      if (!f.buffer?.length || f.buffer.length > 8 * 1024 * 1024) continue;
+      if (!(/pdf/i.test(f.mimeType) || /\.pdf$/i.test(f.filename))) continue;
+      try {
+        const out = await pdfParse(f.buffer);
+        if (out.text && out.text.trim().length > 40) texts.push({ name: f.filename, text: out.text.slice(0, 3000) });
+      } catch (e) { console.warn('invoiceInbound pdf failed:', f.filename, e?.message); }
+    }
+    // No readable attachments — many vendors put the invoice in the email body.
+    if (!texts.length && fields.text && String(fields.text).trim().length > 80) {
+      texts.push({ name: 'email body', text: String(fields.text).slice(0, 3000) });
+    }
+    if (!texts.length) return res.status(200).send('no readable content');
+
+    const rows = await extractInvoicesWithAI(ANTHROPIC_API_KEY.value(), texts);
+    if (rows.length) {
+      const batch = db.batch();
+      const col = db.collection('inbox_invoices').doc(uid).collection('items');
+      rows.forEach(r => batch.set(col.doc(), {
+        ...r,
+        from: String(fields.from || '').slice(0, 200),
+        subject: String(fields.subject || '').slice(0, 200),
+        received_at: new Date().toISOString(),
+      }));
+      await batch.commit();
+    }
+    console.log('invoiceInbound:', uid, texts.length, 'docs →', rows.length, 'invoices staged');
+    return res.status(200).send('ok');
+  } catch (err) {
+    console.error('invoiceInbound error:', err);
+    return res.status(200).send('error');
+  }
+});
+
 // ── Daily Alerts (SendGrid) ──────────────────────────────────────────────
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 

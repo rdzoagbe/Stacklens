@@ -650,6 +650,23 @@ async function callApiKeys(body) {
   if (!res.ok) throw new Error(data.error || 'API key request failed');
   return data;
 }
+// Invoice email inbox — unique per-user address + staged invoices from email
+async function callInvoiceInbox(body) {
+  const token = await getToken();
+  if (!token) throw new Error('Not authenticated');
+  const res = await fetch(`${FUNCTIONS_BASE}/invoiceInbox`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Invoice inbox request failed');
+  return data;
+}
+export const invoiceInboxAddress = () => callInvoiceInbox({ action: 'get' });
+export const invoiceInboxList    = () => callInvoiceInbox({ action: 'list' });
+export const invoiceInboxAck     = (ids) => callInvoiceInbox({ action: 'ack', ids });
+
 export const apiKeysList   = () => callApiKeys({ action: 'list' });
 export const apiKeysCreate = (name) => callApiKeys({ action: 'create', name });
 export const apiKeysRevoke = (keyId) => callApiKeys({ action: 'revoke', keyId });
