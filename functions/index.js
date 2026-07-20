@@ -701,66 +701,184 @@ exports.api = onRequest({ timeoutSeconds: 30 }, async (req, res) => {
 });
 
 
-// ── Renewal Alert Emails (SendGrid) ──────────────────────────────────────
+// ── Daily Alerts (SendGrid) ──────────────────────────────────────────────
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 
-exports.renewalAlerts = onSchedule({
-  schedule: 'every 24 hours',
-  timeZone: 'Europe/London',
+// Rollout switch: while true, alert emails only go to founder accounts so the
+// feature can be validated live before customers receive anything. Flip to
+// false to enable for everyone (replaces the old always-on renewalAlerts).
+const ALERTS_FOUNDERS_ONLY = true;
+
+// Server-side twin of src/lib/budget.js allocateSpendByDepartment.
+function allocSpendByDept(data) {
+  const empDept = {};
+  (data.employees || []).forEach(e => { empDept[e.id] = (e.department || '').trim() || 'other'; });
+  const seatsByTool = {};
+  (data.access || []).filter(a => a.status === 'active').forEach(a => {
+    const dept = empDept[a.employee_id];
+    if (!dept) return;
+    if (!seatsByTool[a.tool_id]) seatsByTool[a.tool_id] = {};
+    seatsByTool[a.tool_id][dept] = (seatsByTool[a.tool_id][dept] || 0) + 1;
+  });
+  const byDept = {};
+  (data.tools || []).filter(t => t.status !== 'archived').forEach(tool => {
+    const cost = Number(tool.cost_per_month || tool.cost_monthly || tool.cost || 0);
+    if (!cost) return;
+    const seats = seatsByTool[tool.id];
+    const totalSeats = seats ? Object.values(seats).reduce((s, n) => s + n, 0) : 0;
+    if (!totalSeats) return; // unallocated spend has no department budget to breach
+    Object.entries(seats).forEach(([dept, n]) => {
+      byDept[dept] = (byDept[dept] || 0) + cost * (n / totalSeats);
+    });
+  });
+  return byDept;
+}
+
+// Spent-to-date per department, matching the Budget tab: recorded monthly
+// snapshots where they exist, run-rate fallback elsewhere.
+function spentToDateByDept(data, byDeptMonthly, now) {
+  const year = now.getFullYear();
+  const hist = Object.fromEntries((data.spend_history || []).map(s => [s.month, s]));
+  const completed = now.getMonth();
+  const frac = (now.getDate() - 1) / new Date(year, now.getMonth() + 1, 0).getDate();
+  const out = {};
+  Object.entries(byDeptMonthly).forEach(([dept, monthly]) => {
+    let sum = 0;
+    for (let m = 0; m < completed; m++) {
+      const snap = hist[`${year}-${String(m + 1).padStart(2, '0')}`];
+      sum += snap?.by_department?.[dept] ?? monthly;
+    }
+    out[dept] = sum + monthly * frac;
+  });
+  return out;
+}
+
+exports.dailyAlerts = onSchedule({
+  schedule: 'every day 08:30',
+  timeZone: 'Europe/Paris',
   region: 'us-central1',
   secrets: [SENDGRID_API_KEY],
 }, async () => {
   const sgMail = require('@sendgrid/mail');
   sgMail.setApiKey(SENDGRID_API_KEY.value());
   const db = getFirestore();
-  const today = new Date();
-  const in30 = new Date(today); in30.setDate(today.getDate() + 30);
-  const todayStr = today.toISOString().slice(0,10);
-  const in30Str = in30.toISOString().slice(0,10);
-
+  const now = new Date();
+  const todayStr = now.toISOString().slice(0, 10);
+  const fmt = (n) => Math.round(n).toLocaleString('en-GB');
   let sent = 0;
-  const seenEmails = new Set();
-  let lastDoc = null;
-  const BATCH_SIZE = 100;
 
-  while (true) {
-    let q = db.collection('userdata').limit(BATCH_SIZE);
-    if (lastDoc) q = q.startAfter(lastDoc);
-    const snapshot = await q.get();
-    if (snapshot.empty) break;
-    lastDoc = snapshot.docs[snapshot.docs.length - 1];
+  const snapshot = await db.collection('userdata').get();
+  for (const docSnap of snapshot.docs) {
+    const uid = docSnap.id;
+    if (ALERTS_FOUNDERS_ONLY && !FOUNDER_UIDS.includes(uid)) continue;
+    const data = await assembleUserdata(docSnap);
+    const email = data?.user?.email;
+    if (!email) continue;
+    if (data?.user?.daily_alerts === false) continue;
 
-    for (const doc of snapshot.docs) {
-      const data = doc.data();
-      // Field absence means opted-in (default on); only skip explicit opt-out
-      if (data?.user?.renewal_alerts === false) continue;
-      const email = data?.user?.email;
-      const tools = data?.tools || [];
-      if (!email) continue;
-      if (seenEmails.has(email)) continue;
-      const upcoming = tools.filter(t => t.renewal_date >= todayStr && t.renewal_date <= in30Str);
-      if (!upcoming.length) continue;
-      const rows = upcoming.map(t => {
-        const days = Math.floor((new Date(t.renewal_date) - today) / 86400000);
-        const cost = t.cost_per_month ? '$' + (t.cost_per_month * 12).toLocaleString() + '/yr' : '-';
-        const color = days <= 7 ? '#ef4444' : '#f59e0b';
-        return `<tr><td style="padding:8px;color:#e2e8f0;border-bottom:1px solid #334155">${t.name}</td><td style="padding:8px;color:#94a3b8;border-bottom:1px solid #334155">${t.renewal_date}</td><td style="padding:8px;color:${color};border-bottom:1px solid #334155;font-weight:bold">${days} days</td><td style="padding:8px;color:#e2e8f0;border-bottom:1px solid #334155">${cost}</td></tr>`;
-      }).join('');
-      const critical = upcoming.filter(t => Math.floor((new Date(t.renewal_date) - today) / 86400000) <= 7);
+    // Memory of what was already alerted — one email per event, ever.
+    const stateRef = db.collection('alert_state').doc(uid);
+    const stateSnap = await stateRef.get();
+    const sentKeys = stateSnap.exists ? (stateSnap.data().sent || {}) : {};
+    const newKeys = {};
+    const alerts = { renewals: [], budgets: [], security: [] };
+
+    // 1) Renewals crossing the 30-day and 7-day thresholds (once each).
+    if (data?.user?.renewal_alerts !== false) {
+      (data.tools || []).forEach(t => {
+        if (!t.renewal_date || t.renewal_date < todayStr) return;
+        const days = Math.floor((new Date(t.renewal_date) - now) / 86400000);
+        const idBase = `renewal_${t.id || t.name}_${t.renewal_date}`;
+        for (const threshold of [30, 7]) {
+          const key = `${idBase}_${threshold}`;
+          if (days <= threshold && !sentKeys[key] && !newKeys[key]) {
+            newKeys[key] = todayStr;
+            alerts.renewals.push({ name: t.name, date: t.renewal_date, days, annual: (Number(t.cost_per_month) || 0) * 12 });
+            break; // one line per tool per run — the tighter threshold wins
+          }
+        }
+      });
+    }
+
+    // 2) Department budgets crossing 80% / 100% consumption (once each per year).
+    const year = now.getFullYear();
+    const budgets = (data.budgets || []).filter(b => b.year === year && b.annual > 0);
+    if (budgets.length) {
+      const byDeptMonthly = allocSpendByDept(data);
+      const spent = spentToDateByDept(data, byDeptMonthly, now);
+      budgets.forEach(b => {
+        const pct = ((spent[b.department] || 0) / b.annual) * 100;
+        for (const threshold of [100, 80]) {
+          const key = `budget_${year}_${b.department}_${threshold}`;
+          if (pct >= threshold && !sentKeys[key] && !newKeys[key]) {
+            newKeys[key] = todayStr;
+            alerts.budgets.push({ department: b.department, pct: Math.round(pct), budget: b.annual, spent: Math.round(spent[b.department] || 0) });
+            break;
+          }
+        }
+      });
+    }
+
+    // 3) Former employees whose access is still active (once per employee).
+    const inactive = (data.employees || []).filter(e => e.status && e.status !== 'active');
+    const inactiveById = Object.fromEntries(inactive.map(e => [e.id, e]));
+    const flagged = new Set();
+    (data.access || []).forEach(a => {
+      const emp = inactiveById[a.employee_id];
+      if (!emp || a.status === 'revoked' || flagged.has(emp.id)) return;
+      const key = `exaccess_${emp.id}`;
+      if (sentKeys[key] || newKeys[key]) return;
+      flagged.add(emp.id);
+      newKeys[key] = todayStr;
+      const count = (data.access || []).filter(x => x.employee_id === emp.id && x.status !== 'revoked').length;
+      alerts.security.push({ name: emp.full_name || emp.email, count });
+    });
+
+    const total = alerts.renewals.length + alerts.budgets.length + alerts.security.length;
+    if (!total) continue;
+
+    const section = (title, rows) => rows.length ? `
+      <div style="margin-top:20px"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#3b82f6;margin-bottom:8px">${title}</div>${rows.join('')}</div>` : '';
+    const line = (text, detail, color = '#e2e8f0') => `
+      <div style="padding:10px 12px;background:#1e293b;border-radius:8px;margin-bottom:6px">
+        <span style="color:${color};font-weight:700;font-size:14px">${text}</span>
+        <span style="color:#94a3b8;font-size:13px"> — ${detail}</span>
+      </div>`;
+
+    const html = `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;background:#0f172a;border-radius:12px;overflow:hidden">
+      <div style="padding:24px;background:#1e293b"><h1 style="color:white;margin:0 0 4px;font-size:22px">Stacklens</h1><p style="color:#94a3b8;margin:0">${total} new alert${total > 1 ? 's' : ''} in your environment</p></div>
+      <div style="padding:24px">
+        ${section('Upcoming renewals', alerts.renewals.map(r => line(r.name, `renews ${r.date} (${r.days} days)` + (r.annual ? ` · €${fmt(r.annual)}/yr` : ''), r.days <= 7 ? '#ef4444' : '#f59e0b')))}
+        ${section('Budget thresholds', alerts.budgets.map(b => line(b.department, `${b.pct}% of annual budget consumed (€${fmt(b.spent)} of €${fmt(b.budget)})`, b.pct >= 100 ? '#ef4444' : '#f59e0b')))}
+        ${section('Access security', alerts.security.map(s => line(s.name, `no longer active but still holds ${s.count} access grant${s.count > 1 ? 's' : ''}`, '#ef4444')))}
+        <div style="text-align:center;margin-top:24px"><a href="https://stacklens.fr/dashboard" style="background:#3b82f6;color:white;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block">Open Stacklens →</a></div>
+      </div>
+      <div style="padding:16px;text-align:center;border-top:1px solid #1e293b"><p style="color:#475569;font-size:12px;margin:0">Stacklens · <a href="https://stacklens.fr/settings" style="color:#475569">Manage notifications</a></p></div>
+    </div>`;
+
+    const worst = alerts.security.length ? `🚨 ${alerts.security[0].name} still has access`
+      : alerts.budgets.length ? `⚠️ ${alerts.budgets[0].department} budget at ${alerts.budgets[0].pct}%`
+      : `🔔 ${alerts.renewals[0].name} renews in ${alerts.renewals[0].days} days`;
+
+    try {
       await sgMail.send({
         to: email,
         from: { email: 'hello@stacklens.fr', name: 'Stacklens' },
-        subject: critical.length ? `🚨 ${critical.length} contract(s) renewing in 7 days` : `🔔 ${upcoming.length} upcoming SaaS renewal(s)`,
-        html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;background:#0f172a;border-radius:12px;overflow:hidden"><div style="padding:24px;background:#1e293b"><h1 style="color:white;margin:0 0 4px;font-size:22px">Stacklens</h1><p style="color:#94a3b8;margin:0">Upcoming SaaS Renewals</p></div><div style="padding:24px"><p style="color:#94a3b8;margin:0 0 16px">You have <strong style="color:white">${upcoming.length} contract(s)</strong> renewing in the next 30 days.</p><table style="width:100%;border-collapse:collapse"><thead><tr><th style="padding:8px;text-align:left;color:#3b82f6;font-size:11px;text-transform:uppercase">Tool</th><th style="padding:8px;text-align:left;color:#3b82f6;font-size:11px;text-transform:uppercase">Renewal Date</th><th style="padding:8px;text-align:left;color:#3b82f6;font-size:11px;text-transform:uppercase">Days Left</th><th style="padding:8px;text-align:left;color:#3b82f6;font-size:11px;text-transform:uppercase">Annual Cost</th></tr></thead><tbody>${rows}</tbody></table><div style="text-align:center;margin-top:24px"><a href="https://stacklens.fr/finance" style="background:#3b82f6;color:white;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block">Review Renewals →</a></div></div><div style="padding:16px;text-align:center;border-top:1px solid #1e293b"><p style="color:#475569;font-size:12px;margin:0">Stacklens · <a href="https://stacklens.fr/settings" style="color:#475569">Manage notifications</a></p></div></div>`,
+        subject: total > 1 ? `${worst} (+${total - 1} more)` : worst,
+        html,
       });
-      seenEmails.add(email);
+      // Only remember alerts that were actually delivered; prune entries older
+      // than 400 days so the doc never grows unbounded.
+      const cutoff = new Date(now); cutoff.setDate(cutoff.getDate() - 400);
+      const cutoffStr = cutoff.toISOString().slice(0, 10);
+      const pruned = Object.fromEntries(Object.entries({ ...sentKeys, ...newKeys }).filter(([, d]) => d >= cutoffStr));
+      await stateRef.set({ sent: pruned }, { merge: false });
       sent++;
+    } catch (err) {
+      console.error('dailyAlerts send failed for', email, err?.message);
     }
-
-    if (snapshot.docs.length < BATCH_SIZE) break;
   }
-
-  console.log('Renewal alerts sent:', sent);
+  console.log('Daily alerts sent:', sent);
 });
 
 // ── Weekly Summary Email (every Monday 09:00 Europe/Paris) ───────────────
