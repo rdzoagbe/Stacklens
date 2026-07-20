@@ -203,6 +203,17 @@ export function useDbMutations() {
     onSuccess: invalidate,
   });
 
+  // Replace the full department-budget list (rows: { year, department, annual })
+  const setBudgets = useMutation({
+    mutationFn: async (budgets) => {
+      setDb((db) => {
+        db.budgets = budgets;
+        return db;
+      });
+    },
+    onSuccess: invalidate,
+  });
+
   const setAuth = useMutation({
     mutationFn: async (patch) => {
       setDb((db) => {
@@ -447,6 +458,6 @@ export function useDbMutations() {
     createTool, updateTool, deleteTool,
     createEmployee, updateEmployee, deleteEmployee,
     createAccess, updateAccess, deleteAccess,
-    setPlan, setAuth, bulkImport,
+    setPlan, setAuth, setBudgets, bulkImport,
   };
 }
