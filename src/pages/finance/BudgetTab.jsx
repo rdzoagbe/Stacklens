@@ -2,7 +2,7 @@ import React, { useMemo, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import { Upload, FileText, TrendingUp, AlertTriangle, CheckCircle2, X, Printer, FileSpreadsheet } from 'lucide-react';
 import { downloadText } from '../../lib/dataUtils';
-import { buildBudgetCsv, buildBudgetReportHtml, openPrintReport } from '../../lib/budget-report';
+import { buildBudgetCsv, buildBudgetReportHtml, buildBudgetXlsxBlob, downloadBlob, openPrintReport } from '../../lib/budget-report';
 import { useDbQuery, useDbMutations } from '../../hooks/useDbQuery';
 import { useLang } from '../../contexts/LangContext';
 import { useTranslation } from '../../translations';
@@ -40,7 +40,9 @@ export function BudgetTabContent() {
   const [importState, setImportState] = useState(null); // null | {phase:'working',done,total} | {phase:'review',rows,errors}
 
   const budgets = useMemo(() => (db?.budgets || []).filter(b => b.year === year), [db, year]);
-  const budgetByDept = useMemo(() => Object.fromEntries(budgets.map(b => [b.department, b.annual])), [budgets]);
+  // All department keys are matched case-insensitively — "Sales" from an
+  // import and "sales" typed by hand are the same department.
+  const budgetByDept = useMemo(() => Object.fromEntries(budgets.map(b => [(b.department || '').toLowerCase(), b.annual])), [budgets]);
 
   const monthlyByDept = useMemo(
     () => allocateSpendByDepartment({ tools: db?.tools, employees: db?.employees, access: db?.access }),
@@ -49,9 +51,9 @@ export function BudgetTabContent() {
 
   const departments = useMemo(() => {
     const set = new Set();
-    (db?.employees || []).forEach(e => { const d = (e.department || '').trim(); if (d) set.add(d); });
+    (db?.employees || []).forEach(e => { const d = (e.department || '').trim().toLowerCase(); if (d) set.add(d); });
     Object.keys(monthlyByDept).forEach(d => { if (d !== UNALLOCATED) set.add(d); });
-    budgets.forEach(b => set.add(b.department));
+    budgets.forEach(b => { const d = (b.department || '').toLowerCase(); if (d) set.add(d); });
     return Array.from(set).sort((a, b) => (monthlyByDept[b] || 0) - (monthlyByDept[a] || 0));
   }, [db, monthlyByDept, budgets]);
 
@@ -84,7 +86,7 @@ export function BudgetTabContent() {
 
   const saveBudget = (department, value) => {
     const annual = Math.round(Number(String(value).replace(/[^0-9.]/g, '')) || 0);
-    const others = (db?.budgets || []).filter(b => !(b.year === year && b.department === department));
+    const others = (db?.budgets || []).filter(b => !(b.year === year && (b.department || '').toLowerCase() === department));
     const next = annual > 0 ? [...others, { year, department, annual }] : others;
     setBudgets.mutate(next);
   };
@@ -212,9 +214,15 @@ export function BudgetTabContent() {
       }));
     } catch { toast.error(t('budget_export_popup')); }
   };
-  const exportCsv = () => {
-    downloadText(`stacklens-budget-${year}.csv`,
-      buildBudgetCsv({ rows, totals, unallocated, year, labels: exportLabels, sep: language === 'en' ? ',' : ';' }));
+  const exportExcel = async () => {
+    try {
+      const blob = await buildBudgetXlsxBlob({ rows, totals, unallocated, year, labels: exportLabels });
+      downloadBlob(`stacklens-budget-${year}.xlsx`, blob);
+    } catch {
+      // exceljs failed to load (offline, blocked chunk) — fall back to CSV
+      downloadText(`stacklens-budget-${year}.csv`,
+        buildBudgetCsv({ rows, totals, unallocated, year, labels: exportLabels, sep: language === 'en' ? ',' : ';' }));
+    }
   };
 
   return (
@@ -245,7 +253,7 @@ export function BudgetTabContent() {
             className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-semibold transition-colors">
             <Printer size={15} /> PDF
           </button>
-          <button onClick={exportCsv} title={t('budget_export_csv')}
+          <button onClick={exportExcel} title={t('budget_export_csv')}
             className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-semibold transition-colors">
             <FileSpreadsheet size={15} /> Excel
           </button>

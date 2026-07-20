@@ -77,6 +77,57 @@ export function buildBudgetReportHtml({ rows, totals, unallocated, year, cards, 
   </body></html>`;
 }
 
+// Real .xlsx workbook (bold headers, column widths, number formats, colored
+// status) — exceljs is dynamically imported so its weight only loads on click.
+export async function buildBudgetXlsxBlob({ rows, totals, unallocated, year, labels }) {
+  const ExcelJS = (await import('exceljs')).default;
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet(String(year));
+  ws.mergeCells(1, 1, 1, 6);
+  const title = ws.getCell(1, 1);
+  title.value = `${labels.title} — ${year}`;
+  title.font = { bold: true, size: 14 };
+  const header = ws.addRow([labels.department, labels.annual, labels.monthly, labels.spent, labels.projected, labels.status]);
+  header.font = { bold: true };
+  header.eachCell(c => {
+    c.border = { bottom: { style: 'medium' } };
+    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEFF6FF' } };
+  });
+  const cap = (s) => String(s).replace(/(^|\s)\w/g, ch => ch.toUpperCase());
+  rows.forEach(r => {
+    const row = ws.addRow([
+      cap(r.dept),
+      r.budget > 0 ? Math.round(r.budget) : null,
+      Math.round(r.monthly), Math.round(r.spentYtd), Math.round(r.projected),
+      r.budget > 0 ? r.spentYtd / r.budget : null,
+    ]);
+    if (r.budget > 0) {
+      const st = row.getCell(6);
+      st.numFmt = '0%';
+      st.font = { bold: true, color: { argb: r.status === 'over' ? 'FFDC2626' : r.status === 'risk' ? 'FFD97706' : 'FF059669' } };
+    }
+  });
+  const totalRow = ws.addRow([labels.total, totals.budget > 0 ? Math.round(totals.budget) : null,
+    Math.round(totals.monthly), Math.round(totals.spentYtd), Math.round(totals.projected), null]);
+  totalRow.font = { bold: true };
+  totalRow.eachCell(c => { c.border = { top: { style: 'medium' } }; });
+  if (unallocated > 0) {
+    ws.addRow([labels.unallocated, null, Math.round(unallocated), null, null, null]).font = { italic: true };
+  }
+  ws.getColumn(1).width = 26;
+  [2, 3, 4, 5].forEach(i => { const col = ws.getColumn(i); col.width = 16; col.numFmt = '#,##0'; });
+  ws.getColumn(6).width = 18;
+  const buf = await wb.xlsx.writeBuffer();
+  return new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+}
+
+export function downloadBlob(filename, blob) {
+  const a = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  a.href = url; a.download = filename; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
 // Print via a hidden same-page iframe: nothing for popup blockers to block,
 // and the print dialog opens directly over the app.
 export function openPrintReport(html) {
