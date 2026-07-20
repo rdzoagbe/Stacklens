@@ -74,13 +74,24 @@ export function buildBudgetReportHtml({ rows, totals, unallocated, year, cards, 
   </table>
   ${unallocated > 0 ? `<p style="font-size:12px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 12px;margin-top:14px"><strong>${esc(labels.unallocated)}:</strong> ${cur(unallocated)}/mo</p>` : ''}
   <p style="font-size:11px;color:#94a3b8;margin-top:20px">${esc(labels.method)}</p>
-  <script>window.addEventListener('load', () => setTimeout(() => window.print(), 250));</script>
   </body></html>`;
 }
 
+// Print via a hidden same-page iframe: nothing for popup blockers to block,
+// and the print dialog opens directly over the app.
 export function openPrintReport(html) {
-  const w = window.open('', '_blank', 'noopener,width=900,height=1000');
-  if (!w) throw new Error('popup_blocked');
-  w.document.write(html);
-  w.document.close();
+  const frame = document.createElement('iframe');
+  frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+  document.body.appendChild(frame);
+  frame.onload = () => {
+    try {
+      frame.contentWindow.focus();
+      frame.contentWindow.print();
+    } finally {
+      // Chrome blocks here until the dialog closes; Firefox returns at once
+      // and needs the frame alive while the dialog is open — remove late.
+      setTimeout(() => frame.remove(), 60_000);
+    }
+  };
+  frame.srcdoc = html;
 }
