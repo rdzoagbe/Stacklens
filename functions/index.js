@@ -744,6 +744,102 @@ exports.api = onRequest({ timeoutSeconds: 30 }, async (req, res) => {
 });
 
 
+// ── Workspace sharing (read-only viewers) ────────────────────────────────
+// An owner invites teammates by email; when the invitee signs in with that
+// email, the client offers the shared workspace and reads it THROUGH THIS
+// ENDPOINT only. Viewers never receive Firestore credentials for the owner's
+// data — /workspace_members is server-only and no security rule was widened.
+const MAX_WORKSPACE_MEMBERS = 10;
+
+exports.workspace = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, res) => {
+  cors(req, res, async () => {
+    if (req.method === 'OPTIONS') return res.status(204).send('');
+    if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
+    const decoded = await verifyAuth(req, res); if (!decoded) return;
+    const db = getFirestore();
+    const { action, email, id, ownerUid } = req.body || {};
+    const callerEmail = (decoded.email || '').toLowerCase();
+    const col = db.collection('workspace_members');
+    try {
+      if (action === 'invite') {
+        const target = String(email || '').toLowerCase().trim();
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(target)) return res.status(400).json({ error: 'Valid email required' });
+        if (target === callerEmail) return res.status(400).json({ error: 'You cannot invite yourself' });
+        // Team sharing is a paid feature (founders exempt).
+        if (!FOUNDER_UIDS.includes(decoded.uid)) {
+          const userSnap = await db.collection('users').doc(decoded.uid).get();
+          const plan = userSnap.exists ? (userSnap.data().plan || userSnap.data().subscription_plan || 'free') : 'free';
+          if (['free', 'trial'].includes(plan) && userSnap.data()?.is_founder !== true) {
+            return res.status(403).json({ error: 'Team sharing requires a paid plan' });
+          }
+        }
+        const existing = await col.where('owner_uid', '==', decoded.uid).get();
+        if (existing.size >= MAX_WORKSPACE_MEMBERS) return res.status(400).json({ error: `Maximum ${MAX_WORKSPACE_MEMBERS} members` });
+        if (existing.docs.some(d => d.data().member_email === target)) return res.status(400).json({ error: 'Already invited' });
+        const ref = await col.add({
+          owner_uid: decoded.uid,
+          owner_email: callerEmail || null,
+          member_email: target,
+          member_uid: null,
+          role: 'viewer',
+          status: 'pending',
+          created_at: new Date().toISOString(),
+        });
+        return res.json({ ok: true, id: ref.id });
+      }
+      if (action === 'members') {
+        const snap = await col.where('owner_uid', '==', decoded.uid).get();
+        return res.json({ members: snap.docs.map(d => ({ id: d.id, ...d.data() })) });
+      }
+      if (action === 'revoke') {
+        const snap = await col.doc(String(id || '')).get();
+        if (!snap.exists || snap.data().owner_uid !== decoded.uid) return res.status(404).json({ error: 'Not found' });
+        await snap.ref.delete();
+        return res.json({ ok: true });
+      }
+      if (action === 'mine') {
+        // Workspaces shared WITH the caller: match by bound uid, plus by email
+        // for pending invites (bind uid on first sight).
+        const byUid = await col.where('member_uid', '==', decoded.uid).get();
+        const out = byUid.docs.map(d => ({ id: d.id, ...d.data() }));
+        if (callerEmail) {
+          const byEmail = await col.where('member_email', '==', callerEmail).get();
+          for (const d of byEmail.docs) {
+            if (out.some(o => o.id === d.id)) continue;
+            await d.ref.update({ member_uid: decoded.uid, status: 'accepted' });
+            out.push({ id: d.id, ...d.data(), member_uid: decoded.uid, status: 'accepted' });
+          }
+        }
+        return res.json({ workspaces: out.map(w => ({ owner_uid: w.owner_uid, owner_email: w.owner_email, role: w.role })) });
+      }
+      if (action === 'read') {
+        const target = String(ownerUid || '');
+        const snap = await col.where('owner_uid', '==', target).get();
+        const me = snap.docs.find(d => d.data().member_uid === decoded.uid ||
+          (callerEmail && d.data().member_email === callerEmail));
+        if (!me) return res.status(403).json({ error: 'Not a member of this workspace' });
+        if (!me.data().member_uid) await me.ref.update({ member_uid: decoded.uid, status: 'accepted' });
+        const dataSnap = await db.collection('userdata').doc(target).get();
+        if (!dataSnap.exists) return res.status(404).json({ error: 'Workspace has no data yet' });
+        const data = await assembleUserdata(dataSnap);
+        // Owner's billing internals never leave the server.
+        const u = data.user || {};
+        data.user = {
+          email: u.email || null, displayName: u.displayName || null, company: u.company || null,
+          plan: u.plan || u.subscription_plan || 'free', subscription_plan: u.subscription_plan || u.plan || 'free',
+          is_founder: u.is_founder === true,
+        };
+        delete data._uid;
+        return res.json({ data });
+      }
+      return res.status(400).json({ error: 'Unknown action' });
+    } catch (err) {
+      console.error('workspace error:', err);
+      return res.status(500).json({ error: 'Internal error' });
+    }
+  });
+});
+
 // ── Invoice email inbox ──────────────────────────────────────────────────
 // Each user gets a unique address invoices-{token}@in.stacklens.fr. SendGrid
 // Inbound Parse posts incoming mail to invoiceInbound; PDF attachments are

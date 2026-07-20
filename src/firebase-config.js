@@ -650,6 +650,25 @@ async function callApiKeys(body) {
   if (!res.ok) throw new Error(data.error || 'API key request failed');
   return data;
 }
+// Workspace sharing — read-only viewers via the server-verified endpoint
+async function callWorkspace(body) {
+  const token = await getToken();
+  if (!token) throw new Error('Not authenticated');
+  const res = await fetch(`${FUNCTIONS_BASE}/workspace`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Workspace request failed');
+  return data;
+}
+export const workspaceInvite  = (email) => callWorkspace({ action: 'invite', email });
+export const workspaceMembers = () => callWorkspace({ action: 'members' });
+export const workspaceRevoke  = (id) => callWorkspace({ action: 'revoke', id });
+export const workspaceMine    = () => callWorkspace({ action: 'mine' });
+export const workspaceRead    = (ownerUid) => callWorkspace({ action: 'read', ownerUid });
+
 // Invoice email inbox — unique per-user address + staged invoices from email
 async function callInvoiceInbox(body) {
   const token = await getToken();
