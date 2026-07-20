@@ -16,6 +16,7 @@ const LazyAnalyticsTab  = React.lazy(() => import('./finance/AnalyticsTab').then
 const LazyLicensesTab   = React.lazy(() => import('./finance/LicensesTab').then(m => ({ default: m.LicenseManagement })));
 const LazyRenewalAlerts = React.lazy(() => import('./finance/RenewalsTab').then(m => ({ default: m.RenewalAlerts })));
 const LazyContractsTab  = React.lazy(() => import('./finance/RenewalsTab').then(m => ({ default: m.ContractsTabContent })));
+const LazyBudgetTab     = React.lazy(() => import('./finance/BudgetTab').then(m => ({ default: m.BudgetTabContent })));
 
 function TabLoader() {
   return (
@@ -85,6 +86,7 @@ export function FinanceDashboard() {
   const TABS = [
     { id: 'overview',   label: t('fin_tab_overview') || 'Overview' },
     { id: 'cost',       label: t('fin_tab_cost') || 'Cost' },
+    { id: 'budget',     label: t('budget_tab') || 'Budget' },
     { id: 'licenses',   label: t('nav_licenses') || 'Licenses' },
     { id: 'renewals',   label: t('renewals_tab') || 'Renewals' },
     { id: 'contracts',  label: t('contracts_tab') || 'Contracts' },
@@ -106,6 +108,7 @@ export function FinanceDashboard() {
     >
       {finTab === 'overview' && <React.Suspense fallback={<TabLoader />}><LazyOverviewTab financialData={_financialData} showBudgetModal={showBudgetModal} setShowBudgetModal={setShowBudgetModal} budgetCap={budgetCap} setBudgetCap={setBudgetCap} selectedBill={selectedBill} setSelectedBill={setSelectedBill} showReclaimModal={showReclaimModal} setShowReclaimModal={setShowReclaimModal} categoryFilter={categoryFilter} setCategoryFilter={setCategoryFilter} setFinTab={setFinTab} /></React.Suspense>}
       {finTab === 'cost' && <React.Suspense fallback={<TabLoader />}><LazyCostTab setFinTab={setFinTab} /></React.Suspense>}
+      {finTab === 'budget' && <React.Suspense fallback={<TabLoader />}><LazyBudgetTab /></React.Suspense>}
       {finTab === 'licenses' && <React.Suspense fallback={<TabLoader />}><LazyLicensesTab /></React.Suspense>}
       {finTab === 'renewals' && <React.Suspense fallback={<TabLoader />}><LazyRenewalAlerts /></React.Suspense>}
       {finTab === 'contracts' && <React.Suspense fallback={<TabLoader />}><LazyContractsTab /></React.Suspense>}
