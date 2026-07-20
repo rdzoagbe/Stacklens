@@ -10,7 +10,8 @@ import { useTranslation } from '../translations';
 import { Button, Input, Select, Textarea, Modal, SkeletonRow, EmptyState, CategoryIcon, RiskBadge, StatusBadge } from '../components/ui';
 import { RoleGate, PlanLimitBanner } from '../components/gates';
 import { AppShell } from '../components/AppShell';
-import { Search, Plus, Pencil, Trash2, ChevronDown, AlertTriangle, Check, X, Boxes } from 'lucide-react';
+import { Search, Plus, Pencil, Trash2, ChevronDown, AlertTriangle, Check, X, Boxes, RefreshCw } from 'lucide-react';
+import { loadGIS, requestReportsToken, fetchTokenActivities, aggregateAppUsage, matchAppsToTools } from '../lib/gws-usage';
 
 export function ToolForm({ initial, employees, onSubmit, onClose }) {
   const { language } = useLang();
@@ -178,6 +179,8 @@ export function ToolsPage() {
   const PAGE_SIZE = 25;
 
   const [open, setOpen] = useState(false);
+  // Google Workspace usage sync: null | {phase:'working'} | {phase:'review', matched, discovered}
+  const [gwsSync, setGwsSync] = useState(null);
   const [editing, setEditing] = useState(null);
   const [expandedTool, setExpandedTool] = useState(null);
   const [showToolOwnerModal, setShowToolOwnerModal] = useState(false);
@@ -242,11 +245,67 @@ export function ToolsPage() {
   const unassignedCount = tools.filter(t => !t.owner_email).length;
   const employees = db?.employees || [];
 
+  // ── Google Workspace usage sync: observed last-use + shadow-IT discovery ──
+  const runGwsUsageSync = async () => {
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+    if (!clientId) { toast.error(t('gws_sync_no_client')); return; }
+    setGwsSync({ phase: 'working' });
+    try {
+      await loadGIS();
+      const token = await requestReportsToken(clientId);
+      const items = await fetchTokenActivities(token, 180);
+      const apps = aggregateAppUsage(items);
+      const { matched, discovered } = matchAppsToTools(apps, db?.tools || []);
+      setGwsSync({
+        phase: 'review',
+        matched,
+        // Single-user discoveries are usually personal experiments — start unticked.
+        discovered: discovered.map(d => ({ ...d, include: d.users >= 2 })),
+      });
+    } catch (err) {
+      setGwsSync(null);
+      if (!/popup_closed|access_denied/.test(err.message || '')) {
+        toast.error(t('gws_sync_failed') + ': ' + err.message);
+      }
+    }
+  };
+
+  const applyGwsUsageSync = async () => {
+    const { matched, discovered } = gwsSync;
+    setGwsSync(null);
+    try {
+      for (const m of matched) {
+        await muts.updateTool.mutateAsync({ id: m.tool.id, patch: {
+          last_used_date: m.lastSeen.slice(0, 10),
+          gws_users: m.users,
+        } });
+      }
+      const toAdd = discovered.filter(d => d.include).map(d => ({
+        name: d.app,
+        category: 'other',
+        status: 'active',
+        cost_per_month: 0,
+        last_used_date: d.lastSeen.slice(0, 10),
+        notes: `Discovered via Google Workspace — ${d.users} user(s) signed in with Google in the last 180 days`,
+      }));
+      if (toAdd.length) await muts.bulkImport.mutateAsync({ kind: 'tools', records: toAdd });
+      toast.success(t('gws_sync_done').replace('{m}', matched.length).replace('{d}', toAdd.length));
+    } catch (err) {
+      toast.error(t('gws_sync_failed') + ': ' + (err.message || ''));
+    }
+  };
+
   return (
     <AppShell
       title={t("nav_tools")}
       right={
         <div className="flex gap-2">
+          <RoleGate requires="editor">
+            <Button variant="secondary" onClick={runGwsUsageSync} disabled={gwsSync?.phase === 'working'}>
+              <RefreshCw className={"h-4 w-4" + (gwsSync?.phase === 'working' ? ' animate-spin' : '')} />
+              {t('gws_sync_btn')}
+            </Button>
+          </RoleGate>
           <RoleGate requires="editor">
             <Button variant="secondary" onClick={() => { setEditing(null); setOpen(true); }}>
               <Plus className="h-4 w-4" />
@@ -551,6 +610,55 @@ export function ToolsPage() {
           )}
         </div>
       </Modal>
+
+      {gwsSync?.phase === 'review' && (
+        <Modal open title={t('gws_sync_title')} onClose={() => setGwsSync(null)}>
+          <div className="space-y-5 max-h-[60vh] overflow-y-auto pr-1">
+            <p className="text-sm text-slate-400">{t('gws_sync_intro')}</p>
+            {gwsSync.matched.length > 0 && (
+              <div>
+                <div className="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-2">
+                  {t('gws_sync_matched')} ({gwsSync.matched.length})
+                </div>
+                <div className="space-y-1.5">
+                  {gwsSync.matched.map((m, i) => (
+                    <div key={i} className="flex items-center justify-between p-2.5 rounded-xl bg-slate-900/60 border border-slate-800 text-sm">
+                      <span className="font-semibold text-white truncate">{m.tool.name}</span>
+                      <span className="text-xs text-slate-500 shrink-0 ml-3">{m.users} {t('gws_sync_users')} · {m.lastSeen.slice(0, 10)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {gwsSync.discovered.length > 0 && (
+              <div>
+                <div className="text-xs font-bold uppercase tracking-wider text-amber-400 mb-2">
+                  {t('gws_sync_discovered')} ({gwsSync.discovered.length})
+                </div>
+                <div className="space-y-1.5">
+                  {gwsSync.discovered.map((d, i) => (
+                    <label key={i} className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-900/60 border border-slate-800 text-sm cursor-pointer">
+                      <input type="checkbox" checked={d.include} className="accent-amber-500"
+                        onChange={e => setGwsSync(s => ({ ...s, discovered: s.discovered.map((x, j) => j === i ? { ...x, include: e.target.checked } : x) }))} />
+                      <span className="font-semibold text-white truncate flex-1">{d.app}</span>
+                      <span className="text-xs text-slate-500 shrink-0">{d.users} {t('gws_sync_users')} · {d.lastSeen.slice(0, 10)}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+            {gwsSync.matched.length === 0 && gwsSync.discovered.length === 0 && (
+              <div className="py-6 text-center text-sm text-slate-500">{t('gws_sync_none')}</div>
+            )}
+            <div className="flex justify-end gap-2 pt-1">
+              <Button variant="secondary" onClick={() => setGwsSync(null)}>{t('cancel')}</Button>
+              {(gwsSync.matched.length > 0 || gwsSync.discovered.some(d => d.include)) && (
+                <Button onClick={applyGwsUsageSync}>{t('gws_sync_apply')}</Button>
+              )}
+            </div>
+          </div>
+        </Modal>
+      )}
 
     </AppShell>
   );
