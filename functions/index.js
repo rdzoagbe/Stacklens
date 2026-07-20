@@ -802,7 +802,8 @@ const ALERTS_FOUNDERS_ONLY = true;
 // Server-side twin of src/lib/budget.js allocateSpendByDepartment.
 function allocSpendByDept(data) {
   const empDept = {};
-  (data.employees || []).forEach(e => { empDept[e.id] = (e.department || '').trim() || 'other'; });
+  // Lowercase keys — mirrors src/lib/budget.js ("Sales" and "sales" are one department)
+  (data.employees || []).forEach(e => { empDept[e.id] = (e.department || '').trim().toLowerCase() || 'other'; });
   const seatsByTool = {};
   (data.access || []).filter(a => a.status === 'active').forEach(a => {
     const dept = empDept[a.employee_id];
@@ -897,7 +898,7 @@ exports.dailyAlerts = onSchedule({
       const byDeptMonthly = allocSpendByDept(data);
       const spent = spentToDateByDept(data, byDeptMonthly, now);
       budgets.forEach(b => {
-        const pct = ((spent[b.department] || 0) / b.annual) * 100;
+        const pct = ((spent[(b.department || '').toLowerCase()] || 0) / b.annual) * 100;
         for (const threshold of [100, 80]) {
           const key = `budget_${year}_${b.department}_${threshold}`;
           if (pct >= threshold && !sentKeys[key] && !newKeys[key]) {

@@ -7,7 +7,10 @@ export const UNALLOCATED = '__unallocated__';
 // each department. Tools with no active seats land in the Unallocated bucket.
 export function allocateSpendByDepartment({ tools = [], employees = [], access = [] }) {
   const empDept = {};
-  employees.forEach(e => { empDept[e.id] = (e.department || '').trim() || 'other'; });
+  // Lowercase the department key: imports capitalize names ("Sales") while
+  // manual entries are often lowercase ("sales") — without normalizing they
+  // show up as two separate departments.
+  employees.forEach(e => { empDept[e.id] = (e.department || '').trim().toLowerCase() || 'other'; });
 
   const seatsByTool = {};
   access.filter(a => a.status === 'active').forEach(a => {
