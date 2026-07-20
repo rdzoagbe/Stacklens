@@ -44,7 +44,7 @@
     "@babel/parser": "^7.29.7",
     "@babel/traverse": "^7.29.7",
     "@eslint/js": "^10.0.1",
-    "@vitejs/plugin-react": "^6.0.2",
+    "@vitejs/plugin-react": "^6.0.3",
     "@vitest/coverage-v8": "^4.1.8",
     "autoprefixer": "^10.5.2",
     "eslint": "^10.6.0",
