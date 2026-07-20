@@ -214,6 +214,48 @@ export function useDbMutations() {
     onSuccess: invalidate,
   });
 
+  // Apply AI-extracted invoices: record them in db.invoice_records and
+  // create/update the matching tool's recurring monthly cost by vendor name.
+  const importInvoices = useMutation({
+    mutationFn: async (rows) => {
+      setDb((db) => {
+        const stamped = rows.map((r) => ({ ...r, id: uid('inv'), imported_at: new Date().toISOString() }));
+        db.invoice_records = [...stamped, ...(db.invoice_records || [])].slice(0, 1000);
+
+        const byName = Object.fromEntries((db.tools || []).map((t) => [(t.name || '').toLowerCase().trim(), t]));
+        rows.forEach((r) => {
+          const monthly = Math.round((r.monthly || 0) * 100) / 100;
+          const nameKey = (r.vendor || '').toLowerCase().trim();
+          if (!nameKey) return;
+          const existing = byName[nameKey];
+          if (existing) {
+            if (monthly > 0) {
+              existing.cost_per_month = monthly;
+              existing.cost_monthly = monthly;
+              existing.cost = monthly;
+            }
+            if (r.period_end && (!existing.renewal_date || existing.renewal_date < r.period_end)) {
+              existing.renewal_date = r.period_end;
+            }
+          } else if (monthly > 0) {
+            const tool = {
+              id: uid('tool'), name: r.vendor, category: 'other', owner_email: '', owner_name: '',
+              criticality: 'medium', url: '', description: '', status: 'active',
+              last_used_date: new Date().toISOString().slice(0, 10),
+              cost_per_month: monthly, cost_monthly: monthly, cost: monthly,
+              renewal_date: r.period_end || '', risk_score: 'low', derived_risk: 'low',
+              notes: 'Created from invoice import',
+            };
+            db.tools = [tool, ...db.tools];
+            byName[nameKey] = tool;
+          }
+        });
+        return db;
+      });
+    },
+    onSuccess: invalidate,
+  });
+
   const setAuth = useMutation({
     mutationFn: async (patch) => {
       setDb((db) => {
@@ -458,6 +500,6 @@ export function useDbMutations() {
     createTool, updateTool, deleteTool,
     createEmployee, updateEmployee, deleteEmployee,
     createAccess, updateAccess, deleteAccess,
-    setPlan, setAuth, setBudgets, bulkImport,
+    setPlan, setAuth, setBudgets, importInvoices, bulkImport,
   };
 }
