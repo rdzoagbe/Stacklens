@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   buildRiskAlerts, computeToolDerivedRisk,
 } from '../lib/dataUtils';
+import { maybeSnapshotSpend } from '../lib/budget';
 import { useDbQuery } from '../hooks/useDbQuery';
 import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
@@ -82,6 +84,14 @@ export function FinanceDashboard() {
     if (db?.user?.budget_cap && db.user.budget_cap !== budgetCap) setBudgetCap(db.user.budget_cap);
   }, [db?.user?.budget_cap, budgetCap]);
   const _financialData = {totalMonthlySpend:_totalSpend,budgetLimit:budgetCap||0,lastMonthSpend:_totalSpend*0.95||45200,upcomingBills:_bills,byCategory:_byCategory,monthlyTrend:_trend,isReal:_fReal,toolCount:_tools.filter(t=>t.status!=='archived').length};
+
+  // Record one spend snapshot per month so the Budget tab's "spent to date"
+  // uses real recorded figures instead of run-rate estimates over time.
+  const qc = useQueryClient();
+  React.useEffect(() => {
+    if (!db) return;
+    if (maybeSnapshotSpend(db)) qc.invalidateQueries({ queryKey: ['db'] });
+  }, [db, qc]);
 
   const TABS = [
     { id: 'overview',   label: t('fin_tab_overview') || 'Overview' },
