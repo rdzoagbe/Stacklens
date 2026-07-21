@@ -22,6 +22,20 @@ const PLAN_COLORS = {
 
 const VALID_PLANS = ['free', 'trial', 'starter', 'hr_finance', 'pro', 'enterprise', 'scale'];
 
+// ISO country code → flag emoji (regional-indicator letters).
+function flagEmoji(code) {
+  if (!code || code.length !== 2) return '📍';
+  return code.toUpperCase().replace(/./g, c => String.fromCodePoint(127397 + c.charCodeAt(0)));
+}
+
+function timeAgo(ms) {
+  const s = Math.floor((Date.now() - ms) / 1000);
+  if (s < 60) return 'just now';
+  const m = Math.floor(s / 60); if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60); if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24); return `${d}d ago`;
+}
+
 function toDate(v) {
   if (!v) return null;
   if (v.toDate) return v.toDate();
@@ -193,6 +207,18 @@ function UserTableRow({ u, onAction }) {
             <option key={p} value={p}>{p.replace('_', ' ')}</option>
           ))}
         </select>
+      </td>
+      <td className="px-4 py-3 text-sm whitespace-nowrap align-middle">
+        {u.last_country ? (
+          <div className="min-w-0">
+            <div className="text-slate-200 truncate">
+              {flagEmoji(u.last_country_code)} {[u.last_city, u.last_country].filter(Boolean).join(', ')}
+            </div>
+            {u.last_seen_at && <div className="text-[11px] text-slate-500">{timeAgo(u.last_seen_at)}</div>}
+          </div>
+        ) : (
+          <span className="text-xs text-slate-600">—</span>
+        )}
       </td>
       <td className="px-4 py-3 text-sm whitespace-nowrap align-middle">
         <div className="flex items-center gap-2">
@@ -460,6 +486,7 @@ export function FounderAdminPage() {
                 <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">User Name</th>
                 <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Registered</th>
                 <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Plan</th>
+                <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Location</th>
                 <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Expiry</th>
               </tr>
             </thead>
