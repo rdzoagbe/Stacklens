@@ -7,11 +7,12 @@ import { enterSharedView, exitSharedView, getSharedView } from '../lib/db';
 import { useQueryClient } from '@tanstack/react-query';
 import { resolvePlan, getTrialState, getPlanLimits, isFounderUser } from '../lib/plan';
 import { cx } from '../lib/utils';
-import { useDbQuery } from '../hooks/useDbQuery';
+import { useDbQuery, useDbMutations } from '../hooks/useDbQuery';
+import { saveDisplayName } from '../firebase-config';
 import { useAuth } from '../hooks/useAuth';
 import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
-import { RDLogo, Button, Modal } from '../components/ui';
+import { RDLogo, Button, Modal, Input } from '../components/ui';
 import {
   LayoutDashboard, Boxes, Users, GitMerge, UserMinus, Shield, BarChart3, Settings,
   ChevronDown, BadgeX, ExternalLink, Languages,
@@ -625,6 +626,51 @@ export function SharedWorkspaceBanner() {
   );
 }
 
+// One-field gate: any signed-in (non-demo) user without a full name must
+// enter one before using the app. Covers email/password and magic-link
+// signups (which never carry a name) and OAuth accounts that returned none —
+// so the Founder view always has Full Name + Email. Users who already have a
+// name (typical Google/Microsoft sign-in) never see this.
+export function NameGate() {
+  const { firebaseUser, isDemo, user } = useAuth();
+  const { language } = useLang();
+  const t = useTranslation(language);
+  const muts = useDbMutations();
+  const [name, setName] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const hasName = !!(firebaseUser?.displayName || user?.displayName);
+  const needsName = !!firebaseUser && !isDemo && !hasName;
+  if (!needsName) return null;
+
+  const submit = async () => {
+    const clean = name.trim();
+    if (clean.length < 2 || saving) return;
+    setSaving(true);
+    try {
+      await saveDisplayName(clean);
+      muts.setAuth.mutate({ displayName: clean });
+    } catch (err) {
+      toast.error(err.message || 'Could not save your name');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal open title={t('name_gate_title')} subtitle={t('name_gate_sub')} onClose={() => {}}>
+      <div className="space-y-4">
+        <Input autoFocus value={name} onChange={e => setName(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') submit(); }}
+          placeholder={t('name_gate_placeholder')} />
+        <Button onClick={submit} disabled={saving || name.trim().length < 2} className="w-full">
+          {saving ? t('sending') : t('name_gate_cta')}
+        </Button>
+      </div>
+    </Modal>
+  );
+}
+
 export function DemoBanner() {
   const { isDemo } = useAuth();
   const navigate = useNavigate();
@@ -699,6 +745,7 @@ export function AppShell({ _subtitle, title, right, children }) {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 overflow-x-hidden">
       <div className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.18),transparent_52%),radial-gradient(circle_at_bottom,rgba(99,102,241,0.10),transparent_55%)]" />
+      <NameGate />
       <DemoBanner />
       <SharedWorkspaceBanner />
       <TrialExpiredBanner />

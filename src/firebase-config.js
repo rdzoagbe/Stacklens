@@ -24,6 +24,7 @@ import {
   isSignInWithEmailLink,
   signInWithEmailLink,
   getIdToken,
+  updateProfile,
 } from 'firebase/auth';
 import {
   getFirestore,
@@ -280,6 +281,20 @@ export async function saveUserData(uid, db) {
     console.error('saveUserData:', err);
     throw err;
   }
+}
+
+// Set the signed-in user's full name on both the Firebase Auth profile and
+// their /users doc. Used by the "enter your name" gate for accounts that
+// arrived without one (email/password, magic link, or an OAuth account with
+// no name), so the founder view always has Full Name + Email.
+export async function saveDisplayName(name) {
+  const clean = String(name || '').trim();
+  if (!clean) throw new Error('Name required');
+  const u = auth.currentUser;
+  if (!u) throw new Error('Not signed in');
+  await updateProfile(u, { displayName: clean });
+  await syncUserProfile({ uid: u.uid, email: u.email, displayName: clean, photoURL: u.photoURL });
+  return clean;
 }
 
 export async function syncUserProfile(user) {
