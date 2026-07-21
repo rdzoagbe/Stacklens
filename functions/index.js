@@ -36,6 +36,11 @@ const cors = require('cors')({
 initializeApp();
 
 const ANTHROPIC_API_KEY     = defineSecret('ANTHROPIC_API_KEY');
+// GoCardless Bank Account Data (open banking). Create both secrets in Secret
+// Manager BEFORE deploying (placeholder values are fine until the feature is
+// activated) — a declared-but-missing secret fails the whole functions deploy.
+const GOCARDLESS_SECRET_ID  = defineSecret('GOCARDLESS_SECRET_ID');
+const GOCARDLESS_SECRET_KEY = defineSecret('GOCARDLESS_SECRET_KEY');
 const STRIPE_SECRET_KEY     = defineSecret('STRIPE_SECRET_KEY');
 const STRIPE_WEBHOOK_SECRET = defineSecret('STRIPE_WEBHOOK_SECRET');
 
@@ -743,6 +748,138 @@ exports.api = onRequest({ timeoutSeconds: 30 }, async (req, res) => {
   }
 });
 
+
+// ── Bank feed (GoCardless Bank Account Data / open banking) ──────────────
+// The user connects their company bank once; 'sync' pulls 90 days of booked
+// transactions and detects recurring outflows (same counterparty in 2+
+// distinct months) — SaaS, hosting, telecom, leases — with real amounts.
+// Nothing is written to the user's data blob server-side: candidates are
+// returned for client-side review and applied by the client.
+const GC_API = 'https://bankaccountdata.gocardless.com/api/v2';
+
+async function gcToken() {
+  const res = await fetch(`${GC_API}/token/new/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ secret_id: GOCARDLESS_SECRET_ID.value().trim(), secret_key: GOCARDLESS_SECRET_KEY.value().trim() }),
+  });
+  const out = await res.json();
+  if (!res.ok) throw new Error(out?.detail || 'GoCardless auth failed — check the GOCARDLESS_* secrets');
+  return out.access;
+}
+async function gcGet(token, path) {
+  const res = await fetch(`${GC_API}${path}`, { headers: { Authorization: `Bearer ${token}` } });
+  const out = await res.json();
+  if (!res.ok) throw new Error(out?.detail || `GoCardless error on ${path}`);
+  return out;
+}
+
+// Group booked outflows by counterparty; recurring = seen in 2+ distinct months.
+function detectRecurring(transactions) {
+  const groups = {};
+  (transactions || []).forEach(tx => {
+    const amount = Number(tx.transactionAmount?.amount || 0);
+    if (!(amount < 0)) return; // outflows only
+    const name = (tx.creditorName || tx.remittanceInformationUnstructured || '').trim();
+    if (!name) return;
+    const key = name.toLowerCase().replace(/[0-9]/g, '').replace(/\s+/g, ' ').slice(0, 40).trim();
+    if (!key) return;
+    if (!groups[key]) groups[key] = { name: name.slice(0, 80), amounts: [], months: new Set(), last: '' };
+    const g = groups[key];
+    g.amounts.push(Math.abs(amount));
+    const date = tx.bookingDate || '';
+    if (date) { g.months.add(date.slice(0, 7)); if (date > g.last) g.last = date; }
+  });
+  return Object.values(groups)
+    .filter(g => g.months.size >= 2)
+    .map(g => {
+      const sorted = [...g.amounts].sort((a, b) => a - b);
+      const median = sorted[Math.floor(sorted.length / 2)];
+      return {
+        vendor: g.name,
+        amount: Math.round(median * 100) / 100,
+        monthly: Math.round(median * 100) / 100,
+        billing_cycle: 'monthly',
+        currency: 'EUR',
+        invoice_date: g.last || null,
+        occurrences: g.amounts.length,
+        source: 'bank',
+      };
+    })
+    .sort((a, b) => b.monthly - a.monthly)
+    .slice(0, 60);
+}
+
+exports.bankfeed = onRequest({ cors: true, timeoutSeconds: 120, secrets: [GOCARDLESS_SECRET_ID, GOCARDLESS_SECRET_KEY] }, async (req, res) => {
+  cors(req, res, async () => {
+    if (req.method === 'OPTIONS') return res.status(204).send('');
+    if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
+    const decoded = await verifyAuth(req, res); if (!decoded) return;
+    // Bank connectivity is an Enterprise-tier feature (founders exempt).
+    if (!FOUNDER_UIDS.includes(decoded.uid)) {
+      const userSnap = await getFirestore().collection('users').doc(decoded.uid).get();
+      const plan = userSnap.exists ? (userSnap.data().plan || userSnap.data().subscription_plan || 'free') : 'free';
+      if (!API_PLANS.has(plan) && userSnap.data()?.is_founder !== true) {
+        return res.status(403).json({ error: 'Bank connectivity requires an Enterprise plan' });
+      }
+    }
+    const db = getFirestore();
+    const reqRef = db.collection('bank_requisitions').doc(decoded.uid);
+    const { action, institutionId, country } = req.body || {};
+    try {
+      if (action === 'institutions') {
+        const token = await gcToken();
+        const list = await gcGet(token, `/institutions/?country=${encodeURIComponent(country || 'FR')}`);
+        return res.json({ institutions: (list || []).map(i => ({ id: i.id, name: i.name, logo: i.logo })) });
+      }
+      if (action === 'connect') {
+        if (!institutionId) return res.status(400).json({ error: 'institutionId required' });
+        const token = await gcToken();
+        const reqz = await fetch(`${GC_API}/requisitions/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            redirect: 'https://stacklens.fr/finance?bank=connected',
+            institution_id: institutionId,
+            reference: `${decoded.uid}_${Date.now()}`,
+          }),
+        });
+        const out = await reqz.json();
+        if (!reqz.ok) throw new Error(out?.detail || 'Could not start the bank connection');
+        await reqRef.set({ requisition_id: out.id, institution_id: institutionId, status: 'pending', created_at: new Date().toISOString() });
+        return res.json({ link: out.link });
+      }
+      if (action === 'status') {
+        const snap = await reqRef.get();
+        return res.json({ connected: snap.exists, institution_id: snap.exists ? snap.data().institution_id : null });
+      }
+      if (action === 'disconnect') {
+        await reqRef.delete();
+        return res.json({ ok: true });
+      }
+      if (action === 'sync') {
+        const snap = await reqRef.get();
+        if (!snap.exists) return res.status(400).json({ error: 'No bank connected yet' });
+        const token = await gcToken();
+        const reqz = await gcGet(token, `/requisitions/${snap.data().requisition_id}/`);
+        if (!reqz.accounts?.length) return res.status(400).json({ error: 'Bank connection not completed yet — finish the bank authorization first' });
+        const all = [];
+        for (const acct of reqz.accounts.slice(0, 3)) {
+          try {
+            const tx = await gcGet(token, `/accounts/${acct}/transactions/`);
+            all.push(...(tx.transactions?.booked || []));
+          } catch (e) { console.warn('bankfeed account read failed:', e?.message); }
+        }
+        await reqRef.set({ status: 'linked', last_sync: new Date().toISOString() }, { merge: true });
+        return res.json({ candidates: detectRecurring(all), transactions_scanned: all.length });
+      }
+      return res.status(400).json({ error: 'Unknown action' });
+    } catch (err) {
+      console.error('bankfeed error:', err);
+      return res.status(500).json({ error: err.message || 'Internal error' });
+    }
+  });
+});
 
 // ── Workspace sharing (read-only viewers) ────────────────────────────────
 // An owner invites teammates by email; when the invitee signs in with that
