@@ -669,6 +669,25 @@ export const workspaceRevoke  = (id) => callWorkspace({ action: 'revoke', id });
 export const workspaceMine    = () => callWorkspace({ action: 'mine' });
 export const workspaceRead    = (ownerUid) => callWorkspace({ action: 'read', ownerUid });
 
+// Bank feed — GoCardless open-banking connection + recurring-charge sync
+async function callBankfeed(body) {
+  const token = await getToken();
+  if (!token) throw new Error('Not authenticated');
+  const res = await fetch(`${FUNCTIONS_BASE}/bankfeed`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Bank feed request failed');
+  return data;
+}
+export const bankInstitutions = (country) => callBankfeed({ action: 'institutions', country });
+export const bankConnect      = (institutionId) => callBankfeed({ action: 'connect', institutionId });
+export const bankStatus       = () => callBankfeed({ action: 'status' });
+export const bankSync         = () => callBankfeed({ action: 'sync' });
+export const bankDisconnect   = () => callBankfeed({ action: 'disconnect' });
+
 // Invoice email inbox — unique per-user address + staged invoices from email
 async function callInvoiceInbox(body) {
   const token = await getToken();
