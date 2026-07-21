@@ -5,7 +5,7 @@ import {
   Users, Clock, Shield, Search,
   Zap, Crown, RefreshCw, Pencil, Check, X, ArrowLeft, Trash2, Mail,
 } from 'lucide-react';
-import { loadAllUsersAdmin, founderExtendTrial, founderSetPlan, founderEnrichProfiles, founderDeleteUser, founderTestEmail } from '../firebase-config';
+import { loadAllUsersAdmin, founderExtendTrial, founderSetPlan, founderEnrichProfiles, founderDeleteUser, founderTestEmail, founderSetBankCreds, founderBankCredsStatus } from '../firebase-config';
 import { getFirestore, doc, updateDoc } from 'firebase/firestore';
 import { useAuth } from '../hooks/useAuth';
 import { isFounderUser } from '../lib/plan';
@@ -258,7 +258,25 @@ export function FounderAdminPage() {
   const [sortBy, setSortBy] = useState('recent');
   const [filterPlan, setFilterPlan] = useState('all');
   const [testingEmail, setTestingEmail] = useState(false);
+  const [bankCfg, setBankCfg] = useState({ configured: false, id: '', secret: '', saving: false });
   const enrichedRef = useRef(false);
+
+  useEffect(() => {
+    founderBankCredsStatus().then(r => setBankCfg(c => ({ ...c, configured: !!r.configured }))).catch(() => {});
+  }, []);
+
+  async function saveBankCreds() {
+    if (!bankCfg.id.trim() || !bankCfg.secret.trim() || bankCfg.saving) return;
+    setBankCfg(c => ({ ...c, saving: true }));
+    try {
+      await founderSetBankCreds(bankCfg.id.trim(), bankCfg.secret.trim());
+      toast.success('Bank (Bridge) credentials saved.', { duration: 6000 });
+      setBankCfg({ configured: true, id: '', secret: '', saving: false });
+    } catch (err) {
+      toast.error('Save failed: ' + err.message);
+      setBankCfg(c => ({ ...c, saving: false }));
+    }
+  }
 
   async function sendTestEmail() {
     setTestingEmail(true);
@@ -436,6 +454,24 @@ export function FounderAdminPage() {
             .join(', ') || 'none'}
           color="text-amber-400"
         />
+      </div>
+
+      <div className="rounded-xl border border-slate-700/50 bg-slate-900/40 p-4">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="text-sm font-semibold text-white">🏦 Bank feed credentials (Bridge)</span>
+          {bankCfg.configured && <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400">Configured</span>}
+        </div>
+        <p className="text-xs text-slate-500 mb-3">Paste your Bridge <b>Client ID</b> and <b>Client Secret</b> here to enable the Budget-tab bank connection. Stored server-side, never shown again.</p>
+        <div className="flex flex-wrap gap-2">
+          <input type="text" value={bankCfg.id} onChange={e => setBankCfg(c => ({ ...c, id: e.target.value }))}
+            placeholder="Bridge Client ID" className="flex-1 min-w-[180px] bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-indigo-500" />
+          <input type="password" value={bankCfg.secret} onChange={e => setBankCfg(c => ({ ...c, secret: e.target.value }))}
+            placeholder="Bridge Client Secret" className="flex-1 min-w-[180px] bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-indigo-500" />
+          <button onClick={saveBankCreds} disabled={bankCfg.saving || !bankCfg.id.trim() || !bankCfg.secret.trim()}
+            className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition-colors disabled:opacity-50">
+            {bankCfg.saving ? 'Saving…' : 'Save'}
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">

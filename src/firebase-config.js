@@ -682,8 +682,7 @@ async function callBankfeed(body) {
   if (!res.ok) throw new Error(data.error || 'Bank feed request failed');
   return data;
 }
-export const bankInstitutions = (country) => callBankfeed({ action: 'institutions', country });
-export const bankConnect      = (institutionId) => callBankfeed({ action: 'connect', institutionId });
+export const bankConnect      = () => callBankfeed({ action: 'connect' });
 export const bankStatus       = () => callBankfeed({ action: 'status' });
 export const bankSync         = () => callBankfeed({ action: 'sync' });
 export const bankDisconnect   = () => callBankfeed({ action: 'disconnect' });
@@ -723,6 +722,22 @@ export async function founderDeleteUser(targetUid) {
   if (!res.ok) throw new Error(data.error || 'Delete failed');
   return data;
 }
+
+// Bank-provider (Bridge) credentials — set/check from the Founder Admin page.
+async function callFounderops(body) {
+  const token = await getToken();
+  if (!token) throw new Error('Not authenticated');
+  const res = await fetch(`${FUNCTIONS_BASE}/founderops`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Request failed');
+  return data;
+}
+export const founderSetBankCreds   = (clientId, clientSecret) => callFounderops({ action: 'setBankCreds', clientId, clientSecret });
+export const founderBankCredsStatus = () => callFounderops({ action: 'bankCredsStatus' });
 
 // Founder diagnostic: send a real test email and get SendGrid's response back.
 export async function founderTestEmail(to) {
