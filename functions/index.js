@@ -38,6 +38,7 @@ initializeApp();
 const ANTHROPIC_API_KEY     = defineSecret('ANTHROPIC_API_KEY');
 // GoCardless Bank Account Data (open banking). Create both secrets in Secret
 // Manager BEFORE deploying (placeholder values are fine until the feature is
+// activated; both secrets exist with placeholder versions as of 2026-07-21).
 // activated) — a declared-but-missing secret fails the whole functions deploy.
 const GOCARDLESS_SECRET_ID  = defineSecret('GOCARDLESS_SECRET_ID');
 const GOCARDLESS_SECRET_KEY = defineSecret('GOCARDLESS_SECRET_KEY');
