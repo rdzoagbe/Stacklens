@@ -368,7 +368,7 @@ exports.refreshClaims = onRequest({ cors: true }, async (req, res) => {
 });
 
 // ── /sendInvite — email a team invite link via SendGrid ───────────────────
-const SENDGRID_API_KEY = defineSecret('SENDGRID_API_KEY');
+const SENDGRID_API_KEY = defineSecret('SENDGRID_API_KEY'); // rotated 2026-07-21 — redeploy binds the new version
 
 exports.sendInvite = onRequest({ cors: true, secrets: [SENDGRID_API_KEY] }, async (req, res) => {
   cors(req, res, async () => {
