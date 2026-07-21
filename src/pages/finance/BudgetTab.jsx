@@ -7,7 +7,7 @@ import { useDbQuery, useDbMutations } from '../../hooks/useDbQuery';
 import { useLang } from '../../contexts/LangContext';
 import { useTranslation } from '../../translations';
 import { getCurrency, convertCurrency } from '../../lib/currency';
-import { callAI, invoiceInboxAddress, invoiceInboxList, invoiceInboxAck, bankInstitutions, bankConnect, bankStatus, bankSync } from '../../firebase-config';
+import { callAI, invoiceInboxAddress, invoiceInboxList, invoiceInboxAck, bankConnect, bankStatus, bankSync } from '../../firebase-config';
 import { Landmark } from 'lucide-react';
 import { UNALLOCATED, allocateSpendByDepartment, parseBudgetCsv, monthlyAmountFromInvoice } from '../../lib/budget';
 
@@ -50,9 +50,9 @@ export function BudgetTabContent() {
     return () => { alive = false; };
   }, []);
 
-  // Bank feed: connection status + institution picker + recurring-charge sync
+  // Bank feed (Bridge): connection status + recurring-charge sync
   const [bank, setBank] = useState({ checked: false, connected: false });
-  const [bankPicker, setBankPicker] = useState(null); // null | {list, q, loading}
+  const [bankBusy, setBankBusy] = useState(false);
   React.useEffect(() => {
     let alive = true;
     bankStatus().then(r => { if (alive) setBank({ checked: true, connected: !!r.connected }); })
@@ -60,21 +60,15 @@ export function BudgetTabContent() {
     return () => { alive = false; };
   }, []);
 
-  const openBankPicker = async () => {
-    setBankPicker({ list: [], q: '', loading: true });
+  const startBankConnect = async () => {
+    if (bankBusy) return;
+    setBankBusy(true);
     try {
-      const { institutions } = await bankInstitutions('FR');
-      setBankPicker({ list: institutions || [], q: '', loading: false });
-    } catch (err) {
-      setBankPicker(null);
-      toast.error(err.message || t('bank_failed'));
-    }
-  };
-  const startBankConnect = async (institutionId) => {
-    try {
-      const { link } = await bankConnect(institutionId);
-      window.location.assign(link); // GoCardless-hosted bank authorization
+      const { link } = await bankConnect();
+      if (link) window.location.assign(link); // Bridge-hosted bank connection
+      else toast.error(t('bank_failed'));
     } catch (err) { toast.error(err.message || t('bank_failed')); }
+    finally { setBankBusy(false); }
   };
   const runBankSync = async () => {
     setImportState({ phase: 'working', done: 0, total: 1 });
@@ -316,8 +310,8 @@ export function BudgetTabContent() {
           </button>
           <input ref={fileRef} type="file" accept=".csv,.txt" className="hidden"
             onChange={e => { const f = e.target.files?.[0]; if (f) importCsv(f); e.target.value = ''; }} />
-          <button onClick={bank.connected ? runBankSync : openBankPicker} title={t(bank.connected ? 'bank_sync_title' : 'bank_connect_title')}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition-colors">
+          <button onClick={bank.connected ? runBankSync : startBankConnect} disabled={bankBusy} title={t(bank.connected ? 'bank_sync_title' : 'bank_connect_title')}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition-colors disabled:opacity-50">
             <Landmark size={15} /> {t(bank.connected ? 'bank_sync_btn' : 'bank_connect_btn')}
           </button>
           <button onClick={exportPdf} title={t('budget_export_pdf')}
@@ -449,35 +443,6 @@ export function BudgetTabContent() {
           <div className="text-sm">
             <span className="font-semibold text-amber-300">{t('budget_unallocated')}: {cur(unallocated)}/mo</span>
             <span className="text-slate-400"> — {t('budget_unallocated_hint')}</span>
-          </div>
-        </div>
-      )}
-
-      {bankPicker && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={() => setBankPicker(null)}>
-          <div className="w-full max-w-md rounded-2xl bg-slate-900 border border-slate-700 p-6 shadow-2xl max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
-            <h3 className="text-lg font-bold text-white mb-1">{t('bank_pick_title')}</h3>
-            <p className="text-xs text-slate-500 mb-3">{t('bank_pick_sub')}</p>
-            {bankPicker.loading ? (
-              <div className="py-10 text-center"><div className="w-7 h-7 mx-auto border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" /></div>
-            ) : (
-              <>
-                <input autoFocus value={bankPicker.q} onChange={e => setBankPicker(s => ({ ...s, q: e.target.value }))}
-                  placeholder={t('bank_search')} className="mb-3 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-indigo-500" />
-                <div className="overflow-y-auto space-y-1 pr-1">
-                  {bankPicker.list
-                    .filter(i => i.name.toLowerCase().includes(bankPicker.q.toLowerCase()))
-                    .slice(0, 40)
-                    .map(i => (
-                      <button key={i.id} onClick={() => startBankConnect(i.id)}
-                        className="w-full flex items-center gap-3 p-2.5 rounded-xl bg-slate-950/40 hover:bg-slate-800 border border-slate-800 text-left transition-colors">
-                        {i.logo && <img src={i.logo} alt="" className="w-6 h-6 rounded" />}
-                        <span className="text-sm font-semibold text-white truncate">{i.name}</span>
-                      </button>
-                    ))}
-                </div>
-              </>
-            )}
           </div>
         </div>
       )}

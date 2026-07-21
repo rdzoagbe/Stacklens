@@ -573,16 +573,21 @@ exports.founderops = onRequest({ cors: true, timeoutSeconds: 30, secrets: [SENDG
         await db.collection('userdata').doc(targetUid).delete();
         return res.json({ ok: true });
       }
-      // Configure bank-provider credentials (see the bankfeed section).
+      // Configure Bridge bank-provider credentials (see the bankfeed section).
       if (action === 'setBankCreds') {
-        const { secretId, secretKey } = req.body || {};
-        if (!secretId || !secretKey) return res.status(400).json({ error: 'secretId and secretKey required' });
+        const { clientId, clientSecret } = req.body || {};
+        if (!clientId || !clientSecret) return res.status(400).json({ error: 'clientId and clientSecret required' });
         await db.collection('app_config').doc('bankfeed').set({
-          secret_id: String(secretId).trim(),
-          secret_key: String(secretKey).trim(),
+          client_id: String(clientId).trim(),
+          client_secret: String(clientSecret).trim(),
           updated_at: new Date().toISOString(),
         });
         return res.json({ ok: true });
+      }
+      // Whether Bridge credentials are configured (no secrets returned).
+      if (action === 'bankCredsStatus') {
+        const cfg = await db.collection('app_config').doc('bankfeed').get();
+        return res.json({ configured: cfg.exists && !!cfg.data().client_id });
       }
       // Recent client-side crashes captured by the clientErrors endpoint.
       if (action === 'listErrors') {
@@ -817,42 +822,68 @@ exports.api = onRequest({ timeoutSeconds: 30 }, async (req, res) => {
 // distinct months) — SaaS, hosting, telecom, leases — with real amounts.
 // Nothing is written to the user's data blob server-side: candidates are
 // returned for client-side review and applied by the client.
-const GC_API = 'https://bankaccountdata.gocardless.com/api/v2';
+// Provider: Bridge (bridgeapi.io) aggregation API v3. User-centric flow —
+// create a Bridge user keyed by our uid, mint a 2h access token, open a
+// hosted Connect session for the user to link their bank, then read
+// transactions. Credentials live in /app_config/bankfeed (client_id/secret),
+// set from the Founder Admin page — never in Secret Manager (that broke deploys).
+const BRIDGE_API = 'https://api.bridgeapi.io/v3';
+const BRIDGE_VERSION = '2025-01-15';
 
-async function gcToken() {
+async function bridgeCreds() {
   const cfg = await getFirestore().collection('app_config').doc('bankfeed').get();
-  const { secret_id, secret_key } = cfg.exists ? cfg.data() : {};
-  if (!secret_id || !secret_key) throw new Error('Bank provider credentials are not configured yet');
-  const res = await fetch(`${GC_API}/token/new/`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ secret_id: String(secret_id).trim(), secret_key: String(secret_key).trim() }),
+  const { client_id, client_secret } = cfg.exists ? cfg.data() : {};
+  if (!client_id || !client_secret) throw new Error('Bank provider credentials are not configured yet');
+  return { client_id: String(client_id).trim(), client_secret: String(client_secret).trim() };
+}
+function bridgeHeaders(creds, token) {
+  const h = {
+    'Content-Type': 'application/json',
+    'Bridge-Version': BRIDGE_VERSION,
+    'Client-Id': creds.client_id,
+    'Client-Secret': creds.client_secret,
+  };
+  if (token) h.Authorization = `Bearer ${token}`;
+  return h;
+}
+// Ensure the Bridge user exists (idempotent — ignore "already exists"), then
+// return a fresh user access token.
+async function bridgeUserToken(creds, externalUserId) {
+  await fetch(`${BRIDGE_API}/aggregation/users`, {
+    method: 'POST', headers: bridgeHeaders(creds),
+    body: JSON.stringify({ external_user_id: externalUserId }),
+  }).catch(() => {});
+  const res = await fetch(`${BRIDGE_API}/aggregation/authorization/token`, {
+    method: 'POST', headers: bridgeHeaders(creds),
+    body: JSON.stringify({ external_user_id: externalUserId }),
   });
   const out = await res.json();
-  if (!res.ok) throw new Error(out?.detail || 'Bank provider authentication failed — check the configured credentials');
-  return out.access;
+  if (!res.ok) throw new Error(out?.message || 'Bridge authentication failed — check the Client ID / Secret');
+  return out.access_token;
 }
-async function gcGet(token, path) {
-  const res = await fetch(`${GC_API}${path}`, { headers: { Authorization: `Bearer ${token}` } });
-  const out = await res.json();
-  if (!res.ok) throw new Error(out?.detail || `GoCardless error on ${path}`);
-  return out;
+function normalizeBridgeTx(t) {
+  return {
+    name: t.clean_description || t.provider_description || '',
+    amount: Number(t.amount || 0),
+    date: t.date || '',
+  };
 }
 
-// Group booked outflows by counterparty; recurring = seen in 2+ distinct months.
-function detectRecurring(transactions) {
+// Group outflows by counterparty; recurring = seen in 2+ distinct months.
+// Input: normalized [{ name, amount (negative=outflow), date 'YYYY-MM-DD' }].
+function detectRecurring(items) {
   const groups = {};
-  (transactions || []).forEach(tx => {
-    const amount = Number(tx.transactionAmount?.amount || 0);
+  (items || []).forEach(tx => {
+    const amount = Number(tx.amount || 0);
     if (!(amount < 0)) return; // outflows only
-    const name = (tx.creditorName || tx.remittanceInformationUnstructured || '').trim();
+    const name = (tx.name || '').trim();
     if (!name) return;
     const key = name.toLowerCase().replace(/[0-9]/g, '').replace(/\s+/g, ' ').slice(0, 40).trim();
     if (!key) return;
     if (!groups[key]) groups[key] = { name: name.slice(0, 80), amounts: [], months: new Set(), last: '' };
     const g = groups[key];
     g.amounts.push(Math.abs(amount));
-    const date = tx.bookingDate || '';
+    const date = tx.date || '';
     if (date) { g.months.add(date.slice(0, 7)); if (date > g.last) g.last = date; }
   });
   return Object.values(groups)
@@ -890,33 +921,24 @@ exports.bankfeed = onRequest({ cors: true, timeoutSeconds: 120 }, async (req, re
     }
     const db = getFirestore();
     const reqRef = db.collection('bank_requisitions').doc(decoded.uid);
-    const { action, institutionId, country } = req.body || {};
+    const { action } = req.body || {};
+    const userEmail = (decoded.email || req.body?.email || FOUNDER_EMAILS[0] || 'user@stacklens.fr').toLowerCase();
     try {
-      if (action === 'institutions') {
-        const token = await gcToken();
-        const list = await gcGet(token, `/institutions/?country=${encodeURIComponent(country || 'FR')}`);
-        return res.json({ institutions: (list || []).map(i => ({ id: i.id, name: i.name, logo: i.logo })) });
-      }
       if (action === 'connect') {
-        if (!institutionId) return res.status(400).json({ error: 'institutionId required' });
-        const token = await gcToken();
-        const reqz = await fetch(`${GC_API}/requisitions/`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({
-            redirect: 'https://stacklens.fr/finance?bank=connected',
-            institution_id: institutionId,
-            reference: `${decoded.uid}_${Date.now()}`,
-          }),
+        const creds = await bridgeCreds();
+        const token = await bridgeUserToken(creds, decoded.uid);
+        const resp = await fetch(`${BRIDGE_API}/aggregation/connect-sessions`, {
+          method: 'POST', headers: bridgeHeaders(creds, token),
+          body: JSON.stringify({ user_email: userEmail, callback_url: 'https://stacklens.fr/finance?bank=connected' }),
         });
-        const out = await reqz.json();
-        if (!reqz.ok) throw new Error(out?.detail || 'Could not start the bank connection');
-        await reqRef.set({ requisition_id: out.id, institution_id: institutionId, status: 'pending', created_at: new Date().toISOString() });
-        return res.json({ link: out.link });
+        const out = await resp.json();
+        if (!resp.ok) throw new Error(out?.message || 'Could not start the bank connection');
+        await reqRef.set({ status: 'pending', created_at: new Date().toISOString() });
+        return res.json({ link: out.url || out.redirect_url });
       }
       if (action === 'status') {
         const snap = await reqRef.get();
-        return res.json({ connected: snap.exists, institution_id: snap.exists ? snap.data().institution_id : null });
+        return res.json({ connected: snap.exists });
       }
       if (action === 'disconnect') {
         await reqRef.delete();
@@ -925,18 +947,22 @@ exports.bankfeed = onRequest({ cors: true, timeoutSeconds: 120 }, async (req, re
       if (action === 'sync') {
         const snap = await reqRef.get();
         if (!snap.exists) return res.status(400).json({ error: 'No bank connected yet' });
-        const token = await gcToken();
-        const reqz = await gcGet(token, `/requisitions/${snap.data().requisition_id}/`);
-        if (!reqz.accounts?.length) return res.status(400).json({ error: 'Bank connection not completed yet — finish the bank authorization first' });
+        const creds = await bridgeCreds();
+        const token = await bridgeUserToken(creds, decoded.uid);
+        const minDate = new Date(); minDate.setDate(minDate.getDate() - 90);
+        let url = `${BRIDGE_API}/aggregation/transactions?min_date=${minDate.toISOString().slice(0, 10)}&limit=500`;
         const all = [];
-        for (const acct of reqz.accounts.slice(0, 3)) {
-          try {
-            const tx = await gcGet(token, `/accounts/${acct}/transactions/`);
-            all.push(...(tx.transactions?.booked || []));
-          } catch (e) { console.warn('bankfeed account read failed:', e?.message); }
+        for (let i = 0; i < 12 && url; i++) {
+          const r = await fetch(url, { headers: bridgeHeaders(creds, token) });
+          const out = await r.json();
+          if (!r.ok) throw new Error(out?.message || 'Could not fetch transactions');
+          all.push(...(out.resources || []));
+          const next = out.pagination?.next_uri;
+          url = next ? (next.startsWith('http') ? next : `https://api.bridgeapi.io${next}`) : null;
         }
+        if (!all.length) return res.status(400).json({ error: 'No transactions yet — finish linking your bank in the Bridge window first, then sync.' });
         await reqRef.set({ status: 'linked', last_sync: new Date().toISOString() }, { merge: true });
-        return res.json({ candidates: detectRecurring(all), transactions_scanned: all.length });
+        return res.json({ candidates: detectRecurring(all.map(normalizeBridgeTx)), transactions_scanned: all.length });
       }
       return res.status(400).json({ error: 'Unknown action' });
     } catch (err) {
