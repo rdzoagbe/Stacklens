@@ -36,12 +36,11 @@ const cors = require('cors')({
 initializeApp();
 
 const ANTHROPIC_API_KEY     = defineSecret('ANTHROPIC_API_KEY');
-// GoCardless Bank Account Data (open banking). Create both secrets in Secret
-// Manager BEFORE deploying (placeholder values are fine until the feature is
-// activated; both secrets exist with placeholder versions as of 2026-07-21).
-// activated) — a declared-but-missing secret fails the whole functions deploy.
-const GOCARDLESS_SECRET_ID  = defineSecret('GOCARDLESS_SECRET_ID');
-const GOCARDLESS_SECRET_KEY = defineSecret('GOCARDLESS_SECRET_KEY');
+// Bank-provider credentials live in the server-only /app_config/bankfeed
+// Firestore doc (set via the founderops 'setBankCreds' action), NOT in
+// Secret Manager: declared-but-unset secrets repeatedly broke the whole
+// functions deploy, and the provider is due to change (GoCardless closed
+// signups; Bridge is next). Default-deny rules keep the doc server-only.
 const STRIPE_SECRET_KEY     = defineSecret('STRIPE_SECRET_KEY');
 const STRIPE_WEBHOOK_SECRET = defineSecret('STRIPE_WEBHOOK_SECRET');
 
@@ -523,6 +522,17 @@ exports.founderops = onRequest({ cors: true, timeoutSeconds: 30 }, async (req, r
         await db.collection('userdata').doc(targetUid).delete();
         return res.json({ ok: true });
       }
+      // Configure bank-provider credentials (see the bankfeed section).
+      if (action === 'setBankCreds') {
+        const { secretId, secretKey } = req.body || {};
+        if (!secretId || !secretKey) return res.status(400).json({ error: 'secretId and secretKey required' });
+        await db.collection('app_config').doc('bankfeed').set({
+          secret_id: String(secretId).trim(),
+          secret_key: String(secretKey).trim(),
+          updated_at: new Date().toISOString(),
+        });
+        return res.json({ ok: true });
+      }
       // Recent client-side crashes captured by the clientErrors endpoint.
       if (action === 'listErrors') {
         const snap = await db.collection('client_errors').orderBy('at', 'desc').limit(50).get();
@@ -759,13 +769,16 @@ exports.api = onRequest({ timeoutSeconds: 30 }, async (req, res) => {
 const GC_API = 'https://bankaccountdata.gocardless.com/api/v2';
 
 async function gcToken() {
+  const cfg = await getFirestore().collection('app_config').doc('bankfeed').get();
+  const { secret_id, secret_key } = cfg.exists ? cfg.data() : {};
+  if (!secret_id || !secret_key) throw new Error('Bank provider credentials are not configured yet');
   const res = await fetch(`${GC_API}/token/new/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ secret_id: GOCARDLESS_SECRET_ID.value().trim(), secret_key: GOCARDLESS_SECRET_KEY.value().trim() }),
+    body: JSON.stringify({ secret_id: String(secret_id).trim(), secret_key: String(secret_key).trim() }),
   });
   const out = await res.json();
-  if (!res.ok) throw new Error(out?.detail || 'GoCardless auth failed — check the GOCARDLESS_* secrets');
+  if (!res.ok) throw new Error(out?.detail || 'Bank provider authentication failed — check the configured credentials');
   return out.access;
 }
 async function gcGet(token, path) {
@@ -811,7 +824,7 @@ function detectRecurring(transactions) {
     .slice(0, 60);
 }
 
-exports.bankfeed = onRequest({ cors: true, timeoutSeconds: 120, secrets: [GOCARDLESS_SECRET_ID, GOCARDLESS_SECRET_KEY] }, async (req, res) => {
+exports.bankfeed = onRequest({ cors: true, timeoutSeconds: 120 }, async (req, res) => {
   cors(req, res, async () => {
     if (req.method === 'OPTIONS') return res.status(204).send('');
     if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
