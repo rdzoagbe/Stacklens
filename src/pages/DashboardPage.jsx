@@ -12,6 +12,7 @@ import {
   getCurrency, convertCurrency,
 } from '../lib/dataUtils';
 import { useDbQuery, useDbMutations } from '../hooks/useDbQuery';
+import { workspaceMembers } from '../firebase-config';
 import { useAuth } from '../hooks/useAuth';
 import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
@@ -36,7 +37,16 @@ function GettingStartedChecklist({ db }) {
   const [celebrating, setCelebrating] = useState(false);
 
   const budgetCap = db?.user?.budget_cap || parseInt(localStorage.getItem('sg_budget_cap') || '0') || 0;
-  const teamMembers = (() => { try { return JSON.parse(localStorage.getItem('sg_team_members') || '[]'); } catch { return []; } })();
+  // A department budget (new Budget tab) OR the legacy global cap counts as "set".
+  const hasBudget = (db?.budgets || []).length > 0 || budgetCap > 0;
+  // Real server-backed team members (workspace_members), replacing the old
+  // localStorage placeholder that this checklist used to read.
+  const [teamCount, setTeamCount] = useState(0);
+  React.useEffect(() => {
+    let alive = true;
+    workspaceMembers().then(r => { if (alive) setTeamCount((r.members || []).length); }).catch(() => {});
+    return () => { alive = false; };
+  }, []);
 
   const steps = [
     {
@@ -62,8 +72,8 @@ function GettingStartedChecklist({ db }) {
       icon: '💰',
       title: t('gs_step3_title'),
       desc: t('gs_step3_desc'),
-      done: budgetCap > 0,
-      action: () => navigate('/finance'),
+      done: hasBudget,
+      action: () => navigate('/finance?tab=budget'),
       cta: t('gs_step3_cta'),
     },
     {
@@ -71,8 +81,8 @@ function GettingStartedChecklist({ db }) {
       icon: '✉️',
       title: t('gs_step4_title'),
       desc: t('gs_step4_desc'),
-      done: teamMembers.length > 0,
-      action: () => { navigate('/settings'); setTimeout(() => { const el = document.querySelector('[data-tab="team"]'); if (el) el.click(); }, 100); },
+      done: teamCount > 0,
+      action: () => navigate('/settings?tab=team'),
       cta: t('gs_step4_cta'),
     },
   ];
