@@ -433,7 +433,7 @@ const VALID_PLANS = ['free', 'trial', 'starter', 'hr_finance', 'pro', 'enterpris
 const FOUNDER_UIDS   = ['bxIYrZ76z1QKo5ZMpGvEG8GGbNM2'];
 const FOUNDER_EMAILS = ['rolanddzoagbe@gmail.com'];
 
-exports.founderops = onRequest({ cors: true, timeoutSeconds: 30 }, async (req, res) => {
+exports.founderops = onRequest({ cors: true, timeoutSeconds: 30, secrets: [SENDGRID_API_KEY] }, async (req, res) => {
   cors(req, res, async () => {
     if (req.method === 'OPTIONS') return res.status(204).send('');
     if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
@@ -453,9 +453,36 @@ exports.founderops = onRequest({ cors: true, timeoutSeconds: 30 }, async (req, r
       return res.status(403).json({ error: 'Forbidden' });
     }
 
-    const { action, targetUid, plan, extraDays } = req.body;
+    const { action, targetUid, plan, extraDays, to } = req.body;
 
     try {
+      // Diagnostic: send a real email through SendGrid right now and report the
+      // exact provider response, so email-delivery problems can be isolated
+      // from "the scheduled job hasn't fired / found nothing to send".
+      if (action === 'testEmail') {
+        const dest = String(to || FOUNDER_EMAILS[0] || '').trim();
+        if (!dest) return res.status(400).json({ error: 'No destination email' });
+        const sgMail = require('@sendgrid/mail');
+        sgMail.setApiKey(SENDGRID_API_KEY.value());
+        try {
+          const [resp] = await sgMail.send({
+            to: dest,
+            from: { email: 'hello@stacklens.fr', name: 'Stacklens' },
+            subject: '✅ Stacklens test email',
+            html: '<div style="font-family:sans-serif;padding:24px"><h2>It works.</h2><p>This is a Stacklens delivery test. If you received it, alert and digest emails will reach you too.</p></div>',
+          });
+          return res.json({ ok: true, sent_to: dest, status: resp?.statusCode || null });
+        } catch (mailErr) {
+          // SendGrid attaches the useful detail on err.response.body
+          const body = mailErr?.response?.body;
+          return res.status(200).json({
+            ok: false,
+            sent_to: dest,
+            sendgrid_status: mailErr?.code || null,
+            sendgrid_error: body?.errors?.map(e => e.message).join('; ') || mailErr?.message || 'Unknown SendGrid error',
+          });
+        }
+      }
       // Backfill displayName/email on /users docs from Firebase Auth. Accounts
       // created while syncuser was broken (firebase-admin v14 outage) have bare
       // docs; Auth still knows their profile, so copy it over once.

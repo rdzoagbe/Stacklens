@@ -724,6 +724,20 @@ export async function founderDeleteUser(targetUid) {
   return data;
 }
 
+// Founder diagnostic: send a real test email and get SendGrid's response back.
+export async function founderTestEmail(to) {
+  const token = await getToken();
+  if (!token) throw new Error('Not authenticated');
+  const res = await fetch(`${FUNCTIONS_BASE}/founderops`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    body: JSON.stringify({ action: 'testEmail', to }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok && !data.sendgrid_error) throw new Error(data.error || 'Test email failed');
+  return data;
+}
+
 // ============================================================================
 // 7-DAY TRIAL — start trial for a new user
 // Sets plan='trial' and trial_started_at on /users/{uid}.

@@ -3,9 +3,9 @@ import { useNavigate, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
   Users, Clock, Shield, Search,
-  Zap, Crown, RefreshCw, Pencil, Check, X, ArrowLeft, Trash2,
+  Zap, Crown, RefreshCw, Pencil, Check, X, ArrowLeft, Trash2, Mail,
 } from 'lucide-react';
-import { loadAllUsersAdmin, founderExtendTrial, founderSetPlan, founderEnrichProfiles, founderDeleteUser } from '../firebase-config';
+import { loadAllUsersAdmin, founderExtendTrial, founderSetPlan, founderEnrichProfiles, founderDeleteUser, founderTestEmail } from '../firebase-config';
 import { getFirestore, doc, updateDoc } from 'firebase/firestore';
 import { useAuth } from '../hooks/useAuth';
 import { isFounderUser } from '../lib/plan';
@@ -231,7 +231,24 @@ export function FounderAdminPage() {
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState('recent');
   const [filterPlan, setFilterPlan] = useState('all');
+  const [testingEmail, setTestingEmail] = useState(false);
   const enrichedRef = useRef(false);
+
+  async function sendTestEmail() {
+    setTestingEmail(true);
+    try {
+      const r = await founderTestEmail();
+      if (r.ok) {
+        toast.success(`Test email sent to ${r.sent_to} — check your inbox (and spam).`, { duration: 8000 });
+      } else {
+        toast.error(`SendGrid refused it: ${r.sendgrid_error}`, { duration: 12000 });
+      }
+    } catch (err) {
+      toast.error('Test email failed: ' + err.message, { duration: 10000 });
+    } finally {
+      setTestingEmail(false);
+    }
+  }
 
   async function loadUsers() {
     setLoading(true);
@@ -347,14 +364,24 @@ export function FounderAdminPage() {
             </p>
           </div>
         </div>
-        <button
-          onClick={loadUsers}
-          disabled={loading}
-          className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 rounded-xl text-sm transition-colors"
-        >
-          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-          Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={sendTestEmail}
+            disabled={testingEmail}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-300 rounded-xl text-sm transition-colors disabled:opacity-50"
+          >
+            <Mail size={14} className={testingEmail ? 'animate-pulse' : ''} />
+            {testingEmail ? 'Sending…' : 'Send test email'}
+          </button>
+          <button
+            onClick={loadUsers}
+            disabled={loading}
+            className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 rounded-xl text-sm transition-colors"
+          >
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+            Refresh
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
