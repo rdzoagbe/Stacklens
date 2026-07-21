@@ -540,6 +540,29 @@ exports.founderops = onRequest({ cors: true, timeoutSeconds: 30, secrets: [SENDG
         return res.json({ ok: true, checked: missing.length, updated });
       }
 
+      // Configure Bridge bank-provider credentials (see the bankfeed section).
+      if (action === 'setBankCreds') {
+        const { clientId, clientSecret } = req.body || {};
+        if (!clientId || !clientSecret) return res.status(400).json({ error: 'clientId and clientSecret required' });
+        await db.collection('app_config').doc('bankfeed').set({
+          client_id: String(clientId).trim(),
+          client_secret: String(clientSecret).trim(),
+          updated_at: new Date().toISOString(),
+        });
+        return res.json({ ok: true });
+      }
+      // Whether Bridge credentials are configured (no secrets returned).
+      if (action === 'bankCredsStatus') {
+        const cfg = await db.collection('app_config').doc('bankfeed').get();
+        return res.json({ configured: cfg.exists && !!cfg.data().client_id });
+      }
+      // Recent client-side crashes captured by the clientErrors endpoint.
+      if (action === 'listErrors') {
+        const snap = await db.collection('client_errors').orderBy('at', 'desc').limit(50).get();
+        return res.json({ errors: snap.docs.map(d => d.data()) });
+      }
+
+      // ── Actions below require a target user ──
       if (!targetUid || typeof targetUid !== 'string') {
         return res.status(400).json({ error: 'targetUid required' });
       }
@@ -572,27 +595,6 @@ exports.founderops = onRequest({ cors: true, timeoutSeconds: 30, secrets: [SENDG
         await db.collection('users').doc(targetUid).delete();
         await db.collection('userdata').doc(targetUid).delete();
         return res.json({ ok: true });
-      }
-      // Configure Bridge bank-provider credentials (see the bankfeed section).
-      if (action === 'setBankCreds') {
-        const { clientId, clientSecret } = req.body || {};
-        if (!clientId || !clientSecret) return res.status(400).json({ error: 'clientId and clientSecret required' });
-        await db.collection('app_config').doc('bankfeed').set({
-          client_id: String(clientId).trim(),
-          client_secret: String(clientSecret).trim(),
-          updated_at: new Date().toISOString(),
-        });
-        return res.json({ ok: true });
-      }
-      // Whether Bridge credentials are configured (no secrets returned).
-      if (action === 'bankCredsStatus') {
-        const cfg = await db.collection('app_config').doc('bankfeed').get();
-        return res.json({ configured: cfg.exists && !!cfg.data().client_id });
-      }
-      // Recent client-side crashes captured by the clientErrors endpoint.
-      if (action === 'listErrors') {
-        const snap = await db.collection('client_errors').orderBy('at', 'desc').limit(50).get();
-        return res.json({ errors: snap.docs.map(d => d.data()) });
       }
       return res.status(400).json({ error: 'Unknown action' });
     } catch (err) {
