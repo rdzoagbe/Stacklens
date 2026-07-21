@@ -988,7 +988,14 @@ exports.workspace = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, re
     const decoded = await verifyAuth(req, res); if (!decoded) return;
     const db = getFirestore();
     const { action, email, id, ownerUid } = req.body || {};
-    const callerEmail = (decoded.email || '').toLowerCase();
+    // SECURITY: only trust the token's email for authorization when Firebase
+    // has verified ownership of that mailbox. Otherwise an attacker could
+    // register (email/password) under an invited address they don't own — the
+    // token still carries the email claim with email_verified=false — and match
+    // a pending invite to read the owner's entire workspace. Google and
+    // magic-link sign-ins are verified; unverified email/password users must
+    // verify before an email-based invite resolves.
+    const callerEmail = decoded.email_verified ? (decoded.email || '').toLowerCase() : '';
     const col = db.collection('workspace_members');
     try {
       if (action === 'invite') {
