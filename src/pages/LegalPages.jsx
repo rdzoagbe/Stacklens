@@ -537,7 +537,7 @@ export function AboutPage() {
               Stacklens is the third option. We deliver the core 80% of enterprise SaaS management — visibility, waste detection, renewal alerts, contract analysis — engineered specifically for small and mid-sized European organisations.
             </p>
             <p>
-              Transparent pricing from €29 per month. Hosted in the EU. GDPR-native. No annual commitments. No sales calls. One clear mission: give every SMB the SaaS control that used to be reserved for the Fortune 500.
+              Transparent pricing from €29 per month. Built in France, GDPR-first. No annual commitments. No sales calls. One clear mission: give every SMB the SaaS control that used to be reserved for the Fortune 500.
             </p>
           </div>
         </section>
@@ -548,7 +548,7 @@ export function AboutPage() {
           <div className="grid gap-4">
             {[
               { title: 'Transparent pricing', body: 'Public plans, no "contact sales" tier. You see the price before you sign up — including at enterprise level.' },
-              { title: 'European by design', body: 'Hosted in the EU. GDPR-native from day one. Built for the regulatory and linguistic context of European SMBs.' },
+              { title: 'European by design', body: 'GDPR-first from day one, built in France for the regulatory and linguistic context of European SMBs.' },
               { title: 'Focused scope', body: 'We deliver the 80% of SaaS management that matters most. We do not try to be an HR suite, an IT ticketing system, or a SCIM/PAM platform.' },
               { title: 'Accessible support', body: 'Direct communication with the team that builds the product. No tier-one queues, no 48-hour SLAs.' },
             ].map((p, i) => (
@@ -577,7 +577,7 @@ export function AboutPage() {
         </section>
 
         <div className="text-center text-xs text-slate-600">
-          Stacklens · Built in France · Hosted in the EU · © 2026
+          Stacklens · Built in France · GDPR-first · © 2026
         </div>
       </div>
     </div>
