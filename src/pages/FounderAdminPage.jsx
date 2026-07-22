@@ -5,7 +5,7 @@ import {
   Users, Clock, Shield, Search,
   Zap, Crown, RefreshCw, Pencil, Check, X, ArrowLeft, Trash2, Mail,
 } from 'lucide-react';
-import { loadAllUsersAdmin, founderExtendTrial, founderSetPlan, founderEnrichProfiles, founderDeleteUser, founderTestEmail, founderSetBankCreds, founderBankCredsStatus } from '../firebase-config';
+import { loadAllUsersAdmin, founderExtendTrial, founderSetPlan, founderEnrichProfiles, founderDeleteUser, founderTestEmail, founderSetBankCreds, founderBankCredsStatus, founderListErrors } from '../firebase-config';
 import { getFirestore, doc, updateDoc } from 'firebase/firestore';
 import { useAuth } from '../hooks/useAuth';
 import { isFounderUser } from '../lib/plan';
@@ -259,7 +259,19 @@ export function FounderAdminPage() {
   const [filterPlan, setFilterPlan] = useState('all');
   const [testingEmail, setTestingEmail] = useState(false);
   const [bankCfg, setBankCfg] = useState({ configured: false, id: '', secret: '', saving: false });
+  const [errors, setErrors] = useState({ loading: false, open: false, items: null });
   const enrichedRef = useRef(false);
+
+  const loadErrors = async () => {
+    setErrors(e => ({ ...e, loading: true, open: true }));
+    try {
+      const r = await founderListErrors();
+      setErrors({ loading: false, open: true, items: r.errors || [] });
+    } catch (err) {
+      toast.error('Could not load errors: ' + err.message);
+      setErrors({ loading: false, open: true, items: [] });
+    }
+  };
 
   useEffect(() => {
     founderBankCredsStatus().then(r => setBankCfg(c => ({ ...c, configured: !!r.configured }))).catch(() => {});
@@ -472,6 +484,34 @@ export function FounderAdminPage() {
             {bankCfg.saving ? 'Saving…' : 'Save'}
           </button>
         </div>
+      </div>
+
+      <div className="rounded-xl border border-slate-700/50 bg-slate-900/40 p-4">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-white">🐛 Recent client errors</span>
+            {errors.items && <span className="text-[11px] text-slate-500">{errors.items.length} shown</span>}
+          </div>
+          <button onClick={loadErrors} disabled={errors.loading}
+            className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 rounded-lg text-xs transition-colors disabled:opacity-50">
+            <RefreshCw size={13} className={errors.loading ? 'animate-spin' : ''} />
+            {errors.items ? 'Refresh' : 'Load errors'}
+          </button>
+        </div>
+        {errors.open && errors.items && (
+          errors.items.length === 0 ? (
+            <div className="text-xs text-emerald-400 mt-3">No crashes reported — clean. 🎉</div>
+          ) : (
+            <div className="mt-3 space-y-1.5 max-h-72 overflow-y-auto">
+              {errors.items.map((e, i) => (
+                <div key={i} className="text-xs bg-slate-950/50 border border-slate-800 rounded-lg px-3 py-2">
+                  <div className="text-rose-300 font-mono break-words">{e.message}</div>
+                  <div className="text-slate-600 mt-0.5">{e.url || '—'} · {e.at ? new Date(e.at).toLocaleString() : ''}</div>
+                </div>
+              ))}
+            </div>
+          )
+        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-3">

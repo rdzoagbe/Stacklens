@@ -755,6 +755,7 @@ async function callFounderops(body) {
 }
 export const founderSetBankCreds   = (clientId, clientSecret) => callFounderops({ action: 'setBankCreds', clientId, clientSecret });
 export const founderBankCredsStatus = () => callFounderops({ action: 'bankCredsStatus' });
+export const founderListErrors      = () => callFounderops({ action: 'listErrors' });
 
 // Founder diagnostic: send a real test email and get SendGrid's response back.
 export async function founderTestEmail(to) {
