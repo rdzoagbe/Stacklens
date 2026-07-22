@@ -524,7 +524,9 @@ export async function createBillingPortal() {
 export async function registerWithEmail(email, password, _displayName) {
   try {
     const result = await createUserWithEmailAndPassword(auth, email, password);
-    await sendEmailVerification(result.user);
+    // Continue URL so the verification link returns the user to the app instead
+    // of dead-ending on Firebase's hosted "email verified" page.
+    await sendEmailVerification(result.user, { url: window.location.origin + '/dashboard' });
     return { user: result.user, error: null };
   } catch (error) {
     return { user: null, error: error.message };
@@ -545,7 +547,7 @@ export async function signInWithEmail(email, password) {
 export async function resendEmailVerification() {
   try {
     if (!auth.currentUser) return { error: 'Not signed in' };
-    await sendEmailVerification(auth.currentUser);
+    await sendEmailVerification(auth.currentUser, { url: window.location.origin + '/dashboard' });
     return { error: null };
   } catch (error) {
     return { error: error.message };
