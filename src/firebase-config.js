@@ -77,7 +77,7 @@ const app = initializeApp(firebaseConfig);
 // currently provides zero protection (broken + monitoring mode), we skip
 // initializing it. Re-enable once the reCAPTCHA v3 key is re-registered in
 // Firebase Console → App Check, then flip APP_CHECK_ENABLED back on.
-const APP_CHECK_ENABLED = false;
+const APP_CHECK_ENABLED = true;
 if (APP_CHECK_ENABLED) {
   try {
     const recaptchaKey = import.meta.env.DEV
