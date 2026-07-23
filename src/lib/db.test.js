@@ -86,6 +86,21 @@ describe('loadDb', () => {
     localStorage.setItem(LS_KEY, '{invalid-json}');
     expect(loadDb()).toBeNull();
   });
+
+  // Firestore rejects field names that begin AND end with "__" — early spend
+  // snapshots used "__unallocated__" and broke every cloud backup.
+  it('migrates legacy __unallocated__ spend_history keys on load', () => {
+    localStorage.setItem(LS_KEY, JSON.stringify({
+      tools: [], employees: [], access: [],
+      spend_history: [
+        { month: '2026-06', total: 150, by_department: { sales: 50, __unallocated__: 100 } },
+        { month: '2026-07', total: 30, by_department: { unallocated: 10, __unallocated__: 20 } },
+      ],
+    }));
+    const loaded = loadDb();
+    expect(loaded.spend_history[0].by_department).toEqual({ sales: 50, unallocated: 100 });
+    expect(loaded.spend_history[1].by_department).toEqual({ unallocated: 30 });
+  });
 });
 
 describe('saveDb', () => {
