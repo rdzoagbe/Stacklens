@@ -36,10 +36,26 @@ let _queryClient = null;
 
 export function setQueryClient(qc) { _queryClient = qc; }
 
+// Early spend snapshots stored the unallocated bucket under "__unallocated__",
+// which Firestore rejects as a field name ("cannot begin and end with __") —
+// every cloud backup of a db containing it failed. Rename it in place so
+// existing local blobs heal on load and the next saveDb persists clean data.
+function _migrateSpendHistory(db) {
+  if (!Array.isArray(db?.spend_history)) return db;
+  db.spend_history.forEach(snap => {
+    const dept = snap?.by_department;
+    if (dept && Object.prototype.hasOwnProperty.call(dept, '__unallocated__')) {
+      dept.unallocated = (dept.unallocated || 0) + dept.__unallocated__;
+      delete dept.__unallocated__;
+    }
+  });
+  return db;
+}
+
 export function loadDb() {
   const raw = localStorage.getItem(LS_KEY);
   if (!raw) return null;
-  try { return JSON.parse(raw); } catch { return null; }
+  try { return _migrateSpendHistory(JSON.parse(raw)); } catch { return null; }
 }
 
 const LS_SIZE_WARN_BYTES = 3 * 1024 * 1024;
