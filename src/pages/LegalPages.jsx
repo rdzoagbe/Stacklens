@@ -319,9 +319,12 @@ export function SubProcessorsPage() {
 
   const processors = [
     { name: 'Google Firebase', purpose: t('subproc_firebase_purpose'), location: 'EU (Belgique / Belgium)', link: 'https://firebase.google.com/support/privacy', transfer: t('subproc_firebase_transfer') },
-    { name: 'Google Cloud Platform', purpose: t('subproc_gcp_purpose'), location: 'EU', link: 'https://cloud.google.com/privacy', transfer: t('subproc_gcp_transfer') },
+    { name: 'Google Cloud Platform', purpose: t('subproc_gcp_purpose'), location: 'EU / USA', link: 'https://cloud.google.com/privacy', transfer: t('subproc_gcp_transfer') },
     { name: 'Stripe', purpose: t('subproc_stripe_purpose'), location: 'EU (Irlande / Ireland)', link: 'https://stripe.com/privacy', transfer: t('subproc_stripe_transfer') },
     { name: 'Anthropic (Claude AI)', purpose: t('subproc_anthropic_purpose'), location: 'USA', link: 'https://www.anthropic.com/privacy', transfer: t('subproc_anthropic_transfer') },
+    { name: 'Twilio SendGrid', purpose: t('subproc_sendgrid_purpose'), location: 'USA', link: 'https://www.twilio.com/en-us/legal/privacy', transfer: t('subproc_sendgrid_transfer') },
+    { name: 'Bridge (Bridgeapi SAS)', purpose: t('subproc_bridge_purpose'), location: 'EU (France)', link: 'https://www.bridgeapi.io/privacy-policy', transfer: t('subproc_bridge_transfer') },
+    { name: 'Web3Forms', purpose: t('subproc_web3forms_purpose'), location: 'USA', link: 'https://web3forms.com/privacy', transfer: t('subproc_web3forms_transfer') },
     { name: 'OVHcloud', purpose: t('subproc_ovh_purpose'), location: 'EU (France)', link: 'https://www.ovhcloud.com/fr/personal-data-protection/', transfer: t('subproc_ovh_transfer') },
     { name: 'Google Analytics', purpose: t('subproc_ga_purpose'), location: 'EU', link: 'https://support.google.com/analytics/answer/6004245', transfer: t('subproc_ga_transfer') },
   ];
@@ -334,7 +337,7 @@ export function SubProcessorsPage() {
           <LangSelectorCompact />
         </div>
         <h1 className="text-3xl font-bold mb-2">{t('subproc_title')}</h1>
-        <p className="text-slate-400 text-sm mb-2">{t('subproc_last_updated')}: May 2026</p>
+        <p className="text-slate-400 text-sm mb-2">{t('subproc_last_updated')}: July 2026</p>
         <p className="text-slate-400 text-sm mb-10">{t('subproc_intro')}</p>
 
         <div className="space-y-4">
@@ -655,6 +658,8 @@ export function PrivacyPage() {
                   <tr className="border-b border-slate-800"><td className="py-2 pr-4">Firebase (Google)</td><td className="py-2 pr-4">{t('privacy_s3_firebase_purpose')}</td><td className="py-2">EU (Belgium)</td></tr>
                   <tr className="border-b border-slate-800"><td className="py-2 pr-4">Stripe</td><td className="py-2 pr-4">{t('privacy_s3_stripe_purpose')}</td><td className="py-2">EU (Ireland)</td></tr>
                   <tr className="border-b border-slate-800"><td className="py-2 pr-4">Anthropic (Claude AI)</td><td className="py-2 pr-4">{t('privacy_s3_anthropic_purpose')}</td><td className="py-2">USA</td></tr>
+                  <tr className="border-b border-slate-800"><td className="py-2 pr-4">Twilio SendGrid</td><td className="py-2 pr-4">{t('privacy_s3_sendgrid_purpose')}</td><td className="py-2">USA</td></tr>
+                  <tr className="border-b border-slate-800"><td className="py-2 pr-4">Bridge (Bridgeapi SAS)</td><td className="py-2 pr-4">{t('privacy_s3_bridge_purpose')}</td><td className="py-2">EU (France)</td></tr>
                   <tr className="border-b border-slate-800"><td className="py-2 pr-4">Google Analytics</td><td className="py-2 pr-4">{t('privacy_s3_ga_purpose')}</td><td className="py-2">EU</td></tr>
                   <tr className="border-b border-slate-800"><td className="py-2 pr-4">OVHcloud</td><td className="py-2 pr-4">{t('privacy_s3_ovh_purpose')}</td><td className="py-2">EU (France)</td></tr>
                   <tr><td className="py-2 pr-4">Web3Forms</td><td className="py-2 pr-4">{t('privacy_s3_web3forms_purpose')}</td><td className="py-2">USA</td></tr>
@@ -894,7 +899,7 @@ export function SecurityPage() {
             { icon: "🏗️", title: "Infrastructure & Hosting", body: "Stacklens runs on Google Cloud Platform (Firebase/GCP) with per-customer isolated data — no data is ever co-mingled between customers. Your database records are stored in the EU; some processing (AI features, billing) currently runs on Google/Stripe infrastructure in the US." },
             { icon: "👤", title: "Data Access Controls", body: "Only you and the users you explicitly invite can access your workspace. Your data lives in a database record scoped to your account; other customers cannot read it. We never sell or share your data with third parties." },
             { icon: "🔑", title: "Authentication", body: "Sign in with Google OAuth 2.0, a passwordless Magic Link, or email and password — all handled by Google Firebase Authentication. Two-factor authentication is available through your Google account. (SAML/SSO is on our roadmap for enterprise plans.)" },
-            { icon: "🤖", title: "Abuse & Bot Protection", body: "Every sensitive request is protected by Firebase App Check (reCAPTCHA), and our APIs enforce per-user rate limits. Payment data is handled entirely by Stripe — card details never touch our servers." },
+            { icon: "🤖", title: "Abuse & Bot Protection", body: "Every server API requires an authenticated, verified token and enforces per-user rate limits. Payment data is handled entirely by Stripe — card details never touch our servers." },
             { icon: "📋", title: "Activity Logging", body: "Stacklens keeps an in-app audit trail of key actions — access grants, revocations, and changes — so you can review what happened in your workspace and when. You can export it at any time." },
             { icon: "🗑️", title: "Data Portability & Deletion", body: "You own your data. Export everything in CSV or JSON at any time from Settings. When you cancel, your data is permanently deleted. We do not sell or share your data with any third party." },
             { icon: "🔍", title: "Vulnerability Disclosure", body: "We take every security report seriously. If you discover a vulnerability, email hello@stacklens.fr with details. We aim to respond within 48 hours and acknowledge responsible disclosure." },
