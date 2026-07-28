@@ -2,14 +2,17 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { loadUserData, logConsent } from '../firebase-config';
+import { loadUserData, logConsent, workspaceMine, workspaceRead } from '../firebase-config';
+import { enterSharedView, exitSharedView, getSharedView } from '../lib/db';
+import { useQueryClient } from '@tanstack/react-query';
 import { resolvePlan, getTrialState, getPlanLimits, isFounderUser } from '../lib/plan';
 import { cx } from '../lib/utils';
-import { useDbQuery } from '../hooks/useDbQuery';
+import { useDbQuery, useDbMutations } from '../hooks/useDbQuery';
+import { saveDisplayName } from '../firebase-config';
 import { useAuth } from '../hooks/useAuth';
 import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
-import { RDLogo, Button, Modal } from '../components/ui';
+import { RDLogo, Button, Modal, Input } from '../components/ui';
 import {
   LayoutDashboard, Boxes, Users, GitMerge, UserMinus, Shield, BarChart3, Settings,
   ChevronDown, BadgeX, ExternalLink, Languages,
@@ -559,6 +562,115 @@ export function TrialExpiredBanner() {
   );
 }
 
+// ── Shared workspaces: offer banner + read-only viewing banner ───────────
+// Module-level cache so the list is fetched once per page load, not on every
+// navigation (AppShell remounts per page).
+let _workspacesPromise = null;
+
+export function SharedWorkspaceBanner() {
+  const { language } = useLang();
+  const t = useTranslation(language);
+  const { firebaseUser, isDemo } = useAuth();
+  const qc = useQueryClient();
+  const [workspaces, setWorkspaces] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const shared = getSharedView();
+
+  useEffect(() => {
+    if (!firebaseUser || isDemo) return;
+    if (!_workspacesPromise) _workspacesPromise = workspaceMine().catch(() => ({ workspaces: [] }));
+    let alive = true;
+    _workspacesPromise.then(r => { if (alive) setWorkspaces(r.workspaces || []); });
+    return () => { alive = false; };
+  }, [firebaseUser, isDemo]);
+
+  const openWorkspace = async (w) => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const { data } = await workspaceRead(w.owner_uid);
+      enterSharedView(data, { owner_uid: w.owner_uid, owner_email: w.owner_email });
+      qc.invalidateQueries({ queryKey: ['db'] });
+      toast.success(t('ws_opened'));
+    } catch (err) {
+      toast.error(t('ws_open_failed') + ': ' + (err.message || ''));
+    } finally { setBusy(false); }
+  };
+
+  if (shared) {
+    return (
+      <div className="flex flex-wrap items-center justify-center gap-3 bg-amber-500/10 border-b border-amber-500/30 px-4 py-2 text-sm">
+        <span className="text-amber-300 font-semibold">
+          👁 {t('ws_viewing')} <span className="font-mono">{shared.owner_email || shared.owner_uid}</span> — {t('ws_readonly')}
+        </span>
+        <button onClick={() => { exitSharedView(); qc.invalidateQueries({ queryKey: ['db'] }); }}
+          className="px-3 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-xs font-bold transition-colors">
+          {t('ws_exit')}
+        </button>
+      </div>
+    );
+  }
+  if (!workspaces.length) return null;
+  return (
+    <div className="flex flex-wrap items-center justify-center gap-3 bg-indigo-500/10 border-b border-indigo-500/30 px-4 py-2 text-sm">
+      <span className="text-indigo-300">
+        🤝 {workspaces.length > 1 ? t('ws_offer_many') : `${workspaces[0].owner_email || 'Un collègue'} ${t('ws_offer')}`}
+      </span>
+      {workspaces.map(w => (
+        <button key={w.owner_uid} onClick={() => openWorkspace(w)} disabled={busy}
+          className="px-3 py-1 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-200 text-xs font-bold transition-colors disabled:opacity-50">
+          {t('ws_view')}{workspaces.length > 1 ? ` — ${w.owner_email || w.owner_uid}` : ''}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// One-field gate: any signed-in (non-demo) user without a full name must
+// enter one before using the app. Covers email/password and magic-link
+// signups (which never carry a name) and OAuth accounts that returned none —
+// so the Founder view always has Full Name + Email. Users who already have a
+// name (typical Google/Microsoft sign-in) never see this.
+export function NameGate() {
+  const { firebaseUser, isDemo, user } = useAuth();
+  const { language } = useLang();
+  const t = useTranslation(language);
+  const muts = useDbMutations();
+  const [name, setName] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const hasName = !!(firebaseUser?.displayName || user?.displayName);
+  const needsName = !!firebaseUser && !isDemo && !hasName;
+  if (!needsName) return null;
+
+  const submit = async () => {
+    const clean = name.trim();
+    if (clean.length < 2 || saving) return;
+    setSaving(true);
+    try {
+      await saveDisplayName(clean);
+      muts.setAuth.mutate({ displayName: clean });
+    } catch (err) {
+      toast.error(err.message || 'Could not save your name');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal open title={t('name_gate_title')} subtitle={t('name_gate_sub')} onClose={() => {}}>
+      <div className="space-y-4">
+        <Input autoFocus value={name} onChange={e => setName(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') submit(); }}
+          placeholder={t('name_gate_placeholder')} />
+        <Button onClick={submit} disabled={saving || name.trim().length < 2} className="w-full">
+          {saving ? t('sending') : t('name_gate_cta')}
+        </Button>
+      </div>
+    </Modal>
+  );
+}
+
 export function DemoBanner() {
   const { isDemo } = useAuth();
   const navigate = useNavigate();
@@ -633,7 +745,9 @@ export function AppShell({ _subtitle, title, right, children }) {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 overflow-x-hidden">
       <div className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.18),transparent_52%),radial-gradient(circle_at_bottom,rgba(99,102,241,0.10),transparent_55%)]" />
+      <NameGate />
       <DemoBanner />
+      <SharedWorkspaceBanner />
       <TrialExpiredBanner />
       <div className="flex flex-col md:flex-row w-full overflow-x-hidden md:h-screen">
         <div className="hidden md:block flex-shrink-0">
