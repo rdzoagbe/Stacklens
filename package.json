@@ -16,8 +16,8 @@
     "prepare": "husky"
   },
   "dependencies": {
-    "@azure/msal-browser": "^5.16.0",
-    "@sentry/react": "^10.56.0",
+    "@azure/msal-browser": "^5.17.1",
+    "@sentry/react": "^10.67.0",
     "@tanstack/react-query": "^5.101.2",
     "date-fns": "^4.1.0",
     "exceljs": "^4.4.0",
@@ -32,7 +32,7 @@
     "react-dom": "^19.2.7",
     "react-hot-toast": "^2.4.1",
     "react-is": "^19.2.7",
-    "react-router-dom": "^7.17.0",
+    "react-router-dom": "^7.18.1",
     "recharts": "^3.7.0"
   },
   "lint-staged": {
@@ -44,7 +44,7 @@
     "@babel/parser": "^7.29.7",
     "@babel/traverse": "^7.29.7",
     "@eslint/js": "^10.0.1",
-    "@vitejs/plugin-react": "^6.0.2",
+    "@vitejs/plugin-react": "^6.0.3",
     "@vitest/coverage-v8": "^4.1.8",
     "autoprefixer": "^10.5.2",
     "eslint": "^10.6.0",
