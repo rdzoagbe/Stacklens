@@ -37,6 +37,7 @@ export function TrialPage() {
   const [authTab, setAuthTab] = useState('signin');
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
+  const [authConfirm, setAuthConfirm] = useState('');
   const [authName, setAuthName] = useState('');
   const [magicSent, setMagicSent] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -626,6 +627,7 @@ export function TrialPage() {
                             setLoading(false); return;
                           }
                           if (user) {
+                            trackEvent('login', { method: 'password' });
                             const cur = seedDbIfEmpty();
                             cur.user = { ...cur.user, is_authenticated: true, is_demo: false, email: user.email, displayName: user.displayName || authEmail.split('@')[0], uid: user.uid };
                             saveDb(cur);
@@ -651,7 +653,7 @@ export function TrialPage() {
                           if (!authEmail) { setAuthError(t('lp_enter_email_first')); return; }
                           setLoading(true); setAuthError('');
                           const { error } = await sendMagicLink(authEmail);
-                          if (!error) { setMagicSent(true); }
+                          if (!error) { setMagicSent(true); trackEvent('magic_link_sent'); }
                           else { setAuthError(t(authErrorKey(error) || 'err_auth_generic')); }
                           setLoading(false);
                         }}
@@ -724,6 +726,16 @@ export function TrialPage() {
                           placeholder={t('lp_min_chars')}
                           className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" />
                       </div>
+                      {/* Confirm password */}
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">{t('lp_confirm_password_label')}</label>
+                        <input type="password" value={authConfirm} onChange={e => setAuthConfirm(e.target.value)}
+                          placeholder={t('lp_confirm_password_ph')}
+                          className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" />
+                        {authConfirm && authPassword !== authConfirm && (
+                          <div className="text-rose-400 text-xs px-1 mt-1">{t('lp_password_mismatch')}</div>
+                        )}
+                      </div>
                       {/* Terms acceptance — required at signup, proof of consent (LCEN + RGPD) */}
                       <label className="flex items-start gap-2 cursor-pointer group mt-1">
                         <input type="checkbox" id="signup-terms"
@@ -740,6 +752,7 @@ export function TrialPage() {
                           if (!authName) { setAuthError(t('lp_enter_name')); return; }
                           if (!authEmail) { setAuthError(t('lp_enter_email')); return; }
                           if (!authPassword || authPassword.length < 8) { setAuthError(t('lp_password_min')); return; }
+                          if (authPassword !== authConfirm) { setAuthError(t('lp_password_mismatch')); return; }
                           setLoading(true); setAuthError('');
                           const { user, error } = await registerWithEmail(authEmail, authPassword, authName);
                           if (error) {
@@ -747,6 +760,7 @@ export function TrialPage() {
                             setLoading(false); return;
                           }
                           if (user) {
+                            trackEvent('sign_up', { method: 'password' });
                             toast.success(t('account_created_verify'));
                             const cur = seedDbIfEmpty();
                             cur.user = { ...cur.user, is_authenticated: true, is_demo: false, email: user.email, displayName: authName, uid: user.uid };
@@ -755,7 +769,7 @@ export function TrialPage() {
                           }
                           setLoading(false);
                         }}
-                        disabled={loading || !authEmail || !authName || !authPassword}
+                        disabled={loading || !authEmail || !authName || !authPassword || !authConfirm}
                         className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl text-white font-bold text-sm transition-all shadow-lg flex items-center justify-center gap-2">
                         {loading ? t('lp_creating_account') : t('lp_create_account_btn')}
                       </button>
