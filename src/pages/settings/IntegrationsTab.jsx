@@ -6,6 +6,7 @@ import { useTranslation } from '../../translations';
 import { useDbQuery, useDbMutations } from '../../hooks/useDbQuery';
 import { AppShell } from '../../components/AppShell';
 import { submitContactForm } from '../../lib/contact';
+import { track } from '../../lib/analytics';
 
 // ── Google Workspace OAuth + Directory API ────────────────────────────────
 const GWS_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
@@ -1455,6 +1456,7 @@ export function IntegrationConnectors() {
         updated: toUpdate.length,
         skipped,
       });
+      track('integration_sync_completed', { source: 'google-workspace', added: toAdd.length });
     } catch (err) {
       if (err.message === 'popup_closed' || err.message === 'popup_closed_by_user' || err.message === 'access_denied') {
         setSyncCancelled({ source: 'google-workspace', retry: handleGoogleWorkspaceConnect });

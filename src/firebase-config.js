@@ -24,6 +24,7 @@ import {
   isSignInWithEmailLink,
   signInWithEmailLink,
   getIdToken,
+  updateProfile,
 } from 'firebase/auth';
 import {
   getFirestore,
@@ -68,14 +69,16 @@ if (!FIREBASE_CONFIGURED) {
 const app = initializeApp(firebaseConfig);
 
 // ── App Check (anti-bot protection) ──────────────────────────────
-// TEMPORARILY DISABLED. The reCAPTCHA v3 registration for this web app is
-// broken (exchangeRecaptchaV3Token returns 400), so App Check can't mint a
-// token. With it initialized, the Auth SDK keeps trying to attach a failing
-// App Check token to token refreshes, which corrupts the ID token flow and
-// causes 401s on auth-gated calls (checkout, AI, Firestore). Since App Check
-// currently provides zero protection (broken + monitoring mode), we skip
-// initializing it. Re-enable once the reCAPTCHA v3 key is re-registered in
-// Firebase Console → App Check, then flip APP_CHECK_ENABLED back on.
+// DISABLED (again). Re-enabling after the reCAPTCHA key re-registration still
+// produced exchangeRecaptchaV3Token 400s + appCheck/throttled in production
+// (2026-07-23), so App Check can't mint a token. With it initialized, the Auth
+// SDK keeps trying to attach a failing App Check token to token refreshes,
+// which corrupts the ID token flow and causes 401s on auth-gated calls
+// (checkout, AI, Firestore). Since App Check currently provides zero
+// protection (broken + monitoring mode), we skip initializing it. Before
+// flipping this back on: in Firebase Console → App Check → Apps, the web app
+// must show the reCAPTCHA v3 provider registered with the SECRET key of site
+// key 6Ldq47Ms…, and a manual token exchange must return 200.
 const APP_CHECK_ENABLED = false;
 if (APP_CHECK_ENABLED) {
   try {
@@ -280,6 +283,20 @@ export async function saveUserData(uid, db) {
     console.error('saveUserData:', err);
     throw err;
   }
+}
+
+// Set the signed-in user's full name on both the Firebase Auth profile and
+// their /users doc. Used by the "enter your name" gate for accounts that
+// arrived without one (email/password, magic link, or an OAuth account with
+// no name), so the founder view always has Full Name + Email.
+export async function saveDisplayName(name) {
+  const clean = String(name || '').trim();
+  if (!clean) throw new Error('Name required');
+  const u = auth.currentUser;
+  if (!u) throw new Error('Not signed in');
+  await updateProfile(u, { displayName: clean });
+  await syncUserProfile({ uid: u.uid, email: u.email, displayName: clean, photoURL: u.photoURL });
+  return clean;
 }
 
 export async function syncUserProfile(user) {
@@ -509,7 +526,9 @@ export async function createBillingPortal() {
 export async function registerWithEmail(email, password, _displayName) {
   try {
     const result = await createUserWithEmailAndPassword(auth, email, password);
-    await sendEmailVerification(result.user);
+    // Continue URL so the verification link returns the user to the app instead
+    // of dead-ending on Firebase's hosted "email verified" page.
+    await sendEmailVerification(result.user, { url: window.location.origin + '/dashboard' });
     return { user: result.user, error: null };
   } catch (error) {
     return { user: null, error: error.message };
@@ -530,7 +549,7 @@ export async function signInWithEmail(email, password) {
 export async function resendEmailVerification() {
   try {
     if (!auth.currentUser) return { error: 'Not signed in' };
-    await sendEmailVerification(auth.currentUser);
+    await sendEmailVerification(auth.currentUser, { url: window.location.origin + '/dashboard' });
     return { error: null };
   } catch (error) {
     return { error: error.message };
@@ -650,6 +669,43 @@ async function callApiKeys(body) {
   if (!res.ok) throw new Error(data.error || 'API key request failed');
   return data;
 }
+// Workspace sharing — read-only viewers via the server-verified endpoint
+async function callWorkspace(body) {
+  const token = await getToken();
+  if (!token) throw new Error('Not authenticated');
+  const res = await fetch(`${FUNCTIONS_BASE}/workspace`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Workspace request failed');
+  return data;
+}
+export const workspaceInvite  = (email) => callWorkspace({ action: 'invite', email });
+export const workspaceMembers = () => callWorkspace({ action: 'members' });
+export const workspaceRevoke  = (id) => callWorkspace({ action: 'revoke', id });
+export const workspaceMine    = () => callWorkspace({ action: 'mine' });
+export const workspaceRead    = (ownerUid) => callWorkspace({ action: 'read', ownerUid });
+
+// Bank feed — GoCardless open-banking connection + recurring-charge sync
+async function callBankfeed(body) {
+  const token = await getToken();
+  if (!token) throw new Error('Not authenticated');
+  const res = await fetch(`${FUNCTIONS_BASE}/bankfeed`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Bank feed request failed');
+  return data;
+}
+export const bankConnect      = () => callBankfeed({ action: 'connect' });
+export const bankStatus       = () => callBankfeed({ action: 'status' });
+export const bankSync         = () => callBankfeed({ action: 'sync' });
+export const bankDisconnect   = () => callBankfeed({ action: 'disconnect' });
+
 // Invoice email inbox — unique per-user address + staged invoices from email
 async function callInvoiceInbox(body) {
   const token = await getToken();
@@ -683,6 +739,37 @@ export async function founderDeleteUser(targetUid) {
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || 'Delete failed');
+  return data;
+}
+
+// Bank-provider (Bridge) credentials — set/check from the Founder Admin page.
+async function callFounderops(body) {
+  const token = await getToken();
+  if (!token) throw new Error('Not authenticated');
+  const res = await fetch(`${FUNCTIONS_BASE}/founderops`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Request failed');
+  return data;
+}
+export const founderSetBankCreds   = (clientId, clientSecret) => callFounderops({ action: 'setBankCreds', clientId, clientSecret });
+export const founderBankCredsStatus = () => callFounderops({ action: 'bankCredsStatus' });
+export const founderListErrors      = () => callFounderops({ action: 'listErrors' });
+
+// Founder diagnostic: send a real test email and get SendGrid's response back.
+export async function founderTestEmail(to) {
+  const token = await getToken();
+  if (!token) throw new Error('Not authenticated');
+  const res = await fetch(`${FUNCTIONS_BASE}/founderops`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    body: JSON.stringify({ action: 'testEmail', to }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok && !data.sendgrid_error) throw new Error(data.error || 'Test email failed');
   return data;
 }
 

@@ -1,6 +1,9 @@
 import { saveDb } from './db';
 
-export const UNALLOCATED = '__unallocated__';
+// NOTE: must NOT begin and end with "__" — Firestore rejects such field names,
+// and this key is persisted inside spend_history[].by_department (cloud sync
+// previously failed with "Document fields cannot begin and end with __").
+export const UNALLOCATED = 'unallocated';
 
 // Seat-weighted cost allocation: each active tool's monthly cost is split
 // across departments in proportion to how many of its active seats belong to
