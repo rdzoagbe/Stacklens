@@ -1290,10 +1290,10 @@ exports.weeklyBackup = onSchedule({
   console.log('Weekly backup:', backed, 'users backed up;', olds.size, 'old snapshots pruned');
 });
 
-// Rollout switch: while true, alert emails only go to founder accounts so the
-// feature can be validated live before customers receive anything. Flip to
-// false to enable for everyone (replaces the old always-on renewalAlerts).
-const ALERTS_FOUNDERS_ONLY = true;
+// Rollout switch: was true during live validation (founder-only). Flipped to
+// false 2026-07 — every user with daily_alerts enabled now receives digests.
+// Users can opt out via user.daily_alerts === false (checked below).
+const ALERTS_FOUNDERS_ONLY = false;
 
 // Server-side twin of src/lib/budget.js allocateSpendByDepartment.
 function allocSpendByDept(data) {

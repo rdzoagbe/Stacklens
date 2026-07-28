@@ -627,6 +627,7 @@ export function TrialPage() {
                             setLoading(false); return;
                           }
                           if (user) {
+                            trackEvent('login', { method: 'password' });
                             const cur = seedDbIfEmpty();
                             cur.user = { ...cur.user, is_authenticated: true, is_demo: false, email: user.email, displayName: user.displayName || authEmail.split('@')[0], uid: user.uid };
                             saveDb(cur);
@@ -652,7 +653,7 @@ export function TrialPage() {
                           if (!authEmail) { setAuthError(t('lp_enter_email_first')); return; }
                           setLoading(true); setAuthError('');
                           const { error } = await sendMagicLink(authEmail);
-                          if (!error) { setMagicSent(true); }
+                          if (!error) { setMagicSent(true); trackEvent('magic_link_sent'); }
                           else { setAuthError(t(authErrorKey(error) || 'err_auth_generic')); }
                           setLoading(false);
                         }}
@@ -759,6 +760,7 @@ export function TrialPage() {
                             setLoading(false); return;
                           }
                           if (user) {
+                            trackEvent('sign_up', { method: 'password' });
                             toast.success(t('account_created_verify'));
                             const cur = seedDbIfEmpty();
                             cur.user = { ...cur.user, is_authenticated: true, is_demo: false, email: user.email, displayName: authName, uid: user.uid };
