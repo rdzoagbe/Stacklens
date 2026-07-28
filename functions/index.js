@@ -36,6 +36,11 @@ const cors = require('cors')({
 initializeApp();
 
 const ANTHROPIC_API_KEY     = defineSecret('ANTHROPIC_API_KEY');
+// Bank-provider credentials live in the server-only /app_config/bankfeed
+// Firestore doc (set via the founderops 'setBankCreds' action), NOT in
+// Secret Manager: declared-but-unset secrets repeatedly broke the whole
+// functions deploy, and the provider is due to change (GoCardless closed
+// signups; Bridge is next). Default-deny rules keep the doc server-only.
 const STRIPE_SECRET_KEY     = defineSecret('STRIPE_SECRET_KEY');
 const STRIPE_WEBHOOK_SECRET = defineSecret('STRIPE_WEBHOOK_SECRET');
 
@@ -325,6 +330,29 @@ exports.stripeWebhook = onRequest({ secrets: [STRIPE_SECRET_KEY, STRIPE_WEBHOOK_
   } catch (err) { console.error('Webhook error:', err); return res.status(500).json({ error: 'Handler failed' }); }
 });
 
+// Coarse geo-location from the request IP — country/city/region only, no raw
+// IP stored. Best-effort: any failure or 2.5s timeout returns null so it never
+// slows or breaks sign-in. Used to show founders where users are testing from.
+async function geoFromRequest(req) {
+  try {
+    const ip = String(req.headers['x-forwarded-for'] || req.ip || '').split(',')[0].trim();
+    if (!ip || ip.startsWith('127.') || ip.startsWith('10.') || ip.startsWith('192.168.') || ip.startsWith('::1')) return null;
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 2500);
+    const r = await fetch(`https://ipwho.is/${encodeURIComponent(ip)}?fields=success,country,country_code,city,region`, { signal: ctrl.signal });
+    clearTimeout(timer);
+    const g = await r.json();
+    if (!g || g.success === false) return null;
+    return {
+      last_country: g.country || null,
+      last_country_code: g.country_code || null,
+      last_city: g.city || null,
+      last_region: g.region || null,
+      last_seen_at: Date.now(),
+    };
+  } catch { return null; }
+}
+
 // ── /syncuser ────────────────────────────────────────────────
 exports.syncuser = onRequest({ cors: true }, async (req, res) => {
   cors(req, res, async () => {
@@ -335,13 +363,14 @@ exports.syncuser = onRequest({ cors: true }, async (req, res) => {
     const allowed = await checkRateLimit(decoded.uid, res, SYNCUSER_RATE_LIMIT, 'syncuser'); if (!allowed) return;
     const { email, displayName, photoURL } = req.body;
     const uid = decoded.uid;
+    const geo = await geoFromRequest(req);
     const userRef = getFirestore().collection('users').doc(uid);
     const snap = await userRef.get();
     if (!snap.exists) {
-      await userRef.set({ uid, email: email || decoded.email || '', displayName: displayName || decoded.name || '', photoURL: photoURL || decoded.picture || '', plan: 'free', createdAt: Date.now(), updatedAt: Date.now() });
+      await userRef.set({ uid, email: email || decoded.email || '', displayName: displayName || decoded.name || '', photoURL: photoURL || decoded.picture || '', plan: 'free', createdAt: Date.now(), updatedAt: Date.now(), ...(geo || {}) });
       return res.json({ isNew: true });
     } else {
-      await userRef.update({ updatedAt: Date.now() });
+      await userRef.update({ updatedAt: Date.now(), ...(geo || {}) });
       const d = snap.data();
       return res.json({ isNew: false, plan: d.plan || 'free', stripe_customer_id: d.stripe_customer_id || null, subscription_status: d.subscription_status || null });
     }
@@ -363,7 +392,7 @@ exports.refreshClaims = onRequest({ cors: true }, async (req, res) => {
 });
 
 // ── /sendInvite — email a team invite link via SendGrid ───────────────────
-const SENDGRID_API_KEY = defineSecret('SENDGRID_API_KEY');
+const SENDGRID_API_KEY = defineSecret('SENDGRID_API_KEY'); // rotated 2026-07-21 — redeploy binds the new version
 
 exports.sendInvite = onRequest({ cors: true, secrets: [SENDGRID_API_KEY] }, async (req, res) => {
   cors(req, res, async () => {
@@ -428,7 +457,7 @@ const VALID_PLANS = ['free', 'trial', 'starter', 'hr_finance', 'pro', 'enterpris
 const FOUNDER_UIDS   = ['bxIYrZ76z1QKo5ZMpGvEG8GGbNM2'];
 const FOUNDER_EMAILS = ['rolanddzoagbe@gmail.com'];
 
-exports.founderops = onRequest({ cors: true, timeoutSeconds: 30 }, async (req, res) => {
+exports.founderops = onRequest({ cors: true, timeoutSeconds: 30, secrets: [SENDGRID_API_KEY] }, async (req, res) => {
   cors(req, res, async () => {
     if (req.method === 'OPTIONS') return res.status(204).send('');
     if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
@@ -448,9 +477,36 @@ exports.founderops = onRequest({ cors: true, timeoutSeconds: 30 }, async (req, r
       return res.status(403).json({ error: 'Forbidden' });
     }
 
-    const { action, targetUid, plan, extraDays } = req.body;
+    const { action, targetUid, plan, extraDays, to } = req.body;
 
     try {
+      // Diagnostic: send a real email through SendGrid right now and report the
+      // exact provider response, so email-delivery problems can be isolated
+      // from "the scheduled job hasn't fired / found nothing to send".
+      if (action === 'testEmail') {
+        const dest = String(to || FOUNDER_EMAILS[0] || '').trim();
+        if (!dest) return res.status(400).json({ error: 'No destination email' });
+        const sgMail = require('@sendgrid/mail');
+        sgMail.setApiKey(SENDGRID_API_KEY.value());
+        try {
+          const [resp] = await sgMail.send({
+            to: dest,
+            from: { email: 'hello@stacklens.fr', name: 'Stacklens' },
+            subject: '✅ Stacklens test email',
+            html: '<div style="font-family:sans-serif;padding:24px"><h2>It works.</h2><p>This is a Stacklens delivery test. If you received it, alert and digest emails will reach you too.</p></div>',
+          });
+          return res.json({ ok: true, sent_to: dest, status: resp?.statusCode || null });
+        } catch (mailErr) {
+          // SendGrid attaches the useful detail on err.response.body
+          const body = mailErr?.response?.body;
+          return res.status(200).json({
+            ok: false,
+            sent_to: dest,
+            sendgrid_status: mailErr?.code || null,
+            sendgrid_error: body?.errors?.map(e => e.message).join('; ') || mailErr?.message || 'Unknown SendGrid error',
+          });
+        }
+      }
       // Backfill displayName/email on /users docs from Firebase Auth. Accounts
       // created while syncuser was broken (firebase-admin v14 outage) have bare
       // docs; Auth still knows their profile, so copy it over once.
@@ -484,6 +540,29 @@ exports.founderops = onRequest({ cors: true, timeoutSeconds: 30 }, async (req, r
         return res.json({ ok: true, checked: missing.length, updated });
       }
 
+      // Configure Bridge bank-provider credentials (see the bankfeed section).
+      if (action === 'setBankCreds') {
+        const { clientId, clientSecret } = req.body || {};
+        if (!clientId || !clientSecret) return res.status(400).json({ error: 'clientId and clientSecret required' });
+        await db.collection('app_config').doc('bankfeed').set({
+          client_id: String(clientId).trim(),
+          client_secret: String(clientSecret).trim(),
+          updated_at: new Date().toISOString(),
+        });
+        return res.json({ ok: true });
+      }
+      // Whether Bridge credentials are configured (no secrets returned).
+      if (action === 'bankCredsStatus') {
+        const cfg = await db.collection('app_config').doc('bankfeed').get();
+        return res.json({ configured: cfg.exists && !!cfg.data().client_id });
+      }
+      // Recent client-side crashes captured by the clientErrors endpoint.
+      if (action === 'listErrors') {
+        const snap = await db.collection('client_errors').orderBy('at', 'desc').limit(50).get();
+        return res.json({ errors: snap.docs.map(d => d.data()) });
+      }
+
+      // ── Actions below require a target user ──
       if (!targetUid || typeof targetUid !== 'string') {
         return res.status(400).json({ error: 'targetUid required' });
       }
@@ -516,11 +595,6 @@ exports.founderops = onRequest({ cors: true, timeoutSeconds: 30 }, async (req, r
         await db.collection('users').doc(targetUid).delete();
         await db.collection('userdata').doc(targetUid).delete();
         return res.json({ ok: true });
-      }
-      // Recent client-side crashes captured by the clientErrors endpoint.
-      if (action === 'listErrors') {
-        const snap = await db.collection('client_errors').orderBy('at', 'desc').limit(50).get();
-        return res.json({ errors: snap.docs.map(d => d.data()) });
       }
       return res.status(400).json({ error: 'Unknown action' });
     } catch (err) {
@@ -744,6 +818,428 @@ exports.api = onRequest({ timeoutSeconds: 30 }, async (req, res) => {
 });
 
 
+// ── Bank feed (GoCardless Bank Account Data / open banking) ──────────────
+// The user connects their company bank once; 'sync' pulls 90 days of booked
+// transactions and detects recurring outflows (same counterparty in 2+
+// distinct months) — SaaS, hosting, telecom, leases — with real amounts.
+// Nothing is written to the user's data blob server-side: candidates are
+// returned for client-side review and applied by the client.
+// Provider: Bridge (bridgeapi.io) aggregation API v3. User-centric flow —
+// create a Bridge user keyed by our uid, mint a 2h access token, open a
+// hosted Connect session for the user to link their bank, then read
+// transactions. Credentials live in /app_config/bankfeed (client_id/secret),
+// set from the Founder Admin page — never in Secret Manager (that broke deploys).
+const BRIDGE_API = 'https://api.bridgeapi.io/v3';
+const BRIDGE_VERSION = '2025-01-15';
+
+async function bridgeCreds() {
+  const cfg = await getFirestore().collection('app_config').doc('bankfeed').get();
+  const { client_id, client_secret } = cfg.exists ? cfg.data() : {};
+  if (!client_id || !client_secret) throw new Error('Bank provider credentials are not configured yet');
+  return { client_id: String(client_id).trim(), client_secret: String(client_secret).trim() };
+}
+function bridgeHeaders(creds, token) {
+  const h = {
+    'Content-Type': 'application/json',
+    'Bridge-Version': BRIDGE_VERSION,
+    'Client-Id': creds.client_id,
+    'Client-Secret': creds.client_secret,
+  };
+  if (token) h.Authorization = `Bearer ${token}`;
+  return h;
+}
+// Ensure the Bridge user exists (idempotent — ignore "already exists"), then
+// return a fresh user access token.
+async function bridgeUserToken(creds, externalUserId) {
+  await fetch(`${BRIDGE_API}/aggregation/users`, {
+    method: 'POST', headers: bridgeHeaders(creds),
+    body: JSON.stringify({ external_user_id: externalUserId }),
+  }).catch(() => {});
+  const res = await fetch(`${BRIDGE_API}/aggregation/authorization/token`, {
+    method: 'POST', headers: bridgeHeaders(creds),
+    body: JSON.stringify({ external_user_id: externalUserId }),
+  });
+  const out = await res.json();
+  if (!res.ok) throw new Error(out?.message || 'Bridge authentication failed — check the Client ID / Secret');
+  return out.access_token;
+}
+function normalizeBridgeTx(t) {
+  return {
+    name: t.clean_description || t.provider_description || '',
+    amount: Number(t.amount || 0),
+    date: t.date || '',
+  };
+}
+
+// Group outflows by counterparty; recurring = seen in 2+ distinct months.
+// Input: normalized [{ name, amount (negative=outflow), date 'YYYY-MM-DD' }].
+function detectRecurring(items) {
+  const groups = {};
+  (items || []).forEach(tx => {
+    const amount = Number(tx.amount || 0);
+    if (!(amount < 0)) return; // outflows only
+    const name = (tx.name || '').trim();
+    if (!name) return;
+    const key = name.toLowerCase().replace(/[0-9]/g, '').replace(/\s+/g, ' ').slice(0, 40).trim();
+    if (!key) return;
+    if (!groups[key]) groups[key] = { name: name.slice(0, 80), amounts: [], months: new Set(), last: '' };
+    const g = groups[key];
+    g.amounts.push(Math.abs(amount));
+    const date = tx.date || '';
+    if (date) { g.months.add(date.slice(0, 7)); if (date > g.last) g.last = date; }
+  });
+  return Object.values(groups)
+    .filter(g => g.months.size >= 2)
+    .map(g => {
+      const sorted = [...g.amounts].sort((a, b) => a - b);
+      const median = sorted[Math.floor(sorted.length / 2)];
+      return {
+        vendor: g.name,
+        amount: Math.round(median * 100) / 100,
+        monthly: Math.round(median * 100) / 100,
+        billing_cycle: 'monthly',
+        currency: 'EUR',
+        invoice_date: g.last || null,
+        occurrences: g.amounts.length,
+        source: 'bank',
+      };
+    })
+    .sort((a, b) => b.monthly - a.monthly)
+    .slice(0, 60);
+}
+
+exports.bankfeed = onRequest({ cors: true, timeoutSeconds: 120 }, async (req, res) => {
+  cors(req, res, async () => {
+    if (req.method === 'OPTIONS') return res.status(204).send('');
+    if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
+    const decoded = await verifyAuth(req, res); if (!decoded) return;
+    // Bank connectivity is an Enterprise-tier feature (founders exempt).
+    if (!FOUNDER_UIDS.includes(decoded.uid)) {
+      const userSnap = await getFirestore().collection('users').doc(decoded.uid).get();
+      const plan = userSnap.exists ? (userSnap.data().plan || userSnap.data().subscription_plan || 'free') : 'free';
+      if (!API_PLANS.has(plan) && userSnap.data()?.is_founder !== true) {
+        return res.status(403).json({ error: 'Bank connectivity requires an Enterprise plan' });
+      }
+    }
+    const db = getFirestore();
+    const reqRef = db.collection('bank_requisitions').doc(decoded.uid);
+    const { action } = req.body || {};
+    const userEmail = (decoded.email || req.body?.email || FOUNDER_EMAILS[0] || 'user@stacklens.fr').toLowerCase();
+    try {
+      if (action === 'connect') {
+        const creds = await bridgeCreds();
+        const token = await bridgeUserToken(creds, decoded.uid);
+        const resp = await fetch(`${BRIDGE_API}/aggregation/connect-sessions`, {
+          method: 'POST', headers: bridgeHeaders(creds, token),
+          body: JSON.stringify({ user_email: userEmail, callback_url: 'https://stacklens.fr/finance?bank=connected' }),
+        });
+        const out = await resp.json();
+        if (!resp.ok) throw new Error(out?.message || 'Could not start the bank connection');
+        await reqRef.set({ status: 'pending', created_at: new Date().toISOString() });
+        return res.json({ link: out.url || out.redirect_url });
+      }
+      if (action === 'status') {
+        const snap = await reqRef.get();
+        return res.json({ connected: snap.exists });
+      }
+      if (action === 'disconnect') {
+        await reqRef.delete();
+        return res.json({ ok: true });
+      }
+      if (action === 'sync') {
+        const snap = await reqRef.get();
+        if (!snap.exists) return res.status(400).json({ error: 'No bank connected yet' });
+        const creds = await bridgeCreds();
+        const token = await bridgeUserToken(creds, decoded.uid);
+        const minDate = new Date(); minDate.setDate(minDate.getDate() - 90);
+        let url = `${BRIDGE_API}/aggregation/transactions?min_date=${minDate.toISOString().slice(0, 10)}&limit=500`;
+        const all = [];
+        for (let i = 0; i < 12 && url; i++) {
+          const r = await fetch(url, { headers: bridgeHeaders(creds, token) });
+          const out = await r.json();
+          if (!r.ok) throw new Error(out?.message || 'Could not fetch transactions');
+          all.push(...(out.resources || []));
+          const next = out.pagination?.next_uri;
+          url = next ? (next.startsWith('http') ? next : `https://api.bridgeapi.io${next}`) : null;
+        }
+        if (!all.length) return res.status(400).json({ error: 'No transactions yet — finish linking your bank in the Bridge window first, then sync.' });
+        await reqRef.set({ status: 'linked', last_sync: new Date().toISOString() }, { merge: true });
+        return res.json({ candidates: detectRecurring(all.map(normalizeBridgeTx)), transactions_scanned: all.length });
+      }
+      return res.status(400).json({ error: 'Unknown action' });
+    } catch (err) {
+      console.error('bankfeed error:', err);
+      return res.status(500).json({ error: err.message || 'Internal error' });
+    }
+  });
+});
+
+// ── Workspace sharing (read-only viewers) ────────────────────────────────
+// An owner invites teammates by email; when the invitee signs in with that
+// email, the client offers the shared workspace and reads it THROUGH THIS
+// ENDPOINT only. Viewers never receive Firestore credentials for the owner's
+// data — /workspace_members is server-only and no security rule was widened.
+const MAX_WORKSPACE_MEMBERS = 10;
+
+exports.workspace = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, res) => {
+  cors(req, res, async () => {
+    if (req.method === 'OPTIONS') return res.status(204).send('');
+    if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
+    const decoded = await verifyAuth(req, res); if (!decoded) return;
+    const db = getFirestore();
+    const { action, email, id, ownerUid } = req.body || {};
+    // SECURITY: only trust the token's email for authorization when Firebase
+    // has verified ownership of that mailbox. Otherwise an attacker could
+    // register (email/password) under an invited address they don't own — the
+    // token still carries the email claim with email_verified=false — and match
+    // a pending invite to read the owner's entire workspace. Google and
+    // magic-link sign-ins are verified; unverified email/password users must
+    // verify before an email-based invite resolves.
+    const callerEmail = decoded.email_verified ? (decoded.email || '').toLowerCase() : '';
+    const col = db.collection('workspace_members');
+    try {
+      if (action === 'invite') {
+        const target = String(email || '').toLowerCase().trim();
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(target)) return res.status(400).json({ error: 'Valid email required' });
+        if (target === callerEmail) return res.status(400).json({ error: 'You cannot invite yourself' });
+        // Team sharing is a paid feature (founders exempt).
+        if (!FOUNDER_UIDS.includes(decoded.uid)) {
+          const userSnap = await db.collection('users').doc(decoded.uid).get();
+          const plan = userSnap.exists ? (userSnap.data().plan || userSnap.data().subscription_plan || 'free') : 'free';
+          if (['free', 'trial'].includes(plan) && userSnap.data()?.is_founder !== true) {
+            return res.status(403).json({ error: 'Team sharing requires a paid plan' });
+          }
+        }
+        const existing = await col.where('owner_uid', '==', decoded.uid).get();
+        if (existing.size >= MAX_WORKSPACE_MEMBERS) return res.status(400).json({ error: `Maximum ${MAX_WORKSPACE_MEMBERS} members` });
+        if (existing.docs.some(d => d.data().member_email === target)) return res.status(400).json({ error: 'Already invited' });
+        const ref = await col.add({
+          owner_uid: decoded.uid,
+          owner_email: callerEmail || null,
+          member_email: target,
+          member_uid: null,
+          role: 'viewer',
+          status: 'pending',
+          created_at: new Date().toISOString(),
+        });
+        return res.json({ ok: true, id: ref.id });
+      }
+      if (action === 'members') {
+        const snap = await col.where('owner_uid', '==', decoded.uid).get();
+        return res.json({ members: snap.docs.map(d => ({ id: d.id, ...d.data() })) });
+      }
+      if (action === 'revoke') {
+        const snap = await col.doc(String(id || '')).get();
+        if (!snap.exists || snap.data().owner_uid !== decoded.uid) return res.status(404).json({ error: 'Not found' });
+        await snap.ref.delete();
+        return res.json({ ok: true });
+      }
+      if (action === 'mine') {
+        // Workspaces shared WITH the caller: match by bound uid, plus by email
+        // for pending invites (bind uid on first sight).
+        const byUid = await col.where('member_uid', '==', decoded.uid).get();
+        const out = byUid.docs.map(d => ({ id: d.id, ...d.data() }));
+        if (callerEmail) {
+          const byEmail = await col.where('member_email', '==', callerEmail).get();
+          for (const d of byEmail.docs) {
+            if (out.some(o => o.id === d.id)) continue;
+            await d.ref.update({ member_uid: decoded.uid, status: 'accepted' });
+            out.push({ id: d.id, ...d.data(), member_uid: decoded.uid, status: 'accepted' });
+          }
+        }
+        return res.json({ workspaces: out.map(w => ({ owner_uid: w.owner_uid, owner_email: w.owner_email, role: w.role })) });
+      }
+      if (action === 'read') {
+        const target = String(ownerUid || '');
+        const snap = await col.where('owner_uid', '==', target).get();
+        const me = snap.docs.find(d => d.data().member_uid === decoded.uid ||
+          (callerEmail && d.data().member_email === callerEmail));
+        if (!me) return res.status(403).json({ error: 'Not a member of this workspace' });
+        if (!me.data().member_uid) await me.ref.update({ member_uid: decoded.uid, status: 'accepted' });
+        const dataSnap = await db.collection('userdata').doc(target).get();
+        if (!dataSnap.exists) return res.status(404).json({ error: 'Workspace has no data yet' });
+        const data = await assembleUserdata(dataSnap);
+        // Owner's billing internals never leave the server.
+        const u = data.user || {};
+        data.user = {
+          email: u.email || null, displayName: u.displayName || null, company: u.company || null,
+          plan: u.plan || u.subscription_plan || 'free', subscription_plan: u.subscription_plan || u.plan || 'free',
+          is_founder: u.is_founder === true,
+        };
+        delete data._uid;
+        return res.json({ data });
+      }
+      return res.status(400).json({ error: 'Unknown action' });
+    } catch (err) {
+      console.error('workspace error:', err);
+      return res.status(500).json({ error: 'Internal error' });
+    }
+  });
+});
+
+// ── Invoice email inbox ──────────────────────────────────────────────────
+// Each user gets a unique address invoices-{token}@in.stacklens.fr. SendGrid
+// Inbound Parse posts incoming mail to invoiceInbound; PDF attachments are
+// text-extracted and AI-parsed server-side, then staged in /inbox_invoices
+// for review in the Budget tab. Nothing touches the user's data blob until
+// they apply the rows client-side (client remains the blob's only writer).
+const INBOX_DOMAIN = 'in.stacklens.fr';
+
+exports.invoiceInbox = onRequest({ cors: true, timeoutSeconds: 30 }, async (req, res) => {
+  cors(req, res, async () => {
+    if (req.method === 'OPTIONS') return res.status(204).send('');
+    if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
+    const decoded = await verifyAuth(req, res); if (!decoded) return;
+    const db = getFirestore();
+    const { action, ids } = req.body || {};
+    try {
+      if (action === 'get') {
+        const userRef = db.collection('users').doc(decoded.uid);
+        const snap = await userRef.get();
+        let token = snap.exists ? snap.data().invoice_inbox_token : null;
+        if (!token) {
+          token = nodeCrypto.randomBytes(6).toString('hex');
+          await db.collection('inbox_tokens').doc(token).set({ uid: decoded.uid, created_at: new Date().toISOString() });
+          await userRef.set({ invoice_inbox_token: token }, { merge: true });
+        }
+        return res.json({ address: `invoices-${token}@${INBOX_DOMAIN}` });
+      }
+      if (action === 'list') {
+        const snap = await db.collection('inbox_invoices').doc(decoded.uid)
+          .collection('items').orderBy('received_at', 'desc').limit(50).get();
+        return res.json({ items: snap.docs.map(d => ({ id: d.id, ...d.data() })) });
+      }
+      if (action === 'ack') {
+        if (!Array.isArray(ids) || !ids.length || ids.length > 100) return res.status(400).json({ error: 'ids required' });
+        const batch = db.batch();
+        ids.forEach(id => batch.delete(
+          db.collection('inbox_invoices').doc(decoded.uid).collection('items').doc(String(id))));
+        await batch.commit();
+        return res.json({ ok: true });
+      }
+      return res.status(400).json({ error: 'Unknown action' });
+    } catch (err) {
+      console.error('invoiceInbox error:', err);
+      return res.status(500).json({ error: 'Internal error' });
+    }
+  });
+});
+
+function parseMultipart(req) {
+  return new Promise((resolve, reject) => {
+    const Busboy = require('busboy');
+    const bb = Busboy({ headers: req.headers, limits: { fileSize: 10 * 1024 * 1024, files: 8 } });
+    const fields = {}; const files = [];
+    bb.on('field', (name, val) => { fields[name] = val; });
+    bb.on('file', (name, stream, info) => {
+      const chunks = [];
+      stream.on('data', c => chunks.push(c));
+      stream.on('limit', () => stream.resume());
+      stream.on('end', () => files.push({ filename: info.filename || name, mimeType: info.mimeType || '', buffer: Buffer.concat(chunks) }));
+    });
+    bb.on('error', reject);
+    bb.on('finish', () => resolve({ fields, files }));
+    bb.end(req.rawBody);
+  });
+}
+
+const INVOICE_EXTRACT_PROMPT = `You are an invoice data extractor. Below are one or more supplier invoices (raw text). For EACH invoice, extract the fields and return ONLY a JSON array (no markdown, no commentary):
+[{"file_index": 1, "vendor": "supplier name", "amount": 123.45, "currency": "EUR", "invoice_date": "YYYY-MM-DD", "period_start": "YYYY-MM-DD or null", "period_end": "YYYY-MM-DD or null", "billing_cycle": "monthly" | "yearly" | "quarterly" | "one_time"}]
+Rules: amount is the total including tax. billing_cycle is your best inference from the service period or wording (a 12-month period = yearly). Use null when a field is not present. vendor is the company SELLING the service.`;
+
+async function extractInvoicesWithAI(apiKey, texts) {
+  const rows = [];
+  for (let i = 0; i < texts.length; i += 5) {
+    const batch = texts.slice(i, i + 5);
+    const content = INVOICE_EXTRACT_PROMPT + '\n\n' +
+      batch.map((b, j) => `--- INVOICE ${j + 1} (${b.name}) ---\n${b.text}`).join('\n\n');
+    try {
+      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-5', max_tokens: 2000, thinking: { type: 'disabled' },
+          messages: [{ role: 'user', content }],
+        }),
+      });
+      const out = await resp.json();
+      if (!resp.ok) { console.warn('extractInvoicesWithAI api error:', out?.error?.message); continue; }
+      const raw = (out.content?.[0]?.text || '[]').replace(/```json|```/g, '').trim();
+      const parsed = JSON.parse(raw);
+      (Array.isArray(parsed) ? parsed : []).forEach(p => {
+        const amount = Number(p.amount || 0);
+        const vendor = String(p.vendor || '').trim().slice(0, 120);
+        if (!vendor || !(amount > 0)) return;
+        rows.push({
+          vendor, amount,
+          currency: String(p.currency || 'EUR').slice(0, 8),
+          invoice_date: p.invoice_date || null,
+          period_start: p.period_start || null,
+          period_end: p.period_end || null,
+          billing_cycle: ['monthly', 'yearly', 'quarterly', 'one_time'].includes(p.billing_cycle) ? p.billing_cycle : 'one_time',
+          file: batch[(p.file_index || 1) - 1]?.name || '',
+          source: 'email',
+        });
+      });
+    } catch (e) { console.warn('extractInvoicesWithAI failed:', e?.message); }
+  }
+  return rows;
+}
+
+// SendGrid Inbound Parse webhook. Unauthenticated by nature — bounded by the
+// token lookup (unknown tokens dropped), attachment caps, and a per-instance
+// throttle. Always answers 200 so SendGrid never retry-loops.
+let _inboundCount = 0;
+setInterval(() => { _inboundCount = 0; }, 60 * 1000).unref?.();
+exports.invoiceInbound = onRequest({ cors: false, timeoutSeconds: 120, memory: '512MiB', secrets: [ANTHROPIC_API_KEY] }, async (req, res) => {
+  if (req.method !== 'POST') return res.status(405).send('POST only');
+  if (_inboundCount++ > 60) return res.status(200).send('throttled');
+  try {
+    const { fields, files } = await parseMultipart(req);
+    const to = String(fields.to || fields.envelope || '');
+    const m = to.match(/invoices-([a-z0-9]{8,16})@/i);
+    if (!m) return res.status(200).send('ignored');
+    const db = getFirestore();
+    const tokenSnap = await db.collection('inbox_tokens').doc(m[1].toLowerCase()).get();
+    if (!tokenSnap.exists) return res.status(200).send('unknown token');
+    const uid = tokenSnap.data().uid;
+
+    const pdfParse = require('pdf-parse');
+    const texts = [];
+    for (const f of files.slice(0, 5)) {
+      if (!f.buffer?.length || f.buffer.length > 8 * 1024 * 1024) continue;
+      if (!(/pdf/i.test(f.mimeType) || /\.pdf$/i.test(f.filename))) continue;
+      try {
+        const out = await pdfParse(f.buffer);
+        if (out.text && out.text.trim().length > 40) texts.push({ name: f.filename, text: out.text.slice(0, 3000) });
+      } catch (e) { console.warn('invoiceInbound pdf failed:', f.filename, e?.message); }
+    }
+    // No readable attachments — many vendors put the invoice in the email body.
+    if (!texts.length && fields.text && String(fields.text).trim().length > 80) {
+      texts.push({ name: 'email body', text: String(fields.text).slice(0, 3000) });
+    }
+    if (!texts.length) return res.status(200).send('no readable content');
+
+    const rows = await extractInvoicesWithAI(ANTHROPIC_API_KEY.value(), texts);
+    if (rows.length) {
+      const batch = db.batch();
+      const col = db.collection('inbox_invoices').doc(uid).collection('items');
+      rows.forEach(r => batch.set(col.doc(), {
+        ...r,
+        from: String(fields.from || '').slice(0, 200),
+        subject: String(fields.subject || '').slice(0, 200),
+        received_at: new Date().toISOString(),
+      }));
+      await batch.commit();
+    }
+    console.log('invoiceInbound:', uid, texts.length, 'docs →', rows.length, 'invoices staged');
+    return res.status(200).send('ok');
+  } catch (err) {
+    console.error('invoiceInbound error:', err);
+    return res.status(200).send('error');
+  }
+});
+
 // ── Daily Alerts (SendGrid) ──────────────────────────────────────────────
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 
@@ -794,10 +1290,10 @@ exports.weeklyBackup = onSchedule({
   console.log('Weekly backup:', backed, 'users backed up;', olds.size, 'old snapshots pruned');
 });
 
-// Rollout switch: while true, alert emails only go to founder accounts so the
-// feature can be validated live before customers receive anything. Flip to
-// false to enable for everyone (replaces the old always-on renewalAlerts).
-const ALERTS_FOUNDERS_ONLY = true;
+// Rollout switch: was true during live validation (founder-only). Flipped to
+// false 2026-07 — every user with daily_alerts enabled now receives digests.
+// Users can opt out via user.daily_alerts === false (checked below).
+const ALERTS_FOUNDERS_ONLY = false;
 
 // Server-side twin of src/lib/budget.js allocateSpendByDepartment.
 function allocSpendByDept(data) {

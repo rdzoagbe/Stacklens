@@ -7,7 +7,8 @@ import { useDbQuery, useDbMutations } from '../../hooks/useDbQuery';
 import { useLang } from '../../contexts/LangContext';
 import { useTranslation } from '../../translations';
 import { getCurrency, convertCurrency } from '../../lib/currency';
-import { callAI } from '../../firebase-config';
+import { callAI, invoiceInboxAddress, invoiceInboxList, invoiceInboxAck, bankConnect, bankStatus, bankSync } from '../../firebase-config';
+import { Landmark } from 'lucide-react';
 import { UNALLOCATED, allocateSpendByDepartment, parseBudgetCsv, monthlyAmountFromInvoice } from '../../lib/budget';
 
 function yearElapsedFraction(year) {
@@ -37,7 +38,60 @@ export function BudgetTabContent() {
   const [drafts, setDrafts] = useState({}); // department -> input string while editing
 
   // Invoice import modal state
-  const [importState, setImportState] = useState(null); // null | {phase:'working',done,total} | {phase:'review',rows,errors}
+  const [importState, setImportState] = useState(null); // null | {phase:'working',done,total} | {phase:'review',rows,errors,inboxIds?}
+
+  // Email-in inbox: unique address + invoices that arrived by email
+  const [inboxAddress, setInboxAddress] = useState('');
+  const [inboxItems, setInboxItems] = useState([]);
+  React.useEffect(() => {
+    let alive = true;
+    invoiceInboxAddress().then(r => { if (alive) setInboxAddress(r.address || ''); }).catch(() => {});
+    invoiceInboxList().then(r => { if (alive) setInboxItems(r.items || []); }).catch(() => {});
+    return () => { alive = false; };
+  }, []);
+
+  // Bank feed (Bridge): connection status + recurring-charge sync
+  const [bank, setBank] = useState({ checked: false, connected: false });
+  const [bankBusy, setBankBusy] = useState(false);
+  React.useEffect(() => {
+    let alive = true;
+    bankStatus().then(r => { if (alive) setBank({ checked: true, connected: !!r.connected }); })
+      .catch(() => { if (alive) setBank({ checked: true, connected: false }); });
+    return () => { alive = false; };
+  }, []);
+
+  const startBankConnect = async () => {
+    if (bankBusy) return;
+    setBankBusy(true);
+    try {
+      const { link } = await bankConnect();
+      if (link) window.location.assign(link); // Bridge-hosted bank connection
+      else toast.error(t('bank_failed'));
+    } catch (err) { toast.error(err.message || t('bank_failed')); }
+    finally { setBankBusy(false); }
+  };
+  const runBankSync = async () => {
+    setImportState({ phase: 'working', done: 0, total: 1 });
+    try {
+      const { candidates } = await bankSync();
+      setImportState({
+        phase: 'review', errors: [],
+        rows: (candidates || []).map(c => ({ ...c, file: `${c.occurrences}× ${t('bank_seen')}`, include: true })),
+      });
+    } catch (err) {
+      setImportState(null);
+      toast.error(err.message || t('bank_failed'));
+    }
+  };
+
+  const reviewInboxItems = () => {
+    setImportState({
+      phase: 'review',
+      errors: [],
+      inboxIds: inboxItems.map(i => i.id),
+      rows: inboxItems.map(i => ({ ...i, monthly: monthlyAmountFromInvoice(i), include: true })),
+    });
+  };
 
   const budgets = useMemo(() => (db?.budgets || []).filter(b => b.year === year), [db, year]);
   // All department keys are matched case-insensitively — "Sales" from an
@@ -156,11 +210,17 @@ export function BudgetTabContent() {
   };
 
   const applyInvoices = () => {
-    const selected = (importState?.rows || []).filter(r => r.include).map(({ include: _i, ...r }) => r);
-    if (!selected.length) { setImportState(null); return; }
-    importInvoices.mutate(selected, {
-      onSuccess: () => toast.success(`${selected.length} ${t('budget_inv_applied')}`),
-    });
+    const selected = (importState?.rows || []).filter(r => r.include).map(({ include: _i, id: _id, ...r }) => r);
+    const inboxIds = importState?.inboxIds;
+    if (selected.length) {
+      importInvoices.mutate(selected, {
+        onSuccess: () => toast.success(`${selected.length} ${t('budget_inv_applied')}`),
+      });
+    }
+    // Reviewed email invoices leave the staging inbox whether applied or unticked.
+    if (inboxIds?.length) {
+      invoiceInboxAck(inboxIds).then(() => setInboxItems([])).catch(() => {});
+    }
     setImportState(null);
   };
 
@@ -250,6 +310,10 @@ export function BudgetTabContent() {
           </button>
           <input ref={fileRef} type="file" accept=".csv,.txt" className="hidden"
             onChange={e => { const f = e.target.files?.[0]; if (f) importCsv(f); e.target.value = ''; }} />
+          <button onClick={bank.connected ? runBankSync : startBankConnect} disabled={bankBusy} title={t(bank.connected ? 'bank_sync_title' : 'bank_connect_title')}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition-colors disabled:opacity-50">
+            <Landmark size={15} /> {t(bank.connected ? 'bank_sync_btn' : 'bank_connect_btn')}
+          </button>
           <button onClick={exportPdf} title={t('budget_export_pdf')}
             className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-semibold transition-colors">
             <Printer size={15} /> PDF
@@ -261,6 +325,28 @@ export function BudgetTabContent() {
         </div>
       </div>
       <p className="text-xs text-slate-600">{t('budget_csv_hint')} · {t('budget_estimate_note')}</p>
+
+      {inboxAddress && (
+        <p className="text-xs text-slate-500">
+          📧 {t('budget_inbox_hint')}{' '}
+          <button onClick={() => { navigator.clipboard?.writeText(inboxAddress); toast.success(t('budget_inbox_copied')); }}
+            className="font-mono text-indigo-400 hover:text-indigo-300 underline decoration-dotted" title={t('budget_inbox_copy')}>
+            {inboxAddress}
+          </button>
+        </p>
+      )}
+
+      {inboxItems.length > 0 && (
+        <div className="rounded-2xl bg-emerald-500/5 border border-emerald-500/20 p-4 flex items-center justify-between gap-3">
+          <div className="text-sm text-emerald-300 font-semibold">
+            📬 {inboxItems.length} {t('budget_inbox_pending')}
+          </div>
+          <button onClick={reviewInboxItems}
+            className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold transition-colors shrink-0">
+            {t('budget_inbox_review')}
+          </button>
+        </div>
+      )}
 
       <div className="grid sm:grid-cols-3 gap-4">
         <div className="rounded-2xl bg-slate-900/60 border border-slate-800 p-4">

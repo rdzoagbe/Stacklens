@@ -7,6 +7,7 @@ import {
   getUserPlanFromFirestore, syncClaimsFromServer,
 } from '../firebase-config';
 import { loadDb, saveDb, seedDbIfEmpty } from '../lib/db';
+import { track } from '../lib/analytics';
 import { useDbQuery } from '../hooks/useDbQuery';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../hooks/useAuth';
@@ -59,6 +60,7 @@ export function SettingsPage() {
     const success = searchParams.get('success');
     const cancelled = searchParams.get('cancelled');
     if (success === 'true') {
+      track('checkout_completed');
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setActiveTab('billing');
       setStripeMsg('success');
