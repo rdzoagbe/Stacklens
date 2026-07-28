@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   buildRiskAlerts, computeToolDerivedRisk,
@@ -54,7 +55,12 @@ export function FinanceDashboard() {
   const { language } = useLang();
   const t = useTranslation(language);
   const { data: db } = useDbQuery();
-  const [finTab, setFinTab] = useState('overview');
+  // Deep-link support: /finance?tab=budget opens that tab (e.g. from the
+  // dashboard Getting-Started checklist). Falls back to overview.
+  const [searchParams] = useSearchParams();
+  const VALID_FIN_TABS = ['overview', 'cost', 'budget', 'licenses', 'renewals', 'contracts', 'analytics'];
+  const _initialTab = VALID_FIN_TABS.includes(searchParams.get('tab')) ? searchParams.get('tab') : 'overview';
+  const [finTab, setFinTab] = useState(_initialTab);
   const [showBudgetModal, setShowBudgetModal] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [showReclaimModal, setShowReclaimModal] = useState(false);

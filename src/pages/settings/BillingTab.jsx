@@ -6,6 +6,7 @@ import {
   createBillingPortal, createCheckoutSession, logLegalAcceptance,
 } from '../../firebase-config';
 import { resolvePlan, TRIAL_DAYS, getTrialState } from '../../lib/plan';
+import { track } from '../../lib/analytics';
 import { useDbQuery } from '../../hooks/useDbQuery';
 import { useLang } from '../../contexts/LangContext';
 import { useTranslation } from '../../translations';
@@ -212,6 +213,7 @@ export function BillingPage({ noShell = false }) {
     // GDPR/LCEN audit trail: the user explicitly accepted the Terms/Privacy/DPA
     // in the dialog above (best-effort, never blocks).
     if (db?.user?.uid) logLegalAcceptance(db.user.uid, db.user.email, id);
+    track('checkout_started', { plan: id, billing });
     try {
       const { url, error } = await createCheckoutSession(priceId);
       if (error) throw new Error(error);

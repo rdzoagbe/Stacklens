@@ -7,7 +7,8 @@ import { useDbQuery, useDbMutations } from '../../hooks/useDbQuery';
 import { useLang } from '../../contexts/LangContext';
 import { useTranslation } from '../../translations';
 import { getCurrency, convertCurrency } from '../../lib/currency';
-import { callAI, invoiceInboxAddress, invoiceInboxList, invoiceInboxAck } from '../../firebase-config';
+import { callAI, invoiceInboxAddress, invoiceInboxList, invoiceInboxAck, bankConnect, bankStatus, bankSync } from '../../firebase-config';
+import { Landmark } from 'lucide-react';
 import { UNALLOCATED, allocateSpendByDepartment, parseBudgetCsv, monthlyAmountFromInvoice } from '../../lib/budget';
 
 function yearElapsedFraction(year) {
@@ -48,6 +49,40 @@ export function BudgetTabContent() {
     invoiceInboxList().then(r => { if (alive) setInboxItems(r.items || []); }).catch(() => {});
     return () => { alive = false; };
   }, []);
+
+  // Bank feed (Bridge): connection status + recurring-charge sync
+  const [bank, setBank] = useState({ checked: false, connected: false });
+  const [bankBusy, setBankBusy] = useState(false);
+  React.useEffect(() => {
+    let alive = true;
+    bankStatus().then(r => { if (alive) setBank({ checked: true, connected: !!r.connected }); })
+      .catch(() => { if (alive) setBank({ checked: true, connected: false }); });
+    return () => { alive = false; };
+  }, []);
+
+  const startBankConnect = async () => {
+    if (bankBusy) return;
+    setBankBusy(true);
+    try {
+      const { link } = await bankConnect();
+      if (link) window.location.assign(link); // Bridge-hosted bank connection
+      else toast.error(t('bank_failed'));
+    } catch (err) { toast.error(err.message || t('bank_failed')); }
+    finally { setBankBusy(false); }
+  };
+  const runBankSync = async () => {
+    setImportState({ phase: 'working', done: 0, total: 1 });
+    try {
+      const { candidates } = await bankSync();
+      setImportState({
+        phase: 'review', errors: [],
+        rows: (candidates || []).map(c => ({ ...c, file: `${c.occurrences}× ${t('bank_seen')}`, include: true })),
+      });
+    } catch (err) {
+      setImportState(null);
+      toast.error(err.message || t('bank_failed'));
+    }
+  };
 
   const reviewInboxItems = () => {
     setImportState({
@@ -275,6 +310,10 @@ export function BudgetTabContent() {
           </button>
           <input ref={fileRef} type="file" accept=".csv,.txt" className="hidden"
             onChange={e => { const f = e.target.files?.[0]; if (f) importCsv(f); e.target.value = ''; }} />
+          <button onClick={bank.connected ? runBankSync : startBankConnect} disabled={bankBusy} title={t(bank.connected ? 'bank_sync_title' : 'bank_connect_title')}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition-colors disabled:opacity-50">
+            <Landmark size={15} /> {t(bank.connected ? 'bank_sync_btn' : 'bank_connect_btn')}
+          </button>
           <button onClick={exportPdf} title={t('budget_export_pdf')}
             className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-semibold transition-colors">
             <Printer size={15} /> PDF

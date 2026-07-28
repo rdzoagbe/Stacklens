@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { uid, loadDb, saveDb, seedDbIfEmpty } from '../lib/db';
 import { getPlanLimits } from '../lib/plan';
+import { track } from '../lib/analytics';
 import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
 
@@ -44,7 +45,7 @@ export function useDbMutations() {
         return db;
       });
     },
-    onSuccess: invalidate,
+    onSuccess: () => { invalidate(); track('tool_added'); },
     onError: (err) => {
       if (err.message?.startsWith('PLAN_LIMIT:')) {
         toast.error(err.message.replace('PLAN_LIMIT:', ''), { duration: 6000 });
@@ -92,7 +93,7 @@ export function useDbMutations() {
         return db;
       });
     },
-    onSuccess: invalidate,
+    onSuccess: () => { invalidate(); track('employee_added'); },
     onError: (err) => {
       if (err.message?.startsWith('PLAN_LIMIT:')) {
         toast.error(err.message.replace('PLAN_LIMIT:', ''), { duration: 6000 });
@@ -136,7 +137,10 @@ export function useDbMutations() {
         return db;
       });
     },
-    onSuccess: invalidate,
+    onSuccess: (_data, vars) => {
+      invalidate();
+      if (vars?.patch?.status === 'offboarding') track('offboarding_started');
+    },
     onError: () => toast.error(t('err_update_employee')),
   });
 
@@ -253,7 +257,7 @@ export function useDbMutations() {
         return db;
       });
     },
-    onSuccess: invalidate,
+    onSuccess: (_data, rows) => { invalidate(); track('invoice_import_completed', { count: Array.isArray(rows) ? rows.length : undefined }); },
   });
 
   const setAuth = useMutation({
@@ -493,7 +497,7 @@ export function useDbMutations() {
         return db;
       });
     },
-    onSuccess: invalidate,
+    onSuccess: (_data, vars) => { invalidate(); track('csv_import_completed', { kind: vars?.kind }); },
   });
 
   return {

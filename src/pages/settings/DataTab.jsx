@@ -3,6 +3,7 @@ import { Boxes, Download, Users } from 'lucide-react';
 import { saveUserData } from '../../firebase-config';
 import { loadDb, saveDb, seedDbIfEmpty, todayISO } from '../../lib/db';
 import { toCsv, downloadText } from '../../lib/dataUtils';
+import { track } from '../../lib/analytics';
 import { submitContactForm } from '../../lib/contact';
 import { Card, CardHeader, CardBody } from '../../components/ui';
 
@@ -23,6 +24,7 @@ export function DataTab({ db, firebaseUser, isDemo, qc, t }) {
                     ["name","category","owner_email","criticality","url","derived_status","last_used_date","cost_per_month","derived_risk","notes"]
                   ));
                   toast.success(t('set_tools_exported'));
+                  track('report_exported', { type: 'tools' });
                 },
               },
               {
@@ -37,6 +39,7 @@ export function DataTab({ db, firebaseUser, isDemo, qc, t }) {
                     ["tool_name","employee_name","employee_email","access_level","granted_date","last_accessed_date","last_reviewed_date","status","derived_risk_flag"]
                   )), 300);
                   toast.success(t('set_emp_exported'));
+                  track('report_exported', { type: 'employees_access' });
                 },
               },
               {
@@ -48,6 +51,7 @@ export function DataTab({ db, firebaseUser, isDemo, qc, t }) {
                     ["action","user","timestamp","details"]
                   ));
                   toast.success(t('set_audit_exported'));
+                  track('report_exported', { type: 'audit_log' });
                 },
               },
             ].map(({ label, desc, icon: Icon, onClick }) => (

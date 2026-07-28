@@ -3,9 +3,9 @@ import { useNavigate, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
   Users, Clock, Shield, Search,
-  Zap, Crown, RefreshCw, Pencil, Check, X, ArrowLeft, Trash2,
+  Zap, Crown, RefreshCw, Pencil, Check, X, ArrowLeft, Trash2, Mail,
 } from 'lucide-react';
-import { loadAllUsersAdmin, founderExtendTrial, founderSetPlan, founderEnrichProfiles, founderDeleteUser } from '../firebase-config';
+import { loadAllUsersAdmin, founderExtendTrial, founderSetPlan, founderEnrichProfiles, founderDeleteUser, founderTestEmail, founderSetBankCreds, founderBankCredsStatus, founderListErrors } from '../firebase-config';
 import { getFirestore, doc, updateDoc } from 'firebase/firestore';
 import { useAuth } from '../hooks/useAuth';
 import { isFounderUser } from '../lib/plan';
@@ -21,6 +21,20 @@ const PLAN_COLORS = {
 };
 
 const VALID_PLANS = ['free', 'trial', 'starter', 'hr_finance', 'pro', 'enterprise', 'scale'];
+
+// ISO country code → flag emoji (regional-indicator letters).
+function flagEmoji(code) {
+  if (!code || code.length !== 2) return '📍';
+  return code.toUpperCase().replace(/./g, c => String.fromCodePoint(127397 + c.charCodeAt(0)));
+}
+
+function timeAgo(ms) {
+  const s = Math.floor((Date.now() - ms) / 1000);
+  if (s < 60) return 'just now';
+  const m = Math.floor(s / 60); if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60); if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24); return `${d}d ago`;
+}
 
 function toDate(v) {
   if (!v) return null;
@@ -195,6 +209,18 @@ function UserTableRow({ u, onAction }) {
         </select>
       </td>
       <td className="px-4 py-3 text-sm whitespace-nowrap align-middle">
+        {u.last_country ? (
+          <div className="min-w-0">
+            <div className="text-slate-200 truncate">
+              {flagEmoji(u.last_country_code)} {[u.last_city, u.last_country].filter(Boolean).join(', ')}
+            </div>
+            {u.last_seen_at && <div className="text-[11px] text-slate-500">{timeAgo(u.last_seen_at)}</div>}
+          </div>
+        ) : (
+          <span className="text-xs text-slate-600">—</span>
+        )}
+      </td>
+      <td className="px-4 py-3 text-sm whitespace-nowrap align-middle">
         <div className="flex items-center gap-2">
           {expiryCell}
           {plan === 'trial' && (
@@ -231,7 +257,54 @@ export function FounderAdminPage() {
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState('recent');
   const [filterPlan, setFilterPlan] = useState('all');
+  const [testingEmail, setTestingEmail] = useState(false);
+  const [bankCfg, setBankCfg] = useState({ configured: false, id: '', secret: '', saving: false });
+  const [errors, setErrors] = useState({ loading: false, open: false, items: null });
   const enrichedRef = useRef(false);
+
+  const loadErrors = async () => {
+    setErrors(e => ({ ...e, loading: true, open: true }));
+    try {
+      const r = await founderListErrors();
+      setErrors({ loading: false, open: true, items: r.errors || [] });
+    } catch (err) {
+      toast.error('Could not load errors: ' + err.message);
+      setErrors({ loading: false, open: true, items: [] });
+    }
+  };
+
+  useEffect(() => {
+    founderBankCredsStatus().then(r => setBankCfg(c => ({ ...c, configured: !!r.configured }))).catch(() => {});
+  }, []);
+
+  async function saveBankCreds() {
+    if (!bankCfg.id.trim() || !bankCfg.secret.trim() || bankCfg.saving) return;
+    setBankCfg(c => ({ ...c, saving: true }));
+    try {
+      await founderSetBankCreds(bankCfg.id.trim(), bankCfg.secret.trim());
+      toast.success('Bank (Bridge) credentials saved.', { duration: 6000 });
+      setBankCfg({ configured: true, id: '', secret: '', saving: false });
+    } catch (err) {
+      toast.error('Save failed: ' + err.message);
+      setBankCfg(c => ({ ...c, saving: false }));
+    }
+  }
+
+  async function sendTestEmail() {
+    setTestingEmail(true);
+    try {
+      const r = await founderTestEmail();
+      if (r.ok) {
+        toast.success(`Test email sent to ${r.sent_to} — check your inbox (and spam).`, { duration: 8000 });
+      } else {
+        toast.error(`SendGrid refused it: ${r.sendgrid_error}`, { duration: 12000 });
+      }
+    } catch (err) {
+      toast.error('Test email failed: ' + err.message, { duration: 10000 });
+    } finally {
+      setTestingEmail(false);
+    }
+  }
 
   async function loadUsers() {
     setLoading(true);
@@ -347,14 +420,24 @@ export function FounderAdminPage() {
             </p>
           </div>
         </div>
-        <button
-          onClick={loadUsers}
-          disabled={loading}
-          className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 rounded-xl text-sm transition-colors"
-        >
-          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-          Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={sendTestEmail}
+            disabled={testingEmail}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-300 rounded-xl text-sm transition-colors disabled:opacity-50"
+          >
+            <Mail size={14} className={testingEmail ? 'animate-pulse' : ''} />
+            {testingEmail ? 'Sending…' : 'Send test email'}
+          </button>
+          <button
+            onClick={loadUsers}
+            disabled={loading}
+            className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 rounded-xl text-sm transition-colors"
+          >
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+            Refresh
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -383,6 +466,52 @@ export function FounderAdminPage() {
             .join(', ') || 'none'}
           color="text-amber-400"
         />
+      </div>
+
+      <div className="rounded-xl border border-slate-700/50 bg-slate-900/40 p-4">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="text-sm font-semibold text-white">🏦 Bank feed credentials (Bridge)</span>
+          {bankCfg.configured && <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400">Configured</span>}
+        </div>
+        <p className="text-xs text-slate-500 mb-3">Paste your Bridge <b>Client ID</b> and <b>Client Secret</b> here to enable the Budget-tab bank connection. Stored server-side, never shown again.</p>
+        <div className="flex flex-wrap gap-2">
+          <input type="text" value={bankCfg.id} onChange={e => setBankCfg(c => ({ ...c, id: e.target.value }))}
+            placeholder="Bridge Client ID" className="flex-1 min-w-[180px] bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-indigo-500" />
+          <input type="password" value={bankCfg.secret} onChange={e => setBankCfg(c => ({ ...c, secret: e.target.value }))}
+            placeholder="Bridge Client Secret" className="flex-1 min-w-[180px] bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-indigo-500" />
+          <button onClick={saveBankCreds} disabled={bankCfg.saving || !bankCfg.id.trim() || !bankCfg.secret.trim()}
+            className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition-colors disabled:opacity-50">
+            {bankCfg.saving ? 'Saving…' : 'Save'}
+          </button>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-slate-700/50 bg-slate-900/40 p-4">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-white">🐛 Recent client errors</span>
+            {errors.items && <span className="text-[11px] text-slate-500">{errors.items.length} shown</span>}
+          </div>
+          <button onClick={loadErrors} disabled={errors.loading}
+            className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 rounded-lg text-xs transition-colors disabled:opacity-50">
+            <RefreshCw size={13} className={errors.loading ? 'animate-spin' : ''} />
+            {errors.items ? 'Refresh' : 'Load errors'}
+          </button>
+        </div>
+        {errors.open && errors.items && (
+          errors.items.length === 0 ? (
+            <div className="text-xs text-emerald-400 mt-3">No crashes reported — clean. 🎉</div>
+          ) : (
+            <div className="mt-3 space-y-1.5 max-h-72 overflow-y-auto">
+              {errors.items.map((e, i) => (
+                <div key={i} className="text-xs bg-slate-950/50 border border-slate-800 rounded-lg px-3 py-2">
+                  <div className="text-rose-300 font-mono break-words">{e.message}</div>
+                  <div className="text-slate-600 mt-0.5">{e.url || '—'} · {e.at ? new Date(e.at).toLocaleString() : ''}</div>
+                </div>
+              ))}
+            </div>
+          )
+        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
@@ -433,6 +562,7 @@ export function FounderAdminPage() {
                 <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">User Name</th>
                 <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Registered</th>
                 <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Plan</th>
+                <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Location</th>
                 <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Expiry</th>
               </tr>
             </thead>
