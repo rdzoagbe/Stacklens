@@ -76,14 +76,20 @@ export function DataTab({ db, firebaseUser, isDemo, qc, t }) {
                 label: t('set_del_tools'),
                 desc: t('set_del_tools_desc'),
                 btn: t('set_del_tools_btn'),
-                onClick: () => {
+                onClick: async () => {
                   if (isDemo) { toast.error(t('set_demo_error')); return; }
                   if (!window.confirm(t('set_del_tools_confirm'))) return;
                   const cur = loadDb() || seedDbIfEmpty();
                   cur.tools = []; cur.employees = []; cur.access = [];
                   saveDb(cur);
-                  if (firebaseUser?.uid) saveUserData(firebaseUser.uid, cur).catch(() => {});
                   qc.invalidateQueries({ queryKey: ['db'] });
+                  // Await the cloud wipe: if it fails while the local wipe
+                  // succeeded, hydration can resurrect the deleted data — so
+                  // never report success we did not achieve.
+                  if (firebaseUser?.uid) {
+                    try { await saveUserData(firebaseUser.uid, cur); }
+                    catch { toast.error(t('set_del_cloud_error'), { duration: 8000 }); return; }
+                  }
                   toast.success(t('set_del_tools_done'));
                 },
               },
@@ -91,14 +97,17 @@ export function DataTab({ db, firebaseUser, isDemo, qc, t }) {
                 label: t('set_del_emp'),
                 desc: t('set_del_emp_desc'),
                 btn: t('set_del_emp_btn'),
-                onClick: () => {
+                onClick: async () => {
                   if (isDemo) { toast.error(t('set_demo_error')); return; }
                   if (!window.confirm(t('set_del_emp_confirm'))) return;
                   const cur = loadDb() || seedDbIfEmpty();
                   cur.employees = []; cur.access = [];
                   saveDb(cur);
-                  if (firebaseUser?.uid) saveUserData(firebaseUser.uid, cur).catch(() => {});
                   qc.invalidateQueries({ queryKey: ['db'] });
+                  if (firebaseUser?.uid) {
+                    try { await saveUserData(firebaseUser.uid, cur); }
+                    catch { toast.error(t('set_del_cloud_error'), { duration: 8000 }); return; }
+                  }
                   toast.success(t('set_del_emp_done'));
                 },
               },

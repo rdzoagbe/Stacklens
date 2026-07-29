@@ -5,6 +5,13 @@
 
 export const translations = {
   en: {
+    sync_error_title: "Changes not backed up",
+    sync_error_sub: "Your latest changes are saved in this browser only. Retry to back them up to the cloud.",
+    sync_retry: "Retry",
+    sync_retrying: "Retrying…",
+    sync_retry_ok: "Backed up to the cloud",
+    sync_retry_fail: "Still can't reach the cloud. Check your connection and try again.",
+    set_del_cloud_error: "Deleted in this browser, but the cloud copy could not be updated — the data may reappear. Check your connection and try again.",
     nav_dashboard: "Dashboard",
     nav_tools: "Tools",
     nav_employees: "Employees",
@@ -2735,6 +2742,13 @@ export const translations = {
     notif_offboard_sub: "When an offboarding task is started",
   },
   fr: {
+    sync_error_title: "Modifications non sauvegardées",
+    sync_error_sub: "Vos dernières modifications ne sont enregistrées que dans ce navigateur. Réessayez pour les sauvegarder dans le cloud.",
+    sync_retry: "Réessayer",
+    sync_retrying: "Nouvelle tentative…",
+    sync_retry_ok: "Sauvegardé dans le cloud",
+    sync_retry_fail: "Le cloud reste injoignable. Vérifiez votre connexion et réessayez.",
+    set_del_cloud_error: "Supprimé dans ce navigateur, mais la copie cloud n'a pas pu être mise à jour — les données pourraient réapparaître. Vérifiez votre connexion et réessayez.",
     // ── completed French coverage (public pages) ──
     no_results: "Aucun résultat",
     try_adjusting_filters: "Ajustez vos filtres ou votre recherche.",

@@ -1,9 +1,10 @@
 /* eslint-disable react-refresh/only-export-components */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useSyncExternalStore } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { loadUserData, logConsent, workspaceMine, workspaceRead } from '../firebase-config';
 import { enterSharedView, exitSharedView, getSharedView } from '../lib/db';
+import { subscribeSync, getSyncSnapshot, retrySync } from '../lib/syncStatus';
 import { useQueryClient } from '@tanstack/react-query';
 import { resolvePlan, getTrialState, getPlanLimits, isFounderUser } from '../lib/plan';
 import { cx } from '../lib/utils';
@@ -562,6 +563,44 @@ export function TrialExpiredBanner() {
   );
 }
 
+// ── Cloud sync failure banner ────────────────────────────────────────────
+// The app writes to localStorage first and backs up to Firestore in the
+// background. When that backup fails the change lives in one browser only —
+// this is the only place the user is told, so it does not auto-dismiss; it
+// clears when a save (or the retry) succeeds.
+function CloudSyncBanner() {
+  const { language } = useLang();
+  const t = useTranslation(language);
+  const sync = useSyncExternalStore(subscribeSync, getSyncSnapshot, getSyncSnapshot);
+  const [retrying, setRetrying] = useState(false);
+
+  if (sync.status !== 'error') return null;
+
+  const onRetry = async () => {
+    setRetrying(true);
+    const ok = await retrySync();
+    setRetrying(false);
+    if (ok) toast.success(t('sync_retry_ok'));
+    else toast.error(t('sync_retry_fail'));
+  };
+
+  return (
+    <div className="bg-gradient-to-r from-rose-600 to-red-600 text-white text-sm px-4 py-2.5 flex items-center justify-between gap-3">
+      <div className="flex items-center gap-2 min-w-0">
+        <span className="text-base flex-shrink-0">⚠️</span>
+        <span className="font-semibold flex-shrink-0">{t('sync_error_title')}</span>
+        <span className="text-rose-100 hidden sm:inline truncate">— {t('sync_error_sub')}</span>
+      </div>
+      <button
+        onClick={onRetry}
+        disabled={retrying}
+        className="bg-white text-rose-600 hover:bg-rose-50 disabled:opacity-70 px-3 py-1 rounded-lg text-xs font-bold transition-all flex-shrink-0">
+        {retrying ? t('sync_retrying') : t('sync_retry')}
+      </button>
+    </div>
+  );
+}
+
 // ── Shared workspaces: offer banner + read-only viewing banner ───────────
 // Module-level cache so the list is fetched once per page load, not on every
 // navigation (AppShell remounts per page).
@@ -746,6 +785,7 @@ export function AppShell({ _subtitle, title, right, children }) {
     <div className="min-h-screen bg-slate-950 text-slate-100 overflow-x-hidden">
       <div className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.18),transparent_52%),radial-gradient(circle_at_bottom,rgba(99,102,241,0.10),transparent_55%)]" />
       <NameGate />
+      <CloudSyncBanner />
       <DemoBanner />
       <SharedWorkspaceBanner />
       <TrialExpiredBanner />
