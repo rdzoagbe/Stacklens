@@ -143,7 +143,7 @@ export function ContactPage() {
                 </div>
                 <div>
                   <div className="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-1">{t('contact_sales_enterprise')}</div>
-                  <a href="mailto:sales@stacklens.fr" className="text-blue-400 hover:text-blue-300">sales@stacklens.fr</a>
+                  <a href="mailto:hello@stacklens.fr" className="text-blue-400 hover:text-blue-300">hello@stacklens.fr</a>
                 </div>
               </div>
             </div>
@@ -938,7 +938,7 @@ export function SecurityPage() {
         </div>
 
         <div className="mt-10 text-center text-xs text-slate-600">
-          Last updated: May 2026 · Questions? <Link to="/contact" className="text-blue-400 hover:underline">hello@stacklens.fr</Link>
+          Last updated: July 2026 · Questions? <Link to="/contact" className="text-blue-400 hover:underline">hello@stacklens.fr</Link>
         </div>
       </div>
     </div>

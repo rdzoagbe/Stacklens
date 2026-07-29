@@ -67,7 +67,7 @@ export function BillingPage({ noShell = false }) {
         { key: 'f_hrf_1' }, { key: 'f_hrf_2' }, { key: 'f_hrf_3' },
         { key: 'f_hrf_4' }, { key: 'f_hrf_5' }, { key: 'f_hrf_6' },
       ],
-      limits: { tools: 250, employees: 500 },
+      limits: { tools: 100, employees: 250 },
     },
     {
       id: 'pro',
