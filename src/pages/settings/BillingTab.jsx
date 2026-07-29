@@ -5,7 +5,7 @@ import { Check, CreditCard } from 'lucide-react';
 import {
   createBillingPortal, createCheckoutSession, logLegalAcceptance,
 } from '../../firebase-config';
-import { resolvePlan, TRIAL_DAYS, getTrialState } from '../../lib/plan';
+import { resolvePlan, TRIAL_DAYS, getTrialState, getPlanLimits } from '../../lib/plan';
 import { track } from '../../lib/analytics';
 import { useDbQuery } from '../../hooks/useDbQuery';
 import { useLang } from '../../contexts/LangContext';
@@ -44,7 +44,7 @@ export function BillingPage({ noShell = false }) {
         { key: 'f_free_1' }, { key: 'f_free_2' }, { key: 'f_free_3' },
         { key: 'f_free_4' }, { key: 'f_free_5' }, { key: 'f_free_6' },
       ],
-      limits: { tools: 10, employees: 25 },
+      limits: getPlanLimits('free'),
     },
     {
       id: 'starter',
@@ -55,7 +55,7 @@ export function BillingPage({ noShell = false }) {
         { key: 'f_starter_1' }, { key: 'f_starter_2' }, { key: 'f_starter_3' },
         { key: 'f_starter_4' }, { key: 'f_starter_5' }, { key: 'f_starter_6' },
       ],
-      limits: { tools: 100, employees: 250 },
+      limits: getPlanLimits('starter'),
     },
     {
       id: 'hr_finance',
@@ -67,7 +67,7 @@ export function BillingPage({ noShell = false }) {
         { key: 'f_hrf_1' }, { key: 'f_hrf_2' }, { key: 'f_hrf_3' },
         { key: 'f_hrf_4' }, { key: 'f_hrf_5' }, { key: 'f_hrf_6' },
       ],
-      limits: { tools: 100, employees: 250 },
+      limits: getPlanLimits('hr_finance'),
     },
     {
       id: 'pro',
@@ -79,7 +79,7 @@ export function BillingPage({ noShell = false }) {
         { key: 'f_pro_1' }, { key: 'f_pro_2' }, { key: 'f_pro_3' }, { key: 'f_pro_4' },
         { key: 'f_pro_5' }, { key: 'f_pro_6' }, { key: 'f_pro_7' },
       ],
-      limits: { tools: 500, employees: 1500 },
+      limits: getPlanLimits('pro'),
     },
     {
       id: 'enterprise',
@@ -90,7 +90,7 @@ export function BillingPage({ noShell = false }) {
         { key: 'f_ent_1' }, { key: 'f_ent_2' }, { key: 'f_ent_3' },
         { key: 'f_ent_4' }, { key: 'f_ent_5' }, { key: 'f_ent_6' },
       ],
-      limits: { tools: 99999, employees: 99999 },
+      limits: getPlanLimits('enterprise'),
     },
   ];
 

@@ -47,6 +47,8 @@ const STRIPE_WEBHOOK_SECRET = defineSecret('STRIPE_WEBHOOK_SECRET');
 const RATE_LIMIT          = { maxCalls: 20, windowMs: 60 * 60 * 1000 };
 const CHECKOUT_RATE_LIMIT = { maxCalls: 5,  windowMs: 60 * 60 * 1000 };
 const SYNCUSER_RATE_LIMIT = { maxCalls: 30, windowMs: 60 * 60 * 1000 };
+const BANKFEED_RATE_LIMIT  = { maxCalls: 30,  windowMs: 60 * 60 * 1000 };
+const WORKSPACE_RATE_LIMIT = { maxCalls: 120, windowMs: 60 * 60 * 1000 };
 
 async function verifyAuth(req, res) {
   const header = req.headers.authorization || '';
@@ -367,7 +369,7 @@ exports.syncuser = onRequest({ cors: true }, async (req, res) => {
     const userRef = getFirestore().collection('users').doc(uid);
     const snap = await userRef.get();
     if (!snap.exists) {
-      await userRef.set({ uid, email: email || decoded.email || '', displayName: displayName || decoded.name || '', photoURL: photoURL || decoded.picture || '', plan: 'free', createdAt: Date.now(), updatedAt: Date.now(), ...(geo || {}) });
+      await userRef.set({ uid, email: decoded.email || email || '', displayName: displayName || decoded.name || '', photoURL: photoURL || decoded.picture || '', plan: 'free', createdAt: Date.now(), updatedAt: Date.now(), ...(geo || {}) });
       return res.json({ isNew: true });
     } else {
       await userRef.update({ updatedAt: Date.now(), ...(geo || {}) });
@@ -376,6 +378,16 @@ exports.syncuser = onRequest({ cors: true }, async (req, res) => {
     }
   });
 });
+
+// Recipient for scheduled mail. /userdata is a client-written blob, so the
+// email inside it is attacker-controlled — a user could point Stacklens-branded
+// SendGrid mail at any third-party address. Firebase Auth is the authority.
+async function verifiedEmailForUid(uid) {
+  try {
+    const user = await getAuth().getUser(uid);
+    return user?.email || '';
+  } catch { return ''; }
+}
 
 // ── /refreshClaims — force-refresh custom claims on client token ──────────
 exports.refreshClaims = onRequest({ cors: true }, async (req, res) => {
@@ -913,6 +925,8 @@ exports.bankfeed = onRequest({ cors: true, timeoutSeconds: 120 }, async (req, re
     if (req.method === 'OPTIONS') return res.status(204).send('');
     if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
     const decoded = await verifyAuth(req, res); if (!decoded) return;
+    // Each sync fans out up to a dozen paginated Bridge calls; cap the burst.
+    if (!await checkRateLimit(decoded.uid, res, BANKFEED_RATE_LIMIT, 'bankfeed')) return;
     // Bank connectivity is an Enterprise-tier feature (founders exempt).
     if (!FOUNDER_UIDS.includes(decoded.uid)) {
       const userSnap = await getFirestore().collection('users').doc(decoded.uid).get();
@@ -986,6 +1000,10 @@ exports.workspace = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, re
     if (req.method === 'OPTIONS') return res.status(204).send('');
     if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
     const decoded = await verifyAuth(req, res); if (!decoded) return;
+    // 'read' assembles an entire userdata blob (metadata + every chunk), so an
+    // unmetered caller is a read amplifier. Generous enough for normal use:
+    // 'mine' runs on app load.
+    if (!await checkRateLimit(decoded.uid, res, WORKSPACE_RATE_LIMIT, 'workspace')) return;
     const db = getFirestore();
     const { action, email, id, ownerUid } = req.body || {};
     // SECURITY: only trust the token's email for authorization when Firebase
@@ -1359,7 +1377,7 @@ exports.dailyAlerts = onSchedule({
     const uid = docSnap.id;
     if (ALERTS_FOUNDERS_ONLY && !FOUNDER_UIDS.includes(uid)) continue;
     const data = await assembleUserdata(docSnap);
-    const email = data?.user?.email;
+    const email = await verifiedEmailForUid(uid);
     if (!email) continue;
     if (data?.user?.daily_alerts === false) continue;
 
@@ -1514,7 +1532,7 @@ exports.weeklySummary = onSchedule({
 
   for (const docSnap of snapshot.docs) {
     const data  = await assembleUserdata(docSnap);
-    const email = data?.user?.email;
+    const email = await verifiedEmailForUid(uid);
     if (!email) continue;
     // Respect opt-out (default: send)
     if (data?.user?.weekly_summary === false) continue;

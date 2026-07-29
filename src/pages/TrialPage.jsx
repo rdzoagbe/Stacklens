@@ -10,12 +10,15 @@ import { useTranslation } from '../translations';
 import { RDLogo, ScrollToTop } from '../components/ui';
 import { LangSelectorCompact, _openCookieBanner } from '../components/AppShell';
 import { usePlanPricing } from '../contexts/CurrencyContext';
+import { getPlanLimits } from '../lib/plan';
 
 export function TrialPage() {
   const navigate = useNavigate();
   const { language } = useLang();
   const t = useTranslation(language);
   const pricing = usePlanPricing();
+  const L = { free: getPlanLimits('free'), starter: getPlanLimits('starter'),
+    hr_finance: getPlanLimits('hr_finance'), pro: getPlanLimits('pro') };
 
   const { login, startDemo, isAuthed, firebaseUser } = useAuth();
 
@@ -352,10 +355,13 @@ export function TrialPage() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             {[
-              { name: 'Free', eur: 0, sub: 'Forever', features: ['10 tools', '25 employees', 'Shadow IT discovery', 'Basic alerts'], cta: 'Start free', highlight: false },
-              { name: 'Starter', eur: 29, sub: '/month', features: ['100 tools', '250 employees', 'Renewal alerts', 'CSV import', '5 team seats'], cta: 'Start trial', highlight: false },
-              { name: 'HR & Finance', eur: 49, sub: '/month', features: ['Finance Board', 'People & HR Board', 'Access tracking', 'Offboarding queue', '5 team seats'], cta: 'Start trial', highlight: false, badge: 'NEW' },
-              { name: 'Pro', eur: 79, sub: '/month', features: ['500 tools', '1,500 employees', 'AI recommendations', 'Full security suite', '15 team seats'], cta: 'Start trial', highlight: true },
+              // Capacity numbers come from PLAN_LIMITS — the same table the app
+              // enforces — so a marketing card can never promise more than the
+              // product allows. (See plan-claims.test.js.)
+              { name: 'Free', eur: 0, sub: 'Forever', features: [`${L.free.tools} tools`, `${L.free.employees} employees`, 'Shadow IT discovery', 'Basic alerts'], cta: 'Start free', highlight: false },
+              { name: 'Starter', eur: 29, sub: '/month', features: [`${L.starter.tools} tools`, `${L.starter.employees} employees`, 'Renewal alerts', 'CSV import', `${L.starter.teamMembers} team seats`], cta: 'Start trial', highlight: false },
+              { name: 'HR & Finance', eur: 49, sub: '/month', features: ['Finance Board', 'People & HR Board', 'Access tracking', 'Offboarding queue', `${L.hr_finance.teamMembers} team seats`], cta: 'Start trial', highlight: false, badge: 'NEW' },
+              { name: 'Pro', eur: 79, sub: '/month', features: [`${L.pro.tools} tools`, `${L.pro.employees.toLocaleString('en-US')} employees`, 'AI recommendations', 'Full security suite', `${L.pro.teamMembers} team seats`], cta: 'Start trial', highlight: true },
               { name: 'Enterprise', eur: 299, sub: '/month', features: ['Unlimited everything', 'API access', 'Priority email support', 'Personal onboarding'], cta: 'Contact sales', highlight: false },
             ].map((p, i) => (
               <div
