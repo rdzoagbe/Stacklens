@@ -46,7 +46,10 @@ export function RDLogo({ size = 'md', onClick }) {
 export function ScrollToTop() {
   const [show, setShow] = useState(false);
   useEffect(() => {
-    const handle = () => setShow(window.scrollY > 500);
+    // The cookie banner is a full-width bottom overlay (z-9999) that sits on
+    // top of this button — while consent is undecided the button looks
+    // clickable but isn't. Hide it until the visitor has made a choice.
+    const handle = () => setShow(window.scrollY > 500 && !!localStorage.getItem('cookie_consent_v2'));
     window.addEventListener('scroll', handle);
     return () => window.removeEventListener('scroll', handle);
   }, []);
