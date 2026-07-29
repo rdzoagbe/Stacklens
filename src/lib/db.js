@@ -1,5 +1,6 @@
 import { LS_KEY } from './constants';
 import { saveUserData, loadUserData } from '../firebase-config';
+import { markSyncSaving, markSyncSaved, markSyncFailed } from './syncStatus';
 import { format, subDays, parseISO } from 'date-fns';
 
 // ─── ID / date helpers ────────────────────────────────────────────────────────
@@ -99,7 +100,14 @@ export function saveDb(db) {
     // exhausted the Firestore write queue).
     clearTimeout(_cloudSaveTimer);
     const uid = _firestoreUid;
-    _cloudSaveTimer = setTimeout(() => { saveUserData(uid, db).catch(() => {}); }, 1500);
+    _cloudSaveTimer = setTimeout(() => {
+      // Observe-only: the rejection is still handled here (never rethrown), so
+      // behaviour is unchanged — we just record the outcome so a failed cloud
+      // backup stops being invisible to the user.
+      const attempt = () => saveUserData(uid, db);
+      markSyncSaving();
+      attempt().then(markSyncSaved, (err) => markSyncFailed(err, attempt));
+    }, 1500);
   }
 }
 let _cloudSaveTimer = null;
