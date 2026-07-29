@@ -875,15 +875,15 @@ export function SecurityPage() {
             <span className="text-sm font-semibold text-emerald-400">{t('security_trust_centre')}</span>
           </div>
           <h1 className="text-2xl md:text-5xl font-black mb-4 bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">{t("hc_your_data_is_safe_with_us")}</h1>
-          <p className="text-xl text-slate-400 max-w-2xl mx-auto">Enterprise-grade security and compliance — built in from day one, not bolted on later.</p>
+          <p className="text-xl text-slate-400 max-w-2xl mx-auto">{t('sec_intro_sub')}</p>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-16">
           {[
-            { icon: "🇪🇺", label: "GDPR-native", sub: "Built for EU privacy law" },
-            { icon: "🔐", label: "Encrypted", sub: "In transit & at rest" },
-            { icon: "💳", label: "Stripe payments", sub: "PCI-DSS via Stripe" },
-            { icon: "🔒", label: "Data isolation", sub: "Per-customer, walled off" },
+            { icon: "🇪🇺", label: t('sec_badge_gdpr'), sub: t('sec_badge_gdpr_sub') },
+            { icon: "🔐", label: t('sec_badge_enc'), sub: t('sec_badge_enc_sub') },
+            { icon: "💳", label: t('sec_badge_stripe'), sub: t('sec_badge_stripe_sub') },
+            { icon: "🔒", label: t('sec_badge_iso'), sub: t('sec_badge_iso_sub') },
           ].map(b => (
             <div key={b.label} className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-5 text-center hover:border-emerald-500/40 transition-all">
               <div className="text-4xl mb-2">{b.icon}</div>
@@ -895,14 +895,14 @@ export function SecurityPage() {
 
         <div className="space-y-5 mb-16">
           {[
-            { icon: "🔐", title: "Encryption in Transit & at Rest", body: "All traffic is served over HTTPS/TLS, and your data is encrypted at rest by our cloud provider (Google Cloud, AES-256). Your SaaS inventory, employee records, and access data are never stored in plaintext." },
-            { icon: "🏗️", title: "Infrastructure & Hosting", body: "Stacklens runs on Google Cloud Platform (Firebase/GCP) with per-customer isolated data — no data is ever co-mingled between customers. Your database records are stored in the EU; some processing (AI features, billing) currently runs on Google/Stripe infrastructure in the US." },
-            { icon: "👤", title: "Data Access Controls", body: "Only you and the users you explicitly invite can access your workspace. Your data lives in a database record scoped to your account; other customers cannot read it. We never sell or share your data with third parties." },
-            { icon: "🔑", title: "Authentication", body: "Sign in with Google OAuth 2.0, a passwordless Magic Link, or email and password — all handled by Google Firebase Authentication. Two-factor authentication is available through your Google account. (SAML/SSO is on our roadmap for enterprise plans.)" },
-            { icon: "🤖", title: "Abuse & Bot Protection", body: "Every server API requires an authenticated, verified token and enforces per-user rate limits. Payment data is handled entirely by Stripe — card details never touch our servers." },
-            { icon: "📋", title: "Activity Logging", body: "Stacklens keeps an in-app audit trail of key actions — access grants, revocations, and changes — so you can review what happened in your workspace and when. You can export it at any time." },
-            { icon: "🗑️", title: "Data Portability & Deletion", body: "You own your data. Export everything in CSV or JSON at any time from Settings. When you cancel, your data is permanently deleted. We do not sell or share your data with any third party." },
-            { icon: "🔍", title: "Vulnerability Disclosure", body: "We take every security report seriously. If you discover a vulnerability, email hello@stacklens.fr with details. We aim to respond within 48 hours and acknowledge responsible disclosure." },
+            { icon: "🔐", title: t('sec_card_enc_title'), body: t('sec_card_enc_body') },
+            { icon: "🏗️", title: t('sec_card_infra_title'), body: t('sec_card_infra_body') },
+            { icon: "👤", title: t('sec_card_access_title'), body: t('sec_card_access_body') },
+            { icon: "🔑", title: t('sec_card_auth_title'), body: t('sec_card_auth_body') },
+            { icon: "🤖", title: t('sec_card_abuse_title'), body: t('sec_card_abuse_body') },
+            { icon: "📋", title: t('sec_card_log_title'), body: t('sec_card_log_body') },
+            { icon: "🗑️", title: t('sec_card_delete_title'), body: t('sec_card_delete_body') },
+            { icon: "🔍", title: t('sec_card_vuln_title'), body: t('sec_card_vuln_body') },
           ].map(item => (
             <div key={item.title} className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 hover:border-slate-700 transition-all">
               <div className="flex items-start gap-4">
@@ -918,7 +918,7 @@ export function SecurityPage() {
 
         <div className="rounded-2xl border border-blue-500/20 bg-blue-500/5 p-8 mb-8 text-center">
           <h3 className="text-xl font-bold text-white mb-2">{t('found_security_issue')}</h3>
-          <p className="text-slate-400 mb-4 max-w-lg mx-auto">We take every security report seriously. We aim to respond within 48 hours. Responsible disclosure is always acknowledged.</p>
+          <p className="text-slate-400 mb-4 max-w-lg mx-auto">{t('sec_disclosure_body')}</p>
           <Link to="/contact?subject=support" className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold transition-colors text-white">
             <Lock className="w-4 h-4" />
             {t('report_vulnerability') || 'Report a Vulnerability'}
