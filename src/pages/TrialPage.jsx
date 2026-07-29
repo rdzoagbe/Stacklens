@@ -354,9 +354,9 @@ export function TrialPage() {
             {[
               { name: 'Free', eur: 0, sub: 'Forever', features: ['10 tools', '25 employees', 'Shadow IT discovery', 'Basic alerts'], cta: 'Start free', highlight: false },
               { name: 'Starter', eur: 29, sub: '/month', features: ['100 tools', '250 employees', 'Renewal alerts', 'CSV import', '5 team seats'], cta: 'Start trial', highlight: false },
-              { name: 'HR & Finance', eur: 49, sub: '/month', features: ['Finance Board', 'People & HR Board', 'Access tracking', 'Offboarding queue', '10 team seats'], cta: 'Start trial', highlight: false, badge: 'NEW' },
+              { name: 'HR & Finance', eur: 49, sub: '/month', features: ['Finance Board', 'People & HR Board', 'Access tracking', 'Offboarding queue', '5 team seats'], cta: 'Start trial', highlight: false, badge: 'NEW' },
               { name: 'Pro', eur: 79, sub: '/month', features: ['500 tools', '1,500 employees', 'AI recommendations', 'Full security suite', '15 team seats'], cta: 'Start trial', highlight: true },
-              { name: 'Enterprise', eur: 299, sub: '/month', features: ['Unlimited everything', 'SSO / SAML', 'API access', 'Dedicated support'], cta: 'Contact sales', highlight: false },
+              { name: 'Enterprise', eur: 299, sub: '/month', features: ['Unlimited everything', 'API access', 'Priority email support', 'Personal onboarding'], cta: 'Contact sales', highlight: false },
             ].map((p, i) => (
               <div
                 key={i}
@@ -479,7 +479,7 @@ export function TrialPage() {
               <p className="text-sm text-slate-400 leading-relaxed mb-4">
                 {t('lp_footer_tagline')}
               </p>
-              <div className="text-xs text-slate-500">🇪🇺 Built in France · Hosted in EU</div>
+              <div className="text-xs text-slate-500">🇪🇺 Built in France · EU data storage</div>
             </div>
 
             {/* Product */}

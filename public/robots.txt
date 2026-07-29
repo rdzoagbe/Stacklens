@@ -1,6 +1,13 @@
 User-agent: *
-Disallow: /app/
-Disallow: /settings/
+Disallow: /dashboard
+Disallow: /tools
+Disallow: /employees
+Disallow: /access
+Disallow: /offboarding
+Disallow: /audit
+Disallow: /settings
+Disallow: /finance
+Disallow: /founder-admin
 Disallow: /finishSignUp
 Disallow: /report/
 Allow: /

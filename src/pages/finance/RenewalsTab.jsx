@@ -776,7 +776,7 @@ function InvoiceManager() {
                               "Category: " + invoice.category + "\n\n" +
                               "Submitted by: " + invoice.submittedBy;
                             try {
-                              await submitContactForm({ name: invoice.submittedBy || 'Finance', email: 'noreply@stacklens.fr', subject: 'invoice-approval', message: msg });
+                              await submitContactForm({ name: invoice.submittedBy || 'Finance', email: 'hello@stacklens.fr', subject: 'invoice-approval', message: msg });
                               toast.success(t('contact_sent_title') || 'Sent');
                             } catch { toast.error(t('contact_error') || 'Could not send.'); }
                           }}
@@ -824,7 +824,7 @@ function InvoiceManager() {
                     onClick={async () => {
                       const msg = "Please approve invoice " + selectedInvoice.id + " for " + selectedInvoice.vendor + " - $" + selectedInvoice.amount.toLocaleString() + "\n\nDue: " + selectedInvoice.dueDate;
                       try {
-                        await submitContactForm({ name: 'Finance', email: 'noreply@stacklens.fr', subject: 'invoice-approval', message: msg });
+                        await submitContactForm({ name: 'Finance', email: 'hello@stacklens.fr', subject: 'invoice-approval', message: msg });
                         toast.success(t('contact_sent_title') || 'Sent');
                       } catch { toast.error(t('contact_error') || 'Could not send.'); }
                     }}
