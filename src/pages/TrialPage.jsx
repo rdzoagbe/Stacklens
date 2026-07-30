@@ -12,11 +12,23 @@ import { LangSelectorCompact, _openCookieBanner } from '../components/AppShell';
 import { usePlanPricing } from '../contexts/CurrencyContext';
 import { getPlanLimits } from '../lib/plan';
 
+// Signup consent copy. Authored in all five languages rather than routed
+// through the translation hook: this is the LCEN/GDPR proof-of-consent control,
+// so it must never fall back to English or wait on an async translation.
+const SIGNUP_CONSENT = {
+  en: { pre: 'I agree to the ', terms: 'Terms of Service', and: ' and the ', privacy: 'Privacy Policy' },
+  fr: { pre: "J'accepte les ", terms: 'CGU', and: ' et la ', privacy: 'Politique de confidentialité' },
+  de: { pre: 'Ich akzeptiere die ', terms: 'Nutzungsbedingungen', and: ' und die ', privacy: 'Datenschutzerklärung' },
+  es: { pre: 'Acepto los ', terms: 'Términos del servicio', and: ' y la ', privacy: 'Política de privacidad' },
+  pt: { pre: 'Aceito os ', terms: 'Termos de Serviço', and: ' e a ', privacy: 'Política de Privacidade' },
+};
+
 export function TrialPage() {
   const navigate = useNavigate();
   const { language } = useLang();
   const t = useTranslation(language);
   const pricing = usePlanPricing();
+  const CONSENT_COPY = SIGNUP_CONSENT[language] || SIGNUP_CONSENT.en;
   const L = { free: getPlanLimits('free'), starter: getPlanLimits('starter'),
     hr_finance: getPlanLimits('hr_finance'), pro: getPlanLimits('pro') };
 
@@ -748,10 +760,10 @@ export function TrialPage() {
                           className="mt-0.5 w-4 h-4 rounded border-slate-600 bg-slate-800 text-blue-500 flex-shrink-0"
                           onChange={e => { const btn = document.getElementById('signup-btn'); if (btn) btn.disabled = !e.target.checked; }} />
                         <span className="text-xs text-slate-400 leading-relaxed">
-                          {language === 'fr'
-                            ? <>{`J'accepte les `}<Link to="/terms" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 underline">{`CGU`}</Link>{` et la `}<Link to="/privacy" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 underline">{`Politique de confidentialité`}</Link></>
-                            : <>{'I agree to the '}<Link to="/terms" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 underline">{'Terms of Service'}</Link>{' and '}<Link to="/privacy" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 underline">{'Privacy Policy'}</Link></>
-                          }
+                          {CONSENT_COPY.pre}
+                          <Link to="/terms" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 underline">{CONSENT_COPY.terms}</Link>
+                          {CONSENT_COPY.and}
+                          <Link to="/privacy" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 underline">{CONSENT_COPY.privacy}</Link>
                         </span>
                       </label>
                       <button id="signup-btn" onClick={async () => {
