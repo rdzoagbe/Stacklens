@@ -65,7 +65,7 @@ export function SlackNotifications() {
         <div className="pt-2 border-t border-slate-800">
           <p className="text-xs text-slate-500 mb-2">{t('slack_you_will_receive')}</p>
           <div className="grid grid-cols-2 gap-1">
-            {['🚨 High risk tools', '👤 Former employee access', '🔔 Renewals in 30 days', '⚡ Offboarding needed'].map(a => (
+            {[`🚨 ${t('slack_alert_high_risk')}`, `👤 ${t('slack_alert_former')}`, `🔔 ${t('slack_alert_renewals')}`, `⚡ ${t('slack_alert_offboarding')}`].map(a => (
               <div key={a} className="text-xs text-slate-400 flex items-center gap-1">{a}</div>
             ))}
           </div>

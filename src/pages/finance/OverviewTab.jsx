@@ -276,7 +276,7 @@ export function FinanceOverviewTab({ financialData, showBudgetModal, setShowBudg
                 <button onClick={() => setShowBudgetModal(true)} className="text-xs text-slate-500 hover:text-blue-400 underline underline-offset-2 transition-colors">{t('act_edit')}</button>
               </div>
             ) : (
-              <button onClick={() => setShowBudgetModal(true)} className="text-xs text-blue-400 hover:text-blue-300 font-semibold transition-colors">+ Set budget cap</button>
+              <button onClick={() => setShowBudgetModal(true)} className="text-xs text-blue-400 hover:text-blue-300 font-semibold transition-colors">{t('fin_set_budget_cap')}</button>
             )}
           </div>
           {budgetSet ? (
@@ -389,7 +389,7 @@ export function FinanceOverviewTab({ financialData, showBudgetModal, setShowBudg
               <div className="text-xs text-slate-500 mb-2">{financialData.toolCount} tools have idle seats</div>
               <div className="text-xs text-emerald-400 font-semibold">Potential: {getCurrency(language)}{convertCurrency(potentialSavings, language).toLocaleString()}/mo</div>
             </div>
-            <button onClick={() => setFinTab && setFinTab('licenses')} className="text-xs text-blue-400 hover:text-blue-300 font-semibold flex-shrink-0">Review →</button>
+            <button onClick={() => setFinTab && setFinTab('licenses')} className="text-xs text-blue-400 hover:text-blue-300 font-semibold flex-shrink-0">{t('fin_review_arrow')}</button>
           </div>
 
           <div className="flex items-start gap-3 p-4 rounded-xl border border-slate-800 bg-slate-950/40">
@@ -401,7 +401,7 @@ export function FinanceOverviewTab({ financialData, showBudgetModal, setShowBudg
               <div className="text-xs text-slate-500 mb-2">{financialData.upcomingBills.length} contracts renewing soon</div>
               <div className="text-xs text-amber-400 font-semibold">{t('fin_save_on_renewal')}</div>
             </div>
-            <button onClick={() => setFinTab && setFinTab('renewals')} className="text-xs text-blue-400 hover:text-blue-300 font-semibold flex-shrink-0">View →</button>
+            <button onClick={() => setFinTab && setFinTab('renewals')} className="text-xs text-blue-400 hover:text-blue-300 font-semibold flex-shrink-0">{t('fin_view_arrow')}</button>
           </div>
         </div>
       </div>

@@ -169,7 +169,7 @@ function generateAuditReportHTML(derived, language, t) {
   </table>
 
   ${highRiskTools.length > 0 ? `
-  <h2>High Risk Tools</h2>
+  <h2>${t('rep_high_risk_tools')}</h2>
   <table>
     <thead><tr><th>Tool</th><th>Category</th><th>Owner</th><th>Status</th><th>Last Used</th></tr></thead>
     <tbody>

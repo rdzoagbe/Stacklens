@@ -4,9 +4,12 @@ import { loadDb, saveDb, seedDbIfEmpty } from '../../lib/db';
 import { Card, CardHeader, CardBody } from '../../components/ui';
 import { SlackNotifications } from '../../components/SlackNotifications';
 
-function Toggle({ checked, onChange }) {
+function Toggle({ checked, onChange, label }) {
+  // role/aria-checked so assistive tech reports this as a switch and announces
+  // its state — a bare <button> conveys neither.
   return (
-    <button onClick={() => onChange(!checked)} className={"relative w-11 h-6 rounded-full transition-colors " + (checked ? 'bg-emerald-500' : 'bg-slate-700')}>
+    <button type="button" role="switch" aria-checked={checked} aria-label={label}
+      onClick={() => onChange(!checked)} className={"relative w-11 h-6 rounded-full transition-colors " + (checked ? 'bg-emerald-500' : 'bg-slate-700')}>
       <div className={"absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform " + (checked ? 'translate-x-5' : 'translate-x-0.5')} />
     </button>
   );
@@ -67,7 +70,7 @@ export function NotificationsTab({ firebaseUser, qc, t }) {
                 </div>
                 <div className="text-xs text-slate-500 mt-0.5">{n.sub}</div>
               </div>
-              <Toggle checked={n.val} onChange={(v) => { n.set(v); saveNotifications({ [n.key]: v }); }} />
+              <Toggle checked={n.val} label={n.label} onChange={(v) => { n.set(v); saveNotifications({ [n.key]: v }); }} />
             </div>
           ))}
         </div>

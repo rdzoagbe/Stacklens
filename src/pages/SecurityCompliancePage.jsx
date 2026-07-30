@@ -270,12 +270,14 @@ function SecurityTabContent() {
             };
             const total = tools.filter(t => t.status === 'active').length || 1;
             const colors = { 'Critical': '#ef4444', 'High Risk': '#f59e0b', 'Orphaned': '#8b5cf6', 'Secured': '#10b981' };
+            // Group keys stay English (internal); only the visible label is translated.
+            const groupLabel = { 'Critical': t('risk_grp_critical'), 'High Risk': t('risk_grp_high'), 'Orphaned': t('risk_grp_orphaned'), 'Secured': t('risk_grp_secured') };
             return (
               <div className="space-y-4">
                 {/* Stacked bar */}
                 <div className="flex h-4 rounded-full overflow-hidden bg-slate-800">
                   {Object.entries(riskGroups).map(([label, items]) => (
-                    items.length > 0 && <div key={label} className="h-full transition-all" style={{width: `${(items.length/total)*100}%`, background: colors[label]}} title={`${label}: ${items.length}`} />
+                    items.length > 0 && <div key={label} className="h-full transition-all" style={{width: `${(items.length/total)*100}%`, background: colors[label]}} title={`${groupLabel[label]}: ${items.length}`} />
                   ))}
                 </div>
                 {/* Legend + counts */}
@@ -284,7 +286,7 @@ function SecurityTabContent() {
                     <div key={label} className="flex items-center justify-between">
                       <div className="flex items-center gap-2.5">
                         <div className="w-3 h-3 rounded-full flex-shrink-0" style={{background: colors[label]}} />
-                        <span className="text-sm text-slate-300">{label}</span>
+                        <span className="text-sm text-slate-300">{groupLabel[label]}</span>
                       </div>
                       <div className="flex items-center gap-3">
                         <span className="text-sm font-semibold text-white">{items.length}</span>
