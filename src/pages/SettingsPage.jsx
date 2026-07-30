@@ -144,7 +144,7 @@ export function SettingsPage() {
               <CardBody>
                 <div className="space-y-5 max-w-2xl">
                   {[
-                    { label: t('org_name_label'), el: <input value={orgName} onChange={e=>setOrgName(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm outline-none focus:border-emerald-500 transition-colors" placeholder="Acme Corp" /> },
+                    { label: t('org_name_label'), el: <input value={orgName} onChange={e=>setOrgName(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm outline-none focus:border-emerald-500 transition-colors" placeholder={t('set_company_placeholder')} /> },
                     { label: t('time_zone_label'), el: <select value={timezone} onChange={e=>setTimezone(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm outline-none"><option>Europe/London</option><option>UTC</option><option>America/New_York</option><option>America/Los_Angeles</option><option>Europe/Paris</option><option>Asia/Tokyo</option></select> },
                     { label: t('date_format_label'), el: <select value={dateFormat} onChange={e=>setDateFormat(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm outline-none"><option>DD/MM/YYYY</option><option>MM/DD/YYYY</option><option>YYYY-MM-DD</option></select> },
                   ].map(({ label, el }) => (
@@ -156,7 +156,7 @@ export function SettingsPage() {
                   <div className="flex items-center gap-3 pt-2">
                     <button onClick={() => save('sg_general', { orgName, timezone, currency, dateFormat })}
                       className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-semibold text-sm transition-colors">
-                      Save Changes
+                      {t('set_save_changes')}
                     </button>
                     {saveMsg && <span className="text-sm text-emerald-400 font-semibold">{saveMsg}</span>}
                   </div>
@@ -201,8 +201,8 @@ export function SettingsPage() {
                 <Card><CardBody>
                   <div className="text-center py-8">
                     <div className="text-3xl mb-3">🔒</div>
-                    <h3 className="text-lg font-semibold text-white mb-1">Owner Access Required</h3>
-                    <p className="text-slate-400 text-sm">Only the account owner can manage billing and subscriptions.</p>
+                    <h3 className="text-lg font-semibold text-white mb-1">{t('set_owner_required')}</h3>
+                    <p className="text-slate-400 text-sm">{t('set_owner_required_sub')}</p>
                   </div>
                 </CardBody></Card>
               }>
@@ -214,7 +214,7 @@ export function SettingsPage() {
           {activeTab === 'integrations' && (
             <div className="space-y-4">
               <Card>
-                <CardHeader title={t('nav_integrations')} subtitle="Connect Stacklens to your tools for automatic discovery and user sync" />
+                <CardHeader title={t('nav_integrations')} subtitle={t('set_integrations_sub')} />
                 <CardBody>
                   <React.Suspense fallback={<TabLoader />}><LazyIntegrationConnectors /></React.Suspense>
                 </CardBody>

@@ -87,7 +87,7 @@ export function OnboardingPage() {
       }
     } catch (error) {
       console.error('Onboarding error:', error);
-      toast.error('Something went wrong. Please try again.');
+      toast.error(t('ob_error_generic'));
     } finally {
       setLoading(false);
     }
@@ -114,7 +114,7 @@ export function OnboardingPage() {
             {/* Work Email */}
             <div>
               <label className="block text-sm font-semibold text-slate-300 mb-3">
-                Work Email
+                {t('ob_work_email')}
               </label>
               <input
                 type="email"
@@ -130,14 +130,14 @@ export function OnboardingPage() {
             {/* Full Name */}
             <div>
               <label className="block text-sm font-semibold text-slate-300 mb-3">
-                Full Name
+                {t('ob_full_name')}
               </label>
               <input
                 type="text"
                 value={formData.fullName}
                 onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
                 className="w-full px-6 py-4 bg-slate-950 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-lg focus:border-blue-500 focus:outline-none transition-colors"
-                placeholder="John Doe"
+                placeholder={t('ob_placeholder_name')}
                 required
               />
             </div>
@@ -145,14 +145,14 @@ export function OnboardingPage() {
             {/* Company Name */}
             <div>
               <label className="block text-sm font-semibold text-slate-300 mb-3">
-                Company Name
+                {t('ob_company_name')}
               </label>
               <input
                 type="text"
                 value={formData.companyName}
                 onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
                 className="w-full px-6 py-4 bg-slate-950 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-lg focus:border-blue-500 focus:outline-none transition-colors"
-                placeholder="Acme Corporation"
+                placeholder={t('ob_placeholder_company')}
                 required
               />
             </div>
@@ -160,7 +160,7 @@ export function OnboardingPage() {
             {/* Job Title */}
             <div>
               <label className="block text-sm font-semibold text-slate-300 mb-3">
-                Job Title
+                {t('ob_job_title')}
               </label>
               <select
                 value={formData.jobTitle}
@@ -177,14 +177,14 @@ export function OnboardingPage() {
                 <option value="CFO">CFO</option>
                 <option value="Operations Manager">{t("hc_operations_manager")}</option>
                 <option value="Security Manager">{t("hc_security_manager")}</option>
-                <option value="Other">Other</option>
+                <option value="Other">{t('ob_role_other')}</option>
               </select>
             </div>
 
             {/* Company Size */}
             <div>
               <label className="block text-sm font-semibold text-slate-300 mb-3">
-                Company Size
+                {t('ob_company_size')}
               </label>
               <select
                 value={formData.companySize}
@@ -193,18 +193,18 @@ export function OnboardingPage() {
                 required
               >
                 <option value="">{t('select_company_size')}</option>
-                <option value="1-50">1-50 employees</option>
-                <option value="51-200">51-200 employees</option>
-                <option value="201-500">201-500 employees</option>
-                <option value="501-1000">501-1,000 employees</option>
-                <option value="1000+">1,000+ employees</option>
+                <option value="1-50">{t('ob_size_1_50')}</option>
+                <option value="51-200">{t('ob_size_51_200')}</option>
+                <option value="201-500">{t('ob_size_201_500')}</option>
+                <option value="501-1000">{t('ob_size_501_1000')}</option>
+                <option value="1000+">{t('ob_size_1000_plus')}</option>
               </select>
             </div>
 
             {/* Number of SaaS Tools */}
             <div>
               <label className="block text-sm font-semibold text-slate-300 mb-3">
-                Estimated Number of SaaS Tools
+                {t('ob_num_tools')}
               </label>
               <input
                 type="range"
@@ -214,7 +214,7 @@ export function OnboardingPage() {
                 onChange={(e) => setFormData({ ...formData, numTools: parseInt(e.target.value) })}
                 className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
               />
-              <div className="mt-3 text-center text-2xl font-bold text-white">{formData.numTools} tools</div>
+              <div className="mt-3 text-center text-2xl font-bold text-white">{formData.numTools} {t('ob_tools_unit')}</div>
             </div>
 
             {/* Submit Button */}
@@ -226,11 +226,11 @@ export function OnboardingPage() {
               {loading ? (
                 <>
                   <RefreshCw className="w-6 h-6 animate-spin" />
-                  Setting up your workspace...
+                  {t('ob_setting_up')}
                 </>
               ) : (
                 <>
-                  Continue to Dashboard
+                  {t('ob_continue')}
                   <ChevronRight className="w-6 h-6" />
                 </>
               )}

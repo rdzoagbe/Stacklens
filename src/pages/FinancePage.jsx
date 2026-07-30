@@ -44,7 +44,7 @@ export function ExecutivePageWrapper() {
   
   return (
     <AppShell title={t("nav_executive")}>
-      <PlanGate requires="professional" feature="Executive Dashboard">
+      <PlanGate requires="professional" feature={t('feat_executive_dashboard')}>
         <React.Suspense fallback={<TabLoader />}><LazyExecutiveDashboard data={derived} /></React.Suspense>
       </PlanGate>
     </AppShell>
@@ -110,7 +110,7 @@ export function FinanceDashboard() {
   ];
 
   return (
-    <PlanGate requires="growth" feature="Finance Dashboard"><AppShell title={t("finance_title") || "Finance"}
+    <PlanGate requires="growth" feature={t('feat_finance_dashboard')}><AppShell title={t("finance_title") || "Finance"}
       right={
         <div className="flex gap-1 p-1 bg-slate-900 rounded-xl border border-slate-800 overflow-x-auto [&::-webkit-scrollbar]:h-0">
           {TABS.map(tab => (

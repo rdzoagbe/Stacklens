@@ -65,7 +65,7 @@ export function Sidebar({ collapsed, setCollapsed }) {
         <button
           onClick={() => setCollapsed((v) => !v)}
           className="flex items-center justify-center h-8 w-8 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors flex-shrink-0"
-          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          title={collapsed ? t('aria_expand_sidebar') : t('aria_collapse_sidebar')}
         >
           {collapsed ? (
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" width="20" height="20">
@@ -210,6 +210,8 @@ async function _getUserProfile(uid) {
 
 export function SidebarFooter({ collapsed }) {
   const { user, logout, isDemo, endDemo, firebaseUser } = useAuth();
+  const { language } = useLang();
+  const t = useTranslation(language);
   const navigate = useNavigate();
   const [userProfile, setUserProfile] = useState(null);
 
@@ -236,7 +238,7 @@ export function SidebarFooter({ collapsed }) {
         </Link>
       )}
       {isFounderUser(user) && collapsed && (
-        <Link to="/founder-admin" className="mb-2 flex justify-center hover:opacity-80 transition-opacity" title="Founder admin">
+        <Link to="/founder-admin" className="mb-2 flex justify-center hover:opacity-80 transition-opacity" title={t('aria_founder_admin')}>
           <span className="text-amber-400 text-base">⚡</span>
         </Link>
       )}
@@ -722,7 +724,7 @@ export function NameGate() {
       await saveDisplayName(clean);
       muts.setAuth.mutate({ displayName: clean });
     } catch (err) {
-      toast.error(err.message || 'Could not save your name');
+      toast.error(err.message || t('err_name_save'));
     } finally {
       setSaving(false);
     }
@@ -764,6 +766,21 @@ export function DemoBanner() {
   );
 }
 
+// Crash-screen copy. The boundary is a class component (hooks unavailable) and
+// must render even when the app state is broken — so it reads the persisted
+// language directly and uses authored copy rather than the translation hook.
+const CRASH_COPY = {
+  en: { title: 'Something went wrong', body: 'An unexpected error occurred.', reload: 'Reload app' },
+  fr: { title: 'Une erreur est survenue', body: "Une erreur inattendue s'est produite.", reload: "Recharger l'application" },
+  de: { title: 'Ein Fehler ist aufgetreten', body: 'Ein unerwarteter Fehler ist aufgetreten.', reload: 'App neu laden' },
+  es: { title: 'Algo ha ido mal', body: 'Se ha producido un error inesperado.', reload: 'Recargar la aplicación' },
+  pt: { title: 'Algo correu mal', body: 'Ocorreu um erro inesperado.', reload: 'Recarregar a aplicação' },
+};
+function crashCopy() {
+  try { return CRASH_COPY[localStorage.getItem('language')] || CRASH_COPY.en; }
+  catch { return CRASH_COPY.en; }
+}
+
 export class ErrorBoundary extends React.Component {
   constructor(props) { super(props); this.state = { hasError: false, error: null }; }
   static getDerivedStateFromError(error) { return { hasError: true, error }; }
@@ -784,11 +801,11 @@ export class ErrorBoundary extends React.Component {
         <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 max-w-md text-center">
             <div className="text-4xl mb-4">⚠️</div>
-            <h2 className="text-xl font-bold text-white mb-2">Something went wrong</h2>
-            <p className="text-slate-400 text-sm mb-4">{this.state.error?.message || 'An unexpected error occurred'}</p>
+            <h2 className="text-xl font-bold text-white mb-2">{crashCopy().title}</h2>
+            <p className="text-slate-400 text-sm mb-4">{this.state.error?.message || crashCopy().body}</p>
             <button onClick={() => { this.setState({ hasError: false, error: null }); window.location.reload(); }}
               className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-semibold transition-colors">
-              Reload App
+              {crashCopy().reload}
             </button>
           </div>
         </div>

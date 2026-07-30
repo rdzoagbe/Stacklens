@@ -147,7 +147,7 @@ Respond with this exact JSON structure:
       setView('results');
       setActiveTab('overview');
     } catch {
-      toast.error('Analysis failed — please try again');
+      toast.error(t('cc_analysis_failed'));
       setView('upload');
     } finally {
       clearInterval(interval);
@@ -173,7 +173,7 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
           }], max_tokens: 800 });
       setRewriteResult(data.content?.[0]?.text || '');
     } catch {
-      toast.error('Rewrite failed');
+      toast.error(t('cc_rewrite_failed'));
     } finally {
       setRewriteLoading(false);
     }
@@ -388,9 +388,9 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
             <button onClick={() => {
               const txt = `CONTRACT COMPARISON REPORT\n${contractA.name} vs ${contractB.name}\n\n${analysis.summary}\n\nPROVISIONS:\n${provisions.map(p => `${p.name}:\n  A: ${p.contractA}\n  B: ${p.contractB}\n  Suggestion: ${p.suggestion}`).join('\n\n')}`;
               const a = document.createElement('a'); a.href = 'data:text/plain,' + encodeURIComponent(txt); a.download = 'contract-comparison.txt'; a.click();
-              toast.success('Report exported');
+              toast.success(t('cc_report_exported'));
             }} className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition-colors flex items-center gap-1.5">
-              <Download className="h-3.5 w-3.5" /> Export Report
+              <Download className="h-3.5 w-3.5" /> {t('cc_export_report')}
             </button>
           </div>
         </div>
@@ -399,22 +399,22 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
       {/* ── Row 2: KPI Strip ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-blue-500">
-          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Risk Score A</div>
+          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t('cc_risk_a')}</div>
           <div className={"text-3xl font-black " + ((analysis.riskScore?.a || 0) > 6 ? 'text-rose-400' : 'text-amber-400')}>{analysis.riskScore?.a || 0}<span className="text-base text-slate-500">/10</span></div>
           <div className="text-sm text-slate-500 mt-1 truncate">{contractA.name || 'Contract A'}</div>
         </div>
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-emerald-500">
-          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Risk Score B</div>
+          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t('cc_risk_b')}</div>
           <div className={"text-3xl font-black " + ((analysis.riskScore?.b || 0) > 6 ? 'text-rose-400' : 'text-amber-400')}>{analysis.riskScore?.b || 0}<span className="text-base text-slate-500">/10</span></div>
           <div className="text-sm text-slate-500 mt-1 truncate">{contractB.name || 'Contract B'}</div>
         </div>
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-indigo-500">
-          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Provisions</div>
+          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t('cc_provisions')}</div>
           <div className="text-3xl font-black text-indigo-400">{provisions.length}</div>
           <div className="text-sm text-slate-500 mt-1">analyzed</div>
         </div>
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-rose-500">
-          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Deal Breakers</div>
+          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t('cc_deal_breakers')}</div>
           <div className="text-3xl font-black text-rose-400">{dealBreakers.length}</div>
           <div className="text-sm text-slate-500 mt-1">flagged</div>
         </div>
@@ -424,7 +424,7 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
       <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 lg:p-6">
         <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
           <div>
-            <h3 className="text-base font-semibold text-white">Neutrality & Favorability</h3>
+            <h3 className="text-base font-semibold text-white">{t('cc_neutrality')}</h3>
             <p className="text-xs text-slate-500">Higher score = more balanced terms</p>
           </div>
           <span className="text-xs text-slate-400 italic max-w-md text-right">{analysis.overallVerdict}</span>
@@ -456,7 +456,7 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
         {[
           { id: 'overview',    label: 'Overview' },
           { id: 'provisions',  label: `Provisions (${provisions.length})` },
-          { id: 'suggestions', label: 'Rewrite' },
+          { id: 'suggestions', label: t('cc_rewrite') },
           { id: 'chat',        label: 'Ask AI' },
         ].map(tab => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id)}
@@ -473,7 +473,7 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 lg:p-6">
             <div className="flex items-center gap-2 mb-3">
               <FileText className="h-4 w-4 text-slate-400" />
-              <h3 className="text-base font-semibold text-white">Executive Summary</h3>
+              <h3 className="text-base font-semibold text-white">{t('cc_exec_summary')}</h3>
             </div>
             <p className="text-sm text-slate-300 leading-relaxed">{analysis.summary}</p>
           </div>
@@ -485,15 +485,15 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <AlertTriangle className="h-4 w-4 text-rose-400" />
-                  <h3 className="text-base font-semibold text-white">Deal Breakers</h3>
+                  <h3 className="text-base font-semibold text-white">{t('cc_deal_breakers')}</h3>
                 </div>
                 <span className="text-xs px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-400 font-semibold">{dealBreakers.length} found</span>
               </div>
               {dealBreakers.length === 0 ? (
                 <div className="py-6 text-center">
                   <Check className="h-8 w-8 text-emerald-400 mx-auto mb-2" />
-                  <p className="text-sm text-emerald-400 font-semibold">No critical deal breakers</p>
-                  <p className="text-xs text-slate-500 mt-1">Both contracts look acceptable</p>
+                  <p className="text-sm text-emerald-400 font-semibold">{t('cc_no_deal_breakers')}</p>
+                  <p className="text-xs text-slate-500 mt-1">{t('cc_both_acceptable')}</p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -514,10 +514,10 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
             <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
               <div className="flex items-center gap-2 mb-4">
                 <Target className="h-4 w-4 text-blue-400" />
-                <h3 className="text-base font-semibold text-white">Focus Areas</h3>
+                <h3 className="text-base font-semibold text-white">{t('cc_focus_areas')}</h3>
               </div>
               {focusAreas.length === 0 ? (
-                <p className="text-sm text-slate-500 py-4 text-center">No specific focus areas identified</p>
+                <p className="text-sm text-slate-500 py-4 text-center">{t('cc_no_focus')}</p>
               ) : (
                 <div className="space-y-2">
                   {focusAreas.map((fa, i) => (
@@ -537,7 +537,7 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
             <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
               <div className="flex items-center gap-2 mb-4">
                 <BarChart3 className="h-4 w-4 text-amber-400" />
-                <h3 className="text-base font-semibold text-white">Market Standard Deviations</h3>
+                <h3 className="text-base font-semibold text-white">{t('cc_market_dev')}</h3>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 {marketDeviations.map((md, i) => (
@@ -563,7 +563,7 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
             <div className="flex items-center gap-3 flex-wrap">
               <div className="flex-1 min-w-0">
-                <h3 className="text-base font-semibold text-white">All Provisions</h3>
+                <h3 className="text-base font-semibold text-white">{t('cc_all_provisions')}</h3>
                 <p className="text-xs text-slate-500">{provisions.length} provisions compared side-by-side</p>
               </div>
             </div>
@@ -574,7 +574,7 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
               <div className="inline-flex p-3 rounded-2xl bg-slate-800 mb-3">
                 <FileText className="h-6 w-6 text-slate-500" />
               </div>
-              <p className="text-sm text-slate-500">No provisions extracted from analysis</p>
+              <p className="text-sm text-slate-500">{t('cc_no_provisions')}</p>
             </div>
           ) : provisions.map((p, i) => (
             <div key={i} className="rounded-2xl border border-slate-800 bg-slate-900/60 overflow-hidden hover:border-slate-700 transition-colors">
@@ -594,7 +594,7 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
                   </span>
                   <button onClick={() => { setRewriteTarget(p); setActiveTab('suggestions'); }}
                     className="text-[10px] px-2 py-0.5 rounded-md bg-indigo-600/20 text-indigo-300 hover:bg-indigo-600/40 transition-colors font-semibold uppercase">
-                    Rewrite
+                    {t('cc_rewrite')}
                   </button>
                 </div>
               </div>
@@ -606,14 +606,14 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
                     <div className="w-2 h-2 rounded-full bg-blue-500" />
                     <span className="text-blue-400 text-[10px] font-bold uppercase tracking-wider truncate">{contractA.name || 'Contract A'}</span>
                   </div>
-                  <p className="text-xs text-slate-300 leading-relaxed">{p.contractA || <span className="text-slate-600 italic">Not present in this contract</span>}</p>
+                  <p className="text-xs text-slate-300 leading-relaxed">{p.contractA || <span className="text-slate-600 italic">{t('cc_not_present')}</span>}</p>
                 </div>
                 <div className="p-4">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="w-2 h-2 rounded-full bg-emerald-500" />
                     <span className="text-emerald-400 text-[10px] font-bold uppercase tracking-wider truncate">{contractB.name || 'Contract B'}</span>
                   </div>
-                  <p className="text-xs text-slate-300 leading-relaxed">{p.contractB || <span className="text-slate-600 italic">Not present in this contract</span>}</p>
+                  <p className="text-xs text-slate-300 leading-relaxed">{p.contractB || <span className="text-slate-600 italic">{t('cc_not_present')}</span>}</p>
                 </div>
               </div>
 
@@ -650,10 +650,10 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
             <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
               <div className="flex items-center gap-2 mb-3">
                 <FileText className="h-4 w-4 text-slate-400" />
-                <h3 className="text-base font-semibold text-white">Select a Provision</h3>
+                <h3 className="text-base font-semibold text-white">{t('cc_select_provision')}</h3>
               </div>
               {provisions.length === 0 ? (
-                <p className="text-sm text-slate-500">No provisions to rewrite</p>
+                <p className="text-sm text-slate-500">{t('cc_no_provisions_rewrite')}</p>
               ) : (
                 <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
                   {provisions.map((p, i) => (
@@ -672,7 +672,7 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
             <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
               <div className="flex items-center gap-2 mb-3">
                 <Sparkles className="h-4 w-4 text-indigo-400" />
-                <h3 className="text-base font-semibold text-white">Rewrite Mode</h3>
+                <h3 className="text-base font-semibold text-white">{t('cc_rewrite_mode')}</h3>
               </div>
               <div className="space-y-2">
                 {[
@@ -701,16 +701,16 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 space-y-4">
             <div className="flex items-center gap-2">
               <Sparkles className="h-4 w-4 text-indigo-400" />
-              <h3 className="text-base font-semibold text-white">Rewritten Provision</h3>
+              <h3 className="text-base font-semibold text-white">{t('cc_rewritten')}</h3>
             </div>
             {rewriteTarget && (
               <div className="grid grid-cols-2 gap-3">
                 <div className="rounded-xl bg-slate-800/40 border border-slate-800 p-3">
-                  <div className="text-blue-400 text-[10px] font-bold uppercase tracking-wider mb-1">Original A</div>
+                  <div className="text-blue-400 text-[10px] font-bold uppercase tracking-wider mb-1">{t('cc_original_a')}</div>
                   <p className="text-xs text-slate-400 leading-relaxed line-clamp-4">{rewriteTarget.contractA || '—'}</p>
                 </div>
                 <div className="rounded-xl bg-slate-800/40 border border-slate-800 p-3">
-                  <div className="text-emerald-400 text-[10px] font-bold uppercase tracking-wider mb-1">Original B</div>
+                  <div className="text-emerald-400 text-[10px] font-bold uppercase tracking-wider mb-1">{t('cc_original_b')}</div>
                   <p className="text-xs text-slate-400 leading-relaxed line-clamp-4">{rewriteTarget.contractB || '—'}</p>
                 </div>
               </div>
@@ -719,7 +719,7 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
               {rewriteLoading ? (
                 <div className="flex items-center gap-3 text-indigo-400">
                   <Sparkles className="h-4 w-4 animate-pulse" />
-                  <span className="text-sm">Claude AI is rewriting...</span>
+                  <span className="text-sm">{t('cc_rewriting')}</span>
                 </div>
               ) : rewriteResult ? (
                 <>
@@ -727,13 +727,13 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
                     <Sparkles className="h-3 w-3" /> AI Rewrite — {rewriteMode}
                   </div>
                   <p className="text-sm text-white leading-relaxed">{rewriteResult}</p>
-                  <button onClick={() => { navigator.clipboard?.writeText(rewriteResult); toast.success('Copied to clipboard'); }}
+                  <button onClick={() => { navigator.clipboard?.writeText(rewriteResult); toast.success(t('cc_copied')); }}
                     className="mt-3 px-3 py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 text-xs font-semibold transition-colors">
-                    Copy
+                    {t('cc_copy')}
                   </button>
                 </>
               ) : (
-                <p className="text-sm text-slate-500">Select a provision and click Generate Rewrite</p>
+                <p className="text-sm text-slate-500">{t('cc_select_and_generate')}</p>
               )}
             </div>
           </div>
@@ -748,8 +748,8 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
               <Sparkles className="h-4 w-4 text-indigo-400" />
             </div>
             <div className="min-w-0">
-              <div className="text-sm font-semibold text-white">Ask AI About These Contracts</div>
-              <div className="text-xs text-slate-500">Ask about specific clauses, risks, or recommendations</div>
+              <div className="text-sm font-semibold text-white">{t('cc_ask_ai')}</div>
+              <div className="text-xs text-slate-500">{t('cc_ask_sub')}</div>
             </div>
           </div>
           <div className="flex-1 overflow-y-auto p-5 space-y-4">
@@ -788,12 +788,12 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
               value={chatInput}
               onChange={e => setChatInput(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendChat()}
-              placeholder="Ask anything about these contracts..."
+              placeholder={t('cc_ask_placeholder')}
               className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-white text-sm placeholder-slate-500 outline-none focus:border-blue-500 transition-colors"
             />
             <button onClick={sendChat} disabled={!chatInput.trim() || chatLoading}
               className={"px-4 py-2 rounded-xl font-semibold text-sm transition-all " + (!chatInput.trim() || chatLoading ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500 text-white')}>
-              Send →
+              {t('cc_send')}
             </button>
           </div>
         </div>

@@ -199,7 +199,7 @@ export function BillingPage({ noShell = false }) {
     if (id === 'free' || id === 'startup') return;
     if (id === 'scale') { document.getElementById('billing-plans')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
     const priceId = PRICE_IDS[id]?.[billing] || PRICE_IDS[id]?.monthly;
-    if (!priceId) { toast.error('Plan not available. Contact us!'); return; }
+    if (!priceId) { toast.error(t('bill_plan_unavailable')); return; }
     setConsentChecked(false);
     setConsentPlan(id);
   };
@@ -237,7 +237,7 @@ export function BillingPage({ noShell = false }) {
       {plan !== 'free' && plan !== 'trial' && plan !== 'startup' && (
         <button onClick={handleManageSubscription} className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5">
           <CreditCard className="w-3.5 h-3.5" />
-          Manage Subscription
+          {t('bill_manage_sub')}
         </button>
       )}
       <Pill tone="blue" icon={CreditCard}>

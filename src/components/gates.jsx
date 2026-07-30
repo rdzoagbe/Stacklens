@@ -74,7 +74,7 @@ export function usePlanLimits() {
 
 // ── Plan tier gate ─────────────────────────────────────────────────────────
 
-export function PlanGate({ requires, children, feature = 'this feature' }) {
+export function PlanGate({ requires, children, feature = null }) {
   const { language } = useLang();
   const t = useTranslation(language);
   const { user } = useAuth();
@@ -87,19 +87,18 @@ export function PlanGate({ requires, children, feature = 'this feature' }) {
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-6">
       <div className="text-3xl md:text-6xl mb-4">🔒</div>
-      <h2 className="text-2xl font-black text-white mb-2">{t('upgrade_to_access')} {feature}</h2>
+      <h2 className="text-2xl font-black text-white mb-2">{t('upgrade_to_access')} {feature || t('gate_this_feature')}</h2>
       <p className="text-slate-400 mb-6 max-w-md">
-        This feature requires the <span className="text-blue-400 font-semibold">{planNames[requires] || requires}</span> plan or higher.
-        You&apos;re currently on the <span className="text-slate-300 font-semibold">{getPlanLimits(plan).label || plan}</span> plan.
+        {t('gate_requires')} <span className="text-blue-400 font-semibold">{planNames[requires] || requires}</span> {t('gate_or_higher')} <span className="text-slate-300 font-semibold">{getPlanLimits(plan).label || plan}</span>{t('gate_plan_word')}
       </p>
       <button
         onClick={() => { navigate('/settings'); setTimeout(() => { document.querySelector('[data-tab="billing"]')?.click(); }, 100); }}
         className="px-4 md:px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-blue-500/20"
       >
-        View Plans & Upgrade
+        {t('gate_view_plans')}
       </button>
       <button onClick={() => navigate(-1)} className="mt-3 text-sm text-slate-500 hover:text-slate-300 transition-colors">
-        ← Go back
+        ← {t('gate_go_back')}
       </button>
     </div>
   );
@@ -192,7 +191,7 @@ export function PlanLimitBanner({ resource = 'tools' }) {
           <span className="text-xs text-slate-500">— {limits.label} plan</span>
         </div>
         <div className="text-xs text-slate-400 mb-2">
-          {t('plan_limit_using')} <span className="font-semibold text-white">{usageNum}</span> of <span className="font-semibold text-white">{limitNum}</span> {resource}
+          {t('plan_limit_using')} <span className="font-semibold text-white">{usageNum}</span> {t('gate_of')} <span className="font-semibold text-white">{limitNum}</span> {resource}
           {isFull ? `. ${t('plan_limit_upgrade_msg')}` : `. ${limitNum - usageNum} ${t('plan_limit_remaining')}.`}
         </div>
         <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden max-w-md">
@@ -230,6 +229,8 @@ export function TourEmptyState({ icon, title, subtitle, action, onAction }) {
 }
 
 export function TourLaunchButton() {
+  const { language } = useLang();
+  const t = useTranslation(language);
   const { startTour } = useTour();
   return (
     <button
@@ -246,7 +247,7 @@ export function TourLaunchButton() {
       onMouseLeave={e => e.currentTarget.style.transform = 'none'}
     >
       <span style={{ fontSize: 16 }}>✨</span>
-      Take the Tour
+      {t('gate_take_tour')}
     </button>
   );
 }

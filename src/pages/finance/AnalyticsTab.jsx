@@ -99,7 +99,7 @@ export function AnalyticsTabContent() {
     a.download = 'saasguard-analytics-' + new Date().toISOString().slice(0,10) + '.csv';
     a.click();
     URL.revokeObjectURL(url);
-    toast.success('Analytics report exported');
+    toast.success(t('fin_analytics_exported'));
   };
 
   return (

@@ -15,13 +15,13 @@ export function SecurityCompliancePage() {
   const { language } = useLang();
   const t = useTranslation(language);
   return (
-    <PlanGate requires="growth" feature="Security & Compliance"><AppShell title={t('security_title')}
+    <PlanGate requires="growth" feature={t('feat_security_compliance')}><AppShell title={t('security_title')}
       right={
         <div className="flex items-center gap-2">
           <div className="flex gap-1 p-1 bg-slate-900 rounded-xl border border-slate-800">
             {[
-              { id: 'security', label: 'Security' },
-              { id: 'audit',    label: 'Audit Export' },
+              { id: 'security', label: t('nav_security') },
+              { id: 'audit',    label: t('feat_audit_export') },
             ].map(tab => (
               <button key={tab.id} onClick={() => setSecActiveTab(tab.id)}
                 className={"px-4 py-1.5 rounded-lg text-sm font-semibold transition-all " + (secActiveTab === tab.id ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white')}>
@@ -240,17 +240,17 @@ function SecurityTabContent() {
                 {c.status === 'compliant' ? (
                   <div className="flex items-center gap-1.5 text-emerald-400">
                     <BadgeCheck className="h-4 w-4" />
-                    <span className="text-xs font-semibold">Compliant</span>
+                    <span className="text-xs font-semibold">{t('sec_compliant')}</span>
                   </div>
                 ) : c.status === 'review' ? (
                   <div className="flex items-center gap-1.5 text-amber-400">
                     <AlertTriangle className="h-4 w-4" />
-                    <span className="text-xs font-semibold">Review Needed</span>
+                    <span className="text-xs font-semibold">{t('sec_review_needed')}</span>
                   </div>
                 ) : (
                   <div className="flex items-center gap-1.5 text-red-400">
                     <X className="h-4 w-4" />
-                    <span className="text-xs font-semibold">Non-Compliant</span>
+                    <span className="text-xs font-semibold">{t('sec_non_compliant')}</span>
                   </div>
                 )}
               </div>
@@ -300,7 +300,7 @@ function SecurityTabContent() {
                     {riskGroups['High Risk'].slice(0,3).map(tool => (
                       <div key={tool.id} className="flex items-center justify-between py-2 text-sm">
                         <span className="text-slate-300">{tool.name}</span>
-                        <button onClick={() => navigate('/tools')} className="text-xs text-blue-400 hover:text-blue-300">Review →</button>
+                        <button onClick={() => navigate('/tools')} className="text-xs text-blue-400 hover:text-blue-300">{t('sec_review_arrow')}</button>
                       </div>
                     ))}
                   </div>

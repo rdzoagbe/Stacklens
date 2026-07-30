@@ -185,11 +185,11 @@ export function LicenseManagement() {
             <div className="flex flex-col sm:flex-row gap-2 flex-shrink-0">
               <button onClick={handleReclaimAll}
                 className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-semibold text-sm text-white transition-colors flex items-center gap-2 whitespace-nowrap">
-                <Mail className="h-4 w-4" /> Reclaim All
+                <Mail className="h-4 w-4" /> {t('act_reclaim_all')}
               </button>
               <button onClick={handleExportCsv}
                 className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl font-semibold text-sm text-slate-300 transition-colors flex items-center gap-2 whitespace-nowrap">
-                <Download className="h-4 w-4" /> Export CSV
+                <Download className="h-4 w-4" /> {t('act_export_csv')}
               </button>
             </div>
           </div>
@@ -298,12 +298,12 @@ export function LicenseManagement() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-800 bg-slate-950/50">
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Application</th>
-                    <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Used / Total</th>
-                    <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">Utilization</th>
-                    <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden lg:table-cell">Cost/mo</th>
-                    <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Waste</th>
-                    <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Action</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('col_application')}</th>
+                    <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('col_used_total')}</th>
+                    <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">{t('col_utilization')}</th>
+                    <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden lg:table-cell">{t('col_cost_mo')}</th>
+                    <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('col_waste')}</th>
+                    <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('col_action')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -349,7 +349,7 @@ export function LicenseManagement() {
                             window.open("mailto:?subject=" + subject + "&body=" + body);
                           }}
                             className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-xs font-semibold text-white transition-colors">
-                            Reclaim
+                            {t('act_reclaim')}
                           </button>
                         ) : (
                           <span className="text-xs text-emerald-400">✓ OK</span>

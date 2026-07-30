@@ -60,15 +60,15 @@ export function FinishSignUpPage() {
             <div className="text-8xl mb-6">❌</div>
             <h1 className="text-4xl font-bold mb-4">{t("signin_failed")}</h1>
             <p className="text-slate-400 text-lg mb-6">
-              {error === 'Invalid sign-in link'
-                ? 'This link has expired or is invalid.'
-                : 'Something went wrong with your sign-in.'}
+              {error === t('fsu_invalid_link')
+                ? t('fsu_expired')
+                : t('fsu_generic')}
             </p>
             <button
               onClick={() => window.location.href = "/dashboard"}
               className="px-4 md:px-8 py-4 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold text-lg transition-colors"
             >
-              Return to Homepage
+              {t('fsu_return_home')}
             </button>
           </>
         )}

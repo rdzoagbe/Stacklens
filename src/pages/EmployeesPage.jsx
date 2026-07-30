@@ -63,7 +63,7 @@ function DirectorySyncBanner() {
   return (
     <div className="rounded-xl border border-blue-500/20 bg-gradient-to-r from-blue-950/40 to-slate-900/40 px-4 py-3 flex items-center gap-4 mb-4">
       <div className="flex items-center gap-2 flex-shrink-0">
-        <span className="text-xs font-bold uppercase tracking-widest text-blue-400">Directory Sync</span>
+        <span className="text-xs font-bold uppercase tracking-widest text-blue-400">{t('dir_sync')}</span>
         {connectedCount > 0 && (
           <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-semibold border border-emerald-500/30">
             {connectedCount} Connected
@@ -87,7 +87,7 @@ function DirectorySyncBanner() {
                 ? <span className="text-emerald-500 hidden sm:inline">· {new Date(lastSync).toLocaleDateString()}</span>
                 : isConnected
                   ? <span className="text-emerald-500">✓</span>
-                  : <span className="text-slate-600">Not connected</span>
+                  : <span className="text-slate-600">{t('st_not_connected')}</span>
               }
             </button>
           );
@@ -123,7 +123,7 @@ export function EmployeeForm({ initial, onSubmit, onClose }) {
           <Input value={form.full_name} onChange={(e) => setForm(f => ({ ...f, full_name: e.target.value }))} />
         </div>
         <div>
-          <div className="mb-1 text-xs font-semibold text-slate-400">Email</div>
+          <div className="mb-1 text-xs font-semibold text-slate-400">{t('col_email')}</div>
           <Input value={form.email} onChange={(e) => setForm(f => ({ ...f, email: e.target.value }))} />
         </div>
       </div>
@@ -135,11 +135,11 @@ export function EmployeeForm({ initial, onSubmit, onClose }) {
           </Select>
         </div>
         <div>
-          <div className="mb-1 text-xs font-semibold text-slate-400">Role</div>
+          <div className="mb-1 text-xs font-semibold text-slate-400">{t('col_role')}</div>
           <Input value={form.role} onChange={(e) => setForm(f => ({ ...f, role: e.target.value }))} />
         </div>
         <div>
-          <div className="mb-1 text-xs font-semibold text-slate-400">Status</div>
+          <div className="mb-1 text-xs font-semibold text-slate-400">{t('col_status')}</div>
           <Select value={form.status} onChange={(e) => setForm(f => ({ ...f, status: e.target.value }))}>
             {['active','offboarding','offboarded'].map(s => <option key={s} value={s}>{s}</option>)}
           </Select>
@@ -156,8 +156,8 @@ export function EmployeeForm({ initial, onSubmit, onClose }) {
         </div>
       </div>
       <div className="flex justify-end gap-2">
-        <Button variant="ghost" onClick={onClose}>Cancel</Button>
-        <Button type="submit" disabled={!canSubmit}><Check className="h-4 w-4" />Save</Button>
+        <Button variant="ghost" onClick={onClose}>{t('act_cancel')}</Button>
+        <Button type="submit" disabled={!canSubmit}><Check className="h-4 w-4" />{t('act_save')}</Button>
       </div>
     </form>
   );
@@ -332,9 +332,9 @@ export function EmployeesPage() {
               <select value={status} onChange={e => setStatus(e.target.value)}
                 className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-slate-300 outline-none">
                 <option value="">{t('all_status')}</option>
-                <option value="active">Active</option>
-                <option value="offboarding">Offboarding</option>
-                <option value="offboarded">Offboarded</option>
+                <option value="active">{t('st_active')}</option>
+                <option value="offboarding">{t('st_offboarding')}</option>
+                <option value="offboarded">{t('st_offboarded')}</option>
               </select>
               <span className="text-[11px] text-slate-500 whitespace-nowrap">{filtered.length} found</span>
             </div>
@@ -349,7 +349,7 @@ export function EmployeesPage() {
             ) : paginated.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-40 text-sm text-slate-500">
                 <Users className="h-8 w-8 mb-2 opacity-30" />
-                No employees found
+                {t('empty_no_employees')}
               </div>
             ) : (
               paginated.map(e => {
@@ -406,7 +406,7 @@ export function EmployeesPage() {
           {!selected ? (
             <div className="flex flex-col items-center justify-center h-full text-slate-500 gap-3 py-20">
               <Users className="h-12 w-12 opacity-20" />
-              <div className="text-sm font-medium">Select an employee to view their profile</div>
+              <div className="text-sm font-medium">{t('empty_select_employee')}</div>
               <div className="text-xs opacity-60">{employees.length} employee{employees.length !== 1 ? 's' : ''} in directory</div>
             </div>
           ) : (
@@ -439,18 +439,18 @@ export function EmployeesPage() {
                   <div className="flex gap-2 flex-shrink-0">
                     <RoleGate requires="editor">
                       <button onClick={() => { setEditing(selected); setOpen(true); }}
-                        className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors" title="Edit">
+                        className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors" title={t('act_edit')}>
                         <Pencil className="h-4 w-4" />
                       </button>
                     </RoleGate>
                     <Link to={`/offboarding?employee=${encodeURIComponent(selected.id)}`}>
-                      <button className="p-2 rounded-xl bg-slate-800 hover:bg-amber-900/30 text-slate-400 hover:text-amber-400 transition-colors" title="Offboard">
+                      <button className="p-2 rounded-xl bg-slate-800 hover:bg-amber-900/30 text-slate-400 hover:text-amber-400 transition-colors" title={t('act_offboard')}>
                         <UserMinus className="h-4 w-4" />
                       </button>
                     </Link>
                     <RoleGate requires="editor">
                       <button onClick={() => { if (window.confirm(`Delete ${selected.full_name}?`)) { muts.deleteEmployee.mutate(selected.id); setSelectedId(null); } }}
-                        className="p-2 rounded-xl bg-slate-800 hover:bg-red-900/30 text-slate-400 hover:text-red-400 transition-colors" title="Delete">
+                        className="p-2 rounded-xl bg-slate-800 hover:bg-red-900/30 text-slate-400 hover:text-red-400 transition-colors" title={t('act_delete')}>
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </RoleGate>
@@ -460,21 +460,21 @@ export function EmployeesPage() {
                 {/* Detail row */}
                 <div className="mt-5 grid grid-cols-2 md:grid-cols-4 gap-3">
                   <div className="rounded-xl bg-slate-950/50 border border-slate-800 p-3">
-                    <div className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mb-1">Start date</div>
+                    <div className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mb-1">{t('fld_start_date')}</div>
                     <div className="text-sm font-semibold text-white">
                       {selected.start_date ? new Date(selected.start_date).toLocaleDateString() : '—'}
                     </div>
                   </div>
                   <div className="rounded-xl bg-slate-950/50 border border-slate-800 p-3">
-                    <div className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mb-1">Tenure</div>
+                    <div className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mb-1">{t('fld_tenure')}</div>
                     <div className="text-sm font-semibold text-white">{tenure(selected) || '—'}</div>
                   </div>
                   <div className="rounded-xl bg-blue-500/10 border border-blue-500/20 p-3">
-                    <div className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mb-1">Active apps</div>
+                    <div className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mb-1">{t('fld_active_apps')}</div>
                     <div className="text-sm font-bold text-blue-400">{toolCounts.get(selected.id) || 0}</div>
                   </div>
                   <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-3">
-                    <div className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mb-1">Total cost</div>
+                    <div className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mb-1">{t('fld_total_cost')}</div>
                     <div className="text-sm font-bold text-emerald-400">
                       {(employeeCost.get(selected.id) || 0) > 0
                         ? `€${(employeeCost.get(selected.id) || 0).toLocaleString()}/mo`
@@ -496,7 +496,7 @@ export function EmployeesPage() {
 
                 {selectedTools.length === 0 ? (
                   <div className="text-center py-8 text-slate-500 text-sm">
-                    No active apps assigned to this employee
+                    {t('empty_no_apps_employee')}
                   </div>
                 ) : (
                   <div className="space-y-2.5">
@@ -520,7 +520,7 @@ export function EmployeesPage() {
                                   tool.risk === 'medium' ? 'bg-amber-500/20 text-amber-400' :
                                   'bg-emerald-500/20 text-emerald-400'
                                 }`}>{tool.risk || 'low'}</span>
-                                {tool.mfa && <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 font-semibold">MFA</span>}
+                                {tool.mfa && <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 font-semibold">{t('col_mfa')}</span>}
                               </div>
                               <div className="text-xs text-slate-500 mt-0.5 flex items-center gap-2 flex-wrap">
                                 <span>{tool.last_used ? `Last used: ${tool.last_used}` : 'No usage data'}</span>
@@ -531,7 +531,7 @@ export function EmployeesPage() {
                               <RoleGate requires="editor">
                                 <button
                                   onClick={() => { if (window.confirm(`Revoke ${selected.full_name}'s access to ${tool.tool_name}?`)) muts.deleteAccess.mutate(tool.id); }}
-                                  className="p-1.5 rounded-lg bg-slate-800 hover:bg-red-600/20 text-slate-500 hover:text-red-400 transition-colors" title="Revoke access">
+                                  className="p-1.5 rounded-lg bg-slate-800 hover:bg-red-600/20 text-slate-500 hover:text-red-400 transition-colors" title={t('act_revoke_access')}>
                                   <X className="h-3.5 w-3.5" />
                                 </button>
                               </RoleGate>

@@ -184,7 +184,7 @@ export function OffboardingPage() {
                     toast.success(`Revoked ${riskRecords.length} access records`);
                   }
                 }} className="px-4 py-2 bg-red-600 hover:bg-red-500 rounded-xl font-semibold text-sm text-white transition-colors">
-                  Revoke All Risky Access
+                  {t('off_revoke_all_risky')}
                 </button>
               </div>
             </div>
@@ -402,7 +402,7 @@ export function OffboardingPage() {
                             </div>
                             <button onClick={() => revokeOne(r.id)}
                               className="px-2.5 py-1 bg-red-600/20 hover:bg-red-600/40 text-red-400 rounded-lg text-xs font-semibold transition-colors flex-shrink-0">
-                              Revoke
+                              {t('act_revoke')}
                             </button>
                           </div>
                         ))}

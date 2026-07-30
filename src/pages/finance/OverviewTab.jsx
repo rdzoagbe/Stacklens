@@ -110,7 +110,7 @@ function SpendTrendChart({ monthlyTrend, byCategory }) {
 
         {totalMonthly > 0 && (
           <div className="mt-5 pt-4 border-t border-slate-800 flex items-center justify-between">
-            <span className="text-sm text-slate-400">Total monthly</span>
+            <span className="text-sm text-slate-400">{t('fin_total_monthly')}</span>
             <span className="text-lg font-black text-white">{getCurrency(language)}{convertCurrency(totalMonthly, language).toLocaleString()}</span>
           </div>
         )}
@@ -229,8 +229,8 @@ export function FinanceOverviewTab({ financialData, showBudgetModal, setShowBudg
           current={budgetCap}
           totalSpend={financialData.totalMonthlySpend}
           language={language}
-          onSave={(cap) => { saveBudgetCap(cap); setShowBudgetModal(false); toast.success('Budget cap saved'); }}
-          onClear={() => { saveBudgetCap(0); setShowBudgetModal(false); toast.success('Budget cap removed'); }}
+          onSave={(cap) => { saveBudgetCap(cap); setShowBudgetModal(false); toast.success(t('fin_budget_saved')); }}
+          onClear={() => { saveBudgetCap(0); setShowBudgetModal(false); toast.success(t('fin_budget_removed')); }}
           onClose={() => setShowBudgetModal(false)}
         />
       )}
@@ -243,7 +243,7 @@ export function FinanceOverviewTab({ financialData, showBudgetModal, setShowBudg
             <span className="text-sm font-semibold text-red-300">Monthly spend exceeds your budget cap — </span>
             <span className="text-sm text-red-400">{getCurrency(language)}{convertCurrency(financialData.totalMonthlySpend, language).toLocaleString()} vs {getCurrency(language)}{convertCurrency(financialData.budgetLimit, language).toLocaleString()} limit ({(budgetUtilization - 100).toFixed(0)}% over)</span>
           </div>
-          <button onClick={() => setShowBudgetModal(true)} className="text-xs text-red-300 hover:text-red-200 font-semibold flex-shrink-0 underline underline-offset-2">Adjust limit</button>
+          <button onClick={() => setShowBudgetModal(true)} className="text-xs text-red-300 hover:text-red-200 font-semibold flex-shrink-0 underline underline-offset-2">{t('fin_adjust_limit')}</button>
         </div>
       )}
 
@@ -273,7 +273,7 @@ export function FinanceOverviewTab({ financialData, showBudgetModal, setShowBudg
                 <span className={`text-sm font-bold ${budgetUtilization > 100 ? 'text-red-400' : budgetUtilization > 75 ? 'text-amber-400' : 'text-emerald-400'}`}>
                   {budgetUtilization.toFixed(0)}% of {getCurrency(language)}{convertCurrency(financialData.budgetLimit, language).toLocaleString()}
                 </span>
-                <button onClick={() => setShowBudgetModal(true)} className="text-xs text-slate-500 hover:text-blue-400 underline underline-offset-2 transition-colors">Edit</button>
+                <button onClick={() => setShowBudgetModal(true)} className="text-xs text-slate-500 hover:text-blue-400 underline underline-offset-2 transition-colors">{t('act_edit')}</button>
               </div>
             ) : (
               <button onClick={() => setShowBudgetModal(true)} className="text-xs text-blue-400 hover:text-blue-300 font-semibold transition-colors">+ Set budget cap</button>
@@ -399,7 +399,7 @@ export function FinanceOverviewTab({ financialData, showBudgetModal, setShowBudg
             <div className="flex-1 min-w-0">
               <div className="text-sm font-semibold text-white mb-1">{t("finance_negotiate_renewals")}</div>
               <div className="text-xs text-slate-500 mb-2">{financialData.upcomingBills.length} contracts renewing soon</div>
-              <div className="text-xs text-amber-400 font-semibold">Save up to 20% on renewal</div>
+              <div className="text-xs text-amber-400 font-semibold">{t('fin_save_on_renewal')}</div>
             </div>
             <button onClick={() => setFinTab && setFinTab('renewals')} className="text-xs text-blue-400 hover:text-blue-300 font-semibold flex-shrink-0">View →</button>
           </div>

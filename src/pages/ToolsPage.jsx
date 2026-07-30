@@ -97,7 +97,7 @@ export function ToolForm({ initial, employees, onSubmit, onClose }) {
           </Select>
         </div>
         <div>
-          <div className="mb-1 text-xs font-semibold text-slate-400">Status</div>
+          <div className="mb-1 text-xs font-semibold text-slate-400">{t('col_status')}</div>
           <Select value={form.status} onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}>
             {TOOL_STATUS.map((s) => (
               <option key={s} value={s}>
@@ -120,7 +120,7 @@ export function ToolForm({ initial, employees, onSubmit, onClose }) {
 
       <div className="grid gap-3 md:grid-cols-3">
         <div className="md:col-span-2">
-          <div className="mb-1 text-xs font-semibold text-slate-400">URL</div>
+          <div className="mb-1 text-xs font-semibold text-slate-400">{t('fld_url')}</div>
           <Input value={form.url} onChange={(e) => setForm((f) => ({ ...f, url: e.target.value }))} />
         </div>
         <div>
@@ -136,7 +136,7 @@ export function ToolForm({ initial, employees, onSubmit, onClose }) {
 
       <div className="grid gap-3 md:grid-cols-2">
         <div>
-          <div className="mb-1 text-xs font-semibold text-slate-400">Cost / month</div>
+          <div className="mb-1 text-xs font-semibold text-slate-400">{t('col_cost_month')}</div>
           <Input
             type="number"
             value={form.cost_per_month}
@@ -144,18 +144,18 @@ export function ToolForm({ initial, employees, onSubmit, onClose }) {
           />
         </div>
         <div>
-          <div className="mb-1 text-xs font-semibold text-slate-400">Notes</div>
+          <div className="mb-1 text-xs font-semibold text-slate-400">{t('fld_notes')}</div>
           <Input value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} />
         </div>
       </div>
 
       <div className="flex justify-end gap-2">
         <Button variant="ghost" onClick={onClose}>
-          Cancel
+          {t('act_cancel')}
         </Button>
         <Button type="submit" disabled={!canSubmit}>
           <Check className="h-4 w-4" />
-          Save
+          {t('act_save')}
         </Button>
       </div>
     </form>
@@ -390,7 +390,7 @@ export function ToolsPage() {
             <div className="p-6 space-y-2"><SkeletonRow cols={6} /><SkeletonRow cols={6} /><SkeletonRow cols={6} /></div>
           ) : filtered.length === 0 ? (
             <div className="p-12">
-              <EmptyState icon={Boxes} title="No tools found" body="Try adjusting your filters or add new tools." />
+              <EmptyState icon={Boxes} title={t('empty_no_tools')} body="Try adjusting your filters or add new tools." />
             </div>
           ) : (
             <>
@@ -398,13 +398,13 @@ export function ToolsPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-slate-800 bg-slate-950/50">
-                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Tool</th>
-                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">Owner</th>
-                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden lg:table-cell">Last Used</th>
-                      <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Risk</th>
-                      <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden sm:table-cell">Status</th>
-                      <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Cost/mo</th>
-                      <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Actions</th>
+                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('col_tool')}</th>
+                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">{t('col_owner')}</th>
+                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden lg:table-cell">{t('col_last_used')}</th>
+                      <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('col_risk')}</th>
+                      <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden sm:table-cell">{t('col_status')}</th>
+                      <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('col_cost_mo')}</th>
+                      <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('col_actions')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -428,7 +428,7 @@ export function ToolsPage() {
                               <div className="text-sm text-slate-300 truncate">{t.owner_name || '—'}</div>
                               <div className="text-xs text-slate-500 truncate">{t.owner_email}</div>
                             </div>
-                          ) : <button onClick={(ev) => { ev.stopPropagation(); setOwnerToolId(t.id); setOwnerToolName(t.name); setShowToolOwnerModal(true); }} className="text-xs text-amber-400 hover:text-amber-300 underline underline-offset-2 transition-colors">Assign owner</button>}
+                          ) : <button onClick={(ev) => { ev.stopPropagation(); setOwnerToolId(t.id); setOwnerToolName(t.name); setShowToolOwnerModal(true); }} className="text-xs text-amber-400 hover:text-amber-300 underline underline-offset-2 transition-colors">{t('act_assign_owner')}</button>}
                         </td>
                         <td className="py-3 px-4 text-sm text-slate-400 hidden lg:table-cell">{t.last_used_date || '—'}</td>
                         <td className="py-3 px-4 text-center"><RiskBadge risk={t.derived_risk} /></td>
@@ -439,11 +439,11 @@ export function ToolsPage() {
                         <td className="py-3 px-4 text-right">
                           <div className="flex gap-1 justify-end" onClick={(ev) => ev.stopPropagation()}>
                             <button onClick={() => { setEditing(t); setOpen(true); }}
-                              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors" title="Edit">
+                              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors" title={t('act_edit')}>
                               <Pencil className="h-3.5 w-3.5" />
                             </button>
                             <button onClick={() => { if (window.confirm(`Delete ${t.name}?`)) { muts.deleteTool.mutate(t.id); toast.success(`${t.name} deleted!`); } }}
-                              className="p-1.5 rounded-lg bg-slate-800 hover:bg-red-600/20 text-slate-400 hover:text-red-400 transition-colors" title="Delete">
+                              className="p-1.5 rounded-lg bg-slate-800 hover:bg-red-600/20 text-slate-400 hover:text-red-400 transition-colors" title={t('act_delete')}>
                               <Trash2 className="h-3.5 w-3.5" />
                             </button>
                           </div>
@@ -506,7 +506,7 @@ export function ToolsPage() {
                                             'bg-slate-700 text-slate-400'
                                           )}>{emp.employee_status}</span>
                                           <button onClick={(ev) => { ev.stopPropagation(); if(window.confirm(`Revoke ${emp.employee_name}'s access to ${t.name}?`)) muts.deleteAccess.mutate(emp.id); }}
-                                            className="p-1 rounded-lg bg-slate-800 hover:bg-red-600/20 text-slate-500 hover:text-red-400 transition-colors" title="Revoke access">
+                                            className="p-1 rounded-lg bg-slate-800 hover:bg-red-600/20 text-slate-500 hover:text-red-400 transition-colors" title={t('act_revoke_access')}>
                                             <X className="h-3.5 w-3.5" />
                                           </button>
                                         </div>
@@ -574,12 +574,12 @@ export function ToolsPage() {
       {/* ── Assign Owner Modal (Tools page) ── */}
       <Modal
         open={showToolOwnerModal}
-        title="Assign tool owner"
+        title={t('act_assign_tool_owner')}
         subtitle={`Who should own ${ownerToolName}?`}
         onClose={() => setShowToolOwnerModal(false)}
         footer={
           <div className="flex justify-end">
-            <Button variant="secondary" onClick={() => setShowToolOwnerModal(false)}>Cancel</Button>
+            <Button variant="secondary" onClick={() => setShowToolOwnerModal(false)}>{t('act_cancel')}</Button>
           </div>
         }
       >
@@ -606,7 +606,7 @@ export function ToolsPage() {
             </button>
           ))}
           {employees.filter(e => e.status === 'active').length === 0 && (
-            <div className="text-center py-6 text-sm text-slate-500">No active employees. Import your team first.</div>
+            <div className="text-center py-6 text-sm text-slate-500">{t('empty_no_active_employees')}</div>
           )}
         </div>
       </Modal>

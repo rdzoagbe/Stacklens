@@ -652,13 +652,13 @@ function InvoiceManager() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-slate-500">Submit and track vendor invoices for finance approval</p>
+        <p className="text-sm text-slate-500">{t('fin_invoice_intro')}</p>
           <button 
             onClick={() => setShowUploadModal(true)}
             className="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold flex items-center gap-2"
           >
             <Upload className="w-5 h-5" />
-            Upload Invoice
+            {t('act_upload_invoice')}
           </button>
         </div>
 
@@ -708,7 +708,7 @@ function InvoiceManager() {
             <option value="all">{t('all_invoices')}</option>
             <option value="pending">{t("hc_pending_approval")}</option>
             <option value="approved">{t('approved')}</option>
-            <option value="paid">Paid</option>
+            <option value="paid">{t('st_paid')}</option>
             <option value="overdue">{t('overdue')}</option>
           </Select>
           <button 
@@ -716,7 +716,7 @@ function InvoiceManager() {
             className="px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg font-semibold flex items-center gap-2 transition-colors"
           >
             <Download className="w-4 h-4" />
-            Export Report
+            {t('act_export_report')}
           </button>
         </div>
 
@@ -727,13 +727,13 @@ function InvoiceManager() {
               <thead>
                 <tr className="border-b border-white/10">
                   <th className="text-left py-4 px-4 text-sm font-semibold text-slate-400">Invoice #</th>
-                  <th className="text-left py-4 px-4 text-sm font-semibold text-slate-400">Vendor</th>
-                  <th className="text-left py-4 px-4 text-sm font-semibold text-slate-400">Category</th>
-                  <th className="text-right py-4 px-4 text-sm font-semibold text-slate-400">Amount</th>
+                  <th className="text-left py-4 px-4 text-sm font-semibold text-slate-400">{t('col_vendor')}</th>
+                  <th className="text-left py-4 px-4 text-sm font-semibold text-slate-400">{t('col_category')}</th>
+                  <th className="text-right py-4 px-4 text-sm font-semibold text-slate-400">{t('col_amount')}</th>
                   <th className="text-left py-4 px-4 text-sm font-semibold text-slate-400">{t("hc_due_date")}</th>
                   <th className="text-left py-4 px-4 text-sm font-semibold text-slate-400">{t("hc_submitted_by")}</th>
-                  <th className="text-left py-4 px-4 text-sm font-semibold text-slate-400">Status</th>
-                  <th className="text-right py-4 px-4 text-sm font-semibold text-slate-400">Actions</th>
+                  <th className="text-left py-4 px-4 text-sm font-semibold text-slate-400">{t('col_status')}</th>
+                  <th className="text-right py-4 px-4 text-sm font-semibold text-slate-400">{t('col_actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -764,7 +764,7 @@ function InvoiceManager() {
                             setSelectedInvoice(invoice);
                             setShowInvoiceDetail(true);
                           }}
-                          className="px-3 py-1 bg-blue-600 hover:bg-blue-500 rounded text-sm transition-colors">View</button>
+                          className="px-3 py-1 bg-blue-600 hover:bg-blue-500 rounded text-sm transition-colors">{t('act_view')}</button>
                         {invoice.status === 'pending_approval' && (
                           <button
                           onClick={async () => {
@@ -817,7 +817,7 @@ function InvoiceManager() {
               </div>
               <div className="flex gap-3">
                 <button onClick={() => setShowInvoiceDetail(false)} className="flex-1 px-4 py-3 bg-slate-800 hover:bg-slate-700 rounded-xl font-semibold">
-                  Close
+                  {t('act_close')}
                 </button>
                 {selectedInvoice.status === "pending_approval" && (
                   <button
@@ -839,7 +839,7 @@ function InvoiceManager() {
 
         {/* Upload Modal */}
         {showUploadModal && (
-          <Modal open={showUploadModal} onClose={() => setShowUploadModal(false)} title="Upload Invoice" subtitle="Submit vendor invoice for finance approval">
+          <Modal open={showUploadModal} onClose={() => setShowUploadModal(false)} title={t('act_upload_invoice')} subtitle={t('fin_invoice_sub')}>
             <form 
               className="space-y-4"
               onSubmit={handleUploadSubmit}
@@ -857,13 +857,13 @@ function InvoiceManager() {
                 <input type="date" required value={uploadForm.dueDate} onChange={e => setUploadForm(f => ({...f, dueDate: e.target.value}))} className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-white" />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-slate-300 mb-2">Category</label>
+                <label className="block text-sm font-semibold text-slate-300 mb-2">{t('col_category')}</label>
                 <Select required>
-                  <option>CRM</option>
-                  <option>Communication</option>
-                  <option>Development</option>
-                  <option>Design</option>
-                  <option>Analytics</option>
+                  <option>{t('cat_crm')}</option>
+                  <option>{t('cat_communication')}</option>
+                  <option>{t('cat_development')}</option>
+                  <option>{t('cat_design')}</option>
+                  <option>{t('cat_analytics')}</option>
                 </Select>
               </div>
               <div>
@@ -872,7 +872,7 @@ function InvoiceManager() {
                 <label htmlFor="invoice-upload" className="block border-2 border-dashed border-slate-700 rounded-xl p-8 text-center hover:border-blue-500 transition-colors cursor-pointer">
                   <Upload className="w-12 h-12 text-slate-500 mx-auto mb-3" />
                   {uploadFileName ? <p className="text-emerald-400 font-semibold">{uploadFileName}</p> : <p className="text-slate-400">{t("hc_click_to_upload_or_drag_and_drop")}</p>}
-                  <p className="text-xs text-slate-500 mt-2">PDF up to 10MB</p>
+                  <p className="text-xs text-slate-500 mt-2">{t('fin_pdf_limit')}</p>
                 </label>
               </div>
               <div className="flex gap-3 pt-4">

@@ -101,14 +101,14 @@ export function CostTabContent({ setFinTab }) {
           
           {/* Waste breakdown bar */}
           <div className="mb-2 flex items-center justify-between">
-            <span className="text-xs text-slate-500">Healthy spend</span>
+            <span className="text-xs text-slate-500">{t('st_healthy_spend')}</span>
             <span className="text-xs font-semibold text-white">{100 - wastePercent}%</span>
           </div>
           <div className="h-2 bg-slate-800 rounded-full overflow-hidden mb-2">
             <div className="h-full bg-emerald-500 transition-all" style={{width: `${100 - wastePercent}%`}} />
           </div>
           <div className="flex items-center justify-between text-xs">
-            <span className="text-slate-500">Wasted</span>
+            <span className="text-slate-500">{t('st_wasted')}</span>
             <span className={"font-semibold " + (wastePercent > 20 ? "text-red-400" : wastePercent > 10 ? "text-amber-400" : "text-emerald-400")}>
               {wastePercent}% ({getCurrency(language)}{convertCurrency(Math.round(wasteAmount), language).toLocaleString()})
             </span>
@@ -172,15 +172,15 @@ export function CostTabContent({ setFinTab }) {
                 </div>
                 <div className="mt-3 pt-3 border-t border-slate-800/50 space-y-1">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-slate-500">Cost/mo</span>
+                    <span className="text-slate-500">{t('col_cost_mo')}</span>
                     <span className="text-white font-semibold">{getCurrency(language)}{convertCurrency(Math.round(tool.cost), language).toLocaleString()}</span>
                   </div>
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-slate-500">Active users</span>
+                    <span className="text-slate-500">{t('col_active_users')}</span>
                     <span className={tool.activeUsers === 0 ? "text-red-400 font-semibold" : "text-white"}>{tool.activeUsers}</span>
                   </div>
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-slate-500">Save</span>
+                    <span className="text-slate-500">{t('act_save')}</span>
                     <span className="text-emerald-400 font-semibold">{getCurrency(language)}{convertCurrency(Math.round(tool.cost * 0.7), language).toLocaleString()}/mo</span>
                   </div>
                 </div>
@@ -227,11 +227,11 @@ export function CostTabContent({ setFinTab }) {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-800 bg-slate-950/50">
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Tool</th>
-                    <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Monthly Cost</th>
-                    <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">Users</th>
-                    <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">Cost/User</th>
-                    <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('col_tool')}</th>
+                    <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('col_monthly_cost')}</th>
+                    <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">{t('col_users')}</th>
+                    <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">{t('col_cost_user')}</th>
+                    <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('col_status')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -253,11 +253,11 @@ export function CostTabContent({ setFinTab }) {
                       <td className="py-3 px-4 text-center">
                         {tool.wasteFlag ? (
                           <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400">
-                            <AlertTriangle className="h-2.5 w-2.5" /> Waste
+                            <AlertTriangle className="h-2.5 w-2.5" /> {t('col_waste')}
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400">
-                            <Check className="h-2.5 w-2.5" /> Healthy
+                            <Check className="h-2.5 w-2.5" /> {t('st_healthy')}
                           </span>
                         )}
                       </td>
