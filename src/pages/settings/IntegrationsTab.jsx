@@ -820,13 +820,12 @@ function SetupModal({ integration, onClose }) {
       { n: 6, text: 'On the OAuth consent screen add scope: admin.directory.user.readonly' },
       { n: 7, text: 'The user who authorises must be a Google Workspace admin' },
     ],
+    // Stacklens ships its own Azure app registration, so customers do not
+    // register anything or touch environment variables — they just consent.
     'microsoft-365': [
-      { n: 1, text: 'Go to portal.azure.com → Azure Active Directory → App registrations → New registration' },
-      { n: 2, text: 'Name: "Stacklens", Supported account types: "Accounts in this organizational directory only"' },
-      { n: 3, text: 'Redirect URI: choose "Single-page application (SPA)" and add your app domain + /auth-redirect.html (e.g. https://stacklens.fr/auth-redirect.html)' },
-      { n: 4, text: 'Go to API permissions → Add a permission → Microsoft Graph → Delegated → User.Read.All' },
-      { n: 5, text: 'Click "Grant admin consent for [your org]" (requires Global Administrator role)' },
-      { n: 6, text: 'Copy the Application (client) ID and add it as VITE_AZURE_CLIENT_ID in your .env file' },
+      { n: 1, text: t('int_m365_step1') },
+      { n: 2, text: t('int_m365_step2') },
+      { n: 3, text: t('int_m365_step3') },
     ],
   };
   const notes = {
@@ -1962,8 +1961,8 @@ export function IntegrationConnectors() {
         return;
       }
       if (err.message?.includes('timed_out') || err.errorCode === 'monitor_popup_timeout') {
-        setSyncResult({ source: 'microsoft-365', error: 'The Microsoft 365 popup did not respond. Ensure VITE_AZURE_CLIENT_ID is set and the app is deployed with the correct build environment, then try again.' });
-        toast.error('Microsoft 365 popup timed out');
+        setSyncResult({ source: 'microsoft-365', error: t('int_m365_popup_timeout') });
+        toast.error(t('int_m365_popup_timeout_toast'));
         return;
       }
       setSyncResult({ source: 'microsoft-365', error: err.message });

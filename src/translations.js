@@ -5,6 +5,11 @@
 
 export const translations = {
   en: {
+    int_m365_popup_timeout: "The Microsoft 365 sign-in window did not respond. Check that pop-ups are allowed for this site, then try again.",
+    int_m365_popup_timeout_toast: "Microsoft 365 sign-in timed out",
+    int_m365_step1: "Click Connect below and sign in with your Microsoft 365 account.",
+    int_m365_step2: "Your Microsoft 365 Global Administrator must approve the one-time consent prompt (read-only access to your user directory).",
+    int_m365_step3: "Your employee directory then syncs automatically — name, email, department, job title and account status.",
     int_ft_user_sync: "User Sync",
     int_ft_department_role_import: "Department & role import",
     int_ft_active_suspended_status: "Active / suspended status",
@@ -3029,6 +3034,11 @@ export const translations = {
     notif_offboard_sub: "When an offboarding task is started",
   },
   fr: {
+    int_m365_popup_timeout: "La fenêtre de connexion Microsoft 365 n'a pas répondu. Vérifiez que les fenêtres pop-up sont autorisées pour ce site, puis réessayez.",
+    int_m365_popup_timeout_toast: "Délai dépassé pour la connexion Microsoft 365",
+    int_m365_step1: "Cliquez sur Connecter ci-dessous et connectez-vous avec votre compte Microsoft 365.",
+    int_m365_step2: "L'administrateur général Microsoft 365 doit approuver la demande de consentement unique (accès en lecture seule à votre annuaire).",
+    int_m365_step3: "Votre annuaire salariés se synchronise ensuite automatiquement — nom, e-mail, département, fonction et statut du compte.",
     int_ft_user_sync: "Synchro des utilisateurs",
     int_ft_department_role_import: "Import département et rôle",
     int_ft_active_suspended_status: "Statut actif / suspendu",
