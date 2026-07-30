@@ -10,7 +10,7 @@ import { useTranslation } from '../translations';
 import { Button, Input, Select, Modal } from '../components/ui';
 import { RoleGate } from '../components/gates';
 import { AppShell } from '../components/AppShell';
-import { Search, Plus, Pencil, Trash2, Check, Users, UserMinus, X } from 'lucide-react';
+import { ArrowLeft, Search, Plus, Pencil, Trash2, Check, Users, UserMinus, X } from 'lucide-react';
 
 // ── Directory Sync Banner ─────────────────────────────────────────────────────
 
@@ -297,10 +297,13 @@ export function EmployeesPage() {
       <DirectorySyncBanner />
 
       {/* ── SPLIT VIEW ── */}
-      <div className="flex rounded-2xl border border-slate-800 bg-slate-900/40 overflow-hidden" style={{ height: 'calc(100vh - 220px)' }}>
+      {/* Below md the two panes can't sit side by side — the profile would be
+          squeezed to 0px — so only one is mounted visibly at a time and the
+          profile header gets a Back button to return to the list. */}
+      <div className="flex rounded-2xl border border-slate-800 bg-slate-900/40 overflow-hidden" style={{ height: 'calc(100vh - 220px)', minHeight: '480px' }}>
 
         {/* LEFT — Employee List */}
-        <div className="w-full md:w-[38%] flex-shrink-0 border-r border-slate-800 flex flex-col">
+        <div className={`w-full md:w-[38%] flex-shrink-0 border-r border-slate-800 flex-col ${selected ? 'hidden md:flex' : 'flex'}`}>
 
           {/* Search + filters */}
           <div className="p-3 border-b border-slate-800 space-y-2 flex-shrink-0">
@@ -402,7 +405,7 @@ export function EmployeesPage() {
         </div>
 
         {/* RIGHT — Employee Profile */}
-        <div className="flex-1 overflow-y-auto">
+        <div className={`flex-1 overflow-y-auto ${selected ? 'block' : 'hidden md:block'}`}>
           {!selected ? (
             <div className="flex flex-col items-center justify-center h-full text-slate-500 gap-3 py-20">
               <Users className="h-12 w-12 opacity-20" />
@@ -413,14 +416,20 @@ export function EmployeesPage() {
             <div>
               {/* Profile header */}
               <div className="p-6 border-b border-slate-800">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex items-center gap-4">
+                <button onClick={() => setSelectedId(null)}
+                  className="md:hidden mb-4 flex items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-white transition-colors">
+                  <ArrowLeft className="h-3.5 w-3.5" />{t('back')}
+                </button>
+                {/* flex-wrap so the action icons drop to their own line rather
+                    than overflowing the pane on narrow screens */}
+                <div className="flex items-start justify-between gap-4 flex-wrap">
+                  <div className="flex items-center gap-4 min-w-0">
                     <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-black text-2xl flex-shrink-0">
                       {(selected.full_name || '?').charAt(0)}
                     </div>
-                    <div>
-                      <h2 className="text-xl font-bold text-white">{selected.full_name}</h2>
-                      <p className="text-sm text-slate-400 mt-0.5">{selected.email}</p>
+                    <div className="min-w-0">
+                      <h2 className="text-xl font-bold text-white truncate">{selected.full_name}</h2>
+                      <p className="text-sm text-slate-400 mt-0.5 truncate">{selected.email}</p>
                       <div className="flex items-center gap-2 mt-2 flex-wrap">
                         <span className={`text-[10px] px-2 py-1 rounded-full font-bold border uppercase tracking-wider ${
                           selected.status === 'active' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' :

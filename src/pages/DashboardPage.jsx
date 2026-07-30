@@ -25,6 +25,9 @@ import { ImportWizard } from '../components/ImportWizard';
 export { ImportWizard } from '../components/ImportWizard';
 export { SlackNotifications } from '../components/SlackNotifications';
 
+// Action-inbox sort order. Lower ranks surface first; anything unknown sorts last.
+const SEVERITY_RANK = { critical: 0, high: 1, medium: 2 };
+
 // ── Getting Started Checklist ─────────────────────────────────────────────────
 
 function GettingStartedChecklist({ db }) {
@@ -553,7 +556,10 @@ export function DashboardPage() {
         });
 
         if (actions.length === 0) return null;
-        actions.sort((a, b) => ({ critical:0, high:1, medium:2 }[a.severity]||3) - ({ critical:0, high:1, medium:2 }[b.severity]||3));
+        // `??`, not `||` — critical ranks 0, which is falsy, so `|| 3` used to
+        // demote it below every other severity and `slice(0, 6)` could drop it.
+        const rank = (severity) => SEVERITY_RANK[severity] ?? 3;
+        actions.sort((a, b) => rank(a.severity) - rank(b.severity));
 
         return (
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 lg:p-6 mb-6">
