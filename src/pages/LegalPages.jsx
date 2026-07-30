@@ -500,7 +500,7 @@ export function AboutPage() {
           </Link>
           <div className="flex items-center gap-4">
             <LangSelectorCompact />
-            <Link to="/" className="text-slate-300 hover:text-white transition-colors">← Back to Home</Link>
+            <Link to="/" className="text-slate-300 hover:text-white transition-colors">← {t('about_back_home')}</Link>
           </div>
         </div>
       </nav>
@@ -512,10 +512,10 @@ export function AboutPage() {
             <span className="text-xs font-semibold uppercase tracking-wider text-blue-400">{t('about_our_mission')}</span>
           </div>
           <h1 className="text-4xl md:text-5xl font-bold mb-6 leading-tight">
-            SaaS control, <span className="bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">for everyone else.</span>
+            {t('about_hero_1')} <span className="bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">{t('about_hero_2')}</span>
           </h1>
           <p className="text-xl text-slate-400 leading-relaxed">
-            Enterprise-grade SaaS management, built for small and mid-sized European companies that can&apos;t justify €30,000 a year for software visibility.
+            {t('about_hero_sub')}
           </p>
         </div>
 
@@ -523,12 +523,8 @@ export function AboutPage() {
         <section className="mb-14">
           <h2 className="text-2xl font-bold text-white mb-4">{t('about_the_problem')}</h2>
           <div className="space-y-4 text-slate-300 leading-relaxed">
-            <p>
-              The average 100-person company now pays for more than 80 SaaS tools. Licences get forgotten. Employees leave and retain their access. Contracts auto-renew at inflated prices. For most organisations, nobody owns the full picture — and the cost of that ambiguity is material.
-            </p>
-            <p>
-              The tools that solve this problem at enterprise scale — Zylo, Torii, Lumos — are excellent. They also charge between €30,000 and €50,000 per year and require dedicated procurement teams to operate. That leaves every company under 500 employees with two options: pay for chaos, or hire someone to chase it full-time.
-            </p>
+            <p>{t('about_problem_p1')}</p>
+            <p>{t('about_problem_p2')}</p>
           </div>
         </section>
 
@@ -536,12 +532,8 @@ export function AboutPage() {
         <section className="mb-14">
           <h2 className="text-2xl font-bold text-white mb-4">{t('about_our_approach')}</h2>
           <div className="space-y-4 text-slate-300 leading-relaxed">
-            <p>
-              Stacklens is the third option. We deliver the core 80% of enterprise SaaS management — visibility, waste detection, renewal alerts, contract analysis — engineered specifically for small and mid-sized European organisations.
-            </p>
-            <p>
-              Transparent pricing from €29 per month. Built in France, GDPR-first. No annual commitments. No sales calls. One clear mission: give every SMB the SaaS control that used to be reserved for the Fortune 500.
-            </p>
+            <p>{t('about_approach_p1')}</p>
+            <p>{t('about_approach_p2')}</p>
           </div>
         </section>
 
@@ -550,10 +542,10 @@ export function AboutPage() {
           <h2 className="text-2xl font-bold text-white mb-6">{t('about_what_we_stand_for')}</h2>
           <div className="grid gap-4">
             {[
-              { title: 'Transparent pricing', body: 'Public plans, no "contact sales" tier. You see the price before you sign up — including at enterprise level.' },
-              { title: 'European by design', body: 'GDPR-first from day one, built in France for the regulatory and linguistic context of European SMBs.' },
-              { title: 'Focused scope', body: 'We deliver the 80% of SaaS management that matters most. We do not try to be an HR suite, an IT ticketing system, or a SCIM/PAM platform.' },
-              { title: 'Accessible support', body: 'Direct communication with the team that builds the product. No tier-one queues, no 48-hour SLAs.' },
+              { title: t('about_principle1_title'), body: t('about_principle1_body') },
+              { title: t('about_principle2_title'), body: t('about_principle2_body') },
+              { title: t('about_principle3_title'), body: t('about_principle3_body') },
+              { title: t('about_principle4_title'), body: t('about_principle4_body') },
             ].map((p, i) => (
               <div key={i} className="rounded-xl border border-slate-800 bg-slate-900/40 p-5">
                 <div className="text-base font-semibold text-white mb-1">{p.title}</div>
@@ -567,20 +559,20 @@ export function AboutPage() {
         <section className="mb-14 rounded-2xl border border-blue-500/20 bg-gradient-to-br from-blue-500/10 to-indigo-500/5 p-8 text-center">
           <h2 className="text-2xl font-bold text-white mb-3">{t('about_start_in_minutes')}</h2>
           <p className="text-slate-400 mb-6 max-w-xl mx-auto">
-            Free plan includes up to 10 tools and 25 employees. No credit card required.
+            {t('about_cta_sub')}
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link to="/" className="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl text-sm font-semibold text-white transition-all">
-              Get started free
+              {t('about_get_started')}
             </Link>
             <Link to="/contact" className="px-6 py-3 border border-slate-700 hover:border-slate-600 rounded-xl text-sm font-semibold text-slate-300 transition-all">
-              Contact us
+              {t('contact_title')}
             </Link>
           </div>
         </section>
 
         <div className="text-center text-xs text-slate-600">
-          Stacklens · Built in France · GDPR-first · © 2026
+          {t('about_footer_line')}
         </div>
       </div>
     </div>

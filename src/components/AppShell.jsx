@@ -434,37 +434,69 @@ export function CookieBanner() {
 
   if (!visible) return null;
 
-  // Intentional local bilingual object — not the global translation hook.
-  // CookieBanner must work before the app is fully mounted and needs CNIL-compliant
-  // French text regardless of user's saved language preference.
-  const isFr = language === 'fr';
-  const t = isFr ? {
-    title: 'Respect de votre vie privée',
-    body: "Nous utilisons des cookies analytiques (Google Analytics) pour comprendre comment Stacklens est utilisé. Les cookies essentiels (authentification, sécurité) sont toujours actifs. Vous pouvez modifier votre choix à tout moment.",
-    accept: 'Tout accepter',
-    reject: 'Tout refuser',
-    customize: 'Personnaliser',
-    privacy: 'Politique de confidentialité',
-    save: 'Enregistrer mes choix',
-    essential: 'Cookies essentiels',
-    essentialDesc: "Nécessaires au fonctionnement du site (authentification, sécurité). Ne peuvent pas être désactivés.",
-    analytics: 'Cookies analytiques',
-    analyticsDesc: "Google Analytics : pages visitées, durée de session, appareil. IP anonymisée.",
-    alwaysOn: 'Toujours actifs',
-  } : {
-    title: 'Your privacy matters',
-    body: 'We use analytics cookies (Google Analytics) to understand how Stacklens is used. Essential cookies (authentication, security) are always on. You can change your choice at any time.',
-    accept: 'Accept all',
-    reject: 'Reject all',
-    customize: 'Customize',
-    privacy: 'Privacy policy',
-    save: 'Save my choices',
-    essential: 'Essential cookies',
-    essentialDesc: 'Required for the site to function (authentication, security). Cannot be disabled.',
-    analytics: 'Analytics cookies',
-    analyticsDesc: 'Google Analytics: pages visited, session duration, device. IP is anonymized.',
-    alwaysOn: 'Always on',
+  // Intentional local dictionary — not the global translation hook. A consent
+  // control must render deterministic, authored text in every language: the
+  // global hook falls back to English for missing keys and resolves DE/ES/PT
+  // via async AI translation, neither of which is acceptable for a CNIL/GDPR
+  // banner. All five languages are authored here.
+  const COPY = {
+    fr: {
+      title: 'Respect de votre vie privée',
+      body: "Nous utilisons des cookies analytiques (Google Analytics) pour comprendre comment Stacklens est utilisé. Les cookies essentiels (authentification, sécurité) sont toujours actifs. Vous pouvez modifier votre choix à tout moment.",
+      accept: 'Tout accepter', reject: 'Tout refuser', customize: 'Personnaliser',
+      privacy: 'Politique de confidentialité', save: 'Enregistrer mes choix',
+      essential: 'Cookies essentiels',
+      essentialDesc: "Nécessaires au fonctionnement du site (authentification, sécurité). Ne peuvent pas être désactivés.",
+      analytics: 'Cookies analytiques',
+      analyticsDesc: "Google Analytics : pages visitées, durée de session, appareil. IP anonymisée.",
+      alwaysOn: 'Toujours actifs',
+    },
+    de: {
+      title: 'Ihre Privatsphäre ist uns wichtig',
+      body: 'Wir verwenden Analyse-Cookies (Google Analytics), um zu verstehen, wie Stacklens genutzt wird. Essenzielle Cookies (Authentifizierung, Sicherheit) sind immer aktiv. Sie können Ihre Auswahl jederzeit ändern.',
+      accept: 'Alle akzeptieren', reject: 'Alle ablehnen', customize: 'Anpassen',
+      privacy: 'Datenschutzerklärung', save: 'Auswahl speichern',
+      essential: 'Essenzielle Cookies',
+      essentialDesc: 'Für den Betrieb der Website erforderlich (Authentifizierung, Sicherheit). Können nicht deaktiviert werden.',
+      analytics: 'Analyse-Cookies',
+      analyticsDesc: 'Google Analytics: besuchte Seiten, Sitzungsdauer, Gerät. IP-Adresse anonymisiert.',
+      alwaysOn: 'Immer aktiv',
+    },
+    es: {
+      title: 'Su privacidad importa',
+      body: 'Utilizamos cookies analíticas (Google Analytics) para comprender cómo se usa Stacklens. Las cookies esenciales (autenticación, seguridad) están siempre activas. Puede cambiar su elección en cualquier momento.',
+      accept: 'Aceptar todo', reject: 'Rechazar todo', customize: 'Personalizar',
+      privacy: 'Política de privacidad', save: 'Guardar mis preferencias',
+      essential: 'Cookies esenciales',
+      essentialDesc: 'Necesarias para el funcionamiento del sitio (autenticación, seguridad). No se pueden desactivar.',
+      analytics: 'Cookies analíticas',
+      analyticsDesc: 'Google Analytics: páginas visitadas, duración de la sesión, dispositivo. IP anonimizada.',
+      alwaysOn: 'Siempre activas',
+    },
+    pt: {
+      title: 'A sua privacidade importa',
+      body: 'Utilizamos cookies analíticos (Google Analytics) para compreender como o Stacklens é utilizado. Os cookies essenciais (autenticação, segurança) estão sempre ativos. Pode alterar a sua escolha em qualquer momento.',
+      accept: 'Aceitar tudo', reject: 'Rejeitar tudo', customize: 'Personalizar',
+      privacy: 'Política de privacidade', save: 'Guardar as minhas escolhas',
+      essential: 'Cookies essenciais',
+      essentialDesc: 'Necessários ao funcionamento do site (autenticação, segurança). Não podem ser desativados.',
+      analytics: 'Cookies analíticos',
+      analyticsDesc: 'Google Analytics: páginas visitadas, duração da sessão, dispositivo. IP anonimizado.',
+      alwaysOn: 'Sempre ativos',
+    },
+    en: {
+      title: 'Your privacy matters',
+      body: 'We use analytics cookies (Google Analytics) to understand how Stacklens is used. Essential cookies (authentication, security) are always on. You can change your choice at any time.',
+      accept: 'Accept all', reject: 'Reject all', customize: 'Customize',
+      privacy: 'Privacy policy', save: 'Save my choices',
+      essential: 'Essential cookies',
+      essentialDesc: 'Required for the site to function (authentication, security). Cannot be disabled.',
+      analytics: 'Analytics cookies',
+      analyticsDesc: 'Google Analytics: pages visited, session duration, device. IP is anonymized.',
+      alwaysOn: 'Always on',
+    },
   };
+  const t = COPY[language] || COPY.en;
 
   const handleAccept = () => {
     window.enableAnalytics?.();
@@ -713,17 +745,19 @@ export function NameGate() {
 export function DemoBanner() {
   const { isDemo } = useAuth();
   const navigate = useNavigate();
+  const { language } = useLang();
+  const t = useTranslation(language);
   if (!isDemo) return null;
   return (
     <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm px-4 py-2.5 flex items-center justify-between">
       <div className="flex items-center gap-2">
         <span className="text-base">🎯</span>
-        <span className="font-semibold">You&apos;re in Demo Mode</span>
-        <span className="text-blue-200 hidden sm:inline">— Explore with sample data. Sign up for real data.</span>
+        <span className="font-semibold">{t('demo_mode_title')}</span>
+        <span className="text-blue-200 hidden sm:inline">— {t('demo_mode_sub')}</span>
       </div>
       <div className="flex items-center gap-2">
         <button onClick={() => navigate('/?signup=true')} className="bg-white text-blue-600 hover:bg-blue-50 px-3 py-1 rounded-lg text-xs font-bold transition-all">
-          Sign Up Free
+          {t('demo_signup_free')}
         </button>
       </div>
     </div>
@@ -875,15 +909,15 @@ export function AppShell({ _subtitle, title, right, children }) {
               <div className="flex items-center gap-1">
                 <span>© {new Date().getFullYear()} Stacklens</span>
                 <span className="hidden sm:inline">·</span>
-                <span className="hidden sm:inline">SaaS management for SMBs</span>
+                <span className="hidden sm:inline">{t('footer_tagline')}</span>
               </div>
               <div className="flex items-center gap-4">
-                <Link to="/contact" className="hover:text-slate-300 transition-colors">Contact</Link>
-                <Link to="/privacy" className="hover:text-slate-300 transition-colors">Privacy</Link>
-                <Link to="/terms" className="hover:text-slate-300 transition-colors">Terms</Link>
-                <Link to="/legal" className="hover:text-slate-300 transition-colors">Legal</Link>
-                <Link to="/security-info" className="hover:text-slate-300 transition-colors">Security</Link>
-                <Link to="/about" className="hover:text-slate-300 transition-colors">About</Link>
+                <Link to="/contact" className="hover:text-slate-300 transition-colors">{t('footer_contact')}</Link>
+                <Link to="/privacy" className="hover:text-slate-300 transition-colors">{t('footer_privacy')}</Link>
+                <Link to="/terms" className="hover:text-slate-300 transition-colors">{t('footer_terms')}</Link>
+                <Link to="/legal" className="hover:text-slate-300 transition-colors">{t('footer_legal')}</Link>
+                <Link to="/security-info" className="hover:text-slate-300 transition-colors">{t('footer_security')}</Link>
+                <Link to="/about" className="hover:text-slate-300 transition-colors">{t('footer_about')}</Link>
               </div>
             </div>
           </footer>
