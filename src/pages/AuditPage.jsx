@@ -13,12 +13,15 @@ import { AppShell } from '../components/AppShell';
 
 const escHtml = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-function generateAuditReportHTML(derived, language, _t) {
+function generateAuditReportHTML(derived, language, t) {
   const fm = (n) => formatMoney(n, null, language);
-  const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+  // The report is a standalone document — its language must follow the app's,
+  // including the lang attribute and the date format.
+  const localeTag = { en: 'en-GB', fr: 'fr-FR', de: 'de-DE', es: 'es-ES', pt: 'pt-PT' }[language] || 'en-GB';
+  const today = new Date().toLocaleDateString(localeTag, { day: 'numeric', month: 'long', year: 'numeric' });
   const hScore = derived.healthScore;
   const hColor = hScore >= 80 ? '#10b981' : hScore >= 60 ? '#f59e0b' : '#ef4444';
-  const hLabel = hScore >= 80 ? 'Healthy' : hScore >= 60 ? 'Needs Attention' : 'At Risk';
+  const hLabel = hScore >= 80 ? t('rep_healthy') : hScore >= 60 ? t('rep_needs_attention') : t('rep_at_risk');
   const wastedSpend = Math.round(derived.spend * 0.14);
   const annualSavings = wastedSpend * 12;
   const topSpend = [...derived.tools].filter(t => t.cost_per_month > 0).sort((a, b) => b.cost_per_month - a.cost_per_month).slice(0, 10);
@@ -29,10 +32,10 @@ function generateAuditReportHTML(derived, language, _t) {
   const catRows = Object.entries(categorySpend).sort((a, b) => b[1] - a[1]);
 
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="${language || 'en'}">
 <head>
 <meta charset="UTF-8">
-<title>SaaS Audit Report — Stacklens</title>
+<title>${t('rep_title')} — Stacklens</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #1e293b; background: #fff; line-height: 1.6; }
@@ -87,20 +90,19 @@ function generateAuditReportHTML(derived, language, _t) {
   </div>
 
   <div class="actions no-print">
-    <button onclick="window.print()">Print / Save as PDF</button>
-    <button class="secondary" onclick="window.close()">Close</button>
+    <button onclick="window.print()">${t('rep_print')}</button>
+    <button class="secondary" onclick="window.close()">${t('rep_close')}</button>
   </div>
 
-  <h2>Executive Summary</h2>
+  <h2>${t('rep_exec_summary')}</h2>
   <div class="health-box">
     <div class="health-score" style="background:${hColor}">${hScore}</div>
     <div class="health-detail">
       <div class="health-label" style="color:${hColor}">${hLabel}</div>
       <div class="health-desc">
-        Your SaaS stack has ${derived.tools.length} tools, ${derived.employees.filter(e => e.status === 'active').length} active employees,
-        and ${derived.access.filter(a => a.status === 'active').length} active permissions.
-        ${derived.highRiskCount > 0 ? derived.highRiskCount + ' high-risk tool' + (derived.highRiskCount > 1 ? 's' : '') + ' require attention.' : 'No high-risk tools detected.'}
-        ${derived.formerEmpAccess > 0 ? derived.formerEmpAccess + ' former employee access record' + (derived.formerEmpAccess > 1 ? 's' : '') + ' need revocation.' : ''}
+        ${t('rep_summary_sentence').replace('{tools}', derived.tools.length).replace('{emp}', derived.employees.filter(e => e.status === 'active').length).replace('{acc}', derived.access.filter(a => a.status === 'active').length)}
+        ${derived.highRiskCount > 0 ? t('rep_high_risk_note').replace('{n}', derived.highRiskCount) : t('rep_no_high_risk')}
+        ${derived.formerEmpAccess > 0 ? t('rep_former_note').replace('{n}', derived.formerEmpAccess) : ''}
       </div>
     </div>
   </div>
@@ -108,35 +110,35 @@ function generateAuditReportHTML(derived, language, _t) {
   <div class="kpi-grid">
     <div class="kpi">
       <div class="kpi-value">${derived.tools.length}</div>
-      <div class="kpi-label">Total Tools</div>
-      <div class="kpi-sub">${derived.activeTools} active, ${derived.unusedTools} unused</div>
+      <div class="kpi-label">${t('rep_total_tools')}</div>
+      <div class="kpi-sub">${derived.activeTools} ${t('rep_active')}, ${derived.unusedTools} ${t('rep_unused')}</div>
     </div>
     <div class="kpi">
       <div class="kpi-value">${fm(derived.spend)}</div>
-      <div class="kpi-label">Monthly Spend</div>
-      <div class="kpi-sub">${fm(derived.spend * 12)}/year</div>
+      <div class="kpi-label">${t('rep_monthly_spend')}</div>
+      <div class="kpi-sub">${fm(derived.spend * 12)}${t('rep_per_year')}</div>
     </div>
     <div class="kpi">
       <div class="kpi-value" style="color:${derived.highRiskCount > 0 ? '#dc2626' : '#16a34a'}">${derived.highRiskCount}</div>
-      <div class="kpi-label">High Risk Tools</div>
-      <div class="kpi-sub">${derived.formerEmpAccess} former employee access</div>
+      <div class="kpi-label">${t('rep_high_risk_tools')}</div>
+      <div class="kpi-sub">${derived.formerEmpAccess} ${t('rep_former_access')}</div>
     </div>
     <div class="kpi">
       <div class="kpi-value">${derived.employees.length}</div>
-      <div class="kpi-label">Employees</div>
-      <div class="kpi-sub">${derived.employees.filter(e => e.status === 'active').length} active</div>
+      <div class="kpi-label">${t('rep_employees')}</div>
+      <div class="kpi-sub">${derived.employees.filter(e => e.status === 'active').length} ${t('rep_active')}</div>
     </div>
   </div>
 
   ${wastedSpend > 0 ? `
   <div class="savings-box">
     <div class="savings-value">${fm(annualSavings)}</div>
-    <div class="savings-label">Estimated annual savings opportunity (based on industry avg 14% SaaS waste)</div>
+    <div class="savings-label">${t('rep_savings_label')}</div>
   </div>` : ''}
 
-  <h2>Spend Breakdown by Category</h2>
+  <h2>${t('rep_spend_by_category')}</h2>
   <table>
-    <thead><tr><th>Category</th><th>Monthly Cost</th><th>Annual Cost</th><th>% of Total</th><th>Distribution</th></tr></thead>
+    <thead><tr><th>${t('rep_category')}</th><th>${t('rep_monthly_cost')}</th><th>${t('rep_annual_cost')}</th><th>${t('rep_pct_of_total')}</th><th>${t('rep_distribution')}</th></tr></thead>
     <tbody>
       ${catRows.map(([cat, cost]) => {
         const pct = derived.spend > 0 ? Math.round((cost / derived.spend) * 100) : 0;
@@ -228,7 +230,7 @@ function generateAuditReportHTML(derived, language, _t) {
   </ol>
 
   <div class="footer">
-    <p>Generated by <strong>Stacklens</strong> — SaaS Spend & Access Management</p>
+    <p>${t('rep_generated_by')}</p>
     <p>stacklens.fr · ${today}</p>
   </div>
 </div>

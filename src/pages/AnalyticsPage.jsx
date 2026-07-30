@@ -43,7 +43,7 @@ export function CostManagementPage() {
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
             <h1 data-tour="tour-cost-header" className="text-2xl md:text-3xl font-black text-white mb-1">{t("cost_mgmt_title") || "Cost Management"}</h1>
-            <p className="text-slate-400">Find waste, optimise spend, reclaim unused licenses</p>
+            <p className="text-slate-400">{t('an_find_waste')}</p>
           </div>
           <button onClick={() => navigate('/licenses')} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-semibold transition-colors text-sm">
             {t('reclaim_licenses') || 'Manage Licenses'} →
@@ -207,7 +207,7 @@ export function AnalyticsReportsPage() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-slate-400 text-sm">Live insights across your entire SaaS stack</p>
+            <p className="text-slate-400 text-sm">{t('an_live_insights')}</p>
           </div>
           <button onClick={exportCSV} className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-semibold transition-colors text-sm">
             <Download className="h-4 w-4" /> Export CSV
