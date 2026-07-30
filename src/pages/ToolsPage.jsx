@@ -324,12 +324,12 @@ export function ToolsPage() {
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-blue-500">
             <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t("kpi_total_tools")}</div>
             <div className="text-3xl font-black text-white">{tools.length}</div>
-            <div className="text-sm text-slate-500">{tools.filter(t => t.derived_status === 'active').length} active</div>
+            <div className="text-sm text-slate-500">{tools.filter(x => x.derived_status === 'active').length} {t('lbl_active_lower')}</div>
           </div>
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-emerald-500">
             <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t("kpi_monthly_spend")}</div>
             <div className="text-3xl font-black text-emerald-400">{getCurrency(language)}{convertCurrency(Math.round(totalCost), language).toLocaleString()}</div>
-            <div className="text-sm text-slate-500">{getCurrency(language)}{convertCurrency(Math.round(totalCost*12), language).toLocaleString()}/yr</div>
+            <div className="text-sm text-slate-500">{getCurrency(language)}{convertCurrency(Math.round(totalCost*12), language).toLocaleString()}{t('lbl_per_year_short')}</div>
           </div>
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-red-500 cursor-pointer hover:border-slate-700 transition-colors" onClick={() => setRisk('high')}>
             <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t("kpi_high_risk")}</div>
@@ -353,7 +353,7 @@ export function ToolsPage() {
             <div className="flex flex-wrap gap-2">
               <button onClick={() => setCat('')}
                 className={"px-3 py-1.5 rounded-full text-xs font-semibold transition-all " + (!cat ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700')}>
-                All ({tools.length})
+                {t('lbl_all_count')} ({tools.length})
               </button>
               {catStats.map(([name, stats]) => (
                 <button key={name} onClick={() => setCat(name)}
@@ -383,7 +383,7 @@ export function ToolsPage() {
               <option value="">{t("all_risk")}</option>
               {RISK_SCORE.map((r) => <option key={r} value={r}>{r}</option>)}
             </select>
-            <span className="text-xs text-slate-500 whitespace-nowrap">{filtered.length} found</span>
+            <span className="text-xs text-slate-500 whitespace-nowrap">{filtered.length} {t('lbl_found')}</span>
           </div>
 
           {isLoading ? (
@@ -408,41 +408,41 @@ export function ToolsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {paginated.map((t) => (
-                      <React.Fragment key={t.id}>
+                    {paginated.map((tool) => (
+                      <React.Fragment key={tool.id}>
                       <tr className="border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors cursor-pointer"
-                          onClick={() => setExpandedTool(expandedTool === t.id ? null : t.id)}>
+                          onClick={() => setExpandedTool(expandedTool === tool.id ? null : tool.id)}>
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-3">
-                            <CategoryIcon category={t.category} />
+                            <CategoryIcon category={tool.category} />
                             <div className="min-w-0">
-                              <div className="text-sm font-semibold text-white truncate">{t.name}</div>
-                              <div className="text-xs text-slate-500 truncate capitalize">{t.category || '—'}</div>
+                              <div className="text-sm font-semibold text-white truncate">{tool.name}</div>
+                              <div className="text-xs text-slate-500 truncate capitalize">{tool.category || '—'}</div>
                             </div>
-                            <ChevronDown className={`h-4 w-4 text-slate-500 transition-transform flex-shrink-0 ${expandedTool === t.id ? 'rotate-180' : ''}`} />
+                            <ChevronDown className={`h-4 w-4 text-slate-500 transition-transform flex-shrink-0 ${expandedTool === tool.id ? 'rotate-180' : ''}`} />
                           </div>
                         </td>
                         <td className="py-3 px-4 hidden md:table-cell">
-                          {t.owner_email ? (
+                          {tool.owner_email ? (
                             <div className="min-w-0">
-                              <div className="text-sm text-slate-300 truncate">{t.owner_name || '—'}</div>
-                              <div className="text-xs text-slate-500 truncate">{t.owner_email}</div>
+                              <div className="text-sm text-slate-300 truncate">{tool.owner_name || '—'}</div>
+                              <div className="text-xs text-slate-500 truncate">{tool.owner_email}</div>
                             </div>
-                          ) : <button onClick={(ev) => { ev.stopPropagation(); setOwnerToolId(t.id); setOwnerToolName(t.name); setShowToolOwnerModal(true); }} className="text-xs text-amber-400 hover:text-amber-300 underline underline-offset-2 transition-colors">{t('act_assign_owner')}</button>}
+                          ) : <button onClick={(ev) => { ev.stopPropagation(); setOwnerToolId(tool.id); setOwnerToolName(tool.name); setShowToolOwnerModal(true); }} className="text-xs text-amber-400 hover:text-amber-300 underline underline-offset-2 transition-colors">{t('act_assign_owner')}</button>}
                         </td>
-                        <td className="py-3 px-4 text-sm text-slate-400 hidden lg:table-cell">{t.last_used_date || '—'}</td>
-                        <td className="py-3 px-4 text-center"><RiskBadge risk={t.derived_risk} /></td>
-                        <td className="py-3 px-4 text-center hidden sm:table-cell"><StatusBadge status={t.derived_status} /></td>
+                        <td className="py-3 px-4 text-sm text-slate-400 hidden lg:table-cell">{tool.last_used_date || '—'}</td>
+                        <td className="py-3 px-4 text-center"><RiskBadge risk={tool.derived_risk} /></td>
+                        <td className="py-3 px-4 text-center hidden sm:table-cell"><StatusBadge status={tool.derived_status} /></td>
                         <td className="py-3 px-4 text-right text-sm font-semibold text-white whitespace-nowrap">
-                          {getCurrency(language)}{convertCurrency(t.cost_per_month || 0, language).toLocaleString()}
+                          {getCurrency(language)}{convertCurrency(tool.cost_per_month || 0, language).toLocaleString()}
                         </td>
                         <td className="py-3 px-4 text-right">
                           <div className="flex gap-1 justify-end" onClick={(ev) => ev.stopPropagation()}>
-                            <button onClick={() => { setEditing(t); setOpen(true); }}
+                            <button onClick={() => { setEditing(tool); setOpen(true); }}
                               className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors" title={t('act_edit')}>
                               <Pencil className="h-3.5 w-3.5" />
                             </button>
-                            <button onClick={() => { if (window.confirm(`Delete ${t.name}?`)) { muts.deleteTool.mutate(t.id); toast.success(`${t.name} deleted!`); } }}
+                            <button onClick={() => { if (window.confirm(`Delete ${tool.name}?`)) { muts.deleteTool.mutate(tool.id); toast.success(`${tool.name} deleted!`); } }}
                               className="p-1.5 rounded-lg bg-slate-800 hover:bg-red-600/20 text-slate-400 hover:text-red-400 transition-colors" title={t('act_delete')}>
                               <Trash2 className="h-3.5 w-3.5" />
                             </button>
@@ -450,20 +450,20 @@ export function ToolsPage() {
                         </td>
                       </tr>
                       {/* ── Expanded employees drill-down ── */}
-                      {expandedTool === t.id && (
+                      {expandedTool === tool.id && (
                         <tr>
                           <td colSpan="7" className="p-0">
                             <div className="bg-slate-950/80 border-y border-purple-500/20 px-6 py-4">
                               {/* Risk evidence card */}
-                              {(t.derived_risk === 'high' || t.derived_risk === 'medium') && (() => {
-                                const evidence = getRiskEvidence(t);
+                              {(tool.derived_risk === 'high' || tool.derived_risk === 'medium') && (() => {
+                                const evidence = getRiskEvidence(tool);
                                 if (evidence.length === 0) return null;
                                 return (
-                                  <div className={`rounded-xl p-3 mb-3 border ${t.derived_risk === 'high' ? 'bg-red-500/5 border-red-500/20' : 'bg-amber-500/5 border-amber-500/20'}`}>
+                                  <div className={`rounded-xl p-3 mb-3 border ${tool.derived_risk === 'high' ? 'bg-red-500/5 border-red-500/20' : 'bg-amber-500/5 border-amber-500/20'}`}>
                                     <div className="flex items-center gap-2 mb-2">
-                                      <AlertTriangle className={`h-3.5 w-3.5 ${t.derived_risk === 'high' ? 'text-red-400' : 'text-amber-400'}`} />
-                                      <span className={`text-xs font-semibold ${t.derived_risk === 'high' ? 'text-red-400' : 'text-amber-400'}`}>
-                                        Why this tool is {t.derived_risk} risk
+                                      <AlertTriangle className={`h-3.5 w-3.5 ${tool.derived_risk === 'high' ? 'text-red-400' : 'text-amber-400'}`} />
+                                      <span className={`text-xs font-semibold ${tool.derived_risk === 'high' ? 'text-red-400' : 'text-amber-400'}`}>
+                                        Why this tool is {tool.derived_risk} risk
                                       </span>
                                     </div>
                                     <div className="flex flex-wrap gap-1.5">
@@ -477,11 +477,11 @@ export function ToolsPage() {
                                 );
                               })()}
                               <div className="flex items-center justify-between mb-3">
-                                <h4 className="text-sm font-semibold text-purple-400">Employees using {t.name} ({getToolEmployees(t.id, t.name).length})</h4>
+                                <h4 className="text-sm font-semibold text-purple-400">Employees using {tool.name} ({getToolEmployees(tool.id, tool.name).length})</h4>
                                 <Link to="/employees" className="text-xs text-slate-500 hover:text-purple-400 transition-colors">{tr("drill_view_all_employees") || "View all employees"} →</Link>
                               </div>
                               {(() => {
-                                const toolEmps = getToolEmployees(t.id, t.name);
+                                const toolEmps = getToolEmployees(tool.id, tool.name);
                                 if (toolEmps.length === 0) return (
                                   <div className="text-center py-4 text-sm text-slate-500">{tr("drill_no_employees") || "No employees currently assigned to this tool"}</div>
                                 );
@@ -505,7 +505,7 @@ export function ToolsPage() {
                                             emp.employee_status === 'offboarding' ? 'bg-amber-500/20 text-amber-400' :
                                             'bg-slate-700 text-slate-400'
                                           )}>{emp.employee_status}</span>
-                                          <button onClick={(ev) => { ev.stopPropagation(); if(window.confirm(`Revoke ${emp.employee_name}'s access to ${t.name}?`)) muts.deleteAccess.mutate(emp.id); }}
+                                          <button onClick={(ev) => { ev.stopPropagation(); if(window.confirm(`Revoke ${emp.employee_name}'s access to ${tool.name}?`)) muts.deleteAccess.mutate(emp.id); }}
                                             className="p-1 rounded-lg bg-slate-800 hover:bg-red-600/20 text-slate-500 hover:text-red-400 transition-colors" title={t('act_revoke_access')}>
                                             <X className="h-3.5 w-3.5" />
                                           </button>

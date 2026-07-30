@@ -317,7 +317,7 @@ export function EmployeesPage() {
               <div className="flex gap-1.5 flex-wrap">
                 <button onClick={() => setDept('')}
                   className={`px-2.5 py-1 rounded-full text-[11px] font-semibold transition-colors ${!dept ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
-                  All ({employees.length})
+                  {t('lbl_all_count')} ({employees.length})
                 </button>
                 {deptStats.map(([name, stats]) => (
                   <button key={name} onClick={() => setDept(name)}

@@ -310,50 +310,58 @@ export function CategoryIcon({ category }) {
 }
 
 export function StatusBadge({ status }) {
+  const { language } = useLang();
+  const t = useTranslation(language);
   const m = {
-    active:             { tone: 'green',  icon: BadgeCheck,    label: 'Active' },
-    orphaned:           { tone: 'rose',   icon: AlertTriangle, label: 'Orphaned' },
-    unused:             { tone: 'amber',  icon: CalendarClock, label: 'Unused' },
-    decommissioned:     { tone: 'slate',  icon: BadgeX,        label: 'Decommissioned' },
-    revoked:            { tone: 'slate',  icon: BadgeX,        label: 'Revoked' },
-    pending_revocation: { tone: 'amber',  icon: RefreshCw,     label: 'Pending' },
-    offboarding:        { tone: 'amber',  icon: RefreshCw,     label: 'Offboarding' },
-    offboarded:         { tone: 'slate',  icon: BadgeX,        label: 'Offboarded' },
+    active:             { tone: 'green',  icon: BadgeCheck,    label: t('badge_active') },
+    orphaned:           { tone: 'rose',   icon: AlertTriangle, label: t('badge_orphaned') },
+    unused:             { tone: 'amber',  icon: CalendarClock, label: t('badge_unused') },
+    decommissioned:     { tone: 'slate',  icon: BadgeX,        label: t('badge_decommissioned') },
+    revoked:            { tone: 'slate',  icon: BadgeX,        label: t('badge_revoked') },
+    pending_revocation: { tone: 'amber',  icon: RefreshCw,     label: t('badge_pending') },
+    offboarding:        { tone: 'amber',  icon: RefreshCw,     label: t('badge_offboarding') },
+    offboarded:         { tone: 'slate',  icon: BadgeX,        label: t('badge_offboarded') },
   };
   const v = m[status] || { tone: 'slate', icon: Info, label: String(status || '-') };
   return <Pill tone={v.tone} icon={v.icon}>{v.label}</Pill>;
 }
 
 export function RiskBadge({ risk }) {
+  const { language } = useLang();
+  const t = useTranslation(language);
   const m = {
-    low:      { tone: 'green', icon: BadgeCheck,    label: 'Low' },
-    medium:   { tone: 'amber', icon: AlertTriangle, label: 'Medium' },
-    high:     { tone: 'rose',  icon: AlertTriangle, label: 'High' },
-    critical: { tone: 'rose',  icon: AlertTriangle, label: 'Critical' },
+    low:      { tone: 'green', icon: BadgeCheck,    label: t('badge_low') },
+    medium:   { tone: 'amber', icon: AlertTriangle, label: t('badge_medium') },
+    high:     { tone: 'rose',  icon: AlertTriangle, label: t('badge_high') },
+    critical: { tone: 'rose',  icon: AlertTriangle, label: t('badge_critical') },
   };
   const v = m[risk] || { tone: 'slate', icon: Info, label: String(risk || '-') };
   return <Pill tone={v.tone} icon={v.icon}>{v.label}</Pill>;
 }
 
 export function AccessLevelBadge({ level }) {
+  const { language } = useLang();
+  const t = useTranslation(language);
   const m = {
-    admin:   { tone: 'rose',   icon: Lock,      label: 'Admin' },
-    editor:  { tone: 'blue',   icon: Pencil,    label: 'Editor' },
-    viewer:  { tone: 'slate',  icon: BadgeCheck, label: 'Viewer' },
-    billing: { tone: 'purple', icon: CreditCard, label: 'Billing' },
+    admin:   { tone: 'rose',   icon: Lock,      label: t('badge_admin') },
+    editor:  { tone: 'blue',   icon: Pencil,    label: t('badge_editor') },
+    viewer:  { tone: 'slate',  icon: BadgeCheck, label: t('badge_viewer') },
+    billing: { tone: 'purple', icon: CreditCard, label: t('badge_billing') },
   };
   const v = m[level] || { tone: 'slate', icon: Info, label: String(level || '-') };
   return <Pill tone={v.tone} icon={v.icon}>{v.label}</Pill>;
 }
 
 export function RiskFlagBadge({ flag }) {
+  const { language } = useLang();
+  const t = useTranslation(language);
   const m = {
-    none:             { tone: 'green', icon: BadgeCheck,    label: 'OK' },
-    orphaned:         { tone: 'rose',  icon: AlertTriangle, label: 'Orphaned tool' },
-    unused:           { tone: 'amber', icon: CalendarClock, label: 'Unused tool' },
-    former_employee:  { tone: 'rose',  icon: UserMinus,     label: 'Former employee' },
-    excessive_admin:  { tone: 'amber', icon: Lock,          label: 'Admin' },
-    needs_review:     { tone: 'blue',  icon: RefreshCw,     label: 'Needs review' },
+    none:             { tone: 'green', icon: BadgeCheck,    label: t('badge_ok') },
+    orphaned:         { tone: 'rose',  icon: AlertTriangle, label: t('badge_orphaned_tool') },
+    unused:           { tone: 'amber', icon: CalendarClock, label: t('badge_unused_tool') },
+    former_employee:  { tone: 'rose',  icon: UserMinus,     label: t('badge_former_employee') },
+    excessive_admin:  { tone: 'amber', icon: Lock,          label: t('badge_admin') },
+    needs_review:     { tone: 'blue',  icon: RefreshCw,     label: t('badge_needs_review') },
   };
   const v = m[flag] || { tone: 'slate', icon: Info, label: String(flag || '-') };
   return <Pill tone={v.tone} icon={v.icon}>{v.label}</Pill>;
