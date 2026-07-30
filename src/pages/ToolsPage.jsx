@@ -7,7 +7,7 @@ import { computeToolDerivedStatus, computeToolDerivedRisk, getRiskEvidence, getC
 import { useDbQuery, useDbMutations } from '../hooks/useDbQuery';
 import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
-import { Button, Input, Select, Textarea, Modal, SkeletonRow, EmptyState, CategoryIcon, RiskBadge, StatusBadge } from '../components/ui';
+import { Button, Input, Select, Textarea, Modal, SkeletonRow, EmptyState, CategoryIcon, RiskBadge, StatusBadge, useEnumLabel } from '../components/ui';
 import { RoleGate, PlanLimitBanner } from '../components/gates';
 import { AppShell } from '../components/AppShell';
 import { Search, Plus, Pencil, Trash2, ChevronDown, AlertTriangle, Check, X, Boxes, RefreshCw } from 'lucide-react';
@@ -16,6 +16,7 @@ import { loadGIS, requestReportsToken, fetchTokenActivities, aggregateAppUsage, 
 export function ToolForm({ initial, employees, onSubmit, onClose }) {
   const { language } = useLang();
   const t = useTranslation(language);
+  const enumLabel = useEnumLabel();
   const [form, setForm] = useState(
     initial || {
       name: "",
@@ -91,7 +92,7 @@ export function ToolForm({ initial, employees, onSubmit, onClose }) {
           <Select value={form.criticality} onChange={(e) => setForm((f) => ({ ...f, criticality: e.target.value }))}>
             {CRITICALITY.map((c) => (
               <option key={c} value={c}>
-                {c}
+                {enumLabel(c)}
               </option>
             ))}
           </Select>
@@ -101,7 +102,7 @@ export function ToolForm({ initial, employees, onSubmit, onClose }) {
           <Select value={form.status} onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}>
             {TOOL_STATUS.map((s) => (
               <option key={s} value={s}>
-                {s}
+                {enumLabel(s)}
               </option>
             ))}
           </Select>
@@ -111,7 +112,7 @@ export function ToolForm({ initial, employees, onSubmit, onClose }) {
           <Select value={form.risk_score} onChange={(e) => setForm((f) => ({ ...f, risk_score: e.target.value }))}>
             {RISK_SCORE.map((r) => (
               <option key={r} value={r}>
-                {r}
+                {enumLabel(r)}
               </option>
             ))}
           </Select>
@@ -169,6 +170,7 @@ export function ToolsPage() {
   // Alias for use inside the tools table, where the map's item is named `t`
   // and shadows the translation function.
   const tr = t;
+  const enumLabel = useEnumLabel();
   const muts = useDbMutations();
 
   const [q, setQ] = useState("");
@@ -376,12 +378,12 @@ export function ToolsPage() {
             <select value={status} onChange={(e) => setStatus(e.target.value)}
               className="bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-300 outline-none">
               <option value="">{t("all_status")}</option>
-              {TOOL_STATUS.map((s) => <option key={s} value={s}>{s}</option>)}
+              {TOOL_STATUS.map((s) => <option key={s} value={s}>{enumLabel(s)}</option>)}
             </select>
             <select value={risk} onChange={(e) => setRisk(e.target.value)}
               className="bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-300 outline-none">
               <option value="">{t("all_risk")}</option>
-              {RISK_SCORE.map((r) => <option key={r} value={r}>{r}</option>)}
+              {RISK_SCORE.map((r) => <option key={r} value={r}>{enumLabel(r)}</option>)}
             </select>
             <span className="text-xs text-slate-500 whitespace-nowrap">{filtered.length} {t('lbl_found')}</span>
           </div>
@@ -463,7 +465,7 @@ export function ToolsPage() {
                                     <div className="flex items-center gap-2 mb-2">
                                       <AlertTriangle className={`h-3.5 w-3.5 ${tool.derived_risk === 'high' ? 'text-red-400' : 'text-amber-400'}`} />
                                       <span className={`text-xs font-semibold ${tool.derived_risk === 'high' ? 'text-red-400' : 'text-amber-400'}`}>
-                                        Why this tool is {tool.derived_risk} risk
+                                        {t('why_risk_label')}
                                       </span>
                                     </div>
                                     <div className="flex flex-wrap gap-1.5">

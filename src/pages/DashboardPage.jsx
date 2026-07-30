@@ -25,6 +25,12 @@ import { ImportWizard } from '../components/ImportWizard';
 export { ImportWizard } from '../components/ImportWizard';
 export { SlackNotifications } from '../components/SlackNotifications';
 
+// Action-inbox sort order. Lower ranks surface first; anything unknown sorts last.
+const SEVERITY_RANK = { critical: 0, high: 1, medium: 2 };
+
+// Dates follow the app's language, not the browser's.
+const LOCALE_TAG = { en: 'en-GB', fr: 'fr-FR', de: 'de-DE', es: 'es-ES', pt: 'pt-PT' };
+
 // ── Getting Started Checklist ─────────────────────────────────────────────────
 
 function GettingStartedChecklist({ db }) {
@@ -185,6 +191,10 @@ export function DashboardPage() {
   const { data: db } = useDbQuery();
   const muts = useDbMutations();
 
+  const money = (n) => `${getCurrency(language)}${convertCurrency(Number(n) || 0, language).toLocaleString()}`;
+  const fmtDate = (d) => new Date(d).toLocaleDateString(LOCALE_TAG[language] || 'en-GB');
+  const plural = (n, oneKey, manyKey) => `${n} ${n === 1 ? t(oneKey) : t(manyKey)}`;
+
   const derived = useMemo(() => {
     if (!db) return { tools: [], access: [], alerts: [], counts: { critical:0, high:0, medium:0, low:0 }, spend: 0, highRiskTools: 0, formerAccess: 0, activeTools: 0 };
     const tools = db.tools.map((t) => ({
@@ -268,7 +278,7 @@ export function DashboardPage() {
               <div className="flex-1 min-w-0">
                 <span className="text-[10px] font-bold uppercase tracking-widest text-rose-400">{t('dash_priority')}</span>
                 <h2 className="text-xl lg:text-2xl font-bold text-white mb-1">
-                  {derived.formerAccess} {t('dash_former_access_title')}
+                  {derived.formerAccess} {t(derived.formerAccess === 1 ? 'dash_former_access_title_one' : 'dash_former_access_title')}
                 </h2>
                 <p className="text-sm text-slate-400">{t('dash_former_access_desc')}</p>
               </div>
@@ -335,10 +345,10 @@ export function DashboardPage() {
                 <div className="absolute top-0 right-0 w-40 h-full bg-gradient-to-l from-emerald-500/5 to-transparent pointer-events-none" />
                 <div className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-1">{t('monthly_spend')}</div>
                 <div className="text-4xl lg:text-5xl font-black text-emerald-400 mb-1">
-                  {getCurrency(language)}{convertCurrency(derived.spend || 0, language).toLocaleString()}
+                  {money(derived.spend)}
                 </div>
                 <div className="text-sm text-slate-500 mb-4">
-                  {getCurrency(language)}{convertCurrency(annualSpend, language).toLocaleString()}/yr
+                  {money(annualSpend)}{t('lbl_per_year_short')}
                 </div>
                 <div className="flex gap-6">
                   <div>
@@ -348,7 +358,7 @@ export function DashboardPage() {
                   <div>
                     <div className="text-xs text-slate-500 mb-0.5">{t('dash_avg_per_employee')}</div>
                     <div className="text-lg font-black text-white">
-                      {totalEmployees > 0 ? `${getCurrency(language)}${convertCurrency(avgPerEmployee, language).toLocaleString()}` : '—'}
+                      {totalEmployees > 0 ? money(avgPerEmployee) : "—"}
                     </div>
                   </div>
                 </div>
@@ -398,7 +408,7 @@ export function DashboardPage() {
               <Link to="/tools" className="flex-1">
                 <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 h-full hover:border-amber-500/40 transition-all">
                   <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">{t('dash_wasted_spend')}</div>
-                  <div className="text-3xl font-black text-amber-400">{getCurrency(language)}{convertCurrency(wastedSpend, language).toLocaleString()}</div>
+                  <div className="text-3xl font-black text-amber-400">{money(wastedSpend)}</div>
                   <div className="text-xs text-slate-500">{t('dash_idle_licenses')}</div>
                 </div>
               </Link>
@@ -443,7 +453,7 @@ export function DashboardPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between text-sm mb-1">
                       <span className="text-white font-medium capitalize truncate">{row.label}</span>
-                      <span className="text-slate-200 font-semibold flex-shrink-0 ml-2">{getCurrency(language)}{convertCurrency(row.value||0,language).toLocaleString()}/mo</span>
+                      <span className="text-slate-200 font-semibold flex-shrink-0 ml-2">{money(row.value)}{t('per_mo_short')}</span>
                     </div>
                     <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
                       <div className="h-full rounded-full bg-blue-500 transition-all"
@@ -503,7 +513,7 @@ export function DashboardPage() {
         (derived.access || []).filter(a => a.derived_risk_flag === 'former_employee' && a.status === 'active').forEach(a => {
           actions.push({
             id: 'former-' + a.id, severity: 'critical', icon: '🔴',
-            title: `${a.employee_name || 'Ex-employee'} still has access to ${a.tool_name || 'a tool'}`,
+            title: `${a.employee_name || t('dash_ex_employee')} ${t('dash_still_has_access')} ${a.tool_name || t('dash_a_tool')}`,
             reason: t('dash_left_not_revoked'),
             action: t('dash_revoke'),
             onAction: () => muts.updateAccess.mutate({ id: a.id, patch: { status: 'revoked' } }, { onSuccess: () => toast.success(t('revoked')) }),
@@ -514,7 +524,7 @@ export function DashboardPage() {
           actions.push({
             id: 'noowner-' + tool.id, severity: 'high', icon: '🟡',
             title: `${tool.name} ${t('dash_no_owner')}`,
-            reason: `${getCurrency(language)}${convertCurrency(tool.cost_per_month||0,language).toLocaleString()}/mo — ${t('dash_nobody_responsible')}`,
+            reason: `${money(tool.cost_per_month)}${t('per_mo_short')} — ${t('dash_nobody_responsible')}`,
             action: t('dash_assign'),
             toolId: tool.id, toolName: tool.name, needsOwner: true,
           });
@@ -524,7 +534,7 @@ export function DashboardPage() {
           actions.push({
             id: 'mfa-' + tool.id, severity: 'high', icon: '🛡️',
             title: `${tool.name} ${t('dash_high_risk_no_mfa')}`,
-            reason: `Owner: ${tool.owner_email || 'none'} · Last used: ${tool.last_used_date || 'unknown'}`,
+            reason: `${t('owner')}: ${tool.owner_email || t('lbl_none')} · ${t('col_last_used')}: ${tool.last_used_date ? fmtDate(tool.last_used_date) : t('lbl_unknown')}`,
             action: t('review'), link: '/security',
           });
         });
@@ -536,7 +546,7 @@ export function DashboardPage() {
           actions.push({
             id: 'budget-exceeded', severity: 'high', icon: '💰',
             title: `${pct}% ${t('dash_budget_exceeded')}`,
-            reason: `Cap: ${getCurrency(language)}${convertCurrency(_budgetCap,language).toLocaleString()}/mo · Current: ${getCurrency(language)}${convertCurrency(derived.spend,language).toLocaleString()}`,
+            reason: `${t('lbl_cap')}: ${money(_budgetCap)}${t('per_mo_short')} · ${t('lbl_current')}: ${money(derived.spend)}`,
             action: t('nav_finance'), link: '/finance',
           });
         }
@@ -546,14 +556,17 @@ export function DashboardPage() {
         (derived.tools || []).filter(tool => tool.cost_per_month > 0 && (!tool.last_used_date || new Date(tool.last_used_date).getTime() < sixtyDaysAgo)).slice(0, 3).forEach(tool => {
           actions.push({
             id: 'idle-' + tool.id, severity: 'medium', icon: '💸',
-            title: `${tool.name} — ${getCurrency(language)}${convertCurrency(tool.cost_per_month||0,language).toLocaleString()}/mo ${t('dash_possibly_wasted')}`,
-            reason: `Last used: ${tool.last_used_date || 'never'}`,
+            title: `${tool.name} — ${money(tool.cost_per_month)}${t('per_mo_short')} ${t('dash_possibly_wasted')}`,
+            reason: `${t('col_last_used')}: ${tool.last_used_date ? fmtDate(tool.last_used_date) : t('never')}`,
             action: t('review'), link: '/tools',
           });
         });
 
         if (actions.length === 0) return null;
-        actions.sort((a, b) => ({ critical:0, high:1, medium:2 }[a.severity]||3) - ({ critical:0, high:1, medium:2 }[b.severity]||3));
+        // `??`, not `||` — critical ranks 0, which is falsy, so `|| 3` used to
+        // demote it below every other severity and `slice(0, 6)` could drop it.
+        const rank = (severity) => SEVERITY_RANK[severity] ?? 3;
+        actions.sort((a, b) => rank(a.severity) - rank(b.severity));
 
         return (
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 lg:p-6 mb-6">
@@ -566,7 +579,7 @@ export function DashboardPage() {
                 <span className="text-xs px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 font-semibold border border-red-500/30">{actions.length}</span>
               </div>
               {actions.length > 6 && (
-                <Link to="/security" className="text-xs text-slate-500 hover:text-blue-400">View all {actions.length} →</Link>
+                <Link to="/security" className="text-xs text-slate-500 hover:text-blue-400">{t('dash_view_all')} {actions.length} →</Link>
               )}
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5">
@@ -625,7 +638,7 @@ export function DashboardPage() {
               <GitMerge className="h-5 w-5 text-slate-400 flex-shrink-0" />
               <div>
                 <div className="text-sm font-semibold text-white">{t('review_admin_access')}</div>
-                <div className="text-xs text-slate-500">{(derived.access||[]).filter(a=>a.status==='active').length} {t('dash_pending_reviews')}</div>
+                <div className="text-xs text-slate-500">{plural((derived.access||[]).filter(a=>a.status==='active').length, 'dash_pending_review_one', 'dash_pending_reviews')}</div>
               </div>
             </button>
           </Link>
@@ -634,7 +647,7 @@ export function DashboardPage() {
               <Boxes className="h-5 w-5 text-slate-400 flex-shrink-0" />
               <div>
                 <div className="text-sm font-semibold text-white">{t('assign_owners')}</div>
-                <div className="text-xs text-slate-500">{derived.tools.filter(t=>!t.owner_email).length} {t('dash_tools_unassigned')}</div>
+                <div className="text-xs text-slate-500">{plural(derived.tools.filter(tool => !tool.owner_email).length, 'dash_tool_unassigned', 'dash_tools_unassigned')}</div>
               </div>
             </button>
           </Link>
@@ -643,7 +656,7 @@ export function DashboardPage() {
               <Activity className="h-5 w-5 text-slate-400 flex-shrink-0" />
               <div>
                 <div className="text-sm font-semibold text-white">{t('reclaim_licenses')}</div>
-                <div className="text-xs text-slate-500">Save ~{getCurrency(language)}{convertCurrency(Math.round((derived.spend||0)*0.14),language).toLocaleString()}/mo</div>
+                <div className="text-xs text-slate-500">{t('dash_save_approx')}{money(Math.round((derived.spend||0)*0.14))}{t('per_mo_short')}</div>
               </div>
             </button>
           </Link>
