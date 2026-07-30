@@ -59,7 +59,7 @@ export function AccessForm({ initial, tools, employees, onSubmit, onClose }) {
     >
       <div className="grid gap-3 md:grid-cols-2">
         <div>
-          <div className="mb-1 text-xs font-semibold text-slate-400">Tool</div>
+          <div className="mb-1 text-xs font-semibold text-slate-400">{t('col_tool')}</div>
           <Select value={form.tool_id} onChange={(e) => setForm((f) => ({ ...f, tool_id: e.target.value }))}>
             {tools.map((t) => (
               <option key={t.id} value={t.id}>
@@ -69,7 +69,7 @@ export function AccessForm({ initial, tools, employees, onSubmit, onClose }) {
           </Select>
         </div>
         <div>
-          <div className="mb-1 text-xs font-semibold text-slate-400">Employee</div>
+          <div className="mb-1 text-xs font-semibold text-slate-400">{t('col_employee')}</div>
           <Select value={form.employee_id} onChange={(e) => setForm((f) => ({ ...f, employee_id: e.target.value }))}>
             {employees.map((e) => (
               <option key={e.id} value={e.id}>
@@ -92,7 +92,7 @@ export function AccessForm({ initial, tools, employees, onSubmit, onClose }) {
           </Select>
         </div>
         <div>
-          <div className="mb-1 text-xs font-semibold text-slate-400">Status</div>
+          <div className="mb-1 text-xs font-semibold text-slate-400">{t('col_status')}</div>
           <Select value={form.status} onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}>
             {ACCESS_STATUS.map((s) => (
               <option key={s} value={s}>
@@ -115,7 +115,7 @@ export function AccessForm({ initial, tools, employees, onSubmit, onClose }) {
 
       <div className="grid gap-3 md:grid-cols-3">
         <div>
-          <div className="mb-1 text-xs font-semibold text-slate-400">Granted</div>
+          <div className="mb-1 text-xs font-semibold text-slate-400">{t('col_granted')}</div>
           <Input type="date" value={form.granted_date} onChange={(e) => setForm((f) => ({ ...f, granted_date: e.target.value }))} />
         </div>
         <div>
@@ -130,11 +130,11 @@ export function AccessForm({ initial, tools, employees, onSubmit, onClose }) {
 
       <div className="flex justify-end gap-2">
         <Button variant="ghost" onClick={onClose}>
-          Cancel
+          {t('act_cancel')}
         </Button>
         <Button type="submit" disabled={!canSubmit}>
           <Check className="h-4 w-4" />
-          Save
+          {t('act_save')}
         </Button>
       </div>
     </form>
@@ -283,7 +283,7 @@ export function AccessPage() {
           </div>
           <select value={filterRisk} onChange={e => setFilterRisk(e.target.value)}
             className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-300 outline-none">
-            <option value="all">All Risk Levels</option>
+            <option value="all">{t('filter_all_risk')}</option>
             <option value="high">{t("high_risk_only")}</option>
             <option value="review">{t("needs_review_filter")}</option>
             <option value="clean">{t("clean_only")}</option>
@@ -387,7 +387,7 @@ export function AccessPage() {
                     privCount[name].count++;
                   });
                   const sorted = Object.entries(privCount).sort((a,b) => b[1].count - a[1].count).slice(0,5);
-                  if (sorted.length === 0) return <div className="text-sm text-slate-500 text-center py-4">No admin access yet</div>;
+                  if (sorted.length === 0) return <div className="text-sm text-slate-500 text-center py-4">{t('empty_no_admin_access')}</div>;
                   return sorted.map(([name, data]) => (
                     <div key={name} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-800/40 transition-colors">
                       <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
@@ -423,7 +423,7 @@ export function AccessPage() {
                   });
                   const sorted = Object.entries(toolCount).sort((a,b) => b[1].count - a[1].count).slice(0,5);
                   const maxCount = sorted[0]?.[1].count || 1;
-                  if (sorted.length === 0) return <div className="text-sm text-slate-500 text-center py-4">No access records yet</div>;
+                  if (sorted.length === 0) return <div className="text-sm text-slate-500 text-center py-4">{t('empty_no_access')}</div>;
                   return sorted.map(([name, data]) => (
                     <div key={name}>
                       <div className="flex items-center justify-between mb-1">
@@ -461,7 +461,7 @@ export function AccessPage() {
                   const sorted = Object.entries(deptCount).sort((a,b) => b[1] - a[1]).slice(0,6);
                   const total = sorted.reduce((s, [,c]) => s + c, 0) || 1;
                   const colors = ['#3b82f6','#8b5cf6','#10b981','#f59e0b','#ef4444','#06b6d4'];
-                  if (sorted.length === 0) return <div className="text-sm text-slate-500 text-center py-4">No departments yet</div>;
+                  if (sorted.length === 0) return <div className="text-sm text-slate-500 text-center py-4">{t('empty_no_departments')}</div>;
                   return sorted.map(([dept, count], idx) => {
                     const pct = Math.round((count/total)*100);
                     return (
@@ -539,12 +539,12 @@ export function AccessPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-800 bg-slate-950/50">
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-slate-400">Employee</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-slate-400">Tool</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-slate-400">Level</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-slate-400">Status</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-slate-400">Risk</th>
-                  <th className="text-right py-3 px-4 text-xs font-semibold text-slate-400">Actions</th>
+                  <th className="text-left py-3 px-4 text-xs font-semibold text-slate-400">{t('col_employee')}</th>
+                  <th className="text-left py-3 px-4 text-xs font-semibold text-slate-400">{t('col_tool')}</th>
+                  <th className="text-left py-3 px-4 text-xs font-semibold text-slate-400">{t('col_level')}</th>
+                  <th className="text-left py-3 px-4 text-xs font-semibold text-slate-400">{t('col_status')}</th>
+                  <th className="text-left py-3 px-4 text-xs font-semibold text-slate-400">{t('col_risk')}</th>
+                  <th className="text-right py-3 px-4 text-xs font-semibold text-slate-400">{t('col_actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -580,9 +580,9 @@ export function AccessPage() {
                           if (action === '1') muts.updateAccess.mutate({ id: a.id, patch: { access_level: 'viewer' } }, { onSuccess: () => toast.success(t('changed_to_viewer')) });
                           else if (action === '2') muts.updateAccess.mutate({ id: a.id, patch: { access_level: 'admin' } }, { onSuccess: () => toast.success(t('changed_to_admin')) });
                           else if (action === '3') muts.updateAccess.mutate({ id: a.id, patch: { status: 'revoked' } }, { onSuccess: () => toast.success(t('revoked')) });
-                        }} className="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold">Manage</button>
+                        }} className="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold">{t('act_manage')}</button>
                         <button onClick={() => {
-                          if(window.confirm('Revoke?')) muts.updateAccess.mutate({ id: a.id, patch: { status: 'revoked' } }, { onSuccess: () => toast.success(t('revoked')) });
+                          if(window.confirm(t('confirm_revoke_one'))) muts.updateAccess.mutate({ id: a.id, patch: { status: 'revoked' } }, { onSuccess: () => toast.success(t('revoked')) });
                         }} className="px-2 py-1 bg-red-600/20 hover:bg-red-600/40 text-red-400 rounded-lg text-xs font-semibold">×</button>
                       </div>
                     </td>
