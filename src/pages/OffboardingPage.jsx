@@ -7,7 +7,7 @@ import { useDbQuery, useDbMutations } from '../hooks/useDbQuery';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
-import { Button, SkeletonRow } from '../components/ui';
+import { Button, SkeletonRow, useEnumLabel } from '../components/ui';
 import { AppShell } from '../components/AppShell';
 
 function ChecklistItems() {
@@ -47,6 +47,7 @@ export function OffboardingPage() {
   const { language } = useLang();
   useCurrency();
   const t = useTranslation(language);
+  const enumLabel = useEnumLabel();
   const { data: db, isLoading } = useDbQuery();
   const muts = useDbMutations();
   const nav = useNavigate();
@@ -160,7 +161,7 @@ export function OffboardingPage() {
                 <AlertTriangle className="h-5 w-5 text-red-400" />
               </div>
               <div className="flex-1">
-                <div className="text-base font-semibold text-red-400 mb-1">Security Risk: {riskRecords.length} active access records belong to offboarded employees</div>
+                <div className="text-base font-semibold text-red-400 mb-1">{t('offboarding_security_risk_header').replace('{n}', riskRecords.length)}</div>
                 <p className="text-sm text-slate-400 mb-4">These users have been offboarded but their access was never revoked. This is a major security and compliance issue.</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 mb-4">
                   {riskRecords.slice(0, 6).map((a, idx) => {
@@ -257,7 +258,7 @@ export function OffboardingPage() {
                             <span className={"text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase " + (
                               e.status === "offboarding" ? "bg-amber-500/20 text-amber-400" : "bg-blue-500/20 text-blue-400"
                             )}>
-                              {e.status}
+                              {enumLabel(e.status)}
                             </span>
                           </div>
                         </div>
@@ -333,7 +334,7 @@ export function OffboardingPage() {
                     className="w-full max-w-xs bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-300 outline-none focus:border-blue-500 transition-colors">
                     <option value="">{t("offboarding_or_pick")}</option>
                     {employees.filter(e => e.status !== 'offboarded').map(e => (
-                      <option key={e.id} value={e.id}>{e.full_name} ({e.status})</option>
+                      <option key={e.id} value={e.id}>{e.full_name} ({enumLabel(e.status)})</option>
                     ))}
                   </select>
                 )}
@@ -397,7 +398,7 @@ export function OffboardingPage() {
                             <div className="flex-1 min-w-0">
                               <div className="text-sm font-semibold text-white truncate">{r.tool_name}</div>
                               <div className="text-[10px] text-slate-500">
-                                <span className="capitalize">{r.access_level}</span> · Granted {r.granted_date || '—'}
+                                <span>{enumLabel(r.access_level)}</span> · {t('granted_date')} {r.granted_date || '—'}
                               </div>
                             </div>
                             <button onClick={() => revokeOne(r.id)}

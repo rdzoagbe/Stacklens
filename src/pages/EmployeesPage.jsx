@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { todayISO } from '../lib/db';
 import { EMP_DEPARTMENTS } from '../lib/constants';
 import { computeToolDerivedRisk, getRiskEvidence } from '../lib/dataUtils';
+import { formatMoney } from '../lib/currency';
 import { useDbQuery, useDbMutations } from '../hooks/useDbQuery';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { useLang } from '../contexts/LangContext';
@@ -66,7 +67,7 @@ function DirectorySyncBanner() {
         <span className="text-xs font-bold uppercase tracking-widest text-blue-400">{t('dir_sync')}</span>
         {connectedCount > 0 && (
           <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-semibold border border-emerald-500/30">
-            {connectedCount} Connected
+            {connectedCount} {t('connected')}
           </span>
         )}
       </div>
@@ -165,6 +166,11 @@ export function EmployeeForm({ initial, onSubmit, onClose }) {
 
 // ── Employees Page ────────────────────────────────────────────────────────────
 
+// Dates were rendered with a bare toLocaleDateString(), which follows the
+// browser locale rather than the app's language (a FR user saw "6/5/2025").
+const LOCALE_TAG = { en: 'en-GB', fr: 'fr-FR', de: 'de-DE', es: 'es-ES', pt: 'pt-PT' };
+const STATUS_KEY = { active: 'st_active', offboarding: 'st_offboarding', offboarded: 'st_offboarded' };
+
 export function EmployeesPage() {
   useCurrency();
   const { data: db, isLoading } = useDbQuery();
@@ -181,6 +187,14 @@ export function EmployeesPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
+
+  // Money goes through formatMoney so this page follows the same currency as
+  // the rest of the app — it used to hardcode "€" and disagreed with the
+  // Dashboard's getCurrency(language).
+  const money = (n) => formatMoney(n, null, language);
+  const plural = (n, oneKey, manyKey) => `${n} ${n === 1 ? t(oneKey) : t(manyKey)}`;
+  const fmtDate = (d) => (d ? new Date(d).toLocaleDateString(LOCALE_TAG[language] || 'en-GB') : '—');
+  const statusLabel = (s) => t(STATUS_KEY[s] || 'st_active');
 
   const toolCounts = useMemo(() => {
     const m = new Map();
@@ -207,7 +221,7 @@ export function EmployeesPage() {
       const tool = (db?.tools || []).find(t => t.id === a.tool_id || t.name === a.tool_name);
       return {
         ...a,
-        tool_name: a.tool_name || tool?.name || 'Unknown',
+        tool_name: a.tool_name || tool?.name || t('lbl_unknown'),
         cost: tool?.cost_per_month || 0,
         risk: tool?.derived_risk || computeToolDerivedRisk(tool || {}),
         last_used: tool?.last_used_date || a.last_used_date || null,
@@ -237,6 +251,9 @@ export function EmployeesPage() {
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
+  // The chip badge shows `total`, not the active-only count: clicking a chip
+  // filters by department regardless of status, so an active-only badge made
+  // "Finance (0)" clickable and yield a row.
   const deptStats = useMemo(() => {
     const m = {};
     employees.forEach(e => {
@@ -260,8 +277,8 @@ export function EmployeesPage() {
     const ms = Date.now() - new Date(emp.start_date).getTime();
     const yrs = Math.floor(ms / (365.25 * 24 * 60 * 60 * 1000));
     const mos = Math.floor((ms % (365.25 * 24 * 60 * 60 * 1000)) / (30.44 * 24 * 60 * 60 * 1000));
-    if (yrs > 0) return `${yrs} yr${yrs > 1 ? 's' : ''} ${mos} mo`;
-    return `${mos} mo`;
+    if (yrs > 0) return `${plural(yrs, 'unit_yr_one', 'unit_yr_many')} ${mos} ${t('unit_mo')}`;
+    return `${mos} ${t('unit_mo')}`;
   };
 
   return (
@@ -271,7 +288,7 @@ export function EmployeesPage() {
         <div className="flex gap-2">
           <RoleGate requires="editor">
             <Button variant="secondary" onClick={() => { setEditing(null); setOpen(true); }}>
-              <Plus className="h-4 w-4" />{t('add_employee') || 'Add Employee'}
+              <Plus className="h-4 w-4" />{t('add_employee')}
             </Button>
           </RoleGate>
         </div>
@@ -325,7 +342,7 @@ export function EmployeesPage() {
                 {deptStats.map(([name, stats]) => (
                   <button key={name} onClick={() => setDept(name)}
                     className={`px-2.5 py-1 rounded-full text-[11px] font-semibold transition-colors capitalize ${dept === name ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
-                    {name} ({stats.active})
+                    {name} ({stats.total})
                   </button>
                 ))}
               </div>
@@ -339,7 +356,7 @@ export function EmployeesPage() {
                 <option value="offboarding">{t('st_offboarding')}</option>
                 <option value="offboarded">{t('st_offboarded')}</option>
               </select>
-              <span className="text-[11px] text-slate-500 whitespace-nowrap">{filtered.length} found</span>
+              <span className="text-[11px] text-slate-500 whitespace-nowrap">{filtered.length} {t('lbl_found')}</span>
             </div>
           </div>
 
@@ -376,13 +393,13 @@ export function EmployeesPage() {
                           e.status === 'active' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' :
                           e.status === 'offboarding' ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' :
                           'bg-slate-700 text-slate-400 border-slate-600'
-                        }`}>{e.status}</span>
+                        }`}>{statusLabel(e.status)}</span>
                       </div>
                       <div className="text-xs text-slate-400 truncate capitalize">{e.department || '—'}{e.role ? ` · ${e.role}` : ''}</div>
                     </div>
                     <div className="flex-shrink-0 text-right">
-                      <div className="text-xs font-bold text-blue-400">{appCount} app{appCount !== 1 ? 's' : ''}</div>
-                      {cost > 0 && <div className="text-[10px] text-slate-500">€{cost.toLocaleString()}/mo</div>}
+                      <div className="text-xs font-bold text-blue-400">{plural(appCount, 'lbl_app_one', 'lbl_app_many')}</div>
+                      {cost > 0 && <div className="text-[10px] text-slate-500">{money(cost)}{t('per_mo_short')}</div>}
                     </div>
                   </button>
                 );
@@ -392,7 +409,7 @@ export function EmployeesPage() {
             {/* Pagination */}
             {totalPages > 1 && (
               <div className="flex items-center justify-between gap-2 p-3 border-t border-slate-800">
-                <span className="text-[11px] text-slate-500">{page * PAGE_SIZE + 1}–{Math.min((page+1)*PAGE_SIZE, filtered.length)} of {filtered.length}</span>
+                <span className="text-[11px] text-slate-500">{page * PAGE_SIZE + 1}–{Math.min((page+1)*PAGE_SIZE, filtered.length)} {t('lbl_of')} {filtered.length}</span>
                 <div className="flex gap-1">
                   <button onClick={() => setPage(p => Math.max(0, p-1))} disabled={page === 0}
                     className="px-2 py-1 rounded-lg bg-slate-800 text-slate-400 text-xs hover:bg-slate-700 disabled:opacity-30">‹</button>
@@ -410,7 +427,7 @@ export function EmployeesPage() {
             <div className="flex flex-col items-center justify-center h-full text-slate-500 gap-3 py-20">
               <Users className="h-12 w-12 opacity-20" />
               <div className="text-sm font-medium">{t('empty_select_employee')}</div>
-              <div className="text-xs opacity-60">{employees.length} employee{employees.length !== 1 ? 's' : ''} in directory</div>
+              <div className="text-xs opacity-60">{plural(employees.length, 'lbl_employee_one', 'lbl_employee_many')} {t('lbl_in_directory')}</div>
             </div>
           ) : (
             <div>
@@ -435,7 +452,7 @@ export function EmployeesPage() {
                           selected.status === 'active' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' :
                           selected.status === 'offboarding' ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' :
                           'bg-slate-700 text-slate-400 border-slate-600'
-                        }`}>{selected.status}</span>
+                        }`}>{statusLabel(selected.status)}</span>
                         {selected.department && (
                           <span className="text-[10px] px-2 py-1 rounded-full bg-blue-500/20 text-blue-400 font-semibold border border-blue-500/30 capitalize">{selected.department}</span>
                         )}
@@ -458,7 +475,7 @@ export function EmployeesPage() {
                       </button>
                     </Link>
                     <RoleGate requires="editor">
-                      <button onClick={() => { if (window.confirm(`Delete ${selected.full_name}?`)) { muts.deleteEmployee.mutate(selected.id); setSelectedId(null); } }}
+                      <button onClick={() => { if (window.confirm(t('confirm_delete_employee').replace('{name}', selected.full_name))) { muts.deleteEmployee.mutate(selected.id); setSelectedId(null); } }}
                         className="p-2 rounded-xl bg-slate-800 hover:bg-red-900/30 text-slate-400 hover:text-red-400 transition-colors" title={t('act_delete')}>
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -470,9 +487,7 @@ export function EmployeesPage() {
                 <div className="mt-5 grid grid-cols-2 md:grid-cols-4 gap-3">
                   <div className="rounded-xl bg-slate-950/50 border border-slate-800 p-3">
                     <div className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mb-1">{t('fld_start_date')}</div>
-                    <div className="text-sm font-semibold text-white">
-                      {selected.start_date ? new Date(selected.start_date).toLocaleDateString() : '—'}
-                    </div>
+                    <div className="text-sm font-semibold text-white">{fmtDate(selected.start_date)}</div>
                   </div>
                   <div className="rounded-xl bg-slate-950/50 border border-slate-800 p-3">
                     <div className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mb-1">{t('fld_tenure')}</div>
@@ -486,7 +501,7 @@ export function EmployeesPage() {
                     <div className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mb-1">{t('fld_total_cost')}</div>
                     <div className="text-sm font-bold text-emerald-400">
                       {(employeeCost.get(selected.id) || 0) > 0
-                        ? `€${(employeeCost.get(selected.id) || 0).toLocaleString()}/mo`
+                        ? `${money(employeeCost.get(selected.id))}${t('per_mo_short')}`
                         : '—'}
                     </div>
                   </div>
@@ -496,10 +511,10 @@ export function EmployeesPage() {
               {/* Apps section */}
               <div className="p-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-base font-semibold text-white">Apps &amp; Access</h3>
+                  <h3 className="text-base font-semibold text-white">{t('apps_access')}</h3>
                   <span className="text-xs text-slate-500">
-                    {selectedTools.length} app{selectedTools.length !== 1 ? 's' : ''}
-                    {(employeeCost.get(selected.id) || 0) > 0 && ` · €${(employeeCost.get(selected.id) || 0).toLocaleString()}/mo`}
+                    {plural(selectedTools.length, 'lbl_app_one', 'lbl_app_many')}
+                    {(employeeCost.get(selected.id) || 0) > 0 && ` · ${money(employeeCost.get(selected.id))}${t('per_mo_short')}`}
                   </span>
                 </div>
 
@@ -532,14 +547,14 @@ export function EmployeesPage() {
                                 {tool.mfa && <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 font-semibold">{t('col_mfa')}</span>}
                               </div>
                               <div className="text-xs text-slate-500 mt-0.5 flex items-center gap-2 flex-wrap">
-                                <span>{tool.last_used ? `Last used: ${tool.last_used}` : 'No usage data'}</span>
-                                {tool.cost > 0 && <><span>·</span><span>€{tool.cost}/mo</span></>}
+                                <span>{tool.last_used ? `${t('col_last_used')}: ${fmtDate(tool.last_used)}` : t('lbl_no_usage_data')}</span>
+                                {tool.cost > 0 && <><span>·</span><span>{money(tool.cost)}{t('per_mo_short')}</span></>}
                               </div>
                             </div>
                             <div className="flex-shrink-0">
                               <RoleGate requires="editor">
                                 <button
-                                  onClick={() => { if (window.confirm(`Revoke ${selected.full_name}'s access to ${tool.tool_name}?`)) muts.deleteAccess.mutate(tool.id); }}
+                                  onClick={() => { if (window.confirm(t('confirm_revoke_access').replace('{name}', selected.full_name).replace('{tool}', tool.tool_name))) muts.deleteAccess.mutate(tool.id); }}
                                   className="p-1.5 rounded-lg bg-slate-800 hover:bg-red-600/20 text-slate-500 hover:text-red-400 transition-colors" title={t('act_revoke_access')}>
                                   <X className="h-3.5 w-3.5" />
                                 </button>
@@ -566,7 +581,7 @@ export function EmployeesPage() {
         </div>
       </div>
 
-      <Modal open={open} title={editing ? 'Edit employee' : 'Add employee'} subtitle={t('employee_directory_sub')} onClose={() => setOpen(false)}>
+      <Modal open={open} title={editing ? t('edit_employee') : t('add_employee')} subtitle={t('employee_directory_sub')} onClose={() => setOpen(false)}>
         <EmployeeForm
           initial={editing}
           onClose={() => setOpen(false)}

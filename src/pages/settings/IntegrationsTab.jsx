@@ -1315,7 +1315,7 @@ export function IntegrationConnectors() {
     {
       id: 'microsoft-365',
       name: 'Microsoft 365',
-      description: 'Import users from Azure Active Directory — display name, email, department, job title, and account status synced automatically.',
+      description: t('int_desc_m365'),
       icon: '🟦',
       category: t('int_cat_identity'),
       features: [t('int_ft_azure_ad_user_sync'), t('int_ft_department_job_title_import'), t('int_ft_enabled_disabled_status')],
@@ -1326,7 +1326,7 @@ export function IntegrationConnectors() {
     {
       id: 'github',
       name: 'GitHub',
-      description: 'Import organisation members into your employee directory — display name, email, and bio synced automatically.',
+      description: t('int_desc_github'),
       icon: '🐙',
       category: t('int_cat_development'),
       features: [t('int_ft_org_member_sync'), t('int_ft_name_email_import'), t('int_ft_active_member_filtering')],
@@ -1336,7 +1336,7 @@ export function IntegrationConnectors() {
     {
       id: 'okta',
       name: 'Okta',
-      description: 'Import active users from your Okta directory — first name, last name, email, department, and job title synced automatically.',
+      description: t('int_desc_okta'),
       icon: '🔐',
       category: t('int_cat_identity'),
       features: [t('int_ft_active_user_sync'), t('int_ft_department_title_import'), t('int_ft_active_inactive_status')],
@@ -1346,7 +1346,7 @@ export function IntegrationConnectors() {
     {
       id: 'salesforce',
       name: 'Salesforce',
-      description: 'Import active users from your Salesforce org — name, email, department, and job title synced via OAuth 2.0 PKCE.',
+      description: t('int_desc_salesforce'),
       icon: '☁️',
       category: t('int_cat_crm'),
       features: [t('int_ft_active_user_sync'), t('int_ft_department_title_import'), t('int_ft_oauth_2_0_pkce_no_password_stored')],
@@ -1356,7 +1356,7 @@ export function IntegrationConnectors() {
     {
       id: 'zoom',
       name: 'Zoom',
-      description: 'Import licensed users from your Zoom account — name, email, department, and account status synced automatically.',
+      description: t('int_desc_zoom'),
       icon: '📹',
       category: t('int_cat_communication'),
       features: [t('int_ft_licensed_user_sync'), t('int_ft_name_email_import'), t('int_ft_department_import')],
@@ -1366,7 +1366,7 @@ export function IntegrationConnectors() {
     {
       id: 'asana',
       name: 'Asana',
-      description: 'Import workspace members into your employee directory — name and email synced automatically from your Asana workspace.',
+      description: t('int_desc_asana'),
       icon: '📊',
       category: t('int_cat_productivity'),
       features: [t('int_ft_workspace_member_sync'), t('int_ft_name_email_import'), t('int_ft_auto_detects_workspace')],
@@ -2295,27 +2295,31 @@ export function IntegrationConnectors() {
                   backgroundColor: connected ? 'rgba(16, 185, 129, 0.05)' : 'rgb(15, 23, 42)',
                   opacity: comingSoon ? 0.7 : 1,
                 }}>
-                {/* Badge */}
-                <div className="absolute top-4 right-4">
-                  {connected && (
-                    <span className="px-3 py-1 bg-emerald-500/20 text-emerald-400 text-xs font-bold rounded-full flex items-center gap-1">
-                      <CheckCircle className="h-3 w-3" /> {t('connected')}
-                    </span>
-                  )}
-                  {comingSoon && (
-                    <span className="px-3 py-1 bg-slate-700 text-slate-400 text-xs font-bold rounded-full">{t('coming_soon_label')}</span>
-                  )}
-                  {!connected && !comingSoon && needsSetup && (
-                    <span className="px-3 py-1 bg-amber-500/20 text-amber-400 text-xs font-bold rounded-full">{t('int_setup_required')}</span>
-                  )}
-                </div>
+                {/* Badge — in normal flow, not absolutely positioned: it used to
+                    overlap the card title, and worse in languages where the label
+                    is longer than English ("Configuration requise"). */}
+                {(connected || comingSoon || needsSetup) && (
+                  <div className="flex justify-end mb-2">
+                    {connected && (
+                      <span className="px-3 py-1 bg-emerald-500/20 text-emerald-400 text-xs font-bold rounded-full flex items-center gap-1">
+                        <CheckCircle className="h-3 w-3" /> {t('connected')}
+                      </span>
+                    )}
+                    {!connected && comingSoon && (
+                      <span className="px-3 py-1 bg-slate-700 text-slate-400 text-xs font-bold rounded-full">{t('coming_soon_label')}</span>
+                    )}
+                    {!connected && !comingSoon && needsSetup && (
+                      <span className="px-3 py-1 bg-amber-500/20 text-amber-400 text-xs font-bold rounded-full">{t('int_setup_required')}</span>
+                    )}
+                  </div>
+                )}
 
                 {/* Icon & title */}
                 <div className="flex items-center gap-4 mb-4">
                   <div className="text-2xl md:text-5xl">{integration.icon}</div>
                   <div className="flex-1">
                     <h4 className="text-xl font-bold text-white">{integration.name}</h4>
-                    <div className="text-xs text-slate-500 mt-1">⏱️ {integration.setupTime} setup</div>
+                    <div className="text-xs text-slate-500 mt-1">⏱️ {integration.setupTime} {t('int_setup_suffix')}</div>
                   </div>
                 </div>
 

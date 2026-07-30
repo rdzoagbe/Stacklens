@@ -6,7 +6,7 @@ import { computeAccessDerivedRiskFlag } from '../lib/dataUtils';
 import { useDbQuery, useDbMutations } from '../hooks/useDbQuery';
 import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
-import { Button, Input, Select } from '../components/ui';
+import { Button, Input, Select, useEnumLabel } from '../components/ui';
 import { AppShell } from '../components/AppShell';
 import { AlertTriangle, Check } from 'lucide-react';
 
@@ -146,6 +146,7 @@ export function AccessPage() {
   const muts = useDbMutations();
   const { language } = useLang();
   const t = useTranslation(language);
+  const enumLabel = useEnumLabel();
   const [viewMode, setViewMode] = useState('map');
   const [filterRisk, setFilterRisk] = useState('all');
   const [search, setSearch] = useState('');
@@ -563,20 +564,20 @@ export function AccessPage() {
                     </td>
                     <td className="py-3 px-4 text-sm text-white">{a.tool?.name || a.tool_name}</td>
                     <td className="py-3 px-4">
-                      <span className={"px-2 py-0.5 rounded-full text-[10px] font-semibold " + (a.access_level === 'admin' ? 'bg-purple-500/20 text-purple-400' : 'bg-blue-500/20 text-blue-400')}>{a.access_level}</span>
+                      <span className={"px-2 py-0.5 rounded-full text-[10px] font-semibold " + (a.access_level === 'admin' ? 'bg-purple-500/20 text-purple-400' : 'bg-blue-500/20 text-blue-400')}>{enumLabel(a.access_level)}</span>
                     </td>
                     <td className="py-3 px-4">
-                      <span className={"px-2 py-0.5 rounded-full text-[10px] font-semibold " + (a.status === 'active' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-500/20 text-slate-400')}>{a.status}</span>
+                      <span className={"px-2 py-0.5 rounded-full text-[10px] font-semibold " + (a.status === 'active' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-500/20 text-slate-400')}>{enumLabel(a.status)}</span>
                     </td>
                     <td className="py-3 px-4">
                       {a.risk !== 'none' ? (
-                        <span className={"px-2 py-0.5 rounded-full text-[10px] font-semibold " + (a.risk === 'former_employee' || a.risk === 'excessive_admin' ? 'bg-red-500/20 text-red-400' : 'bg-amber-500/20 text-amber-400')}>{a.risk.replace(/_/g, ' ')}</span>
+                        <span className={"px-2 py-0.5 rounded-full text-[10px] font-semibold " + (a.risk === 'former_employee' || a.risk === 'excessive_admin' ? 'bg-red-500/20 text-red-400' : 'bg-amber-500/20 text-amber-400')}>{enumLabel(a.risk)}</span>
                       ) : <span className="text-[10px] text-slate-600">—</span>}
                     </td>
                     <td className="py-3 px-4 text-right">
                       <div className="flex gap-1 justify-end">
                         <button onClick={() => {
-                          const action = window.prompt('Manage: ' + (a.employee?.full_name||'') + ' → ' + (a.tool?.name||a.tool_name) + '\n\n1=Viewer  2=Admin  3=Revoke');
+                          const action = window.prompt(`${t('act_manage')}: ${a.employee?.full_name || ''} → ${a.tool?.name || a.tool_name}\n\n1=${t('badge_viewer')}  2=${t('badge_admin')}  3=${t('dash_revoke')}`);
                           if (action === '1') muts.updateAccess.mutate({ id: a.id, patch: { access_level: 'viewer' } }, { onSuccess: () => toast.success(t('changed_to_viewer')) });
                           else if (action === '2') muts.updateAccess.mutate({ id: a.id, patch: { access_level: 'admin' } }, { onSuccess: () => toast.success(t('changed_to_admin')) });
                           else if (action === '3') muts.updateAccess.mutate({ id: a.id, patch: { status: 'revoked' } }, { onSuccess: () => toast.success(t('revoked')) });

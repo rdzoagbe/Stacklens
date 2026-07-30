@@ -309,6 +309,27 @@ export function CategoryIcon({ category }) {
   );
 }
 
+// Raw enum values (status, access level, risk) reach the screen in a few places
+// that draw their own pill markup instead of using the badge components below.
+// This gives them the same localized labels so a FR/DE/ES/PT user doesn't see
+// "active" / "offboarding" / "admin" in English.
+const ENUM_LABEL_KEY = {
+  active: 'badge_active', revoked: 'badge_revoked', pending_revocation: 'badge_pending',
+  offboarding: 'badge_offboarding', offboarded: 'badge_offboarded',
+  orphaned: 'badge_orphaned', unused: 'badge_unused', decommissioned: 'badge_decommissioned',
+  admin: 'badge_admin', editor: 'badge_editor', viewer: 'badge_viewer', billing: 'badge_billing',
+  low: 'badge_low', medium: 'badge_medium', high: 'badge_high', critical: 'badge_critical',
+  // access risk flags
+  former_employee: 'badge_former_employee', excessive_admin: 'badge_excessive_admin',
+  needs_review: 'badge_needs_review', none: 'badge_ok',
+};
+
+export function useEnumLabel() {
+  const { language } = useLang();
+  const t = useTranslation(language);
+  return (value) => (ENUM_LABEL_KEY[value] ? t(ENUM_LABEL_KEY[value]) : String(value || '—'));
+}
+
 export function StatusBadge({ status }) {
   const { language } = useLang();
   const t = useTranslation(language);
