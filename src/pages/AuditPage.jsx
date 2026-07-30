@@ -560,7 +560,7 @@ export function AuditExportPage() {
     score >= 80 ? t('aud_healthy') : score >= 60 ? t('aud_needs_attn') : t('aud_at_risk');
 
   return (
-    <PlanGate requires="scale" feature="Audit Export"><AppShell
+    <PlanGate requires="scale" feature={t('feat_audit_export')}><AppShell
       title={t('aud_audit_export')}
       right={
         <div className="flex gap-2">

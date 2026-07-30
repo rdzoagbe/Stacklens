@@ -38,7 +38,7 @@ export function CostManagementPage() {
   const unusedTools = enriched.filter(t => t.activeUsers === 0);
 
   return (
-    <PlanGate requires="growth" feature="Cost Management"><AppShell title={t("cost_mgmt_title")}>
+    <PlanGate requires="growth" feature={t('feat_cost_management')}><AppShell title={t("cost_mgmt_title")}>
       <div className="space-y-6">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
@@ -203,7 +203,7 @@ export function AnalyticsReportsPage() {
   ];
 
   return (
-    <PlanGate requires="scale" feature="Analytics & Reports"><AppShell title={t('analytics_title')}>
+    <PlanGate requires="scale" feature={t('feat_analytics_reports')}><AppShell title={t('analytics_title')}>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>

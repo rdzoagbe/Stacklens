@@ -15,7 +15,7 @@ export function SecurityCompliancePage() {
   const { language } = useLang();
   const t = useTranslation(language);
   return (
-    <PlanGate requires="growth" feature="Security & Compliance"><AppShell title={t('security_title')}
+    <PlanGate requires="growth" feature={t('feat_security_compliance')}><AppShell title={t('security_title')}
       right={
         <div className="flex items-center gap-2">
           <div className="flex gap-1 p-1 bg-slate-900 rounded-xl border border-slate-800">

@@ -44,6 +44,8 @@ export function RDLogo({ size = 'md', onClick }) {
 }
 
 export function ScrollToTop() {
+  const { language } = useLang();
+  const t = useTranslation(language);
   const [show, setShow] = useState(false);
   useEffect(() => {
     // The cookie banner is a full-width bottom overlay (z-9999) that sits on
@@ -58,7 +60,7 @@ export function ScrollToTop() {
     <button
       onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
       className="fixed bottom-8 right-8 p-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 rounded-full shadow-2xl transition-all z-50 hover:scale-110"
-      aria-label="Scroll to top"
+      aria-label={t('aria_scroll_top')}
     >
       <ChevronUp className="w-6 h-6 text-white" />
     </button>
