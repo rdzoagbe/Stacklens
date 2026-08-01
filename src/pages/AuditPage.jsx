@@ -275,23 +275,38 @@ export function AuditTabContent() {
 
   const exportTools = () => {
     if (!derived) return;
+    // toCsv from lib/dataUtils takes (rows-as-objects, columnKeys) — passing
+    // (headers, rowArrays) silently produced a file with no header row and
+    // every record crammed into one quoted cell.
     const headers = ["Name","Category","Owner","Criticality","Status","Risk","Monthly Cost","Last Used","URL"];
-    const rows = derived.tools.map(t => [t.name, t.category, t.owner_email||'Unassigned', t.criticality, t.derived_status, t.derived_risk, t.cost_per_month||0, t.last_used_date||'Never', t.url||'']);
-    downloadText(`stacklens_tools_${todayISO()}.csv`, toCsv(headers, rows));
+    const rows = derived.tools.map(t => ({
+      Name: t.name, Category: t.category, Owner: t.owner_email || 'Unassigned',
+      Criticality: t.criticality, Status: t.derived_status, Risk: t.derived_risk,
+      'Monthly Cost': t.cost_per_month || 0, 'Last Used': t.last_used_date || 'Never', URL: t.url || '',
+    }));
+    downloadText(`stacklens_tools_${todayISO()}.csv`, toCsv(rows, headers));
     toast.success(t('aud_tools_exported'));
   };
   const exportEmployees = () => {
     if (!derived) return;
     const headers = ["Name","Email","Department","Role","Status","Start Date","End Date"];
-    const rows = derived.employees.map(e => [e.full_name, e.email, e.department, e.role, e.status, e.start_date||'', e.end_date||'']);
-    downloadText(`stacklens_employees_${todayISO()}.csv`, toCsv(headers, rows));
+    const rows = derived.employees.map(e => ({
+      Name: e.full_name, Email: e.email, Department: e.department, Role: e.role,
+      Status: e.status, 'Start Date': e.start_date || '', 'End Date': e.end_date || '',
+    }));
+    downloadText(`stacklens_employees_${todayISO()}.csv`, toCsv(rows, headers));
     toast.success(t('aud_emp_exported'));
   };
   const exportAccess = () => {
     if (!derived) return;
     const headers = ["Tool","Employee","Email","Access Level","Granted","Last Accessed","Last Reviewed","Status","Risk Flag"];
-    const rows = derived.access.map(a => [a.tool_name, a.employee_name, a.employee_email, a.access_level, a.granted_date||'', a.last_accessed_date||'', a.last_reviewed_date||'', a.status, a.derived_risk_flag||'none']);
-    downloadText(`stacklens_access_${todayISO()}.csv`, toCsv(headers, rows));
+    const rows = derived.access.map(a => ({
+      Tool: a.tool_name, Employee: a.employee_name, Email: a.employee_email,
+      'Access Level': a.access_level, Granted: a.granted_date || '',
+      'Last Accessed': a.last_accessed_date || '', 'Last Reviewed': a.last_reviewed_date || '',
+      Status: a.status, 'Risk Flag': a.derived_risk_flag || 'none',
+    }));
+    downloadText(`stacklens_access_${todayISO()}.csv`, toCsv(rows, headers));
     toast.success(t('aud_access_exported'));
   };
   const exportFullPackage = () => { exportTools(); setTimeout(exportEmployees, 300); setTimeout(exportAccess, 600); };

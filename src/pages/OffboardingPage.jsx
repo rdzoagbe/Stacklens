@@ -10,32 +10,35 @@ import { useTranslation } from '../translations';
 import { Button, SkeletonRow, useEnumLabel } from '../components/ui';
 import { AppShell } from '../components/AppShell';
 
+// The seven checklist strings all had cl_* translation keys already; this
+// component was rendering the English literals instead, so a FR/DE/ES/PT
+// user read the whole offboarding checklist in English.
+const CHECKLIST_KEYS = [
+  'cl_revoke_saas', 'cl_remove_sso', 'cl_transfer_docs', 'cl_recover_devices',
+  'cl_archive_email', 'cl_remove_slack', 'cl_cancel_subs',
+];
+
 function ChecklistItems() {
+  const { language } = useLang();
+  const t = useTranslation(language);
   const [checked, setChecked] = React.useState({});
-  const items = [
-    "Revoke all SaaS tool access",
-    "Remove from SSO / identity provider",
-    "Transfer ownership of shared docs",
-    "Recover company devices",
-    "Archive or reassign email",
-    "Remove from Slack / Teams",
-    "Cancel user-specific subscriptions",
-  ];
   const doneCount = Object.values(checked).filter(Boolean).length;
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
-        <span className="text-xs text-slate-500">{doneCount}/{items.length} completed</span>
-        {doneCount === items.length && <span className="text-xs text-emerald-400 font-semibold">All done!</span>}
+        <span className="text-xs text-slate-500">
+          {t('cl_n_of_m_completed').replace('{n}', doneCount).replace('{m}', CHECKLIST_KEYS.length)}
+        </span>
+        {doneCount === CHECKLIST_KEYS.length && <span className="text-xs text-emerald-400 font-semibold">{t('cl_all_done')}</span>}
       </div>
       <div className="space-y-2 text-sm text-slate-400">
-        {items.map((item) => (
-          <div key={item} className="flex items-start gap-2 cursor-pointer group"
-            onClick={() => setChecked(prev => ({...prev, [item]: !prev[item]}))}>
-            <div className={"mt-0.5 h-4 w-4 rounded border flex-shrink-0 flex items-center justify-center transition-all " + (checked[item] ? 'bg-emerald-500 border-emerald-500' : 'border-slate-600 group-hover:border-emerald-500/50')}>
-              {checked[item] && <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7"/></svg>}
+        {CHECKLIST_KEYS.map((key) => (
+          <div key={key} className="flex items-start gap-2 cursor-pointer group"
+            onClick={() => setChecked(prev => ({...prev, [key]: !prev[key]}))}>
+            <div className={"mt-0.5 h-4 w-4 rounded border flex-shrink-0 flex items-center justify-center transition-all " + (checked[key] ? 'bg-emerald-500 border-emerald-500' : 'border-slate-600 group-hover:border-emerald-500/50')}>
+              {checked[key] && <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7"/></svg>}
             </div>
-            <span className={checked[item] ? 'line-through text-slate-600' : 'group-hover:text-slate-300 transition-colors'}>{item}</span>
+            <span className={checked[key] ? 'line-through text-slate-600' : 'group-hover:text-slate-300 transition-colors'}>{t(key)}</span>
           </div>
         ))}
       </div>
@@ -76,7 +79,7 @@ export function OffboardingPage() {
   };
   const revokeAll = () => {
     if (!employee) return;
-    if (!window.confirm(`Revoke all ${activeRecords.length} access records for ${employee.full_name}?`)) return;
+    if (!window.confirm(t('confirm_revoke_all_emp').replace('{n}', activeRecords.length).replace('{name}', employee.full_name))) return;
     activeRecords.forEach((r) => muts.updateAccess.mutate({ id: r.id, patch: { status: "revoked" } }));
     muts.updateEmployee.mutate({
       id: employeeId,
@@ -180,7 +183,7 @@ export function OffboardingPage() {
                   })}
                 </div>
                 <button onClick={() => {
-                  if (window.confirm(`Revoke all ${riskRecords.length} risky access records?`)) {
+                  if (window.confirm(t('confirm_revoke_all_high').replace('{n}', riskRecords.length))) {
                     riskRecords.forEach(a => muts.updateAccess.mutate({ id: a.id, patch: { status: "revoked" } }));
                     toast.success(`Revoked ${riskRecords.length} access records`);
                   }

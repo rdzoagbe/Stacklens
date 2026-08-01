@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AlertTriangle, BadgeCheck, Boxes, Shield, UserMinus, X } from 'lucide-react';
-import { buildRiskAlerts, computeToolDerivedRisk } from '../lib/dataUtils';
+import {
+  buildRiskAlerts, computeToolDerivedRisk,
+  countOrphanedTools, computeMfaCoverage, countFormerEmployeeAccess, computeSecurityScore,
+} from '../lib/dataUtils';
 import { useDbQuery } from '../hooks/useDbQuery';
 import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
@@ -52,15 +55,15 @@ function SecurityTabContent() {
   const access = db?.access || [];
   const employees = db?.employees || [];
 
-  const orphanedTools = tools.filter(t => t.status === 'active' && !t.owner_email).length;
+  // All four figures come from lib/dataUtils so this page and the Dashboard
+  // can never disagree about the same metric again.
+  const orphanedTools = countOrphanedTools(tools);
   const highRiskTools = tools.filter(t => computeToolDerivedRisk(t) === 'high').length;
   const activeTools = tools.filter(t => t.status === 'active').length;
-  const formerAccess = access.filter(a => {
-    const emp = employees.find(e => e.id === a.employee_id);
-    return emp && (emp.status === 'offboarding' || emp.status === 'inactive') && a.status === 'active';
-  }).length;
-  const mfaCoverage = activeTools > 0 ? Math.round(((activeTools - orphanedTools) / activeTools) * 100) : 100;
-  const securityScore = Math.max(0, Math.min(100, 100 - (orphanedTools * 10) - (highRiskTools * 5) - (formerAccess * 8)));
+  const formerAccess = countFormerEmployeeAccess(access, employees);
+  const mfa = computeMfaCoverage(tools);
+  const mfaCoverage = mfa ? mfa.percent : null;
+  const securityScore = computeSecurityScore({ orphanedTools, highRiskTools, formerAccess });
   const scoreColor = securityScore >= 80 ? '#10b981' : securityScore >= 60 ? '#f59e0b' : '#ef4444';
   const scoreLabel = securityScore >= 80 ? 'Good' : securityScore >= 60 ? 'Needs Work' : 'Critical';
 
@@ -149,8 +152,10 @@ function SecurityTabContent() {
               <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t("kpi_mfa_coverage")}</span>
               <Shield className="h-4 w-4 text-emerald-400" />
             </div>
-            <div className="text-3xl font-black text-emerald-400">{mfaCoverage}%</div>
-            <div className="text-sm text-slate-500 mt-1">{activeTools - orphanedTools} of {activeTools} tools secured</div>
+            <div className="text-3xl font-black text-emerald-400">{mfaCoverage === null ? '—' : `${mfaCoverage}%`}</div>
+            <div className="text-sm text-slate-500 mt-1">
+              {mfa ? `${mfa.secured} ${t('lbl_of')} ${mfa.total} ${t('sec_tools_secured')}` : '—'}
+            </div>
           </div>
         </div>
       </div>

@@ -5,6 +5,10 @@
 
 export const translations = {
   en: {
+    cl_all_done: "All done!",
+    confirm_revoke_all_emp: "Revoke all {n} access records for {name}?",
+    imp_validation: "Validation",
+    sec_tools_secured: "tools secured",
     int_setup_suffix: "setup",
     badge_excessive_admin: "Excessive admin",
     dash_save_approx: "Save ~",
@@ -3064,6 +3068,10 @@ export const translations = {
     notif_offboard_sub: "When an offboarding task is started",
   },
   fr: {
+    cl_all_done: "Terminé !",
+    confirm_revoke_all_emp: "Révoquer les {n} accès de {name} ?",
+    imp_validation: "Validation",
+    sec_tools_secured: "outils sécurisés",
     int_setup_suffix: "de configuration",
     badge_excessive_admin: "Droits admin excessifs",
     dash_save_approx: "Économisez ~",
@@ -6259,6 +6267,11 @@ export const translations = {
     notif_offboard_sub: "Quand une tâche de départ est lancée",
   },
   de: {
+    cl_all_done: "Alles erledigt!",
+    confirm_revoke_all_emp: "Alle {n} Zugriffe von {name} entziehen?",
+    confirm_revoke_all_high: "Alle {n} Hochrisiko-Zugriffe entziehen?",
+    imp_validation: "Prüfung",
+    sec_tools_secured: "Tools gesichert",
     int_setup_suffix: "Einrichtung",
     badge_needs_review: "Prüfung nötig",
     badge_former_employee: "Ehemaliger Mitarbeiter",
@@ -7798,6 +7811,11 @@ export const translations = {
     aud_more: "weitere",
   },
   es: {
+    cl_all_done: "¡Todo listo!",
+    confirm_revoke_all_emp: "¿Revocar los {n} accesos de {name}?",
+    confirm_revoke_all_high: "¿Revocar los {n} accesos de alto riesgo?",
+    imp_validation: "Validación",
+    sec_tools_secured: "herramientas protegidas",
     int_setup_suffix: "de configuración",
     badge_needs_review: "Requiere revisión",
     badge_former_employee: "Exempleado",
@@ -9484,6 +9502,11 @@ export const translations = {
     aud_more: "más",
   },
   pt: {
+    cl_all_done: "Tudo pronto!",
+    confirm_revoke_all_emp: "Revogar os {n} acessos de {name}?",
+    confirm_revoke_all_high: "Revogar os {n} acessos de alto risco?",
+    imp_validation: "Validação",
+    sec_tools_secured: "ferramentas protegidas",
     int_setup_suffix: "de configuração",
     badge_needs_review: "Requer revisão",
     badge_former_employee: "Ex-funcionário",

@@ -327,7 +327,7 @@ export function ImportWizard({ defaultKind = null, onDone = null }) {
                       <tr className="border-b border-slate-800 bg-slate-950/60">
                         <th className="px-3 py-2 text-left text-slate-500 font-semibold w-8">#</th>
                         {cols.map(c => <th key={c} className="px-3 py-2 text-left text-slate-400 font-semibold capitalize">{c.replace(/_/g,' ')}</th>)}
-                        <th className="px-3 py-2 text-left text-slate-500">{t('status')}</th>
+                        <th className="px-3 py-2 text-left text-slate-500">{t('imp_validation')}</th>
                       </tr>
                     </thead>
                     <tbody>

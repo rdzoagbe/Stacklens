@@ -13,6 +13,10 @@ import {
   computeAccessDerivedRiskFlag,
   buildRiskAlerts,
   riskSeverityCounts,
+  countOrphanedTools,
+  computeMfaCoverage,
+  countFormerEmployeeAccess,
+  computeSecurityScore,
   validateEmail,
   validateRequired,
 } from './dataUtils';
@@ -293,5 +297,94 @@ describe('validateRequired', () => {
 
   it('returns false for whitespace-only', () => {
     expect(validateRequired('   ', 'name')).toBe(false);
+  });
+});
+
+// ── Security posture metrics ────────────────────────────────────────────────
+// These four are rendered on BOTH the Dashboard and the Security page. They
+// used to be computed separately in each and disagreed on live data, so these
+// tests pin the definitions.
+describe('security posture metrics', () => {
+  const TOOLS = [
+    { id: 't1', name: 'Slack',   status: 'active',    owner_email: 'a@x.com', mfa_required: true },
+    { id: 't2', name: 'GitHub',  status: 'active',    owner_email: 'b@x.com' },
+    { id: 't3', name: 'Figma',   status: 'orphaned',  owner_email: '' },
+    { id: 't4', name: 'HubSpot', status: 'unused',    owner_email: 'c@x.com' },
+  ];
+
+  describe('countOrphanedTools', () => {
+    it('counts every unowned tool regardless of lifecycle status', () => {
+      // Figma is status "orphaned" — the old filter required status==='active'
+      // and therefore reported 0 orphaned tools on a stack that had one.
+      expect(countOrphanedTools(TOOLS)).toBe(1);
+    });
+    it('handles an empty stack', () => {
+      expect(countOrphanedTools([])).toBe(0);
+    });
+  });
+
+  describe('computeMfaCoverage', () => {
+    it('reads the MFA fields, not ownership', () => {
+      // Only Slack has an MFA flag: 1 of 4 = 25%. The old formula used
+      // ownership as a proxy and reported 100% on this same data.
+      expect(computeMfaCoverage(TOOLS)).toEqual({ percent: 25, secured: 1, total: 4 });
+    });
+    it('counts mfa_enabled as well as mfa_required', () => {
+      expect(computeMfaCoverage([{ mfa_enabled: true }, {}]).percent).toBe(50);
+    });
+    it('returns null with no tools rather than an unearned 100%', () => {
+      expect(computeMfaCoverage([])).toBeNull();
+    });
+  });
+
+  describe('countFormerEmployeeAccess', () => {
+    const EMPLOYEES = [
+      { id: 'e1', status: 'active' },
+      { id: 'e2', status: 'offboarding' },
+      { id: 'e3', status: 'offboarded' },
+    ];
+    const ACCESS = [
+      { employee_id: 'e1', status: 'active' },
+      { employee_id: 'e2', status: 'active' },
+      { employee_id: 'e3', status: 'active' },
+      { employee_id: 'e3', status: 'revoked' },
+    ];
+    it('counts only people who have actually left', () => {
+      // The old Security-page filter matched offboarding|inactive, so it
+      // counted the employee still in transition and missed the one who left.
+      expect(countFormerEmployeeAccess(ACCESS, EMPLOYEES)).toBe(1);
+    });
+    it('ignores access that is already revoked', () => {
+      expect(countFormerEmployeeAccess(
+        [{ employee_id: 'e3', status: 'revoked' }], EMPLOYEES)).toBe(0);
+    });
+    it('handles empty inputs', () => {
+      expect(countFormerEmployeeAccess([], [])).toBe(0);
+    });
+  });
+
+  describe('computeSecurityScore', () => {
+    it('applies the documented weights', () => {
+      expect(computeSecurityScore({ orphanedTools: 1, highRiskTools: 2, formerAccess: 1 }))
+        .toBe(100 - 10 - 10 - 8);
+    });
+    it('is a perfect score on a clean stack', () => {
+      expect(computeSecurityScore({})).toBe(100);
+    });
+    it('clamps at 0 rather than going negative', () => {
+      expect(computeSecurityScore({ orphanedTools: 50 })).toBe(0);
+    });
+  });
+
+  it('Dashboard and Security page now agree on the same data', () => {
+    const employees = [{ id: 'e3', status: 'offboarded' }];
+    const access = [{ employee_id: 'e3', status: 'active' }];
+    const orphanedTools = countOrphanedTools(TOOLS);
+    const formerAccess = countFormerEmployeeAccess(access, employees);
+    const score = computeSecurityScore({ orphanedTools, highRiskTools: 0, formerAccess });
+    // Both screens call these same helpers, so one input can only ever
+    // produce one score.
+    expect(score).toBe(100 - 10 - 8);
+    expect(computeMfaCoverage(TOOLS).percent).toBe(25);
   });
 });
