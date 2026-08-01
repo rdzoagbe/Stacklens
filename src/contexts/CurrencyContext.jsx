@@ -83,14 +83,16 @@ export function detectPricingCurrency() {
 }
 
 // Returns { code, symbol, isLocal, format(amount) } for marketing plan prices.
-// Currency follows the app language and updates live when the user switches:
-// French → EUR, English → USD. Prices are shown as the SAME round figure in
-// each currency (e.g. €29 / $29) rather than a live-converted amount, so the
-// pricing page reads clean and intentional. (Stripe bills each customer in
-// their own local currency at checkout via Adaptive Pricing.)
+//
+// Plan prices are quoted in EUR to everyone, in every language. The Stripe
+// prices behind these cards are euro-denominated (the plan objects literally
+// carry an `eur` field) and the JSON-LD in index.html advertises EUR, so
+// showing "$29" to an English visitor was the one figure that could not be
+// honoured at checkout — they would be charged €29. Quoting € universally
+// costs nothing with a European customer base and removes the mismatch
+// without depending on a Stripe Adaptive Pricing setting staying switched on.
 export function usePlanPricing() {
-  const { language } = useLang();
-  const code = language === 'fr' ? 'EUR' : 'USD';
+  const code = 'EUR';
   const symbol = CURRENCY_SYMBOL[code] || '€';
   const format = React.useCallback(
     (amount) => symbol + Number(amount || 0).toLocaleString(),

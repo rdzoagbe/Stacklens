@@ -32,7 +32,11 @@ export function RenewalAlerts() {
     const tools = db?.tools || [];
     const today = new Date();
     return tools
-      .filter(t => t.status === 'active' && t.renewal_date)
+      // Only genuinely cancelled tools are excluded. Filtering to status
+      // 'active' used to hide orphaned and unused tools — which is backwards:
+      // an unused licence about to auto-renew is the most valuable row on this
+      // screen, and leaving it out also understated "annual spend at risk".
+      .filter(t => t.status !== 'decommissioned' && t.renewal_date)
       .map(tool => {
         const renewalDate = new Date(tool.renewal_date);
         const daysUntil = Math.floor((renewalDate - today) / (1000 * 60 * 60 * 24));
@@ -85,9 +89,17 @@ export function RenewalAlerts() {
       .filter(r => {
         if (filter === 'all') return true;
         if (filter === 'overdue') return r.status === 'overdue';
-        if (filter === 'critical') return r.status === 'critical' || r.status === 'urgent';
-        if (filter === 'upcoming') return r.status === 'upcoming';
-        if (filter === 'auto') return r.autoRenew;
+        // Buckets mirror the KPI cards above: Critical = the card's
+        // "≤ 14 days or overdue" (minus overdue, which has its own chip),
+        // Upcoming = the card's "15–90 days". The Critical chip used to
+        // include `urgent` too, so the same word counted 4 in the chip and
+        // 1 in the card directly above it.
+        if (filter === 'critical') return r.status === 'critical';
+        if (filter === 'upcoming') return r.status === 'urgent' || r.status === 'upcoming';
+        // Bounded to 90 days like the count beside it and the KPI card, which
+        // both use `autoRenewing`. Unbounded here, the chip said 15 and
+        // returned 16.
+        if (filter === 'auto') return r.autoRenew && r.daysUntil <= 90;
         return true;
       })
       .sort((a, b) => {
@@ -432,8 +444,9 @@ export function RenewalAlerts() {
             {[
               ['all', t('ren_filter_all'), renewals.length],
               ['overdue', t('ren_overdue_renewal'), overdue.length],
-              ['critical', t('ren_critical'), critical.length + urgent.length],
-              ['upcoming', t('ren_upcoming'), upcoming.length],
+              // Counts must match the filters below them and the KPI cards above.
+              ['critical', t('ren_critical'), critical.length],
+              ['upcoming', t('ren_upcoming'), urgent.length + upcoming.length],
               ['auto', t('ren_auto_renew'), autoRenewing.length],
             ].map(([val, label, count]) => (
               <button key={val} onClick={() => setFilter(val)}
