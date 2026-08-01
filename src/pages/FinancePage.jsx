@@ -65,22 +65,26 @@ export function FinanceDashboard() {
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [showReclaimModal, setShowReclaimModal] = useState(false);
   const [selectedBill, setSelectedBill] = useState(null);
-  // Compute real financial data from tools — use reactive db (TanStack Query)
-  // to avoid showing demo data during Firestore hydration race
-  const _fReal = db?.user?.is_authenticated && !db?.user?.is_demo;
+  // Every figure on this page is derived from the user's own tools.
+  // It used to fall back to hardcoded showcase numbers (47850 / a 6-month
+  // trend / invented categories) whenever the visitor wasn't a signed-in
+  // real user — which included demo mode. The result was that the demo, the
+  // surface prospects actually evaluate, reported $47,850/mo on Finance while
+  // the Dashboard and Tools pages reported $1,340 for the same stack.
+  const _cost = (t) => Number(t.cost_per_month || t.cost_monthly || t.cost || 0);
   const _tools = db?.tools || [];
-  const _totalSpend = _fReal ? _tools.reduce((s, t) => s + (t.cost_per_month || t.cost_monthly || t.cost || 0), 0) : 47850;
-  const _byCategory = _fReal ? Object.values(_tools.reduce((acc, tool) => {
+  const _totalSpend = _tools.reduce((s, t) => s + _cost(t), 0);
+  const _byCategory = Object.values(_tools.reduce((acc, tool) => {
     const cat = tool.category || 'Other';
     if (!acc[cat]) acc[cat] = { name: cat, spend: 0, count: 0, budget: 0 };
-    acc[cat].spend += (tool.cost_per_month || tool.cost_monthly || tool.cost || 0);
+    acc[cat].spend += _cost(tool);
     acc[cat].count += 1;
     return acc;
-  }, {})) : [{name:'CRM',spend:12400,budget:15000,count:3},{name:'Communication',spend:8200,budget:10000,count:5},{name:'Development',spend:14300,budget:18000,count:8},{name:'Design',spend:6800,budget:8000,count:4},{name:'Analytics',spend:6150,budget:4000,count:3}];
+  }, {}));
   const _months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const _now = new Date();
-  const _trend = Array.from({length:6},(_,i)=>{ const d=new Date(_now.getFullYear(),_now.getMonth()-5+i,1); return {month:_months[d.getMonth()],spend:_fReal?_totalSpend*(0.9+i*0.02):[42100,43800,45200,44600,46900,47850][i]}; });
-  const _bills = _fReal ? _tools.filter(t=>t.renewal_date).sort((a,b)=>new Date(a.renewal_date)-new Date(b.renewal_date)).slice(0,5).map(t=>({app:t.name,amount:t.cost_per_month?t.cost_per_month*12:t.cost_monthly?t.cost_monthly*12:(t.cost||0),dueDate:t.renewal_date,status:'pending',category:t.category||'Other'})) : [{app:'Salesforce',amount:12400,dueDate:'2026-03-01',status:'pending',category:'CRM'},{app:'Adobe Creative Cloud',amount:5400,dueDate:'2026-03-20',status:'pending',category:'Design'}];
+  const _trend = Array.from({length:6},(_,i)=>{ const d=new Date(_now.getFullYear(),_now.getMonth()-5+i,1); return {month:_months[d.getMonth()],spend:_totalSpend*(0.9+i*0.02)}; });
+  const _bills = _tools.filter(t=>t.renewal_date).sort((a,b)=>new Date(a.renewal_date)-new Date(b.renewal_date)).slice(0,5).map(t=>({app:t.name,amount:_cost(t)*12,dueDate:t.renewal_date,status:'pending',category:t.category||'Other'}));
   // Budget cap — read from db (persisted to Firestore) with localStorage fallback
   const _savedBudgetCap = db?.user?.budget_cap || parseInt(localStorage.getItem('sg_budget_cap') || '0') || 0;
   const [budgetCap, setBudgetCap] = useState(_savedBudgetCap);
@@ -89,7 +93,7 @@ export function FinanceDashboard() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (db?.user?.budget_cap && db.user.budget_cap !== budgetCap) setBudgetCap(db.user.budget_cap);
   }, [db?.user?.budget_cap, budgetCap]);
-  const _financialData = {totalMonthlySpend:_totalSpend,budgetLimit:budgetCap||0,lastMonthSpend:_totalSpend*0.95||45200,upcomingBills:_bills,byCategory:_byCategory,monthlyTrend:_trend,isReal:_fReal,toolCount:_tools.filter(t=>t.status!=='archived').length};
+  const _financialData = {totalMonthlySpend:_totalSpend,budgetLimit:budgetCap||0,lastMonthSpend:_totalSpend*0.95,upcomingBills:_bills,byCategory:_byCategory,monthlyTrend:_trend,isReal:true,toolCount:_tools.filter(t=>t.status!=='archived').length};
 
   // Record one spend snapshot per month so the Budget tab's "spent to date"
   // uses real recorded figures instead of run-rate estimates over time.

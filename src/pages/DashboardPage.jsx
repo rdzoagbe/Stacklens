@@ -10,6 +10,7 @@ import {
   computeToolDerivedStatus, computeToolDerivedRisk,
   computeAccessDerivedRiskFlag, buildRiskAlerts, riskSeverityCounts,
   getCurrency, convertCurrency,
+  countOrphanedTools, computeMfaCoverage, computeSecurityScore,
 } from '../lib/dataUtils';
 import { useDbQuery, useDbMutations } from '../hooks/useDbQuery';
 import { workspaceMembers } from '../firebase-config';
@@ -321,15 +322,17 @@ export function DashboardPage() {
         const totalTools = derived.tools.length;
         const totalEmployees = new Set((derived.access).map(a => a.employee_id)).size;
         const hasData = totalTools > 0 || totalEmployees > 0;
-        const orphanedToolsCount = derived.tools.filter(tool => !tool.owner_email).length;
+        const orphanedToolsCount = countOrphanedTools(derived.tools);
         const formerAccess = derived.formerAccess || 0;
         const highRiskTools = derived.tools.filter(tool => tool.derived_risk === 'high').length;
-        const score = hasData ? Math.max(0, Math.min(100, 100 - (orphanedToolsCount * 10) - (highRiskTools * 5) - (formerAccess * 8))) : null;
+        const score = hasData
+          ? computeSecurityScore({ orphanedTools: orphanedToolsCount, highRiskTools, formerAccess })
+          : null;
         const scoreColor = score === null ? '#475569' : score >= 80 ? '#10b981' : score >= 60 ? '#f59e0b' : '#ef4444';
         const scoreLabel = score === null ? t('dash_no_data') : score >= 80 ? t('dash_score_good') : score >= 60 ? t('dash_score_needs_work') : t('dash_score_critical');
         const labelBg = score === null ? 'bg-slate-700/40 text-slate-400' : score >= 80 ? 'bg-emerald-500/20 text-emerald-400' : score >= 60 ? 'bg-amber-500/20 text-amber-400' : 'bg-red-500/20 text-red-400';
-        const toolsWithMfa = derived.tools.filter(tool => tool.mfa_required || tool.mfa_enabled).length;
-        const mfaCoverage = totalTools > 0 ? Math.round((toolsWithMfa / totalTools) * 100) : null;
+        const mfa = computeMfaCoverage(derived.tools);
+        const mfaCoverage = mfa ? mfa.percent : null;
         // eslint-disable-next-line react-hooks/purity
         const ninetyDaysAgo = Date.now() - 90 * 24 * 60 * 60 * 1000;
         const overdueReviews = derived.access.filter(a => !a.last_reviewed_date || new Date(a.last_reviewed_date).getTime() < ninetyDaysAgo).length;

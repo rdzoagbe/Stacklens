@@ -36,51 +36,12 @@ export function downloadText(filename, text, mime = "text/plain") {
   URL.revokeObjectURL(url);
 }
 
-export function toCsv(headers, rows) {
-  const escape = (v) => {
-    const s = String(v ?? "");
-    return s.includes(",") || s.includes('"') || s.includes("\n")
-      ? '"' + s.replace(/"/g, '""') + '"'
-      : s;
-  };
-  return [headers.map(escape).join(","), ...rows.map((r) => r.map(escape).join(","))].join("\n");
-}
-
-export function parseCsv(text) {
-  const lines = text.trim().split("\n");
-  if (lines.length < 2) return [];
-  const headers = splitCsvLine(lines[0]).map((h) => h.trim().toLowerCase().replace(/\s+/g, "_"));
-  return lines.slice(1).map((line) => {
-    const values = splitCsvLine(line);
-    const obj = {};
-    headers.forEach((h, i) => (obj[h] = (values[i] || "").trim()));
-    return obj;
-  });
-}
-
-export function splitCsvLine(line) {
-  const result = [];
-  let current = "";
-  let inQuotes = false;
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-    if (ch === '"') {
-      if (inQuotes && line[i + 1] === '"') {
-        current += '"';
-        i++;
-      } else {
-        inQuotes = !inQuotes;
-      }
-    } else if (ch === "," && !inQuotes) {
-      result.push(current);
-      current = "";
-    } else {
-      current += ch;
-    }
-  }
-  result.push(current);
-  return result;
-}
+// NOTE: CSV helpers deliberately live in lib/dataUtils.js only.
+// A second toCsv used to sit here with the opposite signature —
+// toCsv(headers, rows) vs dataUtils' toCsv(rows, columns) — and AuditPage
+// imported dataUtils' version while calling it with this one's argument
+// order. The exports silently produced a file with no header row. Removed so
+// there is exactly one CSV writer.
 
 export function validateEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);

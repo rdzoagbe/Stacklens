@@ -53,7 +53,7 @@ export function ToolForm({ initial, employees, onSubmit, onClose }) {
         if (!canSubmit) return;
         onSubmit({
           ...form,
-          cost_per_month: Number(form.cost_per_month || 0),
+          cost_per_month: Math.max(0, Number(form.cost_per_month) || 0),
         });
         onClose();
       }}
@@ -138,10 +138,18 @@ export function ToolForm({ initial, employees, onSubmit, onClose }) {
       <div className="grid gap-3 md:grid-cols-2">
         <div>
           <div className="mb-1 text-xs font-semibold text-slate-400">{t('col_cost_month')}</div>
+          {/* min/step guard the spinner; the onChange clamp guards typing and
+              pasting. A negative cost used to be accepted and then SUBTRACTED
+              from total monthly spend, silently understating the whole estate. */}
           <Input
             type="number"
+            min="0"
+            step="0.01"
             value={form.cost_per_month}
-            onChange={(e) => setForm((f) => ({ ...f, cost_per_month: e.target.value }))}
+            onChange={(e) => {
+              const v = e.target.value;
+              setForm((f) => ({ ...f, cost_per_month: v === '' ? '' : Math.max(0, Number(v) || 0) }));
+            }}
           />
         </div>
         <div>

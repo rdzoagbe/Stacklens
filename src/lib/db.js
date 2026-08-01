@@ -232,26 +232,108 @@ export function seedDbIfEmpty() {
   const now = new Date();
   const d = (daysAgo) => format(subDays(now, daysAgo), 'yyyy-MM-dd');
 
+  // Demo stack for a ~12-person company. Every page now computes from this
+  // seed (Finance used to ignore it and show hardcoded figures), so it has to
+  // be both realistic and rich enough to tell the product's story: an
+  // ex-employee who still has access, orphaned tools nobody owns, licences
+  // nobody has opened in months, admin grants overdue for review, and
+  // renewals landing in the next few weeks.
   const employees = [
-    { id: uid('emp'), full_name: 'Amina Dupont', email: 'amina.dupont@acme.com', department: 'security', role: 'Security Lead', status: 'active', start_date: d(420), end_date: '' },
-    { id: uid('emp'), full_name: 'Lucas Martin', email: 'lucas.martin@acme.com', department: 'engineering', role: 'Platform Engineer', status: 'active', start_date: d(210), end_date: '' },
-    { id: uid('emp'), full_name: 'Chloé Bernard', email: 'chloe.bernard@acme.com', department: 'finance', role: 'Controller', status: 'offboarding', start_date: d(680), end_date: d(3) },
-    { id: uid('emp'), full_name: 'Noah Petit', email: 'noah.petit@acme.com', department: 'marketing', role: 'Growth Manager', status: 'offboarded', start_date: d(980), end_date: d(35) },
+    { id: uid('emp'), full_name: 'Amina Dupont',   email: 'amina.dupont@acme.com',   department: 'security',    role: 'Security Lead',      status: 'active',      start_date: d(420), end_date: '' },
+    { id: uid('emp'), full_name: 'Lucas Martin',   email: 'lucas.martin@acme.com',   department: 'engineering', role: 'Platform Engineer',  status: 'active',      start_date: d(210), end_date: '' },
+    { id: uid('emp'), full_name: 'Chloé Bernard',  email: 'chloe.bernard@acme.com',  department: 'finance',     role: 'Controller',         status: 'offboarding', start_date: d(680), end_date: d(3) },
+    { id: uid('emp'), full_name: 'Noah Petit',     email: 'noah.petit@acme.com',     department: 'marketing',   role: 'Growth Manager',     status: 'offboarded',  start_date: d(980), end_date: d(35) },
+    { id: uid('emp'), full_name: 'Sofia Rossi',    email: 'sofia.rossi@acme.com',    department: 'engineering', role: 'Senior Developer',   status: 'active',      start_date: d(540), end_date: '' },
+    { id: uid('emp'), full_name: 'Thomas Leroy',   email: 'thomas.leroy@acme.com',   department: 'sales',       role: 'Account Executive',  status: 'active',      start_date: d(300), end_date: '' },
+    { id: uid('emp'), full_name: 'Emma Girard',    email: 'emma.girard@acme.com',    department: 'design',      role: 'Product Designer',   status: 'active',      start_date: d(250), end_date: '' },
+    { id: uid('emp'), full_name: 'Hugo Moreau',    email: 'hugo.moreau@acme.com',    department: 'engineering', role: 'DevOps Engineer',    status: 'active',      start_date: d(150), end_date: '' },
+    { id: uid('emp'), full_name: 'Léa Fontaine',   email: 'lea.fontaine@acme.com',   department: 'hr',          role: 'People Manager',     status: 'active',      start_date: d(610), end_date: '' },
+    { id: uid('emp'), full_name: 'Karim Benali',   email: 'karim.benali@acme.com',   department: 'sales',       role: 'Sales Manager',      status: 'active',      start_date: d(480), end_date: '' },
+    { id: uid('emp'), full_name: 'Julie Mercier',  email: 'julie.mercier@acme.com',  department: 'marketing',   role: 'Content Lead',       status: 'active',      start_date: d(190), end_date: '' },
+    { id: uid('emp'), full_name: 'Antoine Rey',    email: 'antoine.rey@acme.com',    department: 'finance',     role: 'Financial Analyst',  status: 'offboarded',  start_date: d(720), end_date: d(60) },
   ];
+  const byEmail = Object.fromEntries(employees.map(e => [e.email, e]));
+
+  // r(n) = a renewal date n days from now, so the Renewals tab has a real queue.
+  const r = (daysAhead) => format(subDays(now, -daysAhead), 'yyyy-MM-dd');
 
   const tools = [
-    { id: uid('tool'), name: 'Slack', category: 'communication', owner_email: 'amina.dupont@acme.com', owner_name: 'Amina Dupont', criticality: 'high', url: 'https://slack.com', description: 'Company messaging + alerts', status: 'active', last_used_date: d(1), cost_per_month: 240, risk_score: 'low', notes: 'SSO enabled' },
-    { id: uid('tool'), name: 'GitHub', category: 'engineering', owner_email: 'lucas.martin@acme.com', owner_name: 'Lucas Martin', criticality: 'high', url: 'https://github.com', description: 'Source control', status: 'active', last_used_date: d(0), cost_per_month: 320, risk_score: 'medium', notes: 'Review admin access quarterly' },
-    { id: uid('tool'), name: 'Figma', category: 'design', owner_email: '', owner_name: '', criticality: 'medium', url: 'https://figma.com', description: 'Design collaboration', status: 'orphaned', last_used_date: d(16), cost_per_month: 180, risk_score: 'high', notes: 'Owner missing' },
-    { id: uid('tool'), name: 'HubSpot', category: 'sales', owner_email: 'noah.petit@acme.com', owner_name: 'Noah Petit', criticality: 'medium', url: 'https://hubspot.com', description: 'CRM', status: 'unused', last_used_date: d(120), cost_per_month: 600, risk_score: 'high', notes: 'Unused > 90 days' },
+    { id: uid('tool'), name: 'Slack',            category: 'communication', owner_email: 'amina.dupont@acme.com', owner_name: 'Amina Dupont',  criticality: 'high',   url: 'https://slack.com',      description: 'Company messaging + alerts',   status: 'active',   last_used_date: d(0),   cost_per_month: 312, risk_score: 'low',    mfa_required: true,  renewal_date: r(24),  notes: 'SSO enabled' },
+    { id: uid('tool'), name: 'GitHub',           category: 'engineering',   owner_email: 'lucas.martin@acme.com', owner_name: 'Lucas Martin',  criticality: 'high',   url: 'https://github.com',     description: 'Source control + CI',          status: 'active',   last_used_date: d(0),   cost_per_month: 336, risk_score: 'medium', mfa_required: true,  renewal_date: r(51),  notes: 'Review admin access quarterly' },
+    { id: uid('tool'), name: 'Google Workspace', category: 'operations',    owner_email: 'amina.dupont@acme.com', owner_name: 'Amina Dupont',  criticality: 'high',   url: 'https://workspace.google.com', description: 'Email, docs, calendar',  status: 'active',   last_used_date: d(0),   cost_per_month: 828, risk_score: 'low',    mfa_required: true,  renewal_date: r(96),  notes: '12 seats' },
+    { id: uid('tool'), name: 'Figma',            category: 'design',        owner_email: '',                     owner_name: '',              criticality: 'medium', url: 'https://figma.com',      description: 'Design collaboration',         status: 'orphaned', last_used_date: d(16),  cost_per_month: 180, risk_score: 'high',   mfa_required: false, renewal_date: r(12),  notes: 'Owner left — needs reassigning' },
+    { id: uid('tool'), name: 'HubSpot',          category: 'sales',         owner_email: 'karim.benali@acme.com', owner_name: 'Karim Benali',  criticality: 'medium', url: 'https://hubspot.com',    description: 'CRM + marketing automation',   status: 'unused',   last_used_date: d(124), cost_per_month: 690, risk_score: 'high',   mfa_required: false, renewal_date: r(9),   notes: 'Nobody has logged in for 4 months' },
+    { id: uid('tool'), name: 'Notion',           category: 'operations',    owner_email: 'lea.fontaine@acme.com', owner_name: 'Léa Fontaine',  criticality: 'medium', url: 'https://notion.so',      description: 'Internal wiki + handbook',     status: 'active',   last_used_date: d(1),   cost_per_month: 144, risk_score: 'low',    mfa_required: true,  renewal_date: r(38),  notes: '' },
+    { id: uid('tool'), name: 'Jira',             category: 'engineering',   owner_email: 'sofia.rossi@acme.com',  owner_name: 'Sofia Rossi',   criticality: 'high',   url: 'https://atlassian.com',  description: 'Issue tracking',               status: 'active',   last_used_date: d(0),   cost_per_month: 231, risk_score: 'low',    mfa_required: true,  renewal_date: r(63),  notes: '' },
+    { id: uid('tool'), name: 'Datadog',          category: 'engineering',   owner_email: 'hugo.moreau@acme.com',  owner_name: 'Hugo Moreau',   criticality: 'high',   url: 'https://datadoghq.com',  description: 'Infrastructure monitoring',    status: 'active',   last_used_date: d(0),   cost_per_month: 445, risk_score: 'medium', mfa_required: true,  renewal_date: r(19),  notes: 'Usage-based — watch overage' },
+    { id: uid('tool'), name: 'Adobe Creative Cloud', category: 'design',    owner_email: 'emma.girard@acme.com',  owner_name: 'Emma Girard',   criticality: 'medium', url: 'https://adobe.com',      description: 'Design suite',                 status: 'active',   last_used_date: d(4),   cost_per_month: 238, risk_score: 'medium', mfa_required: false, renewal_date: r(7),   notes: '4 seats, 2 rarely used' },
+    { id: uid('tool'), name: 'Zoom',             category: 'communication', owner_email: 'lea.fontaine@acme.com', owner_name: 'Léa Fontaine',  criticality: 'medium', url: 'https://zoom.us',        description: 'Video meetings',               status: 'active',   last_used_date: d(2),   cost_per_month: 165, risk_score: 'low',    mfa_required: true,  renewal_date: r(74),  notes: '' },
+    { id: uid('tool'), name: 'Salesforce',       category: 'sales',         owner_email: 'karim.benali@acme.com', owner_name: 'Karim Benali',  criticality: 'high',   url: 'https://salesforce.com', description: 'Pipeline + forecasting',       status: 'active',   last_used_date: d(1),   cost_per_month: 520, risk_score: 'medium', mfa_required: true,  renewal_date: r(41),  notes: '' },
+    { id: uid('tool'), name: 'Mailchimp',        category: 'marketing',     owner_email: 'julie.mercier@acme.com', owner_name: 'Julie Mercier', criticality: 'low',   url: 'https://mailchimp.com',  description: 'Newsletter + campaigns',       status: 'active',   last_used_date: d(6),   cost_per_month: 89,  risk_score: 'low',    mfa_required: false, renewal_date: r(29),  notes: '' },
+    { id: uid('tool'), name: 'Dropbox',          category: 'operations',    owner_email: '',                     owner_name: '',              criticality: 'low',    url: 'https://dropbox.com',    description: 'Legacy file storage',          status: 'orphaned', last_used_date: d(210), cost_per_month: 120, risk_score: 'high',   mfa_required: false, renewal_date: r(4),   notes: 'Superseded by Google Drive — candidate to cancel' },
+    { id: uid('tool'), name: 'Miro',             category: 'design',        owner_email: 'emma.girard@acme.com',  owner_name: 'Emma Girard',   criticality: 'low',    url: 'https://miro.com',       description: 'Whiteboarding',                status: 'unused',   last_used_date: d(96),  cost_per_month: 96,  risk_score: 'medium', mfa_required: false, renewal_date: r(56),  notes: 'Overlaps with FigJam' },
+    { id: uid('tool'), name: 'Pennylane',        category: 'finance',       owner_email: 'chloe.bernard@acme.com', owner_name: 'Chloé Bernard', criticality: 'high',  url: 'https://pennylane.com',  description: 'Accounting + invoicing',       status: 'active',   last_used_date: d(3),   cost_per_month: 199, risk_score: 'medium', mfa_required: true,  renewal_date: r(33),  notes: 'Owner is offboarding — reassign' },
+    { id: uid('tool'), name: '1Password',        category: 'security',      owner_email: 'amina.dupont@acme.com', owner_name: 'Amina Dupont',  criticality: 'high',   url: 'https://1password.com',  description: 'Password manager',             status: 'active',   last_used_date: d(0),   cost_per_month: 96,  risk_score: 'low',    mfa_required: true,  renewal_date: r(88),  notes: '' },
   ];
+  const byName = Object.fromEntries(tools.map(t => [t.name, t]));
+
+  const grant = (toolName, email, level, opts = {}) => {
+    const tool = byName[toolName];
+    const emp  = byEmail[email];
+    return {
+      id: uid('acc'),
+      tool_id: tool.id, tool_name: tool.name,
+      employee_id: emp.id, employee_name: emp.full_name, employee_email: emp.email,
+      access_level: level,
+      granted_date: d(opts.granted ?? 200),
+      last_accessed_date: d(opts.used ?? 2),
+      last_reviewed_date: d(opts.reviewed ?? 90),
+      status: opts.status || 'active',
+      risk_flag: opts.flag || 'none',
+    };
+  };
 
   const access = [
-    { id: uid('acc'), tool_id: tools[0].id, tool_name: tools[0].name, employee_id: employees[0].id, employee_name: employees[0].full_name, employee_email: employees[0].email, access_level: 'admin', granted_date: d(300), last_accessed_date: d(1), last_reviewed_date: d(200), status: 'active', risk_flag: 'needs_review' },
-    { id: uid('acc'), tool_id: tools[1].id, tool_name: tools[1].name, employee_id: employees[1].id, employee_name: employees[1].full_name, employee_email: employees[1].email, access_level: 'admin', granted_date: d(190), last_accessed_date: d(0), last_reviewed_date: d(210), status: 'active', risk_flag: 'excessive_admin' },
-    { id: uid('acc'), tool_id: tools[2].id, tool_name: tools[2].name, employee_id: employees[1].id, employee_name: employees[1].full_name, employee_email: employees[1].email, access_level: 'viewer', granted_date: d(60), last_accessed_date: d(20), last_reviewed_date: d(60), status: 'active', risk_flag: 'orphaned' },
-    { id: uid('acc'), tool_id: tools[3].id, tool_name: tools[3].name, employee_id: employees[3].id, employee_name: employees[3].full_name, employee_email: employees[3].email, access_level: 'admin', granted_date: d(400), last_accessed_date: d(200), last_reviewed_date: d(300), status: 'active', risk_flag: 'former_employee' },
-    { id: uid('acc'), tool_id: tools[3].id, tool_name: tools[3].name, employee_id: employees[2].id, employee_name: employees[2].full_name, employee_email: employees[2].email, access_level: 'billing', granted_date: d(120), last_accessed_date: d(80), last_reviewed_date: d(20), status: 'active', risk_flag: 'needs_review' },
+    // Ex-employees who still have access — the headline risk the product sells against
+    grant('HubSpot',     'noah.petit@acme.com',     'admin',   { granted: 400, used: 200, reviewed: 300, flag: 'former_employee' }),
+    grant('Salesforce',  'noah.petit@acme.com',     'editor',  { granted: 360, used: 190, reviewed: 300, flag: 'former_employee' }),
+    grant('Pennylane',   'antoine.rey@acme.com',    'admin',   { granted: 500, used: 70,  reviewed: 320, flag: 'former_employee' }),
+    // Admin grants long overdue for review
+    grant('Slack',       'amina.dupont@acme.com',   'admin',   { granted: 300, used: 0,   reviewed: 220, flag: 'needs_review' }),
+    grant('GitHub',      'lucas.martin@acme.com',   'admin',   { granted: 190, used: 0,   reviewed: 240, flag: 'excessive_admin' }),
+    grant('Datadog',     'hugo.moreau@acme.com',    'admin',   { granted: 140, used: 0,   reviewed: 200, flag: 'excessive_admin' }),
+    grant('Google Workspace', 'amina.dupont@acme.com', 'admin',{ granted: 415, used: 0,   reviewed: 190, flag: 'needs_review' }),
+    // Someone mid-offboarding still holding finance access
+    grant('Pennylane',   'chloe.bernard@acme.com',  'billing', { granted: 620, used: 3,   reviewed: 20 }),
+    grant('Google Workspace', 'chloe.bernard@acme.com', 'editor', { granted: 620, used: 3, reviewed: 40 }),
+    // Orphaned tools
+    grant('Figma',       'emma.girard@acme.com',    'editor',  { granted: 60,  used: 16,  reviewed: 60, flag: 'orphaned' }),
+    grant('Dropbox',     'lucas.martin@acme.com',   'viewer',  { granted: 300, used: 210, reviewed: 280, flag: 'orphaned' }),
+    // Everyday healthy access
+    grant('Slack',       'lucas.martin@acme.com',   'editor',  { granted: 200, used: 0,  reviewed: 40 }),
+    grant('Slack',       'sofia.rossi@acme.com',    'editor',  { granted: 500, used: 0,  reviewed: 40 }),
+    grant('Slack',       'emma.girard@acme.com',    'editor',  { granted: 240, used: 1,  reviewed: 40 }),
+    grant('Slack',       'thomas.leroy@acme.com',   'editor',  { granted: 290, used: 0,  reviewed: 40 }),
+    grant('Slack',       'julie.mercier@acme.com',  'editor',  { granted: 180, used: 1,  reviewed: 40 }),
+    grant('GitHub',      'sofia.rossi@acme.com',    'editor',  { granted: 520, used: 0,  reviewed: 50 }),
+    grant('GitHub',      'hugo.moreau@acme.com',    'editor',  { granted: 140, used: 0,  reviewed: 50 }),
+    grant('Jira',        'sofia.rossi@acme.com',    'admin',   { granted: 520, used: 0,  reviewed: 45 }),
+    grant('Jira',        'lucas.martin@acme.com',   'editor',  { granted: 200, used: 1,  reviewed: 45 }),
+    grant('Jira',        'hugo.moreau@acme.com',    'editor',  { granted: 140, used: 2,  reviewed: 45 }),
+    grant('Notion',      'lea.fontaine@acme.com',   'admin',   { granted: 590, used: 1,  reviewed: 30 }),
+    grant('Notion',      'julie.mercier@acme.com',  'editor',  { granted: 180, used: 2,  reviewed: 30 }),
+    grant('Adobe Creative Cloud', 'emma.girard@acme.com', 'admin', { granted: 240, used: 4, reviewed: 70 }),
+    grant('Miro',        'emma.girard@acme.com',    'editor',  { granted: 230, used: 96, reviewed: 100, flag: 'unused' }),
+    grant('Salesforce',  'karim.benali@acme.com',   'admin',   { granted: 460, used: 1,  reviewed: 35 }),
+    grant('Salesforce',  'thomas.leroy@acme.com',   'editor',  { granted: 290, used: 1,  reviewed: 35 }),
+    grant('HubSpot',     'karim.benali@acme.com',   'admin',   { granted: 450, used: 124, reviewed: 120, flag: 'unused' }),
+    grant('Mailchimp',   'julie.mercier@acme.com',  'admin',   { granted: 180, used: 6,  reviewed: 60 }),
+    grant('Zoom',        'lea.fontaine@acme.com',   'admin',   { granted: 590, used: 2,  reviewed: 55 }),
+    grant('1Password',   'amina.dupont@acme.com',   'admin',   { granted: 410, used: 0,  reviewed: 25 }),
+    grant('Pennylane',   'chloe.bernard@acme.com',  'admin',   { granted: 620, used: 3,  reviewed: 25 }),
+    // Already cleaned up — shows the offboarding history isn't empty
+    grant('Slack',       'noah.petit@acme.com',     'editor',  { granted: 900, used: 40, reviewed: 300, status: 'revoked' }),
+    grant('Notion',      'antoine.rey@acme.com',    'viewer',  { granted: 700, used: 65, reviewed: 300, status: 'revoked' }),
   ];
 
   const user = { id: uid('usr'), email: 'demo@accessguard.app', subscription_plan: 'pro', is_authenticated: false, is_demo: false };

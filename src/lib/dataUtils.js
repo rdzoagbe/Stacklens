@@ -142,6 +142,43 @@ export function riskSeverityCounts(alerts) {
   return counts;
 }
 
+// ── Security posture metrics ────────────────────────────────────────────────
+// Single source of truth. The Dashboard and the Security page each used to
+// compute these independently and disagreed with each other on live data —
+// two different security scores, two different orphaned counts, and an "MFA
+// coverage" figure derived from ownership rather than from the MFA fields.
+
+/** Tools with nobody accountable for them, whatever their lifecycle status. */
+export function countOrphanedTools(tools = []) {
+  return tools.filter(t => !t.owner_email).length;
+}
+
+/**
+ * Real MFA coverage, read from the MFA fields.
+ * Returns null when there are no tools, so callers can render "—" rather
+ * than an unearned 100%.
+ */
+export function computeMfaCoverage(tools = []) {
+  if (!tools.length) return null;
+  const secured = tools.filter(t => t.mfa_required || t.mfa_enabled).length;
+  return { percent: Math.round((secured / tools.length) * 100), secured, total: tools.length };
+}
+
+/**
+ * Access records still active for people who have actually left.
+ * "offboarding" means still employed and mid-transition — that is a different
+ * (lesser) risk and must not be counted here.
+ */
+export function countFormerEmployeeAccess(access = [], employees = []) {
+  const byId = Object.fromEntries(employees.map(e => [e.id, e]));
+  return access.filter(a => a.status === 'active' && byId[a.employee_id]?.status === 'offboarded').length;
+}
+
+/** Overall posture score, 0-100. */
+export function computeSecurityScore({ orphanedTools = 0, highRiskTools = 0, formerAccess = 0 } = {}) {
+  return Math.max(0, Math.min(100, 100 - orphanedTools * 10 - highRiskTools * 5 - formerAccess * 8));
+}
+
 // ── Validation ─────────────────────────────────────────────────────────────
 
 export function validateEmail(email) {
