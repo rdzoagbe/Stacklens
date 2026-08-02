@@ -669,6 +669,21 @@ async function callApiKeys(body) {
   if (!res.ok) throw new Error(data.error || 'API key request failed');
   return data;
 }
+// Zoom integration — credentials are posted once and then held server-side.
+// The browser never stores or reads back the Server-to-Server client secret.
+export async function zoomIntegration(body) {
+  const token = await getToken();
+  if (!token) throw new Error('Not authenticated');
+  const res = await fetch(`${FUNCTIONS_BASE}/zoomsync`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Zoom request failed');
+  return data;
+}
+
 // Workspace sharing — read-only viewers via the server-verified endpoint
 async function callWorkspace(body) {
   const token = await getToken();
