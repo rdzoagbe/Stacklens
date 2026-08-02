@@ -3,6 +3,12 @@ import ReactDOM from 'react-dom/client'
 import * as Sentry from '@sentry/react'
 import App from './App.jsx'
 import './index.css'
+import { purgeLegacyCredentials } from './lib/legacyCredentials'
+
+// Remove integration credentials that older builds kept in localStorage.
+// Runs before React mounts so it reaches every session, not just users who
+// happen to open Settings.
+purgeLegacyCredentials();
 
 // After a deploy, lazily-loaded chunk filenames change (content hash), so a tab
 // that was already open 404s when it navigates to a lazy route ("Failed to fetch

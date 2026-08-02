@@ -160,6 +160,15 @@ service cloud.firestore {
       allow update: if false;
     }
 
+    // Integration credentials (Zoom S2S client secret, and future vendors).
+    // Server-only: written and read exclusively by the zoomsync function via
+    // the Admin SDK. The default deny below already covers this, but the rule
+    // is written out so the intent survives future edits — a client must
+    // never be able to read a stored vendor secret back.
+    match /integration_credentials/{uid} {
+      allow read, write: if false;
+    }
+
     // Default deny
     match /{document=**} {
       allow read, write: if false;

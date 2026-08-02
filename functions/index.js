@@ -10,7 +10,7 @@ const { defineSecret } = require('firebase-functions/params');
 // — only the modular entry points exist now.
 const { initializeApp } = require('firebase-admin/app');
 const { getAuth } = require('firebase-admin/auth');
-const { getFirestore, Timestamp } = require('firebase-admin/firestore');
+const { getFirestore, Timestamp, FieldValue } = require('firebase-admin/firestore');
 const { getAppCheck } = require('firebase-admin/app-check');
 
 // Explicitly allow stacklens.fr and Firebase preview domains
@@ -983,6 +983,113 @@ exports.bankfeed = onRequest({ cors: true, timeoutSeconds: 120 }, async (req, re
       return res.status(400).json({ error: 'Unknown action' });
     } catch (err) {
       console.error('bankfeed error:', err);
+      return res.status(500).json({ error: err.message || 'Internal error' });
+    }
+  });
+});
+
+// ── Zoom integration (credentials held server-side) ──────────────────────
+// The Zoom Server-to-Server OAuth client secret used to be typed into the
+// browser and kept in localStorage, where any XSS could read it. It is a
+// long-lived credential with user:read:admin scope over the customer's whole
+// Zoom account and it does not expire, so it never belongs in the client.
+//
+// Credentials now live in /integration_credentials/{uid}, which has no rule
+// in firestore.rules and is therefore server-only under the default deny —
+// the browser cannot read them back even with a valid session. The client
+// posts them once, and from then on only asks this endpoint to sync.
+const ZOOM_RATE_LIMIT = { maxCalls: 30, windowMs: 60 * 60 * 1000 };
+
+async function zoomAccessToken({ accountId, clientId, clientSecret }) {
+  const creds = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+  const r = await fetch(
+    `https://zoom.us/oauth/token?grant_type=account_credentials&account_id=${encodeURIComponent(accountId)}`,
+    { method: 'POST', headers: { Authorization: `Basic ${creds}` } }
+  );
+  const out = await r.json().catch(() => ({}));
+  if (!r.ok || !out.access_token) {
+    throw new Error(out?.reason || out?.error || 'Zoom rejected those credentials');
+  }
+  return out.access_token;
+}
+
+exports.zoomsync = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, res) => {
+  cors(req, res, async () => {
+    if (req.method === 'OPTIONS') return res.status(204).send('');
+    if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
+    const decoded = await verifyAuth(req, res); if (!decoded) return;
+    if (!await checkRateLimit(decoded.uid, res, ZOOM_RATE_LIMIT, 'zoom')) return;
+
+    const db = getFirestore();
+    const ref = db.collection('integration_credentials').doc(decoded.uid);
+    const { action } = req.body || {};
+
+    try {
+      if (action === 'connect') {
+        const accountId    = String(req.body?.accountId || '').trim();
+        const clientId     = String(req.body?.clientId || '').trim();
+        const clientSecret = String(req.body?.clientSecret || '').trim();
+        if (!accountId || !clientId || !clientSecret) {
+          return res.status(400).json({ error: 'Account ID, Client ID and Client Secret are all required' });
+        }
+        // Prove the credentials work before storing them, so a typo surfaces
+        // immediately rather than at the first sync.
+        await zoomAccessToken({ accountId, clientId, clientSecret });
+        await ref.set({
+          zoom: { accountId, clientId, clientSecret, connected_at: new Date().toISOString() },
+        }, { merge: true });
+        return res.json({ ok: true });
+      }
+
+      if (action === 'status') {
+        const snap = await ref.get();
+        const z = snap.exists ? snap.data().zoom : null;
+        // Never echo the secret back — only whether it is set.
+        return res.json({ connected: !!z, connected_at: z?.connected_at || null, last_sync: z?.last_sync || null });
+      }
+
+      if (action === 'disconnect') {
+        await ref.set({ zoom: FieldValue.delete() }, { merge: true });
+        return res.json({ ok: true });
+      }
+
+      if (action === 'sync') {
+        const snap = await ref.get();
+        const z = snap.exists ? snap.data().zoom : null;
+        if (!z) return res.status(400).json({ error: 'Zoom is not connected yet' });
+        const token = await zoomAccessToken(z);
+        const users = [];
+        let next = '';
+        for (let i = 0; i < 10; i++) {
+          const url = `https://api.zoom.us/v2/users?status=active&page_size=300${next ? `&next_page_token=${encodeURIComponent(next)}` : ''}`;
+          const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+          const out = await r.json().catch(() => ({}));
+          if (!r.ok) throw new Error(out?.message || 'Could not fetch Zoom users');
+          users.push(...(out.users || []));
+          next = out.next_page_token || '';
+          if (!next) break;
+        }
+        await ref.set({ zoom: { last_sync: new Date().toISOString() } }, { merge: true });
+        return res.json({
+          // Normalised here so the client stores valid enum values. The old
+          // browser-side mapper emitted status 'inactive', which is not one of
+          // the app's employee statuses (active | offboarding | offboarded).
+          users: users.map(u => ({
+            email: u.email || '',
+            full_name: [u.first_name, u.last_name].filter(Boolean).join(' ')
+              || u.display_name || (u.email || '').split('@')[0] || '',
+            department: u.dept || '',
+            role: u.role_name || '',
+            status: u.status === 'active' ? 'active' : 'offboarded',
+            start_date: u.created_at ? String(u.created_at).slice(0, 10) : '',
+            end_date: '',
+          })),
+        });
+      }
+
+      return res.status(400).json({ error: 'Unknown action' });
+    } catch (err) {
+      console.error('zoomsync error:', err);
       return res.status(500).json({ error: err.message || 'Internal error' });
     }
   });

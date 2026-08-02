@@ -7,6 +7,8 @@ import { useDbQuery, useDbMutations } from '../../hooks/useDbQuery';
 import { AppShell } from '../../components/AppShell';
 import { submitContactForm } from '../../lib/contact';
 import { track } from '../../lib/analytics';
+import { zoomIntegration } from '../../firebase-config';
+import { purgeLegacyCredentials } from '../../lib/legacyCredentials';
 
 // ── Google Workspace OAuth + Directory API ────────────────────────────────
 const GWS_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
@@ -332,59 +334,11 @@ function AsanaTokenModal({ onSubmit, onClose, loading }) {
 }
 
 // ── Zoom Server-to-Server OAuth + users ─────────────────────────────────
-const ZOOM_ACCOUNT_ID_KEY     = 'sg_zoom_account_id';
-const ZOOM_CLIENT_ID_KEY      = 'sg_zoom_client_id';
-const ZOOM_CLIENT_SECRET_KEY  = 'sg_zoom_client_secret';
+// Only the last-sync timestamp is kept locally; it isn't sensitive.
 const ZOOM_SYNC_KEY           = 'sg_zoom_last_sync';
 
-async function getZoomAccessToken(accountId, clientId, clientSecret) {
-  const creds = btoa(`${clientId}:${clientSecret}`);
-  const res = await fetch(
-    `https://zoom.us/oauth/token?grant_type=account_credentials&account_id=${encodeURIComponent(accountId)}`,
-    { method: 'POST', headers: { Authorization: `Basic ${creds}` } }
-  );
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    if (res.status === 401) throw new Error('Invalid credentials. Check your Account ID, Client ID and Client Secret.');
-    throw new Error(body.reason || `HTTP ${res.status}`);
-  }
-  return (await res.json()).access_token;
-}
-
-async function fetchAllZoomUsers(accessToken) {
-  const users = [];
-  let page = 1;
-  while (true) {
-    const res = await fetch(
-      `https://api.zoom.us/v2/users?status=active&page_size=300&page_number=${page}`,
-      { headers: { Authorization: `Bearer ${accessToken}` } }
-    );
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      if (res.status === 401) throw new Error('Access token rejected. Re-connect to refresh credentials.');
-      if (res.status === 403) throw new Error('Permission denied. Ensure the app has user:read:admin scope and is activated.');
-      throw new Error(body.message || `HTTP ${res.status}`);
-    }
-    const data = await res.json();
-    if (Array.isArray(data.users)) users.push(...data.users);
-    if (page >= (data.page_count || 1)) break;
-    page++;
-  }
-  return users;
-}
-
-function mapZoomUser(u) {
-  const name = [u.first_name, u.last_name].filter(Boolean).join(' ');
-  return {
-    full_name:  name || (u.email || '').split('@')[0] || '',
-    email:      u.email || '',
-    department: u.dept || '',
-    role:       '',
-    status:     u.status === 'active' ? 'active' : 'inactive',
-    start_date: u.created_at ? u.created_at.slice(0, 10) : '',
-    end_date:   '',
-  };
-}
+// Legacy credentials from older builds are purged app-wide on load by
+// lib/legacyCredentials; imported here so disconnect can re-run it.
 
 // ── Zoom credentials modal ────────────────────────────────────────────────
 const ZOOM_STEPS = [
@@ -398,8 +352,8 @@ const ZOOM_STEPS = [
 function ZoomCredentialsModal({ onSubmit, onClose, loading }) {
   const { language } = useLang();
   const t = useTranslation(language);
-  const [accountId,    setAccountId]    = useState(localStorage.getItem(ZOOM_ACCOUNT_ID_KEY) || '');
-  const [clientId,     setClientId]     = useState(localStorage.getItem(ZOOM_CLIENT_ID_KEY) || '');
+  const [accountId,    setAccountId]    = useState('');
+  const [clientId,     setClientId]     = useState('');
   const [clientSecret, setClientSecret] = useState('');
   const [showSecret,   setShowSecret]   = useState(false);
 
@@ -1672,67 +1626,75 @@ export function IntegrationConnectors() {
     await handleOktaTokenSubmit(token, domain);
   }, [handleOktaTokenSubmit]);
 
-  // eslint-disable-next-line react-hooks/preserve-manual-memoization
+  // Shared by first connect and re-sync: the server returns already-normalised
+  // users, so the client only has to reconcile them against the directory.
+   
+  const runZoomSync = useCallback(async () => {
+    const { users } = await zoomIntegration({ action: 'sync' });
+    const incoming = (users || []).filter(u => u.email);
+
+    const existingByEmail = Object.fromEntries(
+      (db?.employees || []).map(e => [(e.email || '').toLowerCase(), e])
+    );
+    const toAdd = [], toUpdate = [];
+    let skipped = 0;
+    for (const u of incoming) {
+      const existing = existingByEmail[u.email.toLowerCase()];
+      if (!existing) { toAdd.push(u); continue; }
+      const patch = {};
+      if (u.full_name && u.full_name !== existing.full_name) patch.full_name = u.full_name;
+      if (u.department && !existing.department) patch.department = u.department;
+      if (u.status !== existing.status) patch.status = u.status;
+      if (u.start_date && !existing.start_date) patch.start_date = u.start_date;
+      if (Object.keys(patch).length > 0) toUpdate.push({ id: existing.id, patch });
+      else skipped++;
+    }
+
+    if (toAdd.length > 0) await muts.bulkImport.mutateAsync({ kind: 'employees', records: toAdd });
+    for (const { id, patch } of toUpdate) await muts.updateEmployee.mutateAsync({ id, patch });
+
+    localStorage.setItem(ZOOM_SYNC_KEY, new Date().toISOString());
+    setConnectedIntegrations(prev => {
+      const next = prev.includes('zoom') ? prev : [...prev, 'zoom'];
+      localStorage.setItem('sg_connected_integrations', JSON.stringify(next));
+      return next;
+    });
+    setZoomModal(false);
+    setSyncResult({ source: 'zoom', total: incoming.length, added: toAdd.length, updated: toUpdate.length, skipped });
+  }, [db?.employees, muts]);
+
+   
   const handleZoomSubmit = useCallback(async (accountId, clientId, clientSecret) => {
     if (!accountId || !clientId || !clientSecret) return;
     setZoomSyncing(true);
     setSyncResult(null);
     try {
-      const accessToken = await getZoomAccessToken(accountId, clientId, clientSecret);
-      const zoomUsers   = await fetchAllZoomUsers(accessToken);
-      const incoming    = zoomUsers.map(mapZoomUser).filter(u => u.email);
-
-      const existingByEmail = Object.fromEntries(
-        (db?.employees || []).map(e => [(e.email || '').toLowerCase(), e])
-      );
-      const toAdd = [], toUpdate = [];
-      let skipped = 0;
-      for (const u of incoming) {
-        const key      = u.email.toLowerCase();
-        const existing = existingByEmail[key];
-        if (!existing) {
-          toAdd.push(u);
-        } else {
-          const patch = {};
-          if (u.full_name && u.full_name !== existing.full_name) patch.full_name = u.full_name;
-          if (u.department && !existing.department) patch.department = u.department;
-          if (u.status !== existing.status) patch.status = u.status;
-          if (u.start_date && !existing.start_date) patch.start_date = u.start_date;
-          if (Object.keys(patch).length > 0) toUpdate.push({ id: existing.id, patch });
-          else skipped++;
-        }
-      }
-
-      if (toAdd.length > 0) await muts.bulkImport.mutateAsync({ kind: 'employees', records: toAdd });
-      for (const { id, patch } of toUpdate) await muts.updateEmployee.mutateAsync({ id, patch });
-
-      localStorage.setItem(ZOOM_ACCOUNT_ID_KEY,    accountId);
-      localStorage.setItem(ZOOM_CLIENT_ID_KEY,     clientId);
-      localStorage.setItem(ZOOM_CLIENT_SECRET_KEY, clientSecret);
-      localStorage.setItem(ZOOM_SYNC_KEY,          new Date().toISOString());
-      const next = connectedIntegrations.includes('zoom')
-        ? connectedIntegrations
-        : [...connectedIntegrations, 'zoom'];
-      setConnectedIntegrations(next);
-      localStorage.setItem('sg_connected_integrations', JSON.stringify(next));
-
-      setZoomModal(false);
-      setSyncResult({ source: 'zoom', total: incoming.length, added: toAdd.length, updated: toUpdate.length, skipped });
+      // Credentials go straight to the server, which validates them against
+      // Zoom before storing. They are never written to localStorage.
+      await zoomIntegration({ action: 'connect', accountId, clientId, clientSecret });
+      await runZoomSync();
     } catch (err) {
       setSyncResult({ source: 'zoom', error: err.message });
       toast.error('Zoom sync failed');
     } finally {
       setZoomSyncing(false);
     }
-  }, [db?.employees, connectedIntegrations, muts]);
+  }, [runZoomSync]);
 
   const handleZoomResync = useCallback(async () => {
-    const accountId    = localStorage.getItem(ZOOM_ACCOUNT_ID_KEY);
-    const clientId     = localStorage.getItem(ZOOM_CLIENT_ID_KEY);
-    const clientSecret = localStorage.getItem(ZOOM_CLIENT_SECRET_KEY);
-    if (!accountId || !clientId || !clientSecret) { setZoomModal(true); return; }
-    await handleZoomSubmit(accountId, clientId, clientSecret);
-  }, [handleZoomSubmit]);
+    setZoomSyncing(true);
+    setSyncResult(null);
+    try {
+      const { connected } = await zoomIntegration({ action: 'status' });
+      if (!connected) { setZoomModal(true); return; }
+      await runZoomSync();
+    } catch (err) {
+      setSyncResult({ source: 'zoom', error: err.message });
+      toast.error('Zoom sync failed');
+    } finally {
+      setZoomSyncing(false);
+    }
+  }, [runZoomSync]);
 
   // eslint-disable-next-line react-hooks/preserve-manual-memoization
   const handleAsanaTokenSubmit = useCallback(async (token) => {
@@ -2005,9 +1967,8 @@ export function IntegrationConnectors() {
       setSyncResult(null);
     }
     if (integrationId === 'zoom') {
-      localStorage.removeItem(ZOOM_ACCOUNT_ID_KEY);
-      localStorage.removeItem(ZOOM_CLIENT_ID_KEY);
-      localStorage.removeItem(ZOOM_CLIENT_SECRET_KEY);
+      purgeLegacyCredentials();
+      zoomIntegration({ action: 'disconnect' }).catch(() => {});
       localStorage.removeItem(ZOOM_SYNC_KEY);
       setSyncResult(null);
     }
