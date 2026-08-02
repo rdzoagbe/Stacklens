@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { AlertTriangle, BadgeX, CheckCircle, ChevronLeft, UserMinus, Users } from 'lucide-react';
+import { AlertTriangle, BadgeX, CheckCircle, ChevronLeft, Info, UserMinus, Users } from 'lucide-react';
 import { todayISO } from '../lib/db';
 import { useDbQuery, useDbMutations } from '../hooks/useDbQuery';
 import { useCurrency } from '../contexts/CurrencyContext';
@@ -85,7 +85,7 @@ export function OffboardingPage() {
       id: employeeId,
       patch: { status: "offboarded", end_date: employee?.end_date || todayISO() },
     });
-    toast.success(`${employee.full_name} offboarded — ${activeRecords.length} access records revoked`);
+    toast.success(t('offb_done_toast').replace('{name}', employee.full_name).replace('{n}', activeRecords.length));
     setEmployeeId("");
   };
 
@@ -132,6 +132,19 @@ export function OffboardingPage() {
     >
       <div className="space-y-6">
 
+        {/* Stacklens is a system of record here, not a system of action: marking
+            access revoked updates the audit trail, it does not delete anything
+            at the vendor. Saying so plainly is the difference between a
+            customer who completes the offboarding and one who believes it was
+            already done. */}
+        <div className="flex items-start gap-3 rounded-2xl border border-blue-500/20 bg-blue-500/5 p-4 lg:p-5">
+          <Info className="h-5 w-5 text-blue-400 flex-shrink-0 mt-0.5" />
+          <div className="min-w-0">
+            <div className="text-sm font-semibold text-blue-300">{t('offb_tracked_title')}</div>
+            <p className="text-xs text-slate-400 mt-1 leading-relaxed">{t('offb_tracked_body')}</p>
+          </div>
+        </div>
+
         {/* ── Row 1: Pipeline KPI Strip ── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-5">
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-blue-500">
@@ -165,7 +178,7 @@ export function OffboardingPage() {
               </div>
               <div className="flex-1">
                 <div className="text-base font-semibold text-red-400 mb-1">{t('offboarding_security_risk_header').replace('{n}', riskRecords.length)}</div>
-                <p className="text-sm text-slate-400 mb-4">These users have been offboarded but their access was never revoked. This is a major security and compliance issue.</p>
+                <p className="text-sm text-slate-400 mb-4">{t('offb_risk_body')}</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 mb-4">
                   {riskRecords.slice(0, 6).map((a, idx) => {
                     const emp = employees.find(e => e.id === a.employee_id);
@@ -246,7 +259,7 @@ export function OffboardingPage() {
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="text-sm font-semibold text-white truncate">{e.full_name}</div>
-                            <div className="text-xs text-slate-500 truncate">{e.department || '—'} · {empAccess.length} active access</div>
+                            <div className="text-xs text-slate-500 truncate">{e.department || '—'} · {t('offb_active_access').replace('{n}', empAccess.length)}</div>
                           </div>
                           <div className="flex items-center gap-2 flex-shrink-0">
                             {days !== null && (
@@ -255,7 +268,7 @@ export function OffboardingPage() {
                                 days <= 7 ? "bg-amber-500/20 text-amber-400" :
                                 "bg-slate-700 text-slate-400"
                               )}>
-                                {days < 0 ? `${Math.abs(days)}d overdue` : days === 0 ? "Today" : `${days}d`}
+                                {days < 0 ? t('offb_d_overdue').replace('{n}', Math.abs(days)) : days === 0 ? t('offb_today') : t('offb_d_left').replace('{n}', days)}
                               </span>
                             )}
                             <span className={"text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase " + (
