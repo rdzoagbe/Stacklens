@@ -2,6 +2,7 @@ import { differenceInDays } from 'date-fns';
 import toast from 'react-hot-toast';
 import { Boxes, UserMinus, GitMerge, Download } from 'lucide-react';
 import { safeParseISO } from './db';
+import { getCurrency } from './currency';
 
 // ── Tool/access derived-state computations ─────────────────────────────────
 
@@ -195,41 +196,12 @@ export function validateRequired(value, fieldName) {
 
 // ── Currency helpers ────────────────────────────────────────────────────────
 
-export function getCurrency(lang) {
-  try {
-    const activeLang = lang || localStorage.getItem('language') || 'en';
-    const settings = JSON.parse(localStorage.getItem('sg_general') || '{}');
-    if (settings.currency) {
-      if (settings.currency.includes('£')) return '£';
-      if (settings.currency.includes('€')) return '€';
-      if (settings.currency.includes('¥')) return '¥';
-      if (settings.currency.includes('$')) return '$';
-    }
-    if (activeLang === 'fr' || activeLang === 'es') return '€';
-    return '$';
-  } catch { return '$'; }
-}
+// Money formatting lives in lib/currency.js — these are re-exported so the
+// many modules importing them from here keep working. They used to be a second
+// implementation that had drifted: a Spanish user saw "$" on pages importing
+// lib/currency and "€" on pages importing this one, for the same data.
+export { getCurrency, convertCurrency, formatMoney } from './currency';
 
-export function convertCurrency(amountUSD, lang) {
-  try {
-    const cached   = JSON.parse(localStorage.getItem('accessguard_fx_rates') || '{}');
-    const rates    = cached.rates || { USD: 1, EUR: 0.92, GBP: 0.79, JPY: 149.5 };
-    const activeLang = lang || localStorage.getItem('language') || 'en';
-    const settings = JSON.parse(localStorage.getItem('sg_general') || '{}');
-    let code = 'USD';
-    if (settings.currency?.includes('£'))      code = 'GBP';
-    else if (settings.currency?.includes('€')) code = 'EUR';
-    else if (settings.currency?.includes('¥')) code = 'JPY';
-    else if (activeLang === 'fr' || activeLang === 'es') code = 'EUR';
-    return Math.round(amountUSD * (rates[code] || 1));
-  } catch { return Math.round(amountUSD); }
-}
-
-export function formatMoney(n, currency, lang) {
-  const v = Number(n || 0);
-  if (!Number.isFinite(v)) return (currency || getCurrency(lang)) + '0';
-  return (currency || getCurrency(lang)) + convertCurrency(v, lang).toLocaleString();
-}
 
 // ── File/CSV helpers ────────────────────────────────────────────────────────
 

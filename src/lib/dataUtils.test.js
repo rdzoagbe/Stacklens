@@ -388,3 +388,51 @@ describe('security posture metrics', () => {
     expect(computeMfaCoverage(TOOLS).percent).toBe(25);
   });
 });
+
+// ── Money helpers: one implementation, two import paths ─────────────────────
+// lib/currency.js and lib/dataUtils.js each used to define getCurrency /
+// convertCurrency / formatMoney. They drifted, and pages disagreed depending
+// on which module they imported: a Spanish user saw "$" on Employees and
+// Budget (lib/currency) and "€" on Dashboard, Tools and Audit (lib/dataUtils),
+// for the same data. dataUtils now re-exports, and these tests pin that.
+describe('money helpers are shared, not duplicated', () => {
+  beforeEach(() => localStorage.clear());
+
+  it('dataUtils re-exports the very same function object as currency', async () => {
+    const currency = await import('./currency');
+    const utils    = await import('./dataUtils');
+    expect(utils.getCurrency).toBe(currency.getCurrency);
+    expect(utils.convertCurrency).toBe(currency.convertCurrency);
+    expect(utils.formatMoney).toBe(currency.formatMoney);
+  });
+
+  it('every European language bills in euros', async () => {
+    const { getCurrency } = await import('./currency');
+    // German and Portuguese used to fall through to "$", which is wrong for
+    // those markets and for a product sold to European SMBs.
+    for (const lang of ['fr', 'es', 'de', 'pt']) {
+      expect(getCurrency(lang)).toBe('€');
+    }
+    expect(getCurrency('en')).toBe('$');
+  });
+
+  it('an explicit Settings choice overrides the language', async () => {
+    const { getCurrency } = await import('./currency');
+    localStorage.setItem('sg_general', JSON.stringify({ currency: 'GBP (£)' }));
+    expect(getCurrency('fr')).toBe('£');
+    expect(getCurrency('en')).toBe('£');
+  });
+
+  it('converts using the currency the symbol implies', async () => {
+    const { convertCurrency } = await import('./currency');
+    // Default rates: EUR 0.92. A French user's 100 "USD" reads as 92 EUR.
+    expect(convertCurrency(100, 'fr')).toBe(92);
+    expect(convertCurrency(100, 'en')).toBe(100);
+  });
+
+  it('survives a corrupt sg_general blob rather than throwing', async () => {
+    const { getCurrency } = await import('./currency');
+    localStorage.setItem('sg_general', 'not-json{');
+    expect(getCurrency('fr')).toBe('€');
+  });
+});
