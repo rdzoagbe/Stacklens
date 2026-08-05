@@ -12,34 +12,39 @@ export function formatMoney(n, currency, lang) {
   return cur + converted.toLocaleString();
 }
 
+// Languages whose speakers are billed in euros. Stacklens sells to European
+// SMBs, so every European language defaults to EUR — German and Portuguese
+// used to fall through to "$", which is simply wrong for those markets.
+// An explicit choice in Settings > General always wins over the language.
+const EURO_LANGUAGES = new Set(['fr', 'es', 'de', 'pt']);
+
+function activeLanguage(lang) {
+  try { return lang || localStorage.getItem('language') || 'en'; }
+  catch { return lang || 'en'; }
+}
+
+function settingsCurrency() {
+  try { return JSON.parse(localStorage.getItem('sg_general') || '{}').currency || ''; }
+  catch { return ''; }
+}
+
 export function getCurrency(lang) {
-  try {
-    const activeLang = lang || localStorage.getItem('language') || 'en';
-    if (activeLang === 'fr') return '€';
-    const settings = JSON.parse(localStorage.getItem('sg_general') || '{}');
-    if (settings.currency) {
-      if (settings.currency.includes('£')) return '£';
-      if (settings.currency.includes('€')) return '€';
-      if (settings.currency.includes('¥')) return '¥';
-    }
-    return '$';
-  } catch { return '$'; }
+  const chosen = settingsCurrency();
+  if (chosen.includes('£')) return '£';
+  if (chosen.includes('€')) return '€';
+  if (chosen.includes('¥')) return '¥';
+  if (chosen.includes('$')) return '$';
+  return EURO_LANGUAGES.has(activeLanguage(lang)) ? '€' : '$';
 }
 
 export function convertCurrency(amountUSD, lang) {
   try {
     const cached = JSON.parse(localStorage.getItem(CURRENCY_CACHE_KEY) || '{}');
-    const rates = cached.rates || { USD: 1, EUR: 0.92, GBP: 0.79, JPY: 149.5 };
-    const activeLang = lang || localStorage.getItem('language') || 'en';
-    const settings = JSON.parse(localStorage.getItem('sg_general') || '{}');
-    let code = 'USD';
-    if (settings.currency?.includes('£')) code = 'GBP';
-    else if (settings.currency?.includes('€')) code = 'EUR';
-    else if (settings.currency?.includes('¥')) code = 'JPY';
-    else if (activeLang === 'fr') code = 'EUR';
-    const rate = rates[code] || 1;
-    return Math.round(amountUSD * rate);
-  } catch { return Math.round(amountUSD); }
+    const rates  = cached.rates || { USD: 1, EUR: 0.92, GBP: 0.79, JPY: 149.5 };
+    const symbol = getCurrency(lang);
+    const code   = { '£': 'GBP', '€': 'EUR', '¥': 'JPY', '$': 'USD' }[symbol] || 'USD';
+    return Math.round((Number(amountUSD) || 0) * (rates[code] || 1));
+  } catch { return Math.round(Number(amountUSD) || 0); }
 }
 
 export async function fetchExchangeRates(base = 'USD') {
