@@ -26,6 +26,19 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # These three used to be missing: the build job only compiled, so a
+      # failing test or lint error could not block a merge. The guard suites
+      # (duplicate exports, plan claims, Firestore rules) are only worth
+      # writing if CI actually runs them.
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Firestore security rules
+        run: npm run test:rules
+
       - name: Build
         run: npm run build
         env:

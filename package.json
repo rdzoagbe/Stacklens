@@ -13,7 +13,9 @@
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",
     "deploy": "npm run build && firebase deploy --only hosting",
-    "prepare": "husky"
+    "prepare": "husky",
+    "test:rules": "firebase emulators:exec --only firestore --project stacklens-rules-test \"vitest run --config vitest.rules.config.js\"",
+    "test:all": "npm test && npm run test:rules"
   },
   "dependencies": {
     "@azure/msal-browser": "^5.17.1",
@@ -44,6 +46,7 @@
     "@babel/parser": "^7.29.7",
     "@babel/traverse": "^7.29.7",
     "@eslint/js": "^10.0.1",
+    "@firebase/rules-unit-testing": "^5.0.1",
     "@vitejs/plugin-react": "^6.0.3",
     "@vitest/coverage-v8": "^4.1.8",
     "autoprefixer": "^10.5.2",
@@ -52,6 +55,7 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "eslint-plugin-security": "^4.0.0",
+    "firebase-tools": "^15.26.0",
     "husky": "^9.1.7",
     "jsdom": "^29.1.1",
     "lint-staged": "^17.0.7",

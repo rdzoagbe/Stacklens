@@ -8,6 +8,10 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     include: ['src/**/*.test.{js,jsx}'],
+    // The Firestore rules suite needs the emulator, so it is not part of the
+    // default fast run. `npm run test:rules` starts the emulator around it,
+    // and CI runs both.
+    exclude: ['**/node_modules/**', 'src/lib/firestore-rules.test.js'],
   },
   server: {
     port: 5173,

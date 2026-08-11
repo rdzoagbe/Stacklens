@@ -60,3 +60,7 @@ public/*
 !public/robots.txt
 !public/sitemap.xml
 scripts/
+
+# Firestore emulator artifacts
+firestore-debug.log
+firebase-debug.log
