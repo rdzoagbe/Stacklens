@@ -8,6 +8,7 @@ import { useCurrency } from '../contexts/CurrencyContext';
 import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
 import { Button, SkeletonRow, useEnumLabel } from '../components/ui';
+import { blockGraphUserSignIn, GRAPH_WRITE_SCOPES } from '../lib/m365-writeback';
 import { AppShell } from '../components/AppShell';
 
 // The seven checklist strings all had cl_* translation keys already; this
@@ -87,6 +88,40 @@ export function OffboardingPage() {
     });
     toast.success(t('offb_done_toast').replace('{name}', employee.full_name).replace('{n}', activeRecords.length));
     setEmployeeId("");
+  };
+
+  // ── Microsoft 365 write-back ──────────────────────────────────────────────
+  // The only action in the product that changes something outside Stacklens.
+  // Offered only when the tenant is actually connected, and always behind
+  // an explicit confirmation naming the person, because blocking sign-in
+  // revokes access to every app federated through the tenant.
+  const m365Connected = (() => {
+    try { return JSON.parse(localStorage.getItem('sg_connected_integrations') || '[]').includes('microsoft-365'); }
+    catch { return false; }
+  })();
+  const [blocking, setBlocking] = useState(false);
+
+  const blockInM365 = async (emp) => {
+    if (!emp?.email) return;
+    if (!window.confirm(t('m365_block_confirm').replace('{name}', emp.full_name || emp.email))) return;
+    setBlocking(true);
+    try {
+      // Write consent is requested here, not at connect time, so read-only
+      // customers are never asked for permission to change their tenant.
+      const { acquireMSToken } = await import('./settings/IntegrationsTab');
+      const token = await acquireMSToken(GRAPH_WRITE_SCOPES);
+      const { alreadyBlocked } = await blockGraphUserSignIn(emp.email, token);
+      toast.success(
+        t(alreadyBlocked ? 'm365_block_already' : 'm365_block_done')
+          .replace('{name}', emp.full_name || emp.email)
+      );
+    } catch (err) {
+      // Surfaces the specific reason — not found, ambiguous, or consent
+      // missing — because each needs a different fix from the admin.
+      toast.error(err.message || 'Microsoft 365 block failed');
+    } finally {
+      setBlocking(false);
+    }
   };
 
   // Pipeline buckets
@@ -434,6 +469,21 @@ export function OffboardingPage() {
                       <p className="text-[10px] text-slate-600 text-center mt-2">
                         {t("offboarding_one_click_sub")}
                       </p>
+
+                      {/* The one action that reaches outside Stacklens. Only
+                          shown when the tenant is connected. */}
+                      {m365Connected && employee?.email && (
+                        <>
+                          <button onClick={() => blockInM365(employee)} disabled={blocking}
+                            className="mt-3 w-full flex items-center justify-center gap-2 px-4 py-3 bg-slate-800 hover:bg-slate-700 border border-red-500/30 rounded-xl font-bold text-sm text-red-300 transition-all disabled:opacity-60">
+                            <BadgeX className="h-4 w-4" />
+                            {t('m365_block_cta')}
+                          </button>
+                          <p className="text-[10px] text-red-400/70 text-center mt-2">
+                            {t('m365_block_hint')}
+                          </p>
+                        </>
+                      )}
                     </>
                   )}
                 </div>

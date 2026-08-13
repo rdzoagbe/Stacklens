@@ -5,6 +5,11 @@
 
 export const translations = {
   en: {
+    m365_block_cta: "Block sign-in in Microsoft 365",
+    m365_block_confirm: "Block sign-in for {name} in Microsoft 365?\n\nThis takes effect in your tenant immediately and revokes access to every app federated through it. An administrator can re-enable the account in Entra ID.",
+    m365_block_done: "{name} can no longer sign in to Microsoft 365",
+    m365_block_already: "{name} was already blocked in Microsoft 365",
+    m365_block_hint: "Revokes access in your tenant, not just in Stacklens.",
     offb_risk_body: "These people have left but their access was never closed out. This is a security and compliance issue.",
     offb_active_access: "{n} active access",
     offb_d_overdue: "{n}d overdue",
@@ -3076,6 +3081,11 @@ export const translations = {
     notif_offboard_sub: "When an offboarding task is started",
   },
   fr: {
+    m365_block_cta: "Bloquer la connexion dans Microsoft 365",
+    m365_block_confirm: "Bloquer la connexion de {name} dans Microsoft 365 ?\n\nL'effet est immédiat dans votre tenant et révoque l'accès à toutes les applications fédérées. Un administrateur peut réactiver le compte dans Entra ID.",
+    m365_block_done: "{name} ne peut plus se connecter à Microsoft 365",
+    m365_block_already: "{name} était déjà bloqué dans Microsoft 365",
+    m365_block_hint: "Révoque l'accès dans votre tenant, pas seulement dans Stacklens.",
     offb_risk_body: "Ces personnes sont parties mais leurs accès n'ont jamais été clôturés. C'est un problème de sécurité et de conformité.",
     offb_active_access: "{n} accès actifs",
     offb_d_overdue: "{n} j de retard",
@@ -6283,6 +6293,11 @@ export const translations = {
     notif_offboard_sub: "Quand une tâche de départ est lancée",
   },
   de: {
+    m365_block_cta: "Anmeldung in Microsoft 365 sperren",
+    m365_block_confirm: "Anmeldung von {name} in Microsoft 365 sperren?\n\nDies wirkt sofort in Ihrem Tenant und entzieht den Zugriff auf alle föderierten Apps. Ein Administrator kann das Konto in Entra ID wieder aktivieren.",
+    m365_block_done: "{name} kann sich nicht mehr bei Microsoft 365 anmelden",
+    m365_block_already: "{name} war in Microsoft 365 bereits gesperrt",
+    m365_block_hint: "Entzieht den Zugriff in Ihrem Tenant, nicht nur in Stacklens.",
     offb_risk_body: "Diese Personen haben das Unternehmen verlassen, ihre Zugriffe wurden aber nie geschlossen. Das ist ein Sicherheits- und Compliance-Problem.",
     offb_active_access: "{n} aktive Zugriffe",
     offb_d_overdue: "{n} T. überfällig",
@@ -7835,6 +7850,11 @@ export const translations = {
     aud_more: "weitere",
   },
   es: {
+    m365_block_cta: "Bloquear el inicio de sesión en Microsoft 365",
+    m365_block_confirm: "¿Bloquear el inicio de sesión de {name} en Microsoft 365?\n\nEs efectivo de inmediato en su tenant y revoca el acceso a todas las aplicaciones federadas. Un administrador puede reactivar la cuenta en Entra ID.",
+    m365_block_done: "{name} ya no puede iniciar sesión en Microsoft 365",
+    m365_block_already: "{name} ya estaba bloqueado en Microsoft 365",
+    m365_block_hint: "Revoca el acceso en su tenant, no solo en Stacklens.",
     offb_risk_body: "Estas personas se han ido pero sus accesos nunca se cerraron. Es un problema de seguridad y cumplimiento.",
     offb_active_access: "{n} accesos activos",
     offb_d_overdue: "{n} d de retraso",
@@ -9534,6 +9554,11 @@ export const translations = {
     aud_more: "más",
   },
   pt: {
+    m365_block_cta: "Bloquear o início de sessão no Microsoft 365",
+    m365_block_confirm: "Bloquear o início de sessão de {name} no Microsoft 365?\n\nTem efeito imediato no seu tenant e revoga o acesso a todas as aplicações federadas. Um administrador pode reativar a conta no Entra ID.",
+    m365_block_done: "{name} já não consegue iniciar sessão no Microsoft 365",
+    m365_block_already: "{name} já estava bloqueado no Microsoft 365",
+    m365_block_hint: "Revoga o acesso no seu tenant, não apenas no Stacklens.",
     offb_risk_body: "Estas pessoas saíram mas os seus acessos nunca foram encerrados. É um problema de segurança e conformidade.",
     offb_active_access: "{n} acessos ativos",
     offb_d_overdue: "{n} d em atraso",
