@@ -1,7 +1,7 @@
 import { LS_KEY } from './constants';
 import { saveUserData, loadUserData } from '../firebase-config';
 import { markSyncSaving, markSyncSaved, markSyncFailed } from './syncStatus';
-import { format, subDays, parseISO } from 'date-fns';
+import { format, subDays, parseISO, isValid } from 'date-fns';
 
 // ─── ID / date helpers ────────────────────────────────────────────────────────
 
@@ -14,9 +14,15 @@ export function todayISO() {
 }
 
 export function safeParseISO(s) {
+  // Returns null for anything unparseable rather than an Invalid Date.
+  // parseISO('not a date') yields an Invalid Date, which is truthy — callers
+  // then hand it to differenceInDays and get NaN, so `NaN >= 90` is false and
+  // a tool with a malformed last_used_date silently never counts as unused.
+  // CSV import lets users supply arbitrary date strings, so this is reachable.
   try {
     if (!s) return null;
-    return parseISO(s);
+    const d = parseISO(s);
+    return isValid(d) ? d : null;
   } catch {
     return null;
   }

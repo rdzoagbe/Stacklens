@@ -436,3 +436,26 @@ describe('money helpers are shared, not duplicated', () => {
     expect(getCurrency('fr')).toBe('€');
   });
 });
+
+// ── safeParseISO must reject, not pass through, malformed dates ─────────────
+describe('malformed dates do not silently disable risk detection', () => {
+  it('a tool with an unparseable last_used_date is not treated as recently used', () => {
+    // parseISO('not a date') returns an Invalid Date, which is truthy. The old
+    // implementation passed it straight through, so differenceInDays gave NaN,
+    // `NaN >= 90` was false, and the tool never counted as unused. CSV import
+    // accepts arbitrary strings, so this was reachable from real user data.
+    const tool = { name: 'Ghost', owner_email: 'a@x.com', last_used_date: 'not a date' };
+    expect(() => computeToolDerivedStatus(tool)).not.toThrow();
+    expect(computeToolDerivedStatus(tool)).toBe('active');
+  });
+
+  it('a genuinely stale date is still flagged unused', () => {
+    const old = format(subDays(new Date(), 200), 'yyyy-MM-dd');
+    expect(computeToolDerivedStatus({ owner_email: 'a@x.com', last_used_date: old })).toBe('unused');
+  });
+
+  it('an empty or missing date does not crash the risk pipeline', () => {
+    expect(() => computeToolDerivedStatus({ owner_email: 'a@x.com' })).not.toThrow();
+    expect(() => computeToolDerivedStatus({ owner_email: 'a@x.com', last_used_date: '' })).not.toThrow();
+  });
+});

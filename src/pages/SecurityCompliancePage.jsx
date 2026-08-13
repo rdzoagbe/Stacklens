@@ -59,7 +59,6 @@ function SecurityTabContent() {
   // can never disagree about the same metric again.
   const orphanedTools = countOrphanedTools(tools);
   const highRiskTools = tools.filter(t => computeToolDerivedRisk(t) === 'high').length;
-  const activeTools = tools.filter(t => t.status === 'active').length;
   const formerAccess = countFormerEmployeeAccess(access, employees);
   const mfa = computeMfaCoverage(tools);
   const mfaCoverage = mfa ? mfa.percent : null;
