@@ -132,7 +132,7 @@ const M365_SYNC_KEY   = 'sg_m365_last_sync';
 
 let _msalApp = null;
 
-async function getMSALApp() {
+export async function getMSALApp() {
   if (_msalApp) return _msalApp;
   const { PublicClientApplication } = await import('@azure/msal-browser');
   const app = new PublicClientApplication({
@@ -159,22 +159,34 @@ function clearMSALInteractionState() {
   }
 }
 
-async function acquireMSToken() {
+// `scopes` is a parameter so write-back can request User.ReadWrite.All
+// incrementally — a customer who only syncs their directory is never asked to
+// grant Stacklens permission to change their tenant.
+export async function acquireMSToken(scopes = GRAPH_SCOPES) {
   const app = await getMSALApp();
   const accounts = app.getAllAccounts();
   if (accounts.length) {
     try {
-      const r = await app.acquireTokenSilent({ scopes: GRAPH_SCOPES, account: accounts[0] });
+      const r = await app.acquireTokenSilent({ scopes, account: accounts[0] });
       return r.accessToken;
-    } catch { /* fall through to popup */ }
+    } catch { /* consent not yet granted for these scopes — fall through */ }
+    try {
+      const r = await app.acquireTokenPopup({ scopes, account: accounts[0] });
+      return r.accessToken;
+    } catch (err) {
+      if (err.errorCode !== 'interaction_in_progress') throw err;
+      clearMSALInteractionState();
+      const r = await app.acquireTokenPopup({ scopes, account: accounts[0] });
+      return r.accessToken;
+    }
   }
   try {
-    const r = await app.loginPopup({ scopes: GRAPH_SCOPES });
+    const r = await app.loginPopup({ scopes });
     return r.accessToken;
   } catch (err) {
     if (err.errorCode === 'interaction_in_progress') {
       clearMSALInteractionState();
-      const r = await app.loginPopup({ scopes: GRAPH_SCOPES });
+      const r = await app.loginPopup({ scopes });
       return r.accessToken;
     }
     throw err;
@@ -204,7 +216,7 @@ function mapMicrosoftUser(u) {
     email:      u.mail || u.userPrincipalName,
     department: u.department || '',
     role:       u.jobTitle || '',
-    status:     u.accountEnabled !== false ? 'active' : 'inactive',
+    status:     u.accountEnabled !== false ? 'active' : 'offboarded',
     start_date: '',
     end_date:   '',
   };
