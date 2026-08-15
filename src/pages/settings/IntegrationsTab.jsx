@@ -7,7 +7,7 @@ import { useDbQuery, useDbMutations } from '../../hooks/useDbQuery';
 import { AppShell } from '../../components/AppShell';
 import { submitContactForm } from '../../lib/contact';
 import { track } from '../../lib/analytics';
-import { zoomIntegration } from '../../firebase-config';
+import { integrationCall } from '../../firebase-config';
 import { purgeLegacyCredentials } from '../../lib/legacyCredentials';
 
 // ── Google Workspace OAuth + Directory API ────────────────────────────────
@@ -84,45 +84,8 @@ function mapGoogleUser(u) {
 }
 
 // ── Slack Bot Token + users.list ─────────────────────────────────────────
-const SLACK_API = 'https://slack.com/api';
-const SLACK_TOKEN_KEY   = 'sg_slack_token';
 const SLACK_CHANNEL_KEY = 'sg_slack_channel';
 const SLACK_SYNC_KEY    = 'sg_slack_last_sync';
-
-async function fetchAllSlackUsers(token) {
-  const members = [];
-  let cursor = '';
-  do {
-    const params = new URLSearchParams({ limit: '200', include_locale: 'false' });
-    if (cursor) params.set('cursor', cursor);
-    const res = await fetch(`${SLACK_API}/users.list?${params}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const data = await res.json();
-    if (!data.ok) {
-      if (data.error === 'missing_scope') throw new Error('Bot token needs users:read and users:read.email scopes. Re-create the token with both scopes enabled.');
-      if (data.error === 'invalid_auth' || data.error === 'not_authed') throw new Error('Invalid Bot Token. Check that you copied the full xoxb-… token.');
-      throw new Error(data.error || 'Slack API error');
-    }
-    const real = (data.members || []).filter(m => !m.is_bot && !m.deleted && m.id !== 'USLACKBOT');
-    members.push(...real);
-    cursor = data.response_metadata?.next_cursor || '';
-  } while (cursor);
-  return members;
-}
-
-function mapSlackUser(u) {
-  const p = u.profile || {};
-  return {
-    full_name:  p.real_name || p.display_name || u.name || '',
-    email:      p.email || '',
-    department: '',
-    role:       p.title || '',
-    status:     u.deleted ? 'inactive' : 'active',
-    start_date: '',
-    end_date:   '',
-  };
-}
 
 // ── Microsoft 365 / Azure AD via MSAL ────────────────────────────────────
 const M365_CLIENT_ID  = import.meta.env.VITE_AZURE_CLIENT_ID;
@@ -223,57 +186,8 @@ function mapMicrosoftUser(u) {
 }
 
 // ── Asana PAT + workspace users ──────────────────────────────────────────
-const ASANA_TOKEN_KEY     = 'sg_asana_token';
 const ASANA_WORKSPACE_KEY = 'sg_asana_workspace';
 const ASANA_SYNC_KEY      = 'sg_asana_last_sync';
-const ASANA_API           = 'https://app.asana.com/api/1.0';
-
-async function fetchAllAsanaUsers(token) {
-  // Resolve first workspace automatically
-  const wsRes = await fetch(`${ASANA_API}/workspaces`, {
-    headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
-  });
-  if (!wsRes.ok) {
-    const body = await wsRes.json().catch(() => ({}));
-    if (wsRes.status === 401) throw new Error('Invalid token. Check that you copied the full PAT correctly.');
-    throw new Error(body.errors?.[0]?.message || `HTTP ${wsRes.status}`);
-  }
-  const wsData = await wsRes.json();
-  if (!wsData.data?.length) throw new Error('No workspaces found. Ensure the token belongs to an active Asana account.');
-  const workspace = wsData.data[0];
-
-  // Paginate users in that workspace
-  const users = [];
-  let offset = null;
-  do {
-    const params = new URLSearchParams({ opt_fields: 'name,email', limit: '100' });
-    if (offset) params.set('offset', offset);
-    const res = await fetch(`${ASANA_API}/workspaces/${workspace.gid}/users?${params}`, {
-      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
-    });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      throw new Error(body.errors?.[0]?.message || `HTTP ${res.status}`);
-    }
-    const data = await res.json();
-    if (Array.isArray(data.data)) users.push(...data.data);
-    offset = data.next_page?.offset || null;
-  } while (offset);
-
-  return { users, workspaceName: workspace.name };
-}
-
-function mapAsanaUser(u) {
-  return {
-    full_name:  u.name  || '',
-    email:      u.email || '',
-    department: '',
-    role:       '',
-    status:     'active',
-    start_date: '',
-    end_date:   '',
-  };
-}
 
 // ── Asana PAT modal ───────────────────────────────────────────────────────
 const ASANA_STEPS = [
@@ -435,46 +349,8 @@ function ZoomCredentialsModal({ onSubmit, onClose, loading }) {
 }
 
 // ── Okta API token + users ───────────────────────────────────────────────
-const OKTA_TOKEN_KEY  = 'sg_okta_token';
 const OKTA_DOMAIN_KEY = 'sg_okta_domain';
 const OKTA_SYNC_KEY   = 'sg_okta_last_sync';
-
-async function fetchAllOktaUsers(token, domain) {
-  const users = [];
-  let url = `https://${domain}/api/v1/users?filter=status+eq+%22ACTIVE%22&limit=200`;
-  while (url) {
-    const res = await fetch(url, {
-      headers: { Authorization: `SSWS ${token}`, Accept: 'application/json' },
-    });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      if (res.status === 401) throw new Error('Invalid API token. Ensure you copied the full token and it has not expired.');
-      if (res.status === 403) throw new Error('Permission denied. The token needs the okta.users.read scope (or "Read-only Admin" role).');
-      if (res.status === 404) throw new Error(`Domain "${domain}" not found. Use the format your-org.okta.com (no https://).`);
-      throw new Error(body.errorSummary || `HTTP ${res.status}`);
-    }
-    const data = await res.json();
-    if (Array.isArray(data)) users.push(...data);
-    const link = res.headers.get('Link') || '';
-    const next = link.match(/<([^>]+)>;\s*rel="next"/)?.[1] || null;
-    url = next;
-  }
-  return users;
-}
-
-function mapOktaUser(u) {
-  const p = u.profile || {};
-  const name = [p.firstName, p.lastName].filter(Boolean).join(' ');
-  return {
-    full_name:  name || (p.email || '').split('@')[0] || '',
-    email:      p.email || p.login || '',
-    department: p.department || '',
-    role:       p.title || '',
-    status:     u.status === 'ACTIVE' ? 'active' : 'inactive',
-    start_date: '',
-    end_date:   '',
-  };
-}
 
 // ── Okta API token modal ──────────────────────────────────────────────────
 const OKTA_STEPS = [
@@ -559,53 +435,8 @@ function OktaTokenModal({ onSubmit, onClose, loading }) {
 }
 
 // ── GitHub PAT + org members ─────────────────────────────────────────────
-const GITHUB_TOKEN_KEY = 'sg_github_token';
 const GITHUB_ORG_KEY   = 'sg_github_org';
 const GITHUB_SYNC_KEY  = 'sg_github_last_sync';
-const GITHUB_API       = 'https://api.github.com';
-
-async function fetchAllGitHubMembers(token, org) {
-  const members = [];
-  let page = 1;
-  while (true) {
-    const res = await fetch(`${GITHUB_API}/orgs/${encodeURIComponent(org)}/members?per_page=100&page=${page}`, {
-      headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' },
-    });
-    if (!res.ok) {
-      if (res.status === 404)  throw new Error(`Organisation "${org}" not found. Check the org name (no spaces, use the URL slug).`);
-      if (res.status === 403)  throw new Error('Access denied. Ensure the token has read:org scope and that your account is a member of the organisation (required if member visibility is private).');
-      if (res.status === 401)  throw new Error('Invalid token. Check that you copied the full ghp_… token.');
-      const body = await res.json().catch(() => ({}));
-      throw new Error(body.message || `HTTP ${res.status}`);
-    }
-    const page_members = await res.json();
-    if (!page_members.length) break;
-    members.push(...page_members);
-    if (page_members.length < 100) break;
-    page++;
-  }
-  return members;
-}
-
-async function enrichGitHubMember(token, login) {
-  const res = await fetch(`${GITHUB_API}/users/${encodeURIComponent(login)}`, {
-    headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json' },
-  });
-  if (!res.ok) return null;
-  return res.json();
-}
-
-function mapGitHubUser(member, detail) {
-  return {
-    full_name:  detail?.name || member.login,
-    email:      detail?.email || '',
-    department: '',
-    role:       detail?.bio?.slice(0, 60) || '',
-    status:     'active',
-    start_date: '',
-    end_date:   '',
-  };
-}
 
 // ── GitHub PAT modal ─────────────────────────────────────────────────────
 const GITHUB_STEPS = [
@@ -918,7 +749,6 @@ function SyncCancelledModal({ source, onRetry, onDismiss }) {
 const SF_CLIENT_ID_KEY  = 'sg_sf_client_id';
 const SF_LOGIN_URL_KEY  = 'sg_sf_login_url';
 const SF_INSTANCE_KEY   = 'sg_sf_instance_url';
-const SF_REFRESH_KEY    = 'sg_sf_refresh_token';
 const SF_SYNC_KEY       = 'sg_sf_last_sync';
 
 function sfGenerateVerifier() {
@@ -982,48 +812,6 @@ async function sfAuthWithPKCE(clientId, loginUrl = 'https://login.salesforce.com
   }
   const tokens = await tokenRes.json();
   return { accessToken: tokens.access_token, instanceUrl: tokens.instance_url, refreshToken: tokens.refresh_token };
-}
-
-async function sfRefreshAccessToken(clientId, refreshToken, loginUrl) {
-  const res = await fetch(`${loginUrl}/services/oauth2/token`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ grant_type: 'refresh_token', client_id: clientId, refresh_token: refreshToken }),
-  });
-  if (!res.ok) return null;
-  return (await res.json()).access_token;
-}
-
-async function fetchAllSalesforceUsers(accessToken, instanceUrl) {
-  const users = [];
-  const q = encodeURIComponent("SELECT Id,Name,Email,Department,Title,IsActive,CreatedDate FROM User WHERE IsActive=true AND UserType='Standard'");
-  let url = `${instanceUrl}/services/data/v59.0/query?q=${q}`;
-  while (url) {
-    const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' } });
-    if (!res.ok) {
-      const body = await res.json().catch(() => [{}]);
-      const msg  = Array.isArray(body) ? body[0]?.message : (body?.error_description || `HTTP ${res.status}`);
-      if (res.status === 401) throw new Error('Session expired. Reconnect to refresh your Salesforce token.');
-      if (res.status === 403) throw new Error('Permission denied. Ensure the Connected App has the "api" scope and the user has API access.');
-      throw new Error(msg);
-    }
-    const data = await res.json();
-    if (Array.isArray(data.records)) users.push(...data.records);
-    url = data.nextRecordsUrl ? `${instanceUrl}${data.nextRecordsUrl}` : null;
-  }
-  return users;
-}
-
-function mapSalesforceUser(u) {
-  return {
-    full_name:  u.Name        || '',
-    email:      u.Email       || '',
-    department: u.Department  || '',
-    role:       u.Title       || '',
-    status:     'active',
-    start_date: u.CreatedDate ? u.CreatedDate.slice(0, 10) : '',
-    end_date:   '',
-  };
 }
 
 const SF_STEPS = [
@@ -1435,216 +1223,25 @@ export function IntegrationConnectors() {
     }
   }, [db?.employees, connectedIntegrations, muts, integrations]);
 
-  // eslint-disable-next-line react-hooks/preserve-manual-memoization
-  const handleSlackTokenSubmit = useCallback(async (token, channel = '#renewals') => {
-    if (!token) return;
-    setSlackSyncing(true);
-    setSyncResult(null);
-    try {
-      const slackUsers = await fetchAllSlackUsers(token);
-      const incoming = slackUsers.map(mapSlackUser).filter(u => u.email);
-
-      const existingByEmail = Object.fromEntries(
-        (db?.employees || []).map(e => [(e.email || '').toLowerCase(), e])
-      );
-
-      const toAdd = [];
-      const toUpdate = [];
-      let skipped = 0;
-
-      for (const u of incoming) {
-        const key = u.email.toLowerCase();
-        const existing = existingByEmail[key];
-        if (!existing) {
-          toAdd.push(u);
-        } else {
-          const patch = {};
-          if (u.full_name && u.full_name !== existing.full_name) patch.full_name = u.full_name;
-          if (u.role && !existing.role) patch.role = u.role;
-          if (u.status !== existing.status) patch.status = u.status;
-          if (Object.keys(patch).length > 0) toUpdate.push({ id: existing.id, patch });
-          else skipped++;
-        }
-      }
-
-      if (toAdd.length > 0) {
-        await muts.bulkImport.mutateAsync({ kind: 'employees', records: toAdd });
-      }
-      for (const { id, patch } of toUpdate) {
-        await muts.updateEmployee.mutateAsync({ id, patch });
-      }
-
-      // Persist token, channel, and connected state
-      localStorage.setItem(SLACK_TOKEN_KEY, token);
-      localStorage.setItem(SLACK_CHANNEL_KEY, channel);
-      localStorage.setItem(SLACK_SYNC_KEY, new Date().toISOString());
-      const next = connectedIntegrations.includes('slack')
-        ? connectedIntegrations
-        : [...connectedIntegrations, 'slack'];
-      setConnectedIntegrations(next);
-      localStorage.setItem('sg_connected_integrations', JSON.stringify(next));
-
-      setSlackTokenModal(false);
-      setSyncResult({
-        source: 'slack',
-        total: incoming.length,
-        added: toAdd.length,
-        updated: toUpdate.length,
-        skipped,
-      });
-    } catch (err) {
-      setSyncResult({ source: 'slack', error: err.message });
-      toast.error('Slack sync failed');
-    } finally {
-      setSlackSyncing(false);
-    }
-  }, [db?.employees, connectedIntegrations, muts]);
-
-  const handleSlackResync = useCallback(async () => {
-    const token   = localStorage.getItem(SLACK_TOKEN_KEY);
-    const channel = localStorage.getItem(SLACK_CHANNEL_KEY) || '#renewals';
-    if (!token) { setSlackTokenModal(true); return; }
-    await handleSlackTokenSubmit(token, channel);
-  }, [handleSlackTokenSubmit]);
-
-  // eslint-disable-next-line react-hooks/preserve-manual-memoization
-  const handleGitHubTokenSubmit = useCallback(async (token, org) => {
-    if (!token || !org) return;
-    setGithubSyncing(true);
-    setSyncResult(null);
-    try {
-      const members = await fetchAllGitHubMembers(token, org);
-
-      // Enrich up to 100 members with full profile (name + email)
-      // GitHub's /orgs/{org}/members returns minimal data; /users/{login} has the rest
-      const ENRICH_LIMIT = 100;
-      const enriched = await Promise.all(
-        members.slice(0, ENRICH_LIMIT).map(m => enrichGitHubMember(token, m.login))
-      );
-      const incoming = members.map((m, i) => mapGitHubUser(m, enriched[i] || null));
-
-      const existingByEmail = Object.fromEntries(
-        (db?.employees || []).map(e => [(e.email || '').toLowerCase(), e])
-      );
-      // Also index by GitHub login for members without email
-      const existingByLogin = Object.fromEntries(
-        (db?.employees || []).map(e => [e.github_login || '', e]).filter(([k]) => k)
-      );
-
-      const toAdd = [], toUpdate = [];
-      let skipped = 0;
-      for (let i = 0; i < incoming.length; i++) {
-        const u = { ...incoming[i], github_login: members[i].login };
-        const byEmail   = u.email ? existingByEmail[u.email.toLowerCase()] : null;
-        const byLogin   = existingByLogin[members[i].login];
-        const existing  = byEmail || byLogin;
-        if (!existing) {
-          toAdd.push(u);
-        } else {
-          const patch = {};
-          if (u.full_name && u.full_name !== members[i].login && u.full_name !== existing.full_name) patch.full_name = u.full_name;
-          if (u.email && !existing.email) patch.email = u.email;
-          if (!existing.github_login) patch.github_login = members[i].login;
-          if (Object.keys(patch).length > 0) toUpdate.push({ id: existing.id, patch });
-          else skipped++;
-        }
-      }
-
-      if (toAdd.length > 0) await muts.bulkImport.mutateAsync({ kind: 'employees', records: toAdd });
-      for (const { id, patch } of toUpdate) await muts.updateEmployee.mutateAsync({ id, patch });
-
-      localStorage.setItem(GITHUB_TOKEN_KEY, token);
-      localStorage.setItem(GITHUB_ORG_KEY, org);
-      localStorage.setItem(GITHUB_SYNC_KEY, new Date().toISOString());
-      const next = connectedIntegrations.includes('github')
-        ? connectedIntegrations
-        : [...connectedIntegrations, 'github'];
-      setConnectedIntegrations(next);
-      localStorage.setItem('sg_connected_integrations', JSON.stringify(next));
-
-      setGithubTokenModal(false);
-      setSyncResult({ source: 'github', total: incoming.length, added: toAdd.length, updated: toUpdate.length, skipped });
-    } catch (err) {
-      setSyncResult({ source: 'github', error: err.message });
-      toast.error('GitHub sync failed');
-    } finally {
-      setGithubSyncing(false);
-    }
-  }, [db?.employees, connectedIntegrations, muts]);
-
-  const handleGitHubResync = useCallback(async () => {
-    const token = localStorage.getItem(GITHUB_TOKEN_KEY);
-    const org   = localStorage.getItem(GITHUB_ORG_KEY);
-    if (!token || !org) { setGithubTokenModal(true); return; }
-    await handleGitHubTokenSubmit(token, org);
-  }, [handleGitHubTokenSubmit]);
-
-  // eslint-disable-next-line react-hooks/preserve-manual-memoization
-  const handleOktaTokenSubmit = useCallback(async (token, domain) => {
-    if (!token || !domain) return;
-    setOktaSyncing(true);
-    setSyncResult(null);
-    try {
-      const oktaUsers = await fetchAllOktaUsers(token, domain);
-      const incoming  = oktaUsers.map(mapOktaUser).filter(u => u.email);
-
-      const existingByEmail = Object.fromEntries(
-        (db?.employees || []).map(e => [(e.email || '').toLowerCase(), e])
-      );
-      const toAdd = [], toUpdate = [];
-      let skipped = 0;
-      for (const u of incoming) {
-        const key      = u.email.toLowerCase();
-        const existing = existingByEmail[key];
-        if (!existing) {
-          toAdd.push(u);
-        } else {
-          const patch = {};
-          if (u.full_name && u.full_name !== existing.full_name) patch.full_name = u.full_name;
-          if (u.department && !existing.department) patch.department = u.department;
-          if (u.role && !existing.role) patch.role = u.role;
-          if (u.status !== existing.status) patch.status = u.status;
-          if (Object.keys(patch).length > 0) toUpdate.push({ id: existing.id, patch });
-          else skipped++;
-        }
-      }
-
-      if (toAdd.length > 0) await muts.bulkImport.mutateAsync({ kind: 'employees', records: toAdd });
-      for (const { id, patch } of toUpdate) await muts.updateEmployee.mutateAsync({ id, patch });
-
-      localStorage.setItem(OKTA_TOKEN_KEY,  token);
-      localStorage.setItem(OKTA_DOMAIN_KEY, domain);
-      localStorage.setItem(OKTA_SYNC_KEY,   new Date().toISOString());
-      const next = connectedIntegrations.includes('okta')
-        ? connectedIntegrations
-        : [...connectedIntegrations, 'okta'];
-      setConnectedIntegrations(next);
-      localStorage.setItem('sg_connected_integrations', JSON.stringify(next));
-
-      setOktaTokenModal(false);
-      setSyncResult({ source: 'okta', total: incoming.length, added: toAdd.length, updated: toUpdate.length, skipped });
-    } catch (err) {
-      setSyncResult({ source: 'okta', error: err.message });
-      toast.error('Okta sync failed');
-    } finally {
-      setOktaSyncing(false);
-    }
-  }, [db?.employees, connectedIntegrations, muts]);
-
-  const handleOktaResync = useCallback(async () => {
-    const token  = localStorage.getItem(OKTA_TOKEN_KEY);
-    const domain = localStorage.getItem(OKTA_DOMAIN_KEY);
-    if (!token || !domain) { setOktaTokenModal(true); return; }
-    await handleOktaTokenSubmit(token, domain);
-  }, [handleOktaTokenSubmit]);
-
-  // Shared by first connect and re-sync: the server returns already-normalised
-  // users, so the client only has to reconcile them against the directory.
    
-  const runZoomSync = useCallback(async () => {
-    const { users } = await zoomIntegration({ action: 'sync' });
-    const incoming = (users || []).filter(u => u.email);
+  // ── Directory sync ────────────────────────────────────────────────────────
+  // Six vendors, one flow. Credentials are posted to the integrations endpoint
+  // once; every sync after that asks the server, which holds the token and
+  // returns already-normalised employee records. Nothing vendor-specific — and
+  // no token — lives in the browser any more. This replaces six near-identical
+  // handler pairs that each re-implemented the same reconcile loop.
+  const SYNC_STATE = {
+    slack:      { setBusy: setSlackSyncing,  openModal: () => setSlackTokenModal(true),  syncKey: SLACK_SYNC_KEY },
+    github:     { setBusy: setGithubSyncing, openModal: () => setGithubTokenModal(true), syncKey: GITHUB_SYNC_KEY },
+    okta:       { setBusy: setOktaSyncing,   openModal: () => setOktaTokenModal(true),   syncKey: OKTA_SYNC_KEY },
+    zoom:       { setBusy: setZoomSyncing,   openModal: () => setZoomModal(true),        syncKey: ZOOM_SYNC_KEY },
+    asana:      { setBusy: setAsanaSyncing,  openModal: () => setAsanaModal(true),  syncKey: ASANA_SYNC_KEY },
+    salesforce: { setBusy: setSfSyncing,     openModal: () => setSfModal(true),          syncKey: SF_SYNC_KEY },
+  };
 
+   
+  const reconcile = useCallback(async (vendor, users) => {
+    const incoming = (users || []).filter(u => u.email);
     const existingByEmail = Object.fromEntries(
       (db?.employees || []).map(e => [(e.email || '').toLowerCase(), e])
     );
@@ -1656,233 +1253,107 @@ export function IntegrationConnectors() {
       const patch = {};
       if (u.full_name && u.full_name !== existing.full_name) patch.full_name = u.full_name;
       if (u.department && !existing.department) patch.department = u.department;
-      if (u.status !== existing.status) patch.status = u.status;
+      if (u.role && !existing.role) patch.role = u.role;
+      if (u.status && u.status !== existing.status) patch.status = u.status;
       if (u.start_date && !existing.start_date) patch.start_date = u.start_date;
       if (Object.keys(patch).length > 0) toUpdate.push({ id: existing.id, patch });
       else skipped++;
     }
-
-    if (toAdd.length > 0) await muts.bulkImport.mutateAsync({ kind: 'employees', records: toAdd });
+    if (toAdd.length) await muts.bulkImport.mutateAsync({ kind: 'employees', records: toAdd });
     for (const { id, patch } of toUpdate) await muts.updateEmployee.mutateAsync({ id, patch });
 
-    localStorage.setItem(ZOOM_SYNC_KEY, new Date().toISOString());
+    localStorage.setItem(SYNC_STATE[vendor].syncKey, new Date().toISOString());
     setConnectedIntegrations(prev => {
-      const next = prev.includes('zoom') ? prev : [...prev, 'zoom'];
+      const next = prev.includes(vendor) ? prev : [...prev, vendor];
       localStorage.setItem('sg_connected_integrations', JSON.stringify(next));
       return next;
     });
-    setZoomModal(false);
-    setSyncResult({ source: 'zoom', total: incoming.length, added: toAdd.length, updated: toUpdate.length, skipped });
+    setSyncResult({ source: vendor, total: incoming.length, added: toAdd.length, updated: toUpdate.length, skipped });
   }, [db?.employees, muts]);
 
+  /** First connect: the server validates the credentials before storing them. */
    
-  const handleZoomSubmit = useCallback(async (accountId, clientId, clientSecret) => {
-    if (!accountId || !clientId || !clientSecret) return;
-    setZoomSyncing(true);
+  const connectVendor = useCallback(async (vendor, credentials, closeModal) => {
+    const st = SYNC_STATE[vendor];
+    st.setBusy(true);
     setSyncResult(null);
     try {
-      // Credentials go straight to the server, which validates them against
-      // Zoom before storing. They are never written to localStorage.
-      await zoomIntegration({ action: 'connect', accountId, clientId, clientSecret });
-      await runZoomSync();
+      await integrationCall(vendor, 'connect', credentials);
+      const { users } = await integrationCall(vendor, 'sync');
+      await reconcile(vendor, users);
+      closeModal?.();
     } catch (err) {
-      setSyncResult({ source: 'zoom', error: err.message });
-      toast.error('Zoom sync failed');
+      setSyncResult({ source: vendor, error: err.message });
+      toast.error(`${vendor} sync failed`);
     } finally {
-      setZoomSyncing(false);
+      st.setBusy(false);
     }
-  }, [runZoomSync]);
+  }, [reconcile]);
 
-  const handleZoomResync = useCallback(async () => {
-    setZoomSyncing(true);
+  /** Re-sync: the server already holds the credentials. */
+   
+  const resyncVendor = useCallback(async (vendor) => {
+    const st = SYNC_STATE[vendor];
+    st.setBusy(true);
     setSyncResult(null);
     try {
-      const { connected } = await zoomIntegration({ action: 'status' });
-      if (!connected) { setZoomModal(true); return; }
-      await runZoomSync();
+      const { connected } = await integrationCall(vendor, 'status');
+      if (!connected) { st.openModal(); return; }
+      const { users } = await integrationCall(vendor, 'sync');
+      await reconcile(vendor, users);
     } catch (err) {
-      setSyncResult({ source: 'zoom', error: err.message });
-      toast.error('Zoom sync failed');
+      setSyncResult({ source: vendor, error: err.message });
+      toast.error(`${vendor} sync failed`);
     } finally {
-      setZoomSyncing(false);
+      st.setBusy(false);
     }
-  }, [runZoomSync]);
+  }, [reconcile]);
 
-  // eslint-disable-next-line react-hooks/preserve-manual-memoization
-  const handleAsanaTokenSubmit = useCallback(async (token) => {
-    if (!token) return;
-    setAsanaSyncing(true);
-    setSyncResult(null);
-    try {
-      const { users: asanaUsers, workspaceName } = await fetchAllAsanaUsers(token);
-      const incoming = asanaUsers.map(mapAsanaUser).filter(u => u.email);
+  const handleSlackTokenSubmit = useCallback((token, channel = '#renewals') => {
+    // The channel is a notification preference, not a credential.
+    localStorage.setItem(SLACK_CHANNEL_KEY, channel);
+    return connectVendor('slack', { token }, () => setSlackTokenModal(false));
+  }, [connectVendor]);
+  const handleSlackResync = useCallback(() => resyncVendor('slack'), [resyncVendor]);
 
-      const existingByEmail = Object.fromEntries(
-        (db?.employees || []).map(e => [(e.email || '').toLowerCase(), e])
-      );
-      const toAdd = [], toUpdate = [];
-      let skipped = 0;
-      for (const u of incoming) {
-        const key      = u.email.toLowerCase();
-        const existing = existingByEmail[key];
-        if (!existing) {
-          toAdd.push(u);
-        } else {
-          const patch = {};
-          if (u.full_name && u.full_name !== existing.full_name) patch.full_name = u.full_name;
-          if (Object.keys(patch).length > 0) toUpdate.push({ id: existing.id, patch });
-          else skipped++;
-        }
-      }
+  const handleGitHubTokenSubmit = useCallback((token, org) =>
+    connectVendor('github', { token, org }, () => setGithubTokenModal(false)), [connectVendor]);
+  const handleGitHubResync = useCallback(() => resyncVendor('github'), [resyncVendor]);
 
-      if (toAdd.length > 0) await muts.bulkImport.mutateAsync({ kind: 'employees', records: toAdd });
-      for (const { id, patch } of toUpdate) await muts.updateEmployee.mutateAsync({ id, patch });
+  const handleOktaTokenSubmit = useCallback((token, domain) =>
+    connectVendor('okta', { token, domain }, () => setOktaTokenModal(false)), [connectVendor]);
+  const handleOktaResync = useCallback(() => resyncVendor('okta'), [resyncVendor]);
 
-      localStorage.setItem(ASANA_TOKEN_KEY,     token);
-      localStorage.setItem(ASANA_WORKSPACE_KEY, workspaceName);
-      localStorage.setItem(ASANA_SYNC_KEY,      new Date().toISOString());
-      const next = connectedIntegrations.includes('asana')
-        ? connectedIntegrations
-        : [...connectedIntegrations, 'asana'];
-      setConnectedIntegrations(next);
-      localStorage.setItem('sg_connected_integrations', JSON.stringify(next));
+  const handleZoomSubmit = useCallback((accountId, clientId, clientSecret) =>
+    connectVendor('zoom', { accountId, clientId, clientSecret }, () => setZoomModal(false)), [connectVendor]);
+  const handleZoomResync = useCallback(() => resyncVendor('zoom'), [resyncVendor]);
 
-      setAsanaModal(false);
-      setSyncResult({ source: 'asana', total: incoming.length, added: toAdd.length, updated: toUpdate.length, skipped });
-    } catch (err) {
-      setSyncResult({ source: 'asana', error: err.message });
-      toast.error('Asana sync failed');
-    } finally {
-      setAsanaSyncing(false);
-    }
-  }, [db?.employees, connectedIntegrations, muts]);
+  const handleAsanaTokenSubmit = useCallback((token) =>
+    connectVendor('asana', { token }, () => setAsanaModal(false)), [connectVendor]);
+  const handleAsanaResync = useCallback(() => resyncVendor('asana'), [resyncVendor]);
 
-  const handleAsanaResync = useCallback(async () => {
-    const token = localStorage.getItem(ASANA_TOKEN_KEY);
-    if (!token) { setAsanaModal(true); return; }
-    await handleAsanaTokenSubmit(token);
-  }, [handleAsanaTokenSubmit]);
-
-  const handleSalesforceSubmitRef = useRef(null);
-  // eslint-disable-next-line react-hooks/preserve-manual-memoization
+  // Salesforce still authorises in the browser — PKCE, so no client secret is
+  // ever held there — but the refresh token it returns goes straight to the
+  // server and is never written to localStorage.
+   
   const handleSalesforceSubmit = useCallback(async (clientId, loginUrl) => {
-    if (!clientId) return;
     setSfSyncing(true);
     setSyncResult(null);
     try {
-      const { accessToken, instanceUrl, refreshToken } = await sfAuthWithPKCE(clientId, loginUrl);
-      const sfUsers  = await fetchAllSalesforceUsers(accessToken, instanceUrl);
-      const incoming = sfUsers.map(mapSalesforceUser).filter(u => u.email);
-
-      const existingByEmail = Object.fromEntries(
-        (db?.employees || []).map(e => [(e.email || '').toLowerCase(), e])
-      );
-      const toAdd = [], toUpdate = [];
-      let skipped = 0;
-      for (const u of incoming) {
-        const key      = u.email.toLowerCase();
-        const existing = existingByEmail[key];
-        if (!existing) {
-          toAdd.push(u);
-        } else {
-          const patch = {};
-          if (u.full_name && u.full_name !== existing.full_name) patch.full_name = u.full_name;
-          if (u.department && !existing.department) patch.department = u.department;
-          if (u.role && !existing.role) patch.role = u.role;
-          if (u.start_date && !existing.start_date) patch.start_date = u.start_date;
-          if (Object.keys(patch).length > 0) toUpdate.push({ id: existing.id, patch });
-          else skipped++;
-        }
-      }
-
-      if (toAdd.length > 0) await muts.bulkImport.mutateAsync({ kind: 'employees', records: toAdd });
-      for (const { id, patch } of toUpdate) await muts.updateEmployee.mutateAsync({ id, patch });
-
-      localStorage.setItem(SF_CLIENT_ID_KEY, clientId);
-      localStorage.setItem(SF_LOGIN_URL_KEY,  loginUrl);
-      localStorage.setItem(SF_INSTANCE_KEY,   instanceUrl);
-      if (refreshToken) localStorage.setItem(SF_REFRESH_KEY, refreshToken);
-      localStorage.setItem(SF_SYNC_KEY,       new Date().toISOString());
-      const next = connectedIntegrations.includes('salesforce')
-        ? connectedIntegrations
-        : [...connectedIntegrations, 'salesforce'];
-      setConnectedIntegrations(next);
-      localStorage.setItem('sg_connected_integrations', JSON.stringify(next));
-
+      const { instanceUrl, refreshToken } = await sfAuthWithPKCE(clientId, loginUrl);
+      if (!refreshToken) throw new Error('Salesforce returned no refresh token. Enable the refresh_token scope on the Connected App.');
+      await integrationCall('salesforce', 'connect', { clientId, refreshToken, instanceUrl, loginUrl });
+      const { users } = await integrationCall('salesforce', 'sync');
+      await reconcile('salesforce', users);
       setSfModal(false);
-      setSyncResult({ source: 'salesforce', total: incoming.length, added: toAdd.length, updated: toUpdate.length, skipped });
     } catch (err) {
-      if (err.message === 'popup_closed_by_user' || err.message === 'popup_closed') {
-        setSyncCancelled({ source: 'salesforce', retry: () => handleSalesforceSubmitRef.current?.(clientId, loginUrl) });
-        return;
-      }
       setSyncResult({ source: 'salesforce', error: err.message });
       toast.error('Salesforce sync failed');
     } finally {
       setSfSyncing(false);
     }
-  }, [db?.employees, connectedIntegrations, muts]);
-  React.useLayoutEffect(() => { handleSalesforceSubmitRef.current = handleSalesforceSubmit; }, [handleSalesforceSubmit]);
-
-  const handleSalesforceResync = useCallback(async () => {
-    const clientId     = localStorage.getItem(SF_CLIENT_ID_KEY);
-    const loginUrl     = localStorage.getItem(SF_LOGIN_URL_KEY) || 'https://login.salesforce.com';
-    const instanceUrl  = localStorage.getItem(SF_INSTANCE_KEY);
-    const refreshToken = localStorage.getItem(SF_REFRESH_KEY);
-    if (!clientId || !instanceUrl) { setSfModal(true); return; }
-
-    setSfSyncing(true);
-    setSyncResult(null);
-    try {
-      // Try silent refresh first; fall back to popup if expired
-      let accessToken = refreshToken ? await sfRefreshAccessToken(clientId, refreshToken, loginUrl) : null;
-      if (!accessToken) {
-        const result  = await sfAuthWithPKCE(clientId, loginUrl);
-        accessToken   = result.accessToken;
-        localStorage.setItem(SF_INSTANCE_KEY, result.instanceUrl);
-        if (result.refreshToken) localStorage.setItem(SF_REFRESH_KEY, result.refreshToken);
-      }
-
-      const sfUsers  = await fetchAllSalesforceUsers(accessToken, instanceUrl);
-      const incoming = sfUsers.map(mapSalesforceUser).filter(u => u.email);
-
-      const existingByEmail = Object.fromEntries(
-        (db?.employees || []).map(e => [(e.email || '').toLowerCase(), e])
-      );
-      const toAdd = [], toUpdate = [];
-      let skipped = 0;
-      for (const u of incoming) {
-        const key      = u.email.toLowerCase();
-        const existing = existingByEmail[key];
-        if (!existing) {
-          toAdd.push(u);
-        } else {
-          const patch = {};
-          if (u.full_name && u.full_name !== existing.full_name) patch.full_name = u.full_name;
-          if (u.department && !existing.department) patch.department = u.department;
-          if (u.role && !existing.role) patch.role = u.role;
-          if (u.start_date && !existing.start_date) patch.start_date = u.start_date;
-          if (Object.keys(patch).length > 0) toUpdate.push({ id: existing.id, patch });
-          else skipped++;
-        }
-      }
-
-      if (toAdd.length > 0) await muts.bulkImport.mutateAsync({ kind: 'employees', records: toAdd });
-      for (const { id, patch } of toUpdate) await muts.updateEmployee.mutateAsync({ id, patch });
-
-      localStorage.setItem(SF_SYNC_KEY, new Date().toISOString());
-      setSyncResult({ source: 'salesforce', total: incoming.length, added: toAdd.length, updated: toUpdate.length, skipped });
-    } catch (err) {
-      if (err.message === 'popup_closed_by_user' || err.message === 'popup_closed') {
-        setSyncCancelled({ source: 'salesforce', retry: handleSalesforceResync });
-        return;
-      }
-      setSyncResult({ source: 'salesforce', error: err.message });
-      toast.error('Salesforce sync failed');
-    } finally {
-      setSfSyncing(false);
-    }
-  }, [db?.employees, muts]);
+  }, [reconcile]);
+  const handleSalesforceResync = useCallback(() => resyncVendor('salesforce'), [resyncVendor]);
 
   const handleMicrosoftConnect = useCallback(async () => {
     if (!M365_CLIENT_ID) {
@@ -1946,58 +1417,34 @@ export function IntegrationConnectors() {
     }
   }, [db?.employees, connectedIntegrations, muts, integrations]);
 
+  // Disconnecting must clear BOTH sides: the credentials the server holds, and
+  // any legacy copy still sitting in this browser from before the migration.
+  const SERVER_HELD = ['slack', 'github', 'okta', 'zoom', 'asana', 'salesforce'];
+  const LOCAL_SYNC_KEYS = {
+    'google-workspace': 'sg_gws_last_sync',
+    'microsoft-365': M365_SYNC_KEY,
+    slack: SLACK_SYNC_KEY, github: GITHUB_SYNC_KEY, okta: OKTA_SYNC_KEY,
+    zoom: ZOOM_SYNC_KEY, asana: ASANA_SYNC_KEY, salesforce: SF_SYNC_KEY,
+  };
+
   const handleDisconnect = (integrationId) => {
     const next = connectedIntegrations.filter(id => id !== integrationId);
     setConnectedIntegrations(next);
     localStorage.setItem('sg_connected_integrations', JSON.stringify(next));
-    if (integrationId === 'google-workspace') {
-      localStorage.removeItem('sg_gws_last_sync');
-      setSyncResult(null);
-    }
-    if (integrationId === 'slack') {
-      localStorage.removeItem(SLACK_TOKEN_KEY);
-      localStorage.removeItem(SLACK_CHANNEL_KEY);
-      localStorage.removeItem(SLACK_SYNC_KEY);
-      setSyncResult(null);
+
+    if (SERVER_HELD.includes(integrationId)) {
+      // Fire and forget: the local state is already cleared, and a failed
+      // server delete must not leave the UI showing a connected integration.
+      integrationCall(integrationId, 'disconnect').catch(() => {});
     }
     if (integrationId === 'microsoft-365') {
-      localStorage.removeItem(M365_SYNC_KEY);
       // eslint-disable-next-line react-hooks/globals
       _msalApp = null; // module-level MSAL singleton, intentionally reset on disconnect
-      setSyncResult(null);
     }
-    if (integrationId === 'github') {
-      localStorage.removeItem(GITHUB_TOKEN_KEY);
-      localStorage.removeItem(GITHUB_ORG_KEY);
-      localStorage.removeItem(GITHUB_SYNC_KEY);
-      setSyncResult(null);
-    }
-    if (integrationId === 'okta') {
-      localStorage.removeItem(OKTA_TOKEN_KEY);
-      localStorage.removeItem(OKTA_DOMAIN_KEY);
-      localStorage.removeItem(OKTA_SYNC_KEY);
-      setSyncResult(null);
-    }
-    if (integrationId === 'zoom') {
-      purgeLegacyCredentials();
-      zoomIntegration({ action: 'disconnect' }).catch(() => {});
-      localStorage.removeItem(ZOOM_SYNC_KEY);
-      setSyncResult(null);
-    }
-    if (integrationId === 'asana') {
-      localStorage.removeItem(ASANA_TOKEN_KEY);
-      localStorage.removeItem(ASANA_WORKSPACE_KEY);
-      localStorage.removeItem(ASANA_SYNC_KEY);
-      setSyncResult(null);
-    }
-    if (integrationId === 'salesforce') {
-      localStorage.removeItem(SF_CLIENT_ID_KEY);
-      localStorage.removeItem(SF_LOGIN_URL_KEY);
-      localStorage.removeItem(SF_INSTANCE_KEY);
-      localStorage.removeItem(SF_REFRESH_KEY);
-      localStorage.removeItem(SF_SYNC_KEY);
-      setSyncResult(null);
-    }
+    if (LOCAL_SYNC_KEYS[integrationId]) localStorage.removeItem(LOCAL_SYNC_KEYS[integrationId]);
+    localStorage.removeItem(SLACK_CHANNEL_KEY);
+    purgeLegacyCredentials();
+    setSyncResult(null);
   };
 
   const handleConnect = (integration) => {

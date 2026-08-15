@@ -14,12 +14,27 @@
 // /integration_credentials/{uid}, which is server-only. A user who has not yet
 // reconnected is simply prompted to reconnect.
 
-// Zoom: Server-to-Server OAuth. The client secret is admin-scoped over the
-// customer's whole Zoom account and does not expire — the worst of the set.
+// Every vendor credential older builds kept in the browser. All are now held
+// in /integration_credentials/{uid} and posted through the integrations
+// endpoint; none of these keys is written any more.
+//
+//   Zoom          S2S client secret — admin-scoped over the whole account,
+//                 never expires. The worst of the set.
+//   Salesforce    refresh token — grants persistent re-authentication.
+//   Okta          API token — org-wide directory read.
+//   GitHub        personal access token — as broad as the PAT's scopes.
+//   Slack, Asana  workspace tokens.
+//
+// The non-secret companions (org name, Okta domain, instance URL) are purged
+// alongside them: without the token they are useless, and leaving them behind
+// would make a disconnected integration look half-connected.
 const PURGED_KEYS = [
-  'sg_zoom_account_id',
-  'sg_zoom_client_id',
-  'sg_zoom_client_secret',
+  'sg_zoom_account_id', 'sg_zoom_client_id', 'sg_zoom_client_secret',
+  'sg_slack_token',
+  'sg_okta_token', 'sg_okta_domain',
+  'sg_github_token', 'sg_github_org',
+  'sg_asana_token',
+  'sg_sf_refresh_token', 'sg_sf_client_id', 'sg_sf_instance_url', 'sg_sf_login_url',
 ];
 
 export function purgeLegacyCredentials() {
