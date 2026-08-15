@@ -225,7 +225,14 @@ export function DashboardPage() {
         .filter(tool => tool.cost_per_month > 0)
         .sort((a, b) => b.cost_per_month - a.cost_per_month)
         .slice(0, 6)
-        .map(tool => ({ label: tool.name, value: tool.cost_per_month, sub: `${tool.seats || '?'} seats` }));
+        // Seat counts are optional — CSV import and directory sync do not
+        // supply them. Showing "? seats" under every row made a populated
+        // dashboard look like it was missing data.
+        .map(tool => ({
+          label: tool.name,
+          value: tool.cost_per_month,
+          sub: tool.seats ? `${tool.seats} ${t('lbl_seats')}` : '',
+        }));
     }
     if (spendView === 'category') {
       const cat = {};

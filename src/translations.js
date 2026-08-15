@@ -5,6 +5,7 @@
 
 export const translations = {
   en: {
+    lbl_seats: "seats",
     m365_block_cta: "Block sign-in in Microsoft 365",
     m365_block_confirm: "Block sign-in for {name} in Microsoft 365?\n\nThis takes effect in your tenant immediately and revokes access to every app federated through it. An administrator can re-enable the account in Entra ID.",
     m365_block_done: "{name} can no longer sign in to Microsoft 365",
@@ -3081,6 +3082,7 @@ export const translations = {
     notif_offboard_sub: "When an offboarding task is started",
   },
   fr: {
+    lbl_seats: "postes",
     m365_block_cta: "Bloquer la connexion dans Microsoft 365",
     m365_block_confirm: "Bloquer la connexion de {name} dans Microsoft 365 ?\n\nL'effet est immédiat dans votre tenant et révoque l'accès à toutes les applications fédérées. Un administrateur peut réactiver le compte dans Entra ID.",
     m365_block_done: "{name} ne peut plus se connecter à Microsoft 365",
@@ -6293,6 +6295,7 @@ export const translations = {
     notif_offboard_sub: "Quand une tâche de départ est lancée",
   },
   de: {
+    lbl_seats: "Lizenzen",
     m365_block_cta: "Anmeldung in Microsoft 365 sperren",
     m365_block_confirm: "Anmeldung von {name} in Microsoft 365 sperren?\n\nDies wirkt sofort in Ihrem Tenant und entzieht den Zugriff auf alle föderierten Apps. Ein Administrator kann das Konto in Entra ID wieder aktivieren.",
     m365_block_done: "{name} kann sich nicht mehr bei Microsoft 365 anmelden",
@@ -7850,6 +7853,7 @@ export const translations = {
     aud_more: "weitere",
   },
   es: {
+    lbl_seats: "licencias",
     m365_block_cta: "Bloquear el inicio de sesión en Microsoft 365",
     m365_block_confirm: "¿Bloquear el inicio de sesión de {name} en Microsoft 365?\n\nEs efectivo de inmediato en su tenant y revoca el acceso a todas las aplicaciones federadas. Un administrador puede reactivar la cuenta en Entra ID.",
     m365_block_done: "{name} ya no puede iniciar sesión en Microsoft 365",
@@ -9554,6 +9558,7 @@ export const translations = {
     aud_more: "más",
   },
   pt: {
+    lbl_seats: "licenças",
     m365_block_cta: "Bloquear o início de sessão no Microsoft 365",
     m365_block_confirm: "Bloquear o início de sessão de {name} no Microsoft 365?\n\nTem efeito imediato no seu tenant e revoga o acesso a todas as aplicações federadas. Um administrador pode reativar a conta no Entra ID.",
     m365_block_done: "{name} já não consegue iniciar sessão no Microsoft 365",
