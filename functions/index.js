@@ -988,108 +988,78 @@ exports.bankfeed = onRequest({ cors: true, timeoutSeconds: 120 }, async (req, re
   });
 });
 
-// ── Zoom integration (credentials held server-side) ──────────────────────
-// The Zoom Server-to-Server OAuth client secret used to be typed into the
-// browser and kept in localStorage, where any XSS could read it. It is a
-// long-lived credential with user:read:admin scope over the customer's whole
-// Zoom account and it does not expire, so it never belongs in the client.
+// ── Directory integrations (credentials held server-side) ────────────────
+// Vendor tokens used to sit in localStorage, readable by any XSS. They now
+// live in /integration_credentials/{uid}, which has an explicit
+// `allow read, write: if false` in firestore.rules — the browser posts them
+// once and can never read them back.
 //
-// Credentials now live in /integration_credentials/{uid}, which has no rule
-// in firestore.rules and is therefore server-only under the default deny —
-// the browser cannot read them back even with a valid session. The client
-// posts them once, and from then on only asks this endpoint to sync.
-const ZOOM_RATE_LIMIT = { maxCalls: 30, windowMs: 60 * 60 * 1000 };
+// One endpoint for every vendor. Per-vendor fetching and normalisation live in
+// ./integrations.js, so adding a seventh is one entry there, not another
+// endpoint here.
+const { VENDORS, IntegrationError } = require('./integrations');
+const INTEGRATION_RATE_LIMIT = { maxCalls: 60, windowMs: 60 * 60 * 1000 };
 
-async function zoomAccessToken({ accountId, clientId, clientSecret }) {
-  const creds = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
-  const r = await fetch(
-    `https://zoom.us/oauth/token?grant_type=account_credentials&account_id=${encodeURIComponent(accountId)}`,
-    { method: 'POST', headers: { Authorization: `Basic ${creds}` } }
-  );
-  const out = await r.json().catch(() => ({}));
-  if (!r.ok || !out.access_token) {
-    throw new Error(out?.reason || out?.error || 'Zoom rejected those credentials');
-  }
-  return out.access_token;
-}
-
-exports.zoomsync = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, res) => {
+exports.integrations = onRequest({ cors: true, timeoutSeconds: 120 }, async (req, res) => {
   cors(req, res, async () => {
     if (req.method === 'OPTIONS') return res.status(204).send('');
     if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
     const decoded = await verifyAuth(req, res); if (!decoded) return;
-    if (!await checkRateLimit(decoded.uid, res, ZOOM_RATE_LIMIT, 'zoom')) return;
+    if (!await checkRateLimit(decoded.uid, res, INTEGRATION_RATE_LIMIT, 'integrations')) return;
 
-    const db = getFirestore();
-    const ref = db.collection('integration_credentials').doc(decoded.uid);
-    const { action } = req.body || {};
+    const { vendor, action } = req.body || {};
+    const spec = VENDORS[vendor];
+    if (!spec) return res.status(400).json({ error: 'Unknown integration' });
+
+    const ref = getFirestore().collection('integration_credentials').doc(decoded.uid);
 
     try {
       if (action === 'connect') {
-        const accountId    = String(req.body?.accountId || '').trim();
-        const clientId     = String(req.body?.clientId || '').trim();
-        const clientSecret = String(req.body?.clientSecret || '').trim();
-        if (!accountId || !clientId || !clientSecret) {
-          return res.status(400).json({ error: 'Account ID, Client ID and Client Secret are all required' });
+        const creds = {};
+        for (const field of spec.required) {
+          const value = String(req.body?.credentials?.[field] || '').trim();
+          if (!value) return res.status(400).json({ error: `Missing ${field}` });
+          creds[field] = value;
+        }
+        // Optional extras (Salesforce loginUrl) are stored but not required.
+        for (const [k, v] of Object.entries(req.body?.credentials || {})) {
+          if (!(k in creds) && typeof v === 'string' && v.trim()) creds[k] = v.trim();
         }
         // Prove the credentials work before storing them, so a typo surfaces
-        // immediately rather than at the first sync.
-        await zoomAccessToken({ accountId, clientId, clientSecret });
-        await ref.set({
-          zoom: { accountId, clientId, clientSecret, connected_at: new Date().toISOString() },
-        }, { merge: true });
+        // now rather than at the first sync.
+        await spec.listUsers(creds);
+        await ref.set({ [vendor]: { ...creds, connected_at: new Date().toISOString() } }, { merge: true });
         return res.json({ ok: true });
       }
 
       if (action === 'status') {
         const snap = await ref.get();
-        const z = snap.exists ? snap.data().zoom : null;
-        // Never echo the secret back — only whether it is set.
-        return res.json({ connected: !!z, connected_at: z?.connected_at || null, last_sync: z?.last_sync || null });
+        const v = snap.exists ? snap.data()[vendor] : null;
+        // Never echo credentials back — only whether they are set.
+        return res.json({ connected: !!v, connected_at: v?.connected_at || null, last_sync: v?.last_sync || null });
       }
 
       if (action === 'disconnect') {
-        await ref.set({ zoom: FieldValue.delete() }, { merge: true });
+        await ref.set({ [vendor]: FieldValue.delete() }, { merge: true });
         return res.json({ ok: true });
       }
 
       if (action === 'sync') {
         const snap = await ref.get();
-        const z = snap.exists ? snap.data().zoom : null;
-        if (!z) return res.status(400).json({ error: 'Zoom is not connected yet' });
-        const token = await zoomAccessToken(z);
-        const users = [];
-        let next = '';
-        for (let i = 0; i < 10; i++) {
-          const url = `https://api.zoom.us/v2/users?status=active&page_size=300${next ? `&next_page_token=${encodeURIComponent(next)}` : ''}`;
-          const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-          const out = await r.json().catch(() => ({}));
-          if (!r.ok) throw new Error(out?.message || 'Could not fetch Zoom users');
-          users.push(...(out.users || []));
-          next = out.next_page_token || '';
-          if (!next) break;
-        }
-        await ref.set({ zoom: { last_sync: new Date().toISOString() } }, { merge: true });
-        return res.json({
-          // Normalised here so the client stores valid enum values. The old
-          // browser-side mapper emitted status 'inactive', which is not one of
-          // the app's employee statuses (active | offboarding | offboarded).
-          users: users.map(u => ({
-            email: u.email || '',
-            full_name: [u.first_name, u.last_name].filter(Boolean).join(' ')
-              || u.display_name || (u.email || '').split('@')[0] || '',
-            department: u.dept || '',
-            role: u.role_name || '',
-            status: u.status === 'active' ? 'active' : 'offboarded',
-            start_date: u.created_at ? String(u.created_at).slice(0, 10) : '',
-            end_date: '',
-          })),
-        });
+        const creds = snap.exists ? snap.data()[vendor] : null;
+        if (!creds) return res.status(400).json({ error: 'Not connected yet' });
+        const users = await spec.listUsers(creds);
+        await ref.set({ [vendor]: { last_sync: new Date().toISOString() } }, { merge: true });
+        return res.json({ users });
       }
 
       return res.status(400).json({ error: 'Unknown action' });
     } catch (err) {
-      console.error('zoomsync error:', err);
+      if (err instanceof IntegrationError) {
+        console.warn(`integrations/${vendor}:`, err.message);
+        return res.status(err.httpStatus).json({ error: err.message });
+      }
+      console.error(`integrations/${vendor} error:`, err);
       return res.status(500).json({ error: err.message || 'Internal error' });
     }
   });

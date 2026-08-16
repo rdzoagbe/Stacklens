@@ -7,7 +7,9 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,
-    include: ['src/**/*.test.{js,jsx}'],
+    // functions/ is server code but its per-vendor normalisation decides
+    // what gets written into a customer's directory, so it is unit-tested too.
+    include: ['src/**/*.test.{js,jsx}', 'functions/**/*.test.js'],
     // The Firestore rules suite needs the emulator, so it is not part of the
     // default fast run. `npm run test:rules` starts the emulator around it,
     // and CI runs both.

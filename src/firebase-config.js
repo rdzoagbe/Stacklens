@@ -669,18 +669,19 @@ async function callApiKeys(body) {
   if (!res.ok) throw new Error(data.error || 'API key request failed');
   return data;
 }
-// Zoom integration — credentials are posted once and then held server-side.
-// The browser never stores or reads back the Server-to-Server client secret.
-export async function zoomIntegration(body) {
+// Directory integrations — credentials are posted once and then held
+// server-side. The browser never stores, and can never read back, a vendor
+// token. `vendor` is one of slack | okta | github | asana | salesforce | zoom.
+export async function integrationCall(vendor, action, credentials) {
   const token = await getToken();
   if (!token) throw new Error('Not authenticated');
-  const res = await fetch(`${FUNCTIONS_BASE}/zoomsync`, {
+  const res = await fetch(`${FUNCTIONS_BASE}/integrations`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ vendor, action, credentials }),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || 'Zoom request failed');
+  if (!res.ok) throw new Error(data.error || 'Integration request failed');
   return data;
 }
 
