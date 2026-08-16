@@ -150,11 +150,12 @@ export function ContactPage() {
 
             <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6">
               <h3 className="text-sm font-bold text-white mb-3">{t('contact_response_time')}</h3>
-              <div className="space-y-2 text-sm text-slate-400">
-                <div className="flex justify-between"><span>{t('contact_general_q')}</span><span className="text-slate-300">{'< 24h'}</span></div>
-                <div className="flex justify-between"><span>Support</span><span className="text-slate-300">{'< 12h'}</span></div>
-                <div className="flex justify-between"><span>{t('contact_sales_label')}</span><span className="text-slate-300">{'< 4h'}</span></div>
-              </div>
+              {/* One commitment we can actually keep. The previous tiered SLA
+                  promised sales replies in under 4 hours and support in under
+                  12, around the clock — not something a small team can honour,
+                  and published targets are the kind of thing customers quote
+                  back at you. */}
+              <p className="text-sm text-slate-400 leading-relaxed">{t('contact_response_value')}</p>
             </div>
 
             <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6">
