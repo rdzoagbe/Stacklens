@@ -1,0 +1,13 @@
+# Stacklens — vulnerability disclosure
+#
+# If you have found a security issue in Stacklens, please tell us before
+# disclosing it publicly. We will acknowledge your report and keep you
+# updated on the fix. We do not take legal action against researchers who
+# act in good faith and do not access, modify or delete other people's data.
+
+Contact: mailto:hello@stacklens.fr
+Contact: https://stacklens.fr/contact
+Expires: 2027-09-01T00:00:00.000Z
+Preferred-Languages: en, fr
+Canonical: https://stacklens.fr/.well-known/security.txt
+Policy: https://stacklens.fr/security-info
