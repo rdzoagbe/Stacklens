@@ -136,7 +136,9 @@ Three sign-in methods, all in `firebase-config.js`:
 - Magic link (`sendMagicLink` / `completeMagicLinkSignIn`)
 - Email/password (`registerWithEmail` / `signInWithEmail`)
 
-Firebase App Check (reCAPTCHA v3) is active — the site key is in `VITE_RECAPTCHA_SITE_KEY`. All auth ops require a valid App Check token. If sign-in fails with `auth/internal-error`, check that the deployment domain is in the reCAPTCHA allowed-domains list in Google Cloud Console.
+**Firebase App Check (reCAPTCHA v3) is currently DISABLED.** The switch is `APP_CHECK_ENABLED = false` in `src/firebase-config.js`, and the wiring behind it is intact — the site key is in `VITE_RECAPTCHA_SITE_KEY`. Nothing today verifies that a caller is the real app, so auth and the callable endpoints are reachable by any client that has the (public) Firebase config.
+
+To re-enable, flip the flag to `true`. Do it as its own change: every auth operation then requires a valid App Check token, and if the deployment domain is not in the reCAPTCHA allowed-domains list in Google Cloud Console, sign-in fails with `auth/internal-error` for real users. Verify the allow-list before shipping it.
 
 ### Cloud Functions
 

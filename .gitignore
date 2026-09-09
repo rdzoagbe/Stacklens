@@ -59,6 +59,9 @@ public/*
 !public/favicon.svg
 !public/robots.txt
 !public/sitemap.xml
+# A parent directory has to be re-included before a file inside it can be.
+!public/.well-known/
+!public/.well-known/security.txt
 scripts/
 
 # Firestore emulator artifacts
