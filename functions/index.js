@@ -12,6 +12,9 @@ const { initializeApp } = require('firebase-admin/app');
 const { getAuth } = require('firebase-admin/auth');
 const { getFirestore, Timestamp, FieldValue } = require('firebase-admin/firestore');
 const { getAppCheck } = require('firebase-admin/app-check');
+const {
+  MEMBER_ROLES, CHUNKED_KEYS, findMembership, assertCanWrite, buildSafeUpdate, sliceCollection,
+} = require('./workspace-write.js');
 
 // Explicitly allow stacklens.fr and Firebase preview domains
 const ALLOWED_ORIGINS = [
@@ -1082,7 +1085,7 @@ exports.workspace = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, re
     // 'mine' runs on app load.
     if (!await checkRateLimit(decoded.uid, res, WORKSPACE_RATE_LIMIT, 'workspace')) return;
     const db = getFirestore();
-    const { action, email, id, ownerUid } = req.body || {};
+    const { action, email, id, ownerUid, role } = req.body || {};
     // SECURITY: only trust the token's email for authorization when Firebase
     // has verified ownership of that mailbox. Otherwise an attacker could
     // register (email/password) under an invited address they don't own — the
@@ -1162,8 +1165,87 @@ exports.workspace = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, re
           is_founder: u.is_founder === true,
         };
         delete data._uid;
-        return res.json({ data });
+        return res.json({ data, role: me.data().role || 'viewer' });
       }
+
+      // Owner promotes or demotes a member. Only the owner of the workspace
+      // may change a role, and only between the two member roles — an owner
+      // cannot mint an 'owner' or 'admin' member through this path.
+      if (action === 'setrole') {
+        const snap = await col.doc(String(id || '')).get();
+        if (!snap.exists || snap.data().owner_uid !== decoded.uid) {
+          return res.status(404).json({ error: 'Not found' });
+        }
+        if (!MEMBER_ROLES.includes(role)) {
+          return res.status(400).json({ error: `role must be one of ${MEMBER_ROLES.join(', ')}` });
+        }
+        await snap.ref.update({ role });
+        return res.json({ ok: true, role });
+      }
+
+      // A member with the editor role writes the owner's data.
+      //
+      // The tenant boundary for this path is function code rather than
+      // firestore.rules, because the caller is not the owner and the rules say
+      // isOwner(uid). Every decision it rests on lives in workspace-write.js
+      // with its own tests, including the two ways this destroys the owner's
+      // data if written naively: accepting the member's cut-down `user` record
+      // back, and syncing a copy their browser trimmed to fit localStorage.
+      if (action === 'write') {
+        const target = String(ownerUid || '');
+        if (!target) return res.status(400).json({ error: 'ownerUid required' });
+
+        const snap = await col.where('owner_uid', '==', target).get();
+        const membership = findMembership(
+          snap.docs.map(d => d.data()),
+          { callerUid: decoded.uid, callerEmail }
+        );
+        try {
+          assertCanWrite(membership);
+        } catch (err) {
+          return res.status(err.httpStatus || 403).json({ error: err.message });
+        }
+
+        const ownerRef = db.collection('userdata').doc(target);
+        const ownerSnap = await ownerRef.get();
+        if (!ownerSnap.exists) return res.status(404).json({ error: 'Workspace has no data yet' });
+        const ownerData = await assembleUserdata(ownerSnap);
+
+        let merged;
+        try {
+          merged = buildSafeUpdate(ownerData, req.body?.data);
+        } catch (err) {
+          return res.status(err.httpStatus || 400).json({ error: err.message });
+        }
+
+        // Same chunk layout the owner's own browser writes — see the drift
+        // test in src/lib/chunk-format.test.js.
+        const meta = { ...merged, _uid: target, _updatedAt: Date.now() };
+        const chunkCounts = {};
+        const batch = db.batch();
+        const chunksRef = ownerRef.collection('chunks');
+        for (const key of CHUNKED_KEYS) {
+          const slices = sliceCollection(merged[key]);
+          delete meta[key];
+          chunkCounts[key] = slices.length;
+          slices.forEach((items, i) => batch.set(chunksRef.doc(`${key}_${i}`), { items }));
+        }
+        meta._chunks = chunkCounts;
+        batch.set(ownerRef, meta);
+
+        // Drop slices left behind by a previous, larger save.
+        const existingChunks = await chunksRef.get();
+        existingChunks.forEach(d => {
+          const m = d.id.match(/^(.+)_(\d+)$/);
+          if (!m || !(m[1] in chunkCounts) || Number(m[2]) >= chunkCounts[m[1]]) {
+            batch.delete(d.ref);
+          }
+        });
+
+        await batch.commit();
+        return res.json({ ok: true });
+      }
+
       return res.status(400).json({ error: 'Unknown action' });
     } catch (err) {
       console.error('workspace error:', err);

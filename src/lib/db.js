@@ -1,5 +1,5 @@
 import { LS_KEY } from './constants';
-import { saveUserData, loadUserData } from '../firebase-config';
+import { saveUserData, loadUserData, workspaceWrite } from '../firebase-config';
 import { markSyncSaving, markSyncSaved, markSyncFailed } from './syncStatus';
 import { format, subDays, parseISO, isValid } from 'date-fns';
 
@@ -97,9 +97,28 @@ export function saveDb(db) {
     }
     localStorage.setItem(LS_KEY, serialized);
   }
-  // A shared-view copy (someone else's workspace, read-only) must NEVER be
-  // synced to the cloud — neither to the owner's doc nor over the viewer's own.
-  if (db?._shared_view) return;
+  // A shared-view copy belongs to someone else's workspace. It must never go
+  // to the viewer's own Firestore document, and it only reaches the owner's
+  // through the workspace endpoint, which re-checks membership server-side —
+  // the browser holds no Firestore credentials for another workspace.
+  if (db?._shared_view) {
+    if (db._shared_view.role !== 'editor') return;     // viewer: read-only
+    if (db._trimmed) {
+      // The blob was cut down to fit this browser's localStorage. Sending it
+      // would delete history the owner still has, so refuse rather than
+      // silently truncate their data. The endpoint refuses it too.
+      markSyncFailed(new Error('Workspace too large for this browser to sync safely'), null);
+      return;
+    }
+    clearTimeout(_cloudSaveTimer);
+    const ownerUid = db._shared_view.owner_uid;
+    _cloudSaveTimer = setTimeout(() => {
+      const attempt = () => workspaceWrite(ownerUid, db);
+      markSyncSaving();
+      attempt().then(markSyncSaved, (err) => markSyncFailed(err, attempt));
+    }, 1500);
+    return;
+  }
   if (_firestoreUid && db?.user?.is_authenticated && !db?.user?.is_demo) {
     // Debounced: rapid consecutive edits produce one cloud write (the chunked
     // backup is several documents per save; un-debounced bursts previously
@@ -130,10 +149,16 @@ export function enterSharedView(sharedDb, meta) {
   try {
     if (current && !JSON.parse(current)?._shared_view) localStorage.setItem(OWN_BACKUP_KEY, current);
   } catch { /* unreadable blob — don't overwrite an existing backup with it */ }
+  // The role comes from the membership record the server returned, not from a
+  // constant. 'editor' lets the RoleGates show edit controls and lets saveDb
+  // sync through the workspace endpoint; anything else stays read-only.
+  // Defaulting to 'viewer' matters: an older server that does not send a role
+  // must not silently grant write access.
+  const role = meta?.role === 'editor' ? 'editor' : 'viewer';
   const view = {
     ...sharedDb,
-    _shared_view: meta, // { owner_uid, owner_email }
-    user: { ...(sharedDb.user || {}), role: 'viewer', is_authenticated: true, is_demo: false },
+    _shared_view: { ...meta, role }, // { owner_uid, owner_email, role }
+    user: { ...(sharedDb.user || {}), role, is_authenticated: true, is_demo: false },
   };
   localStorage.setItem(LS_KEY, JSON.stringify(view));
   return view;

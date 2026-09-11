@@ -703,6 +703,12 @@ export const workspaceMembers = () => callWorkspace({ action: 'members' });
 export const workspaceRevoke  = (id) => callWorkspace({ action: 'revoke', id });
 export const workspaceMine    = () => callWorkspace({ action: 'mine' });
 export const workspaceRead    = (ownerUid) => callWorkspace({ action: 'read', ownerUid });
+export const workspaceSetRole = (id, role) => callWorkspace({ action: 'setrole', id, role });
+// A member with the editor role saving the owner's data. The browser has no
+// Firestore credentials for someone else's workspace — the rules are
+// isOwner(uid) — so this is the only write path, and the endpoint decides what
+// of the payload it trusts (see functions/workspace-write.js).
+export const workspaceWrite   = (ownerUid, data) => callWorkspace({ action: 'write', ownerUid, data });
 
 // Bank feed — GoCardless open-banking connection + recurring-charge sync
 async function callBankfeed(body) {

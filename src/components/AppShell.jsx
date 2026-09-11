@@ -670,8 +670,12 @@ export function SharedWorkspaceBanner() {
     if (busy) return;
     setBusy(true);
     try {
-      const { data } = await workspaceRead(w.owner_uid);
-      enterSharedView(data, { owner_uid: w.owner_uid, owner_email: w.owner_email });
+      // Trust the role the server returns with the data over the one listed
+      // earlier: `mine` may have been cached before the owner changed it.
+      const { data, role } = await workspaceRead(w.owner_uid);
+      enterSharedView(data, {
+        owner_uid: w.owner_uid, owner_email: w.owner_email, role: role || w.role,
+      });
       qc.invalidateQueries({ queryKey: ['db'] });
       toast.success(t('ws_opened'));
     } catch (err) {
@@ -680,13 +684,22 @@ export function SharedWorkspaceBanner() {
   };
 
   if (shared) {
+    // An editor is changing someone else's live data, so the banner has to say
+    // so unmistakably — the whole screen otherwise looks like their own
+    // workspace, and an edit made in the wrong one is the mistake this bar
+    // exists to prevent.
+    const editing = shared.role === 'editor';
     return (
-      <div className="flex flex-wrap items-center justify-center gap-3 bg-amber-500/10 border-b border-amber-500/30 px-4 py-2 text-sm">
-        <span className="text-amber-300 font-semibold">
-          👁 {t('ws_viewing')} <span className="font-mono">{shared.owner_email || shared.owner_uid}</span> — {t('ws_readonly')}
+      <div className={"flex flex-wrap items-center justify-center gap-3 border-b px-4 py-2 text-sm " + (
+        editing ? 'bg-rose-500/10 border-rose-500/30' : 'bg-amber-500/10 border-amber-500/30')}>
+        <span className={"font-semibold " + (editing ? 'text-rose-300' : 'text-amber-300')}>
+          {editing ? '✎' : '👁'} {t('ws_viewing')} <span className="font-mono">{shared.owner_email || shared.owner_uid}</span>
+          {' — '}{editing ? t('ws_editing') : t('ws_readonly')}
         </span>
         <button onClick={() => { exitSharedView(); qc.invalidateQueries({ queryKey: ['db'] }); }}
-          className="px-3 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-xs font-bold transition-colors">
+          className={"px-3 py-1 rounded-lg text-xs font-bold transition-colors " + (
+            editing ? 'bg-rose-500/20 hover:bg-rose-500/30 text-rose-200'
+                    : 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-200')}>
           {t('ws_exit')}
         </button>
       </div>
