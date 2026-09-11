@@ -1,12 +1,17 @@
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
-import { sendInviteEmail, workspaceInvite, workspaceMembers, workspaceRevoke } from '../../firebase-config';
+import { sendInviteEmail, workspaceInvite, workspaceMembers, workspaceRevoke, workspaceSetRole } from '../../firebase-config';
 import { Card, CardHeader, CardBody } from '../../components/ui';
 
 // Real team sharing: invites live in the server-only /workspace_members
 // collection. The invitee signs in to Stacklens with the invited email and
-// gets a read-only view of this workspace (served through the workspace
-// endpoint — no direct database access is ever granted).
+// sees this workspace served through the workspace endpoint — no direct
+// database access is ever granted.
+//
+// A member is a viewer by default and can be promoted to editor here. An
+// editor's changes are written to this workspace by the endpoint, which
+// re-checks the role server-side; the control below is a convenience, not the
+// thing that enforces it.
 export function TeamTab({ db, firebaseUser, t }) {
   const owner = {
     id: 'owner',
@@ -50,6 +55,18 @@ export function TeamTab({ db, firebaseUser, t }) {
     } catch (err) { toast.error(err.message || 'Error'); }
   };
 
+  const setRole = async (id, role) => {
+    // Optimistic, because the select should not lag behind the click; the
+    // refresh below reconciles with whatever the server actually stored.
+    setMembers(ms => (ms || []).map(m => (m.id === id ? { ...m, role } : m)));
+    try {
+      await workspaceSetRole(id, role);
+      toast.success(role === 'editor' ? t('ws_role_editor_set') : t('ws_role_viewer_set'));
+    } catch (err) {
+      toast.error(err.message || 'Error');
+    } finally { refresh(); }
+  };
+
   const row = (key, name, email, badge, badgeCls, right = null) => (
     <div key={key} className="flex items-center gap-4 p-3 rounded-xl hover:bg-slate-800/50 transition-colors">
       <div className="h-9 w-9 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
@@ -76,7 +93,16 @@ export function TeamTab({ db, firebaseUser, t }) {
               m.id, null, m.member_email,
               m.status === 'accepted' ? t('ws_status_active') : t('ws_status_pending'),
               m.status === 'accepted' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400',
-              <button onClick={() => revoke(m.id)} className="text-xs text-rose-500 hover:text-rose-400 transition-colors">{t('remove_member')}</button>
+              <div className="flex items-center gap-3">
+                <select value={m.role === 'editor' ? 'editor' : 'viewer'}
+                  onChange={e => setRole(m.id, e.target.value)}
+                  title={t('ws_role_help')}
+                  className="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-xs text-white outline-none focus:border-emerald-500 transition-colors">
+                  <option value="viewer">{t('ws_role_viewer')}</option>
+                  <option value="editor">{t('ws_role_editor')}</option>
+                </select>
+                <button onClick={() => revoke(m.id)} className="text-xs text-rose-500 hover:text-rose-400 transition-colors">{t('remove_member')}</button>
+              </div>
             ))}
             {members?.length === 0 && (
               <div className="text-center py-4 text-sm text-slate-500">{t('ws_no_members')}</div>

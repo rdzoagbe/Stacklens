@@ -4,9 +4,11 @@ vi.mock('../firebase-config', () => ({
   saveUserData: vi.fn().mockResolvedValue(undefined),
   loadUserData: vi.fn().mockResolvedValue(null),
   logConsent: vi.fn().mockResolvedValue(undefined),
+  workspaceWrite: vi.fn().mockResolvedValue({ ok: true }),
 }));
 
-import { uid, todayISO, safeParseISO, loadDb, saveDb, seedDbIfEmpty } from './db';
+import { uid, todayISO, safeParseISO, loadDb, saveDb, seedDbIfEmpty, enterSharedView } from './db';
+import { saveUserData, workspaceWrite } from '../firebase-config';
 
 const LS_KEY = 'accessguard_v1';
 
@@ -199,5 +201,71 @@ describe('saveDb overflow trimming', () => {
     expect(sorted[0].id).toBe('a0');
     // Oldest should be a199
     expect(sorted[sorted.length - 1].id).toBe('a199');
+  });
+});
+
+
+// ── Where a save goes when you are inside someone else's workspace ─────────
+// Phase 1 of multi-tenancy made membership writable, so saveDb now has three
+// destinations rather than two: the viewer's own Firestore document, the
+// owner's document via the workspace endpoint, or nowhere. Sending a save to
+// the wrong one either silently discards an edit or writes into the wrong
+// company, so the routing is pinned here.
+
+describe('saveDb routing inside a shared workspace', () => {
+  const shared = (role) => enterSharedView(
+    { tools: [{ id: 't1' }], user: { email: 'owner@acme.com' } },
+    { owner_uid: 'owner1', owner_email: 'owner@acme.com', role }
+  );
+
+  it('a viewer\'s edit is never synced anywhere', () => {
+    vi.useFakeTimers();
+    const db = shared('viewer');
+    saveDb({ ...db, tools: [] });
+    vi.advanceTimersByTime(2000);
+    expect(workspaceWrite).not.toHaveBeenCalled();
+    expect(saveUserData).not.toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+
+  it('an editor\'s edit goes to the owner, through the endpoint', async () => {
+    vi.useFakeTimers();
+    const db = shared('editor');
+    saveDb({ ...db, tools: [{ id: 't2' }] });
+    vi.advanceTimersByTime(2000);
+    expect(workspaceWrite).toHaveBeenCalledTimes(1);
+    expect(workspaceWrite.mock.calls[0][0]).toBe('owner1');
+    // Never the viewer\'s own document.
+    expect(saveUserData).not.toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+
+  it('an unknown role is treated as a viewer, not as an editor', () => {
+    vi.useFakeTimers();
+    for (const role of ['owner', 'admin', 'EDITOR', '', undefined, null]) {
+      vi.clearAllMocks();
+      const db = shared(role);
+      saveDb({ ...db, tools: [] });
+      vi.advanceTimersByTime(2000);
+      expect(workspaceWrite, String(role)).not.toHaveBeenCalled();
+    }
+    vi.useRealTimers();
+  });
+
+  it('refuses to sync a copy this browser had to trim', () => {
+    // saveDb archives the oldest access records when localStorage fills.
+    // Pushing that up would delete history the owner still has.
+    vi.useFakeTimers();
+    const db = shared('editor');
+    saveDb({ ...db, _trimmed: true });
+    vi.advanceTimersByTime(2000);
+    expect(workspaceWrite).not.toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+
+  it('an edit still reaches localStorage so the screen stays consistent', () => {
+    const db = shared('editor');
+    saveDb({ ...db, tools: [{ id: 'local' }] });
+    expect(loadDb().tools).toEqual([{ id: 'local' }]);
   });
 });
