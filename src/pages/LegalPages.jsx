@@ -187,7 +187,7 @@ export function DpaPage() {
           <LangSelectorCompact />
         </div>
         <h1 className="text-3xl font-bold mb-2">{t('dpa_title')}</h1>
-        <p className="text-slate-400 text-sm mb-2">{t('dpa_subtitle')} · {t('dpa_version')} 1.0 · {t('dpa_effective')} May 2026</p>
+        <p className="text-slate-400 text-sm mb-2">{t('dpa_subtitle')} · {t('dpa_version')} 1.1 · {t('dpa_effective')} {t('dpa_effective_date')}</p>
         <p className="text-slate-400 text-sm mb-10">{t('dpa_auto_accepted')}</p>
 
         <div className="space-y-8 text-sm text-slate-300 leading-relaxed">
@@ -288,6 +288,42 @@ export function DpaPage() {
           <section>
             <h2 className="text-lg font-semibold text-white mb-3">{t('dpa_s14_title')}</h2>
             <p>{t('dpa_s14_body')}</p>
+          </section>
+
+          {/* CCPA/CPRA addendum. Separate annex rather than clauses folded into
+              the GDPR body, because its terms bind only where California law
+              applies and a reviewer needs to read them as one block. */}
+          <section className="pt-6 border-t border-slate-800">
+            <h2 className="text-xl font-bold text-white mb-3">{t('dpa_ccpa_title')}</h2>
+            <p className="mb-3">{t('dpa_ccpa_scope')}</p>
+            <p className="mb-5 text-slate-400">{t('dpa_ccpa_hr')}</p>
+
+            <h3 className="text-base font-semibold text-white mb-2">{t('dpa_ccpa_role_title')}</h3>
+            <p className="mb-5">{t('dpa_ccpa_role')}</p>
+
+            <p className="mb-2">{t('dpa_ccpa_commit_intro')}</p>
+            <ul className="list-disc pl-5 space-y-1 text-slate-400 mb-5">
+              {['c1','c2','c3','c4','c5','c6','c7','c8'].map(k => (
+                <li key={k}>{t(`dpa_ccpa_${k}`)}</li>
+              ))}
+            </ul>
+
+            {[
+              ['dpa_ccpa_rights_title',    'dpa_ccpa_rights'],
+              ['dpa_ccpa_sensitive_title', 'dpa_ccpa_sensitive'],
+              ['dpa_ccpa_subproc_title',   'dpa_ccpa_subproc'],
+              ['dpa_ccpa_audit_title',     'dpa_ccpa_audit'],
+            ].map(([title, body]) => (
+              <div key={title} className="mb-5">
+                <h3 className="text-base font-semibold text-white mb-2">{t(title)}</h3>
+                <p>{t(body)}</p>
+              </div>
+            ))}
+
+            <div className="bg-slate-900/60 border border-slate-700 rounded-xl p-4">
+              <h3 className="text-base font-semibold text-white mb-2">{t('dpa_ccpa_cert_title')}</h3>
+              <p className="text-slate-400">{t('dpa_ccpa_cert')}</p>
+            </div>
           </section>
 
           <section className="bg-slate-900/60 border border-slate-700 rounded-xl p-5">
