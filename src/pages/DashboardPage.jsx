@@ -9,7 +9,7 @@ import { resetDb } from '../lib/db';
 import {
   computeToolDerivedStatus, computeToolDerivedRisk,
   computeAccessDerivedRiskFlag, buildRiskAlerts, riskSeverityCounts,
-  getCurrency, convertCurrency,
+  getCurrency, displayAmount,
   countOrphanedTools, computeMfaCoverage, computeSecurityScore,
 } from '../lib/dataUtils';
 import { useDbQuery, useDbMutations } from '../hooks/useDbQuery';
@@ -192,7 +192,7 @@ export function DashboardPage() {
   const { data: db } = useDbQuery();
   const muts = useDbMutations();
 
-  const money = (n) => `${getCurrency(language)}${convertCurrency(Number(n) || 0, language).toLocaleString()}`;
+  const money = (n) => `${getCurrency(language)}${displayAmount(Number(n) || 0).toLocaleString()}`;
   const fmtDate = (d) => new Date(d).toLocaleDateString(LOCALE_TAG[language] || 'en-GB');
   const plural = (n, oneKey, manyKey) => `${n} ${n === 1 ? t(oneKey) : t(manyKey)}`;
 

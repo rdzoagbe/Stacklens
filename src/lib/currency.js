@@ -1,64 +1,106 @@
-// ── Currency functions ─────────────────────────────────────────────
-// Handles currency display, conversion, and exchange rate fetching.
+// ── Money: one currency per workspace, and nothing is ever converted ────────
+//
+// A workspace has a single currency. Costs are entered, stored and displayed
+// in it, because a customer types the amount their vendor actually bills them.
+//
+// The previous model treated every stored amount as US dollars and multiplied
+// it by an exchange rate on display. Nothing ever told the user to enter
+// dollars, so a French customer typing their real €690 HubSpot bill saw €635 —
+// their headline monthly spend understated by 8%, and by 21% once the currency
+// had silently become GBP (see below). Converting amounts the customer typed
+// in their own currency cannot be made correct by picking better rates; the
+// conversion itself was the defect.
+//
+// So there are no rates here any more, and no call to an exchange-rate API.
+//
+// The currency also used to have no way to be chosen. SettingsPage held it in
+// state with no setter, rendered no control for it, and defaulted it to
+// 'GBP (£)' — so pressing "Save Changes" to rename an organisation wrote
+// pounds into settings, and every figure in the app switched to a currency the
+// user had never been offered. There is now a real selector, and the default
+// comes from the browser locale.
+//
+// Multi-currency estates (a customer paying some vendors in USD and others in
+// EUR) need a currency per tool, not a workspace-wide rate. That is a bigger
+// change and deliberately not attempted here.
 
-const CURRENCY_CACHE_KEY = 'accessguard_fx_rates';
-const CACHE_TTL = 3600000; // 1 hour
+export const SUPPORTED_CURRENCIES = [
+  { code: 'EUR', symbol: '€', label: 'Euro (€)' },
+  { code: 'USD', symbol: '$', label: 'US Dollar ($)' },
+  { code: 'GBP', symbol: '£', label: 'British Pound (£)' },
+  { code: 'CHF', symbol: 'CHF ', label: 'Swiss Franc (CHF)' },
+  { code: 'CAD', symbol: 'C$', label: 'Canadian Dollar (C$)' },
+];
 
-export function formatMoney(n, currency, lang) {
-  const v = Number(n || 0);
-  if (!Number.isFinite(v)) return (currency || getCurrency(lang)) + '0';
-  const cur = currency || getCurrency(lang);
-  const converted = convertCurrency(v, lang);
-  return cur + converted.toLocaleString();
-}
+const SETTINGS_KEY = 'sg_general';
+const DEFAULT_CODE = 'EUR';
 
-// Languages whose speakers are billed in euros. Stacklens sells to European
-// SMBs, so every European language defaults to EUR — German and Portuguese
-// used to fall through to "$", which is simply wrong for those markets.
-// An explicit choice in Settings > General always wins over the language.
-const EURO_LANGUAGES = new Set(['fr', 'es', 'de', 'pt']);
+const BY_CODE = Object.fromEntries(SUPPORTED_CURRENCIES.map(c => [c.code, c]));
 
-function activeLanguage(lang) {
-  try { return lang || localStorage.getItem('language') || 'en'; }
-  catch { return lang || 'en'; }
-}
+// Browser region → currency, used only to pick a sensible default the first
+// time. Regions we do not bill in fall through to EUR.
+const REGION_CURRENCY = {
+  US: 'USD', CA: 'CAD', GB: 'GBP', CH: 'CHF',
+  FR: 'EUR', BE: 'EUR', DE: 'EUR', ES: 'EUR', PT: 'EUR', IT: 'EUR',
+  NL: 'EUR', IE: 'EUR', AT: 'EUR', LU: 'EUR', FI: 'EUR', GR: 'EUR',
+};
 
-function settingsCurrency() {
-  try { return JSON.parse(localStorage.getItem('sg_general') || '{}').currency || ''; }
-  catch { return ''; }
-}
-
-export function getCurrency(lang) {
-  const chosen = settingsCurrency();
-  if (chosen.includes('£')) return '£';
-  if (chosen.includes('€')) return '€';
-  if (chosen.includes('¥')) return '¥';
-  if (chosen.includes('$')) return '$';
-  return EURO_LANGUAGES.has(activeLanguage(lang)) ? '€' : '$';
-}
-
-export function convertCurrency(amountUSD, lang) {
+/** Best guess at the currency for a new workspace, from the browser locale. */
+export function detectCurrency() {
   try {
-    const cached = JSON.parse(localStorage.getItem(CURRENCY_CACHE_KEY) || '{}');
-    const rates  = cached.rates || { USD: 1, EUR: 0.92, GBP: 0.79, JPY: 149.5 };
-    const symbol = getCurrency(lang);
-    const code   = { '£': 'GBP', '€': 'EUR', '¥': 'JPY', '$': 'USD' }[symbol] || 'USD';
-    return Math.round((Number(amountUSD) || 0) * (rates[code] || 1));
-  } catch { return Math.round(Number(amountUSD) || 0); }
-}
-
-export async function fetchExchangeRates(base = 'USD') {
-  try {
-    const cached = JSON.parse(localStorage.getItem(CURRENCY_CACHE_KEY) || '{}');
-    if (cached.rates && Date.now() - cached.ts < CACHE_TTL) return cached.rates;
-    const res = await fetch('https://open.er-api.com/v6/latest/' + base);
-    const data = await res.json();
-    if (data.rates) {
-      localStorage.setItem(CURRENCY_CACHE_KEY, JSON.stringify({ rates: data.rates, ts: Date.now() }));
-      return data.rates;
+    const langs = (typeof navigator !== 'undefined' && (navigator.languages || [navigator.language])) || [];
+    for (const l of langs) {
+      const region = (String(l).split('-')[1] || '').toUpperCase();
+      if (region && REGION_CURRENCY[region]) return REGION_CURRENCY[region];
     }
-    return cached.rates || { USD: 1, EUR: 0.92, GBP: 0.79, JPY: 149.5 };
-  } catch {
-    return { USD: 1, EUR: 0.92, GBP: 0.79, JPY: 149.5 };
-  }
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+    if (tz.startsWith('America/')) return 'USD';
+    if (tz === 'Europe/London') return 'GBP';
+  } catch { /* no navigator (tests, SSR) — fall through */ }
+  return DEFAULT_CODE;
+}
+
+function savedCode() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}').currency || '';
+    if (!raw) return '';
+    // Stored as a code ('USD'). Older builds stored a label ('GBP (£)') or a
+    // bare symbol, so both are still accepted on read.
+    const upper = String(raw).toUpperCase();
+    for (const code of Object.keys(BY_CODE)) if (upper.includes(code)) return code;
+    const bySymbol = SUPPORTED_CURRENCIES.find(c => raw.includes(c.symbol.trim()));
+    return bySymbol ? bySymbol.code : '';
+  } catch { return ''; }
+}
+
+/** The workspace's currency code. An explicit choice always wins. */
+export function getCurrencyCode() {
+  return savedCode() || detectCurrency();
+}
+
+/**
+ * The workspace's currency symbol.
+ *
+ * The `lang` parameter is accepted and ignored. Currency is a property of the
+ * workspace, not of the interface language: a French finance team reporting in
+ * dollars should not have their figures relabelled when someone switches the
+ * UI to English. Kept in the signature because call sites pass it.
+ */
+export function getCurrency() {
+  return (BY_CODE[getCurrencyCode()] || BY_CODE[DEFAULT_CODE]).symbol;
+}
+
+/** Format an amount for display in the workspace currency. No conversion. */
+export function formatMoney(n) {
+  const v = Number(n);
+  return getCurrency() + (Number.isFinite(v) ? Math.round(v) : 0).toLocaleString();
+}
+
+/**
+ * Round an amount for display. Named for what it does, because its predecessor
+ * was called convertCurrency and silently applied an exchange rate.
+ */
+export function displayAmount(n) {
+  const v = Number(n);
+  return Number.isFinite(v) ? Math.round(v) : 0;
 }

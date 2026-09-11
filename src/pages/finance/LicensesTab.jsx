@@ -5,7 +5,7 @@ import {
   Mail, Sparkles,
 } from 'lucide-react';
 import {
-  convertCurrency,
+  displayAmount,
   getCurrency,
 } from '../../lib/dataUtils';
 import { useDbQuery } from '../../hooks/useDbQuery';
@@ -160,8 +160,8 @@ export function LicenseManagement() {
         </div>
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-red-500">
           <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t("lic_wasted_spend")}</div>
-          <div className="text-3xl font-black text-red-400">{getCurrency(language)}{convertCurrency(Math.round(totalWaste), language).toLocaleString()}</div>
-          <div className="text-sm text-slate-500 mt-1">{getCurrency(language)}{convertCurrency(Math.round(totalWaste * 12), language).toLocaleString()}/year</div>
+          <div className="text-3xl font-black text-red-400">{getCurrency(language)}{displayAmount(Math.round(totalWaste)).toLocaleString()}</div>
+          <div className="text-sm text-slate-500 mt-1">{getCurrency(language)}{displayAmount(Math.round(totalWaste * 12)).toLocaleString()}/year</div>
         </div>
       </div>
 
@@ -175,7 +175,7 @@ export function LicenseManagement() {
                 <span className="text-xs font-semibold uppercase tracking-wider text-emerald-400">{t("lic_reclaim_opportunity")}</span>
               </div>
               <div className="flex items-baseline gap-3 mb-2">
-                <span className="text-4xl font-black text-emerald-400">{getCurrency(language)}{convertCurrency(Math.round(totalWaste), language).toLocaleString()}</span>
+                <span className="text-4xl font-black text-emerald-400">{getCurrency(language)}{displayAmount(Math.round(totalWaste)).toLocaleString()}</span>
                 <span className="text-sm text-slate-500">/ month savings available</span>
               </div>
               <p className="text-sm text-slate-400">
@@ -204,7 +204,7 @@ export function LicenseManagement() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-semibold text-white truncate">{opp.app}</div>
-                    <div className="text-xs text-slate-500">{opp.inactive} inactive · {getCurrency(language)}{convertCurrency(Math.round(opp.waste), language).toLocaleString()}/mo</div>
+                    <div className="text-xs text-slate-500">{opp.inactive} inactive · {getCurrency(language)}{displayAmount(Math.round(opp.waste)).toLocaleString()}/mo</div>
                   </div>
                 </div>
               ))}
@@ -327,12 +327,12 @@ export function LicenseManagement() {
                         </div>
                       </td>
                       <td className="py-3 px-4 text-right text-sm text-white whitespace-nowrap hidden lg:table-cell">
-                        {getCurrency(language)}{convertCurrency(Math.round(app.cost), language).toLocaleString()}
+                        {getCurrency(language)}{displayAmount(Math.round(app.cost)).toLocaleString()}
                       </td>
                       <td className="py-3 px-4 text-right whitespace-nowrap">
                         {app.waste > 0 ? (
                           <span className="text-sm font-semibold text-red-400">
-                            {getCurrency(language)}{convertCurrency(Math.round(app.waste), language).toLocaleString()}
+                            {getCurrency(language)}{displayAmount(Math.round(app.waste)).toLocaleString()}
                           </span>
                         ) : (
                           <span className="text-xs text-slate-600">—</span>
