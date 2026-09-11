@@ -1,111 +1,77 @@
 /* eslint-disable react-refresh/only-export-components */
-import React from 'react';
-import { useLang } from './LangContext';
-
-const CURRENCY_CACHE_KEY = 'accessguard_fx_rates';
-const CACHE_TTL = 3600000; // 1 hour
-
-async function fetchExchangeRates(base = 'USD') {
-  try {
-    const cached = JSON.parse(localStorage.getItem(CURRENCY_CACHE_KEY) || '{}');
-    if (cached.rates && cached.ts && Date.now() - cached.ts < CACHE_TTL) return cached.rates;
-    const res = await fetch(`https://open.er-api.com/v6/latest/${base}`);
-    const data = await res.json();
-    if (data.rates) {
-      localStorage.setItem(CURRENCY_CACHE_KEY, JSON.stringify({ rates: data.rates, ts: Date.now() }));
-      return data.rates;
-    }
-  } catch (e) {
-    console.warn('Exchange rate fetch failed:', e);
-  }
-  return { USD: 1, EUR: 0.92, GBP: 0.79, JPY: 149.5, CAD: 1.36 };
-}
-
-function getCurrencyForLang(lang) {
-  const settings = JSON.parse(localStorage.getItem('sg_general') || '{}');
-  if (settings.currency) {
-    if (settings.currency.includes('£')) return { code: 'GBP', symbol: '£' };
-    if (settings.currency.includes('€')) return { code: 'EUR', symbol: '€' };
-    if (settings.currency.includes('¥')) return { code: 'JPY', symbol: '¥' };
-  }
-  if (lang === 'fr') return { code: 'EUR', symbol: '€' };
-  return { code: 'USD', symbol: '$' };
-}
-
-export function useCurrencyConverter() {
-  const { language } = useLang();
-  const [rates, setRates] = React.useState({ USD: 1, EUR: 0.92, GBP: 0.79, JPY: 149.5 });
-  const [ready, setReady] = React.useState(false);
-
-  React.useEffect(() => {
-    fetchExchangeRates('USD').then(r => { setRates(r); setReady(true); });
-  }, []);
-
-  const convert = React.useCallback((amountUSD, lang) => {
-    const activeLang = lang || language;
-    const { code, symbol } = getCurrencyForLang(activeLang);
-    const rate = rates[code] || 1;
-    return symbol + Math.round(amountUSD * rate).toLocaleString();
-  }, [rates, language]);
-
-  const symbol = React.useMemo(() => getCurrencyForLang(language).symbol, [language]);
-
-  return { convert, symbol, rates, ready };
-}
-
-// ── Marketing plan pricing — display prices in the visitor's local currency ──
-// Plan prices are set in EUR (and billed in the customer's local currency at
-// checkout via Stripe Adaptive Pricing). This detects the visitor's likely
-// currency from their browser locale so the marketing pricing matches what
-// they'll actually be charged.
-const REGION_CURRENCY = {
-  US: 'USD', GB: 'GBP', CA: 'CAD', AU: 'AUD', NZ: 'NZD', JP: 'JPY',
-  CH: 'CHF', SG: 'SGD', HK: 'HKD', IN: 'INR', BR: 'BRL', MX: 'MXN',
-  AE: 'AED', ZA: 'ZAR', SE: 'SEK', NO: 'NOK', DK: 'DKK', PL: 'PLN',
-};
-const CURRENCY_SYMBOL = {
-  USD: '$', EUR: '€', GBP: '£', CAD: 'C$', AUD: 'A$', NZD: 'NZ$', JPY: '¥',
-  CHF: 'CHF ', SGD: 'S$', HKD: 'HK$', INR: '₹', BRL: 'R$', MXN: 'MX$',
-  AED: 'AED ', ZAR: 'R', SEK: 'kr', NOK: 'kr', DKK: 'kr', PLN: 'zł',
-};
-export function detectPricingCurrency() {
-  try {
-    const langs = (typeof navigator !== 'undefined' && (navigator.languages || [navigator.language])) || [];
-    for (const l of langs) {
-      const region = (String(l).split('-')[1] || '').toUpperCase();
-      if (region && REGION_CURRENCY[region]) return REGION_CURRENCY[region];
-    }
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
-    if (tz.startsWith('America/')) return 'USD';
-    if (tz === 'Europe/London') return 'GBP';
-  } catch { /* ignore — fall through to EUR */ }
-  return 'EUR';
-}
-
-// Returns { code, symbol, isLocal, format(amount) } for marketing plan prices.
+// ── Currency context: a thin wrapper over lib/currency, not a second one ────
 //
-// Plan prices are quoted in EUR to everyone, in every language. The Stripe
-// prices behind these cards are euro-denominated (the plan objects literally
-// carry an `eur` field) and the JSON-LD in index.html advertises EUR, so
-// showing "$29" to an English visitor was the one figure that could not be
-// honoured at checkout — they would be charged €29. Quoting € universally
-// costs nothing with a European customer base and removes the mismatch
-// without depending on a Stripe Adaptive Pricing setting staying switched on.
+// This file used to hold its own copy of the currency logic — a private
+// fetchExchangeRates and a getCurrencyForLang that only knew about French, so
+// Spanish, German and Portuguese users were shown dollars here while
+// lib/currency showed them euros. Two implementations of money, drifted apart,
+// in one app. That is the same defect class as the duplicated toCsv that broke
+// the CSV export and the duplicated security metrics that made two screens
+// disagree, and the duplicate-export test could not catch it because a private
+// function is not an export.
+//
+// There is now exactly one implementation, in lib/currency.js. Everything here
+// delegates to it. No rates are fetched: amounts are stored in the workspace
+// currency and displayed as entered.
+
+import React from 'react';
+import { formatMoney, getCurrency, getCurrencyCode } from '../lib/currency';
+
+/**
+ * Marketing plan pricing, which is a different thing from the workspace
+ * currency and deliberately stays in euros.
+ *
+ * The Stripe prices behind the plan cards are euro-denominated, so quoting a
+ * visitor "$29" was the one figure checkout could not honour — they would be
+ * charged €29. This must keep matching Stripe, not the visitor's locale, until
+ * USD prices exist in Stripe.
+ */
 export function usePlanPricing() {
-  const code = 'EUR';
-  const symbol = CURRENCY_SYMBOL[code] || '€';
+  const symbol = '€';
   const format = React.useCallback(
     (amount) => symbol + Number(amount || 0).toLocaleString(),
     [symbol]
   );
-  return { code, symbol, isLocal: code !== 'EUR', format };
+  return { code: 'EUR', symbol, isLocal: false, format };
 }
 
-export const CurrencyContext = React.createContext({ convert: (n) => '$' + Math.round(n), symbol: '$', rates: {} });
+/** The workspace currency, for components that want it from context. */
+export function useCurrencyConverter() {
+  const [code, setCode] = React.useState(getCurrencyCode);
+
+  // Settings writes the currency to localStorage, which fires no event in the
+  // tab that made the change. Re-read on focus so a change in Settings is
+  // reflected without a reload.
+  React.useEffect(() => {
+    const refresh = () => setCode(getCurrencyCode());
+    window.addEventListener('focus', refresh);
+    window.addEventListener('storage', refresh);
+    return () => {
+      window.removeEventListener('focus', refresh);
+      window.removeEventListener('storage', refresh);
+    };
+  }, []);
+
+  return React.useMemo(() => ({
+    code,
+    symbol: getCurrency(),
+    // Kept named `convert` because call sites use it, but it no longer
+    // converts — it formats an amount already in the workspace currency.
+    convert: (amount) => formatMoney(amount),
+    ready: true,
+  }), [code]);
+}
+
+export const CurrencyContext = React.createContext({
+  code: 'EUR',
+  symbol: '€',
+  convert: (n) => formatMoney(n),
+  ready: true,
+});
 
 export function CurrencyProvider({ children }) {
-  const converter = useCurrencyConverter();
-  return React.createElement(CurrencyContext.Provider, { value: converter }, children);
+  const value = useCurrencyConverter();
+  return React.createElement(CurrencyContext.Provider, { value }, children);
 }
 
 export function useCurrency() {

@@ -4,7 +4,7 @@ import {
   Check, Sparkles, Target, TrendingDown,
 } from 'lucide-react';
 import {
-  convertCurrency,
+  displayAmount,
   getCurrency,
 } from '../../lib/dataUtils';
 import { useDbQuery } from '../../hooks/useDbQuery';
@@ -75,11 +75,11 @@ export function CostTabContent({ setFinTab }) {
             <span className="text-xs font-semibold uppercase tracking-wider text-emerald-400">{t("cost_potential_savings")}</span>
           </div>
           <div className="flex items-baseline gap-3 mb-3">
-            <span className="text-5xl font-black text-emerald-400">{getCurrency(language)}{convertCurrency(potentialSavings, language).toLocaleString()}</span>
+            <span className="text-5xl font-black text-emerald-400">{getCurrency(language)}{displayAmount(potentialSavings).toLocaleString()}</span>
             <span className="text-base text-slate-500">/ month</span>
           </div>
           <div className="text-sm text-slate-400 mb-4">
-            {getCurrency(language)}{convertCurrency(potentialSavings * 12, language).toLocaleString()}/year if you reclaim flagged waste
+            {getCurrency(language)}{displayAmount(potentialSavings * 12).toLocaleString()}/year if you reclaim flagged waste
           </div>
           <div className="flex flex-wrap gap-2">
             <button onClick={() => setFinTab && setFinTab('licenses')}
@@ -96,7 +96,7 @@ export function CostTabContent({ setFinTab }) {
         {/* Total spend snapshot */}
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
           <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t("cost_total_monthly")}</div>
-          <div className="text-3xl font-black text-white mb-1">{getCurrency(language)}{convertCurrency(Math.round(totalSpend), language).toLocaleString()}</div>
+          <div className="text-3xl font-black text-white mb-1">{getCurrency(language)}{displayAmount(Math.round(totalSpend)).toLocaleString()}</div>
           <div className="text-sm text-slate-500 mb-4">{enriched.length} active tools</div>
           
           {/* Waste breakdown bar */}
@@ -110,7 +110,7 @@ export function CostTabContent({ setFinTab }) {
           <div className="flex items-center justify-between text-xs">
             <span className="text-slate-500">{t('st_wasted')}</span>
             <span className={"font-semibold " + (wastePercent > 20 ? "text-red-400" : wastePercent > 10 ? "text-amber-400" : "text-emerald-400")}>
-              {wastePercent}% ({getCurrency(language)}{convertCurrency(Math.round(wasteAmount), language).toLocaleString()})
+              {wastePercent}% ({getCurrency(language)}{displayAmount(Math.round(wasteAmount)).toLocaleString()})
             </span>
           </div>
         </div>
@@ -124,7 +124,7 @@ export function CostTabContent({ setFinTab }) {
             <Boxes className="h-4 w-4 text-amber-400" />
           </div>
           <div className="text-3xl font-black text-amber-400">{unusedTools.length}</div>
-          <div className="text-sm text-slate-500 mt-1">{getCurrency(language)}{convertCurrency(Math.round(unusedAmount), language).toLocaleString()}/mo wasted</div>
+          <div className="text-sm text-slate-500 mt-1">{getCurrency(language)}{displayAmount(Math.round(unusedAmount)).toLocaleString()}/mo wasted</div>
         </div>
         
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-red-500">
@@ -133,7 +133,7 @@ export function CostTabContent({ setFinTab }) {
             <TrendingDown className="h-4 w-4 text-red-400" />
           </div>
           <div className="text-3xl font-black text-red-400">{expensiveTools.length}</div>
-          <div className="text-sm text-slate-500 mt-1">{getCurrency(language)}{convertCurrency(Math.round(expensiveAmount), language).toLocaleString()}/mo · {">"}{getCurrency(language)}200 per user</div>
+          <div className="text-sm text-slate-500 mt-1">{getCurrency(language)}{displayAmount(Math.round(expensiveAmount)).toLocaleString()}/mo · {">"}{getCurrency(language)}200 per user</div>
         </div>
 
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-emerald-500">
@@ -173,7 +173,7 @@ export function CostTabContent({ setFinTab }) {
                 <div className="mt-3 pt-3 border-t border-slate-800/50 space-y-1">
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-slate-500">{t('col_cost_mo')}</span>
-                    <span className="text-white font-semibold">{getCurrency(language)}{convertCurrency(Math.round(tool.cost), language).toLocaleString()}</span>
+                    <span className="text-white font-semibold">{getCurrency(language)}{displayAmount(Math.round(tool.cost)).toLocaleString()}</span>
                   </div>
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-slate-500">{t('col_active_users')}</span>
@@ -181,7 +181,7 @@ export function CostTabContent({ setFinTab }) {
                   </div>
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-slate-500">{t('act_save')}</span>
-                    <span className="text-emerald-400 font-semibold">{getCurrency(language)}{convertCurrency(Math.round(tool.cost * 0.7), language).toLocaleString()}/mo</span>
+                    <span className="text-emerald-400 font-semibold">{getCurrency(language)}{displayAmount(Math.round(tool.cost * 0.7)).toLocaleString()}/mo</span>
                   </div>
                 </div>
               </div>
@@ -242,13 +242,13 @@ export function CostTabContent({ setFinTab }) {
                         <div className="text-xs text-slate-500 capitalize truncate">{tool.category || '—'}</div>
                       </td>
                       <td className="py-3 px-4 text-right text-sm font-semibold text-white whitespace-nowrap">
-                        {getCurrency(language)}{convertCurrency(Math.round(tool.cost), language).toLocaleString()}
+                        {getCurrency(language)}{displayAmount(Math.round(tool.cost)).toLocaleString()}
                       </td>
                       <td className="py-3 px-4 text-center text-sm text-slate-300 hidden md:table-cell">
                         {tool.activeUsers === 0 ? <span className="text-red-400 font-semibold">0</span> : tool.activeUsers}
                       </td>
                       <td className="py-3 px-4 text-right text-sm text-slate-400 hidden md:table-cell whitespace-nowrap">
-                        {tool.activeUsers > 0 ? getCurrency(language) + convertCurrency(Math.round(tool.costPerUser), language).toLocaleString() : '—'}
+                        {tool.activeUsers > 0 ? getCurrency(language) + displayAmount(Math.round(tool.costPerUser)).toLocaleString() : '—'}
                       </td>
                       <td className="py-3 px-4 text-center">
                         {tool.wasteFlag ? (

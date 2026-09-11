@@ -4,7 +4,6 @@ import toast from 'react-hot-toast';
 import { AlertTriangle, BadgeX, CheckCircle, ChevronLeft, Info, UserMinus, Users } from 'lucide-react';
 import { todayISO } from '../lib/db';
 import { useDbQuery, useDbMutations } from '../hooks/useDbQuery';
-import { useCurrency } from '../contexts/CurrencyContext';
 import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
 import { Button, SkeletonRow, useEnumLabel } from '../components/ui';
@@ -49,7 +48,6 @@ function ChecklistItems() {
 
 export function OffboardingPage() {
   const { language } = useLang();
-  useCurrency();
   const t = useTranslation(language);
   const enumLabel = useEnumLabel();
   const { data: db, isLoading } = useDbQuery();

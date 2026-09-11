@@ -5,7 +5,6 @@ import { EMP_DEPARTMENTS } from '../lib/constants';
 import { computeToolDerivedRisk, getRiskEvidence } from '../lib/dataUtils';
 import { formatMoney } from '../lib/currency';
 import { useDbQuery, useDbMutations } from '../hooks/useDbQuery';
-import { useCurrency } from '../contexts/CurrencyContext';
 import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
 import { Button, Input, Select, Modal } from '../components/ui';
@@ -172,7 +171,6 @@ const LOCALE_TAG = { en: 'en-GB', fr: 'fr-FR', de: 'de-DE', es: 'es-ES', pt: 'pt
 const STATUS_KEY = { active: 'st_active', offboarding: 'st_offboarding', offboarded: 'st_offboarded' };
 
 export function EmployeesPage() {
-  useCurrency();
   const { data: db, isLoading } = useDbQuery();
   const { language } = useLang();
   const t = useTranslation(language);

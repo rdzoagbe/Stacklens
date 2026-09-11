@@ -4,7 +4,7 @@ import {
   BarChart3, Boxes, Download,
 } from 'lucide-react';
 import {
-  convertCurrency,
+  displayAmount,
   getCurrency,
 } from '../../lib/dataUtils';
 import { useDbQuery } from '../../hooks/useDbQuery';
@@ -122,12 +122,12 @@ export function AnalyticsTabContent() {
         </div>
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-emerald-500">
           <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t("an_monthly_spend")}</div>
-          <div className="text-3xl font-black text-emerald-400">{getCurrency(language)}{convertCurrency(Math.round(totalSpend), language).toLocaleString()}</div>
-          <div className="text-sm text-slate-500 mt-1">{getCurrency(language)}{convertCurrency(Math.round(totalSpend * 12), language).toLocaleString()}/year</div>
+          <div className="text-3xl font-black text-emerald-400">{getCurrency(language)}{displayAmount(Math.round(totalSpend)).toLocaleString()}</div>
+          <div className="text-sm text-slate-500 mt-1">{getCurrency(language)}{displayAmount(Math.round(totalSpend * 12)).toLocaleString()}/year</div>
         </div>
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-teal-500">
           <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t("an_avg_cost_tool")}</div>
-          <div className="text-3xl font-black text-teal-400">{getCurrency(language)}{convertCurrency(Math.round(avgCostPerTool), language).toLocaleString()}</div>
+          <div className="text-3xl font-black text-teal-400">{getCurrency(language)}{displayAmount(Math.round(avgCostPerTool)).toLocaleString()}</div>
           <div className="text-sm text-slate-500 mt-1">per month</div>
         </div>
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-amber-500">
@@ -164,7 +164,7 @@ export function AnalyticsTabContent() {
                       <span className="text-sm font-semibold text-slate-200 capitalize truncate">{cat.name}</span>
                       <div className="flex items-center gap-3 flex-shrink-0">
                         <span className="text-xs text-slate-500">{cat.count} {cat.count === 1 ? 'tool' : 'tools'}</span>
-                        <span className="text-sm font-semibold text-white">{getCurrency(language)}{convertCurrency(Math.round(cat.spend), language).toLocaleString()}</span>
+                        <span className="text-sm font-semibold text-white">{getCurrency(language)}{displayAmount(Math.round(cat.spend)).toLocaleString()}</span>
                       </div>
                     </div>
                     <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
@@ -205,7 +205,7 @@ export function AnalyticsTabContent() {
                     <div className="text-xs text-slate-500 capitalize truncate">{tool.category || '—'}</div>
                   </div>
                   <div className="text-right flex-shrink-0">
-                    <div className="text-sm font-semibold text-white">{getCurrency(language)}{convertCurrency(Math.round(tool.cost_per_month || 0), language).toLocaleString()}</div>
+                    <div className="text-sm font-semibold text-white">{getCurrency(language)}{displayAmount(Math.round(tool.cost_per_month || 0)).toLocaleString()}</div>
                     <div className="text-xs text-slate-500">/mo</div>
                   </div>
                 </div>

@@ -389,51 +389,88 @@ describe('security posture metrics', () => {
   });
 });
 
-// ── Money helpers: one implementation, two import paths ─────────────────────
-// lib/currency.js and lib/dataUtils.js each used to define getCurrency /
-// convertCurrency / formatMoney. They drifted, and pages disagreed depending
-// on which module they imported: a Spanish user saw "$" on Employees and
-// Budget (lib/currency) and "€" on Dashboard, Tools and Audit (lib/dataUtils),
-// for the same data. dataUtils now re-exports, and these tests pin that.
-describe('money helpers are shared, not duplicated', () => {
+// ── Money: one currency per workspace, and nothing is converted ────────────
+// There used to be two implementations in lib/ plus a drifted private third
+// in contexts/CurrencyContext.jsx, and every amount was treated as US dollars
+// and multiplied by an exchange rate on display. These pin the new contract
+// and each of the three defects that motivated it.
+describe('the workspace currency', () => {
   beforeEach(() => localStorage.clear());
 
-  it('dataUtils re-exports the very same function object as currency', async () => {
+  it('dataUtils re-exports the very same function objects as currency', async () => {
     const currency = await import('./currency');
     const utils    = await import('./dataUtils');
     expect(utils.getCurrency).toBe(currency.getCurrency);
-    expect(utils.convertCurrency).toBe(currency.convertCurrency);
+    expect(utils.displayAmount).toBe(currency.displayAmount);
     expect(utils.formatMoney).toBe(currency.formatMoney);
+    expect(utils.getCurrencyCode).toBe(currency.getCurrencyCode);
   });
 
-  it('every European language bills in euros', async () => {
+  it('is whatever Settings says, in every interface language', async () => {
     const { getCurrency } = await import('./currency');
-    // German and Portuguese used to fall through to "$", which is wrong for
-    // those markets and for a product sold to European SMBs.
-    for (const lang of ['fr', 'es', 'de', 'pt']) {
-      expect(getCurrency(lang)).toBe('€');
+    localStorage.setItem('sg_general', JSON.stringify({ currency: 'USD' }));
+    // Currency belongs to the workspace, not the UI language. A French
+    // finance team reporting in dollars keeps dollars when someone switches
+    // the interface to English.
+    for (const lang of ['fr', 'es', 'de', 'pt', 'en']) {
+      expect(getCurrency(lang)).toBe('$');
     }
-    expect(getCurrency('en')).toBe('$');
   });
 
-  it('an explicit Settings choice overrides the language', async () => {
+  it('does not become pounds when a user presses Save Changes', async () => {
     const { getCurrency } = await import('./currency');
-    localStorage.setItem('sg_general', JSON.stringify({ currency: 'GBP (£)' }));
-    expect(getCurrency('fr')).toBe('£');
-    expect(getCurrency('en')).toBe('£');
+    // Regression: SettingsPage defaulted `currency` to 'GBP (£)' and offered
+    // no control for it, so saving an unrelated field wrote pounds into
+    // settings and relabelled every figure in the app.
+    localStorage.setItem('sg_general', JSON.stringify({ currency: 'EUR' }));
+    localStorage.setItem('language', 'fr');
+    expect(getCurrency()).toBe('€');
+    localStorage.setItem('sg_general', JSON.stringify({ currency: 'USD' }));
+    expect(getCurrency()).toBe('$');
   });
 
-  it('converts using the currency the symbol implies', async () => {
-    const { convertCurrency } = await import('./currency');
-    // Default rates: EUR 0.92. A French user's 100 "USD" reads as 92 EUR.
-    expect(convertCurrency(100, 'fr')).toBe(92);
-    expect(convertCurrency(100, 'en')).toBe(100);
+  it('still reads the label format older builds wrote', async () => {
+    const { getCurrency, getCurrencyCode } = await import('./currency');
+    localStorage.setItem('sg_general', JSON.stringify({ currency: 'GBP (£)' }));
+    expect(getCurrencyCode()).toBe('GBP');
+    expect(getCurrency()).toBe('£');
+  });
+
+  it('shows the amount the customer typed, never a converted one', async () => {
+    const { formatMoney, displayAmount } = await import('./currency');
+    localStorage.setItem('sg_general', JSON.stringify({ currency: 'EUR' }));
+    // Regression: a French customer entering their real €690 HubSpot bill saw
+    // €635, because 690 was treated as USD and multiplied by 0.92.
+    expect(formatMoney(690)).toBe('€690');
+    expect(displayAmount(690)).toBe(690);
+    localStorage.setItem('sg_general', JSON.stringify({ currency: 'GBP' }));
+    expect(formatMoney(690)).toBe('£690');
+  });
+
+  it('handles junk amounts without rendering NaN', async () => {
+    const { formatMoney, displayAmount } = await import('./currency');
+    localStorage.setItem('sg_general', JSON.stringify({ currency: 'USD' }));
+    for (const bad of [undefined, null, '', 'abc', NaN, Infinity]) {
+      expect(formatMoney(bad)).toBe('$0');
+      expect(displayAmount(bad)).toBe(0);
+    }
   });
 
   it('survives a corrupt sg_general blob rather than throwing', async () => {
     const { getCurrency } = await import('./currency');
     localStorage.setItem('sg_general', 'not-json{');
-    expect(getCurrency('fr')).toBe('€');
+    expect(() => getCurrency()).not.toThrow();
+    expect(typeof getCurrency()).toBe('string');
+  });
+
+  it('only offers currencies it can actually render', async () => {
+    const { SUPPORTED_CURRENCIES, getCurrency } = await import('./currency');
+    expect(SUPPORTED_CURRENCIES.length).toBeGreaterThan(0);
+    for (const c of SUPPORTED_CURRENCIES) {
+      localStorage.setItem('sg_general', JSON.stringify({ currency: c.code }));
+      expect(getCurrency()).toBe(c.symbol);
+      expect(c.label).toBeTruthy();
+    }
   });
 });
 

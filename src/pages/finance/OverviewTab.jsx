@@ -9,7 +9,7 @@ import {
 import { saveUserData } from '../../firebase-config';
 import { loadDb, saveDb, seedDbIfEmpty } from '../../lib/db';
 import {
-  convertCurrency,
+  displayAmount,
   getCurrency,
 } from '../../lib/dataUtils';
 import { useQueryClient } from '@tanstack/react-query';
@@ -35,7 +35,7 @@ function SpendTrendChart({ monthlyTrend, byCategory }) {
             <p className="text-sm text-slate-500 mt-0.5">{t('last_6_months') || 'Last 6 months'}</p>
           </div>
           <div className="text-right">
-            <div className="text-2xl font-black text-white">{getCurrency(language)}{convertCurrency(Math.round(monthlyTrend[monthlyTrend.length-1]?.spend || 0), language).toLocaleString()}</div>
+            <div className="text-2xl font-black text-white">{getCurrency(language)}{displayAmount(Math.round(monthlyTrend[monthlyTrend.length-1]?.spend || 0)).toLocaleString()}</div>
             <div className="text-xs text-slate-500">this month</div>
           </div>
         </div>
@@ -47,7 +47,7 @@ function SpendTrendChart({ monthlyTrend, byCategory }) {
             return (
               <div key={m.month} className="flex-1 flex flex-col items-center gap-1 min-w-0 group">
                 <div className="text-xs text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity">
-                  {getCurrency(language)}{convertCurrency(Math.round(m.spend), language).toLocaleString()}
+                  {getCurrency(language)}{displayAmount(Math.round(m.spend)).toLocaleString()}
                 </div>
                 <div 
                   className={`w-full rounded-t-lg transition-all duration-300 ${isLast ? 'bg-gradient-to-t from-blue-600 to-blue-400' : 'bg-blue-500/40 hover:bg-blue-500/60'}`}
@@ -95,14 +95,14 @@ function SpendTrendChart({ monthlyTrend, byCategory }) {
                     <span className="text-sm font-medium text-slate-200 capitalize">{cat.name}</span>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="text-sm font-semibold text-white">{getCurrency(language)}{convertCurrency(cat.spend, language).toLocaleString()}</span>
+                    <span className="text-sm font-semibold text-white">{getCurrency(language)}{displayAmount(cat.spend).toLocaleString()}</span>
                     <span className="text-xs text-slate-500 w-8 text-right">{pct}%</span>
                   </div>
                 </div>
                 <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
                   <div className="h-full rounded-full transition-all duration-500" style={{width: pct + '%', background: colors[i]}} />
                 </div>
-                <div className="text-xs text-slate-600 mt-1">{cat.count} tools · {getCurrency(language)}{convertCurrency(Math.round(cat.spend / Math.max(cat.count, 1)), language).toLocaleString()}/tool avg</div>
+                <div className="text-xs text-slate-600 mt-1">{cat.count} tools · {getCurrency(language)}{displayAmount(Math.round(cat.spend / Math.max(cat.count, 1))).toLocaleString()}/tool avg</div>
               </div>
             );
           })}
@@ -111,7 +111,7 @@ function SpendTrendChart({ monthlyTrend, byCategory }) {
         {totalMonthly > 0 && (
           <div className="mt-5 pt-4 border-t border-slate-800 flex items-center justify-between">
             <span className="text-sm text-slate-400">{t('fin_total_monthly')}</span>
-            <span className="text-lg font-black text-white">{getCurrency(language)}{convertCurrency(totalMonthly, language).toLocaleString()}</span>
+            <span className="text-lg font-black text-white">{getCurrency(language)}{displayAmount(totalMonthly).toLocaleString()}</span>
           </div>
         )}
       </div>
@@ -154,7 +154,7 @@ function BudgetModal({ current, totalSpend, language, onSave, onClear, onClose }
           </div>
           {num > 0 && (
             <p className={`text-xs mt-1.5 ${utilization > 100 ? 'text-red-400' : utilization > 75 ? 'text-amber-400' : 'text-emerald-400'}`}>
-              {t('budget_modal_current_spend')} {curr}{convertCurrency(totalSpend, language).toLocaleString()} — {utilization}% {t('budget_modal_of_cap')}
+              {t('budget_modal_current_spend')} {curr}{displayAmount(totalSpend).toLocaleString()} — {utilization}% {t('budget_modal_of_cap')}
             </p>
           )}
         </div>
@@ -241,7 +241,7 @@ export function FinanceOverviewTab({ financialData, showBudgetModal, setShowBudg
           <AlertTriangle className="h-5 w-5 text-red-400 flex-shrink-0" />
           <div className="flex-1 min-w-0">
             <span className="text-sm font-semibold text-red-300">Monthly spend exceeds your budget cap — </span>
-            <span className="text-sm text-red-400">{getCurrency(language)}{convertCurrency(financialData.totalMonthlySpend, language).toLocaleString()} vs {getCurrency(language)}{convertCurrency(financialData.budgetLimit, language).toLocaleString()} limit ({(budgetUtilization - 100).toFixed(0)}% over)</span>
+            <span className="text-sm text-red-400">{getCurrency(language)}{displayAmount(financialData.totalMonthlySpend).toLocaleString()} vs {getCurrency(language)}{displayAmount(financialData.budgetLimit).toLocaleString()} limit ({(budgetUtilization - 100).toFixed(0)}% over)</span>
           </div>
           <button onClick={() => setShowBudgetModal(true)} className="text-xs text-red-300 hover:text-red-200 font-semibold flex-shrink-0 underline underline-offset-2">{t('fin_adjust_limit')}</button>
         </div>
@@ -254,7 +254,7 @@ export function FinanceOverviewTab({ financialData, showBudgetModal, setShowBudg
         <div className="lg:col-span-2 rounded-2xl border border-blue-500/20 bg-gradient-to-br from-slate-900 to-blue-950/20 p-6 lg:p-8">
           <div className="text-xs font-semibold uppercase tracking-wider text-blue-400 mb-2">{t("finance_monthly_spend")}</div>
           <div className="flex items-baseline gap-3 mb-2">
-            <span className="text-5xl font-black text-white">{getCurrency(language)}{convertCurrency(financialData.totalMonthlySpend, language).toLocaleString()}</span>
+            <span className="text-5xl font-black text-white">{getCurrency(language)}{displayAmount(financialData.totalMonthlySpend).toLocaleString()}</span>
             {hasRealComparison && (
               <span className={`text-sm font-semibold px-2.5 py-1 rounded-full ${monthlyChange > 0 ? 'bg-red-500/20 text-red-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
                 {monthlyChange > 0 ? '↑' : '↓'} {Math.abs(monthlyChange).toFixed(1)}%
@@ -262,7 +262,7 @@ export function FinanceOverviewTab({ financialData, showBudgetModal, setShowBudg
             )}
           </div>
           <div className="text-sm text-slate-400 mb-5">
-            {getCurrency(language)}{convertCurrency(annualSpend, language).toLocaleString()}/year{hasRealComparison ? ' · ' + getCurrency(language) + convertCurrency(financialData.lastMonthSpend, language).toLocaleString() + ' last month' : ''}
+            {getCurrency(language)}{displayAmount(annualSpend).toLocaleString()}/year{hasRealComparison ? ' · ' + getCurrency(language) + displayAmount(financialData.lastMonthSpend).toLocaleString() + ' last month' : ''}
           </div>
 
           {/* Budget bar */}
@@ -271,7 +271,7 @@ export function FinanceOverviewTab({ financialData, showBudgetModal, setShowBudg
             {budgetSet ? (
               <div className="flex items-center gap-2">
                 <span className={`text-sm font-bold ${budgetUtilization > 100 ? 'text-red-400' : budgetUtilization > 75 ? 'text-amber-400' : 'text-emerald-400'}`}>
-                  {budgetUtilization.toFixed(0)}% of {getCurrency(language)}{convertCurrency(financialData.budgetLimit, language).toLocaleString()}
+                  {budgetUtilization.toFixed(0)}% of {getCurrency(language)}{displayAmount(financialData.budgetLimit).toLocaleString()}
                 </span>
                 <button onClick={() => setShowBudgetModal(true)} className="text-xs text-slate-500 hover:text-blue-400 underline underline-offset-2 transition-colors">{t('act_edit')}</button>
               </div>
@@ -297,7 +297,7 @@ export function FinanceOverviewTab({ financialData, showBudgetModal, setShowBudg
             <Sparkles className="h-5 w-5 text-emerald-400" />
             <span className="text-xs font-semibold uppercase tracking-wider text-emerald-400">{t("finance_potential_savings")}</span>
           </div>
-          <div className="text-4xl font-black text-emerald-400 mb-1">{getCurrency(language)}{convertCurrency(potentialSavings, language).toLocaleString()}</div>
+          <div className="text-4xl font-black text-emerald-400 mb-1">{getCurrency(language)}{displayAmount(potentialSavings).toLocaleString()}</div>
           <div className="text-sm text-slate-400 mb-5">{t("finance_potential_sub")}</div>
           <button onClick={() => setFinTab && setFinTab('cost')} className="w-full px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-semibold text-sm text-white transition-colors">
             {t("finance_view_optimizations")} →
@@ -313,7 +313,7 @@ export function FinanceOverviewTab({ financialData, showBudgetModal, setShowBudg
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-base font-semibold text-white">{t("finance_upcoming_bills")}</h2>
-            <p className="text-sm text-slate-500">{financialData.upcomingBills.length} bills · {getCurrency(language)}{convertCurrency(upcomingTotal, language).toLocaleString()} total</p>
+            <p className="text-sm text-slate-500">{financialData.upcomingBills.length} bills · {getCurrency(language)}{displayAmount(upcomingTotal).toLocaleString()} total</p>
           </div>
         </div>
         {financialData.upcomingBills.length === 0 ? (
@@ -330,7 +330,7 @@ export function FinanceOverviewTab({ financialData, showBudgetModal, setShowBudg
                   <div className="text-xs text-slate-500 truncate">Due {bill.dueDate}</div>
                 </div>
                 <div className="text-right flex-shrink-0">
-                  <div className="text-sm font-bold text-white">{getCurrency(language)}{convertCurrency(bill.amount, language).toLocaleString()}</div>
+                  <div className="text-sm font-bold text-white">{getCurrency(language)}{displayAmount(bill.amount).toLocaleString()}</div>
                 </div>
               </div>
             ))}
@@ -343,7 +343,7 @@ export function FinanceOverviewTab({ financialData, showBudgetModal, setShowBudg
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
           <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t("finance_top_category")}</div>
           <div className="text-base font-bold text-white capitalize truncate">{topCategory?.name || '—'}</div>
-          <div className="text-xs text-slate-500 mt-1">{topCategory ? getCurrency(language) + convertCurrency(topCategory.spend, language).toLocaleString() + '/mo' : 'No data'}</div>
+          <div className="text-xs text-slate-500 mt-1">{topCategory ? getCurrency(language) + displayAmount(topCategory.spend).toLocaleString() + '/mo' : 'No data'}</div>
         </div>
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
           <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t("kpi_total_tools")}</div>
@@ -352,7 +352,7 @@ export function FinanceOverviewTab({ financialData, showBudgetModal, setShowBudg
         </div>
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
           <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t("finance_avg_per_tool")}</div>
-          <div className="text-base font-bold text-white">{getCurrency(language)}{convertCurrency(Math.round(financialData.totalMonthlySpend / Math.max(financialData.toolCount || financialData.byCategory.reduce((s,c) => s+c.count, 1), 1)), language).toLocaleString()}</div>
+          <div className="text-base font-bold text-white">{getCurrency(language)}{displayAmount(Math.round(financialData.totalMonthlySpend / Math.max(financialData.toolCount || financialData.byCategory.reduce((s,c) => s+c.count, 1), 1))).toLocaleString()}</div>
           <div className="text-xs text-slate-500 mt-1">monthly average</div>
         </div>
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
@@ -360,7 +360,7 @@ export function FinanceOverviewTab({ financialData, showBudgetModal, setShowBudg
           {hasRealComparison ? (
             <>
               <div className={`text-base font-bold ${savingsVsLastMonth >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                {savingsVsLastMonth >= 0 ? '−' : '+'}{getCurrency(language)}{convertCurrency(Math.abs(savingsVsLastMonth), language).toLocaleString()}
+                {savingsVsLastMonth >= 0 ? '−' : '+'}{getCurrency(language)}{displayAmount(Math.abs(savingsVsLastMonth)).toLocaleString()}
               </div>
               <div className="text-xs text-slate-500 mt-1">{savingsVsLastMonth >= 0 ? 'saved' : 'increase'}</div>
             </>
@@ -387,7 +387,7 @@ export function FinanceOverviewTab({ financialData, showBudgetModal, setShowBudg
             <div className="flex-1 min-w-0">
               <div className="text-sm font-semibold text-white mb-1">{t("finance_reclaim_unused")}</div>
               <div className="text-xs text-slate-500 mb-2">{financialData.toolCount} tools have idle seats</div>
-              <div className="text-xs text-emerald-400 font-semibold">Potential: {getCurrency(language)}{convertCurrency(potentialSavings, language).toLocaleString()}/mo</div>
+              <div className="text-xs text-emerald-400 font-semibold">Potential: {getCurrency(language)}{displayAmount(potentialSavings).toLocaleString()}/mo</div>
             </div>
             <button onClick={() => setFinTab && setFinTab('licenses')} className="text-xs text-blue-400 hover:text-blue-300 font-semibold flex-shrink-0">{t('fin_review_arrow')}</button>
           </div>

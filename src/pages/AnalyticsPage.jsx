@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AlertTriangle, BarChart3, TrendingDown, Zap, Target, Download, Boxes, Users, Shield, Award } from 'lucide-react';
-import { formatMoney, getCurrency, convertCurrency } from '../lib/dataUtils';
+import { formatMoney, getCurrency, displayAmount } from '../lib/dataUtils';
 import { useDbQuery } from '../hooks/useDbQuery';
 import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
@@ -121,7 +121,7 @@ export function CostManagementPage() {
                       <div className="text-xs text-slate-500">{tool.owner || 'No owner'}</div>
                     </td>
                     <td className="py-3 px-3 text-slate-400 text-sm">{tool.category || '—'}</td>
-                    <td className="py-3 px-3 font-mono font-bold text-white">{getCurrency(language)}{convertCurrency(tool.cost||0, language).toLocaleString()}</td>
+                    <td className="py-3 px-3 font-mono font-bold text-white">{getCurrency(language)}{displayAmount(tool.cost||0).toLocaleString()}</td>
                     <td className="py-3 px-3 text-center">
                       <span className={"font-bold " + (tool.activeUsers === 0 ? 'text-rose-400' : 'text-slate-300')}>{tool.activeUsers}</span>
                     </td>

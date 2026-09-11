@@ -7,7 +7,7 @@ import {
   Upload,
 } from 'lucide-react';
 import {
-  convertCurrency,
+  displayAmount,
   getCurrency,
 } from '../../lib/dataUtils';
 import { useDbQuery } from '../../hooks/useDbQuery';
@@ -212,7 +212,7 @@ export function RenewalAlerts() {
           type: 'section',
           text: {
             type: 'mrkdwn',
-            text: `*${alertItems.length} tool${alertItems.length !== 1 ? 's' : ''} renewing in the next 90 days* — ${curr}${convertCurrency(Math.round(totalAtRisk), language).toLocaleString()} at risk`,
+            text: `*${alertItems.length} tool${alertItems.length !== 1 ? 's' : ''} renewing in the next 90 days* — ${curr}${displayAmount(Math.round(totalAtRisk)).toLocaleString()} at risk`,
           },
         },
         { type: 'divider' },
@@ -223,7 +223,7 @@ export function RenewalAlerts() {
             type: 'section',
             text: {
               type: 'mrkdwn',
-              text: `${statusEmoji(r)} *${r.app}* — ${curr}${convertCurrency(Math.round(r.annualCost), language).toLocaleString()}/yr — ${dateStr} (${daysStr})${r.autoRenew ? ' · _auto-renews_' : ''}`,
+              text: `${statusEmoji(r)} *${r.app}* — ${curr}${displayAmount(Math.round(r.annualCost)).toLocaleString()}/yr — ${dateStr} (${daysStr})${r.autoRenew ? ' · _auto-renews_' : ''}`,
             },
           };
         }),
@@ -237,7 +237,7 @@ export function RenewalAlerts() {
       const res = await fetch('https://slack.com/api/chat.postMessage', {
         method: 'POST',
         headers: { Authorization: `Bearer ${slackToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ channel: slackChannel, blocks, text: `Renewal Digest — ${alertItems.length} tools renewing in 90 days (${curr}${convertCurrency(Math.round(totalAtRisk), language).toLocaleString()} at risk)` }),
+        body: JSON.stringify({ channel: slackChannel, blocks, text: `Renewal Digest — ${alertItems.length} tools renewing in 90 days (${curr}${displayAmount(Math.round(totalAtRisk)).toLocaleString()} at risk)` }),
       });
       const data = await res.json();
       if (!data.ok) {
@@ -305,7 +305,7 @@ export function RenewalAlerts() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-blue-500">
           <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t('ren_annual_risk')}</div>
-          <div className="text-3xl font-black text-blue-400">{getCurrency(language)}{convertCurrency(Math.round(totalAtRisk), language).toLocaleString()}</div>
+          <div className="text-3xl font-black text-blue-400">{getCurrency(language)}{displayAmount(Math.round(totalAtRisk)).toLocaleString()}</div>
           <div className="text-sm text-slate-500 mt-1">{t('ren_next_90')}</div>
         </div>
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-red-500">
@@ -342,7 +342,7 @@ export function RenewalAlerts() {
                   <span className="text-red-400 font-semibold">{Math.abs(mostUrgent.daysUntil)} {t('ren_days_overdue')}</span>
                 ) : (
                   <>{t('ren_renews_in')} <span className="text-red-400 font-semibold">{mostUrgent.daysUntil} {t('days')}</span></>
-                )} · {getCurrency(language)}{convertCurrency(Math.round(mostUrgent.annualCost), language).toLocaleString()}/year
+                )} · {getCurrency(language)}{displayAmount(Math.round(mostUrgent.annualCost)).toLocaleString()}/year
                 {mostUrgent.autoRenew && <span className="ml-2 text-amber-400">· {t('ren_auto_renewing')}</span>}
               </div>
             </div>
@@ -373,7 +373,7 @@ export function RenewalAlerts() {
             </div>
             <div className="text-right">
               <div className="text-xs text-slate-500 uppercase tracking-wider">{t("ren_potential_savings")}</div>
-              <div className="text-lg font-black text-emerald-400">{getCurrency(language)}{convertCurrency(Math.round(negotiationPotential), language).toLocaleString()}/yr</div>
+              <div className="text-lg font-black text-emerald-400">{getCurrency(language)}{displayAmount(Math.round(negotiationPotential)).toLocaleString()}/yr</div>
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -391,11 +391,11 @@ export function RenewalAlerts() {
                 <div className="mt-3 pt-3 border-t border-slate-800/50 space-y-1">
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-slate-500">{t('ren_annual')}</span>
-                    <span className="text-white font-semibold">{getCurrency(language)}{convertCurrency(Math.round(opp.annualCost), language).toLocaleString()}</span>
+                    <span className="text-white font-semibold">{getCurrency(language)}{displayAmount(Math.round(opp.annualCost)).toLocaleString()}</span>
                   </div>
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-slate-500">{t('ren_potential_save')}</span>
-                    <span className="text-emerald-400 font-semibold">{getCurrency(language)}{convertCurrency(Math.round(opp.annualCost * 0.15), language).toLocaleString()}/yr</span>
+                    <span className="text-emerald-400 font-semibold">{getCurrency(language)}{displayAmount(Math.round(opp.annualCost * 0.15)).toLocaleString()}/yr</span>
                   </div>
                 </div>
                 <button onClick={() => sendNegotiationEmail(opp)}
@@ -495,7 +495,7 @@ export function RenewalAlerts() {
                         </span>
                       </td>
                       <td className="py-3 px-4 text-right text-sm font-semibold text-white whitespace-nowrap hidden lg:table-cell">
-                        {getCurrency(language)}{convertCurrency(Math.round(r.annualCost), language).toLocaleString()}
+                        {getCurrency(language)}{displayAmount(Math.round(r.annualCost)).toLocaleString()}
                       </td>
                       <td className="py-3 px-4 text-center hidden lg:table-cell">
                         {r.autoRenew ? (
@@ -545,7 +545,7 @@ export function RenewalAlerts() {
               <div key={month.key}>
                 <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-800">
                   <h3 className="text-sm font-bold text-white uppercase tracking-wider">{month.label}</h3>
-                  <span className="text-xs text-slate-500">{month.items.length} {month.items.length === 1 ? t('ren_renewal') : t('ren_renewals')} · {getCurrency(language)}{convertCurrency(Math.round(month.total), language).toLocaleString()}</span>
+                  <span className="text-xs text-slate-500">{month.items.length} {month.items.length === 1 ? t('ren_renewal') : t('ren_renewals')} · {getCurrency(language)}{displayAmount(Math.round(month.total)).toLocaleString()}</span>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                   {month.items.map(r => (
@@ -561,7 +561,7 @@ export function RenewalAlerts() {
                       </div>
                       <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-800/50">
                         <span className="text-xs text-slate-500">{t('ren_annual')}</span>
-                        <span className="text-sm font-semibold text-white">{getCurrency(language)}{convertCurrency(Math.round(r.annualCost), language).toLocaleString()}</span>
+                        <span className="text-sm font-semibold text-white">{getCurrency(language)}{displayAmount(Math.round(r.annualCost)).toLocaleString()}</span>
                       </div>
                       <button onClick={() => sendNegotiationEmail(r)}
                         className="mt-3 w-full px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 rounded-lg text-xs font-semibold text-blue-400 transition-colors">

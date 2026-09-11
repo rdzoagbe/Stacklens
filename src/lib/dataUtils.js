@@ -200,7 +200,7 @@ export function validateRequired(value, fieldName) {
 // many modules importing them from here keep working. They used to be a second
 // implementation that had drifted: a Spanish user saw "$" on pages importing
 // lib/currency and "€" on pages importing this one, for the same data.
-export { getCurrency, convertCurrency, formatMoney } from './currency';
+export { getCurrency, getCurrencyCode, displayAmount, formatMoney, SUPPORTED_CURRENCIES } from './currency';
 
 
 // ── File/CSV helpers ────────────────────────────────────────────────────────

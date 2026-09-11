@@ -7,6 +7,7 @@ import {
   getUserPlanFromFirestore, syncClaimsFromServer,
 } from '../firebase-config';
 import { loadDb, saveDb, seedDbIfEmpty } from '../lib/db';
+import { SUPPORTED_CURRENCIES, detectCurrency } from '../lib/currency';
 import { track } from '../lib/analytics';
 import { useDbQuery } from '../hooks/useDbQuery';
 import { useQueryClient } from '@tanstack/react-query';
@@ -87,7 +88,12 @@ export function SettingsPage() {
   const saved = JSON.parse(localStorage.getItem('sg_general') || '{}');
   const [orgName, setOrgName] = useState(saved.orgName || 'My Organisation');
   const [timezone, setTimezone] = useState(saved.timezone || 'Europe/London');
-  const [currency] = useState(saved.currency || 'GBP (£)');
+  // The workspace currency. This had no setter and no control on screen, and
+  // defaulted to 'GBP (£)' — so pressing Save Changes to rename an
+  // organisation switched every figure in the app to pounds, a currency the
+  // user was never offered. It now defaults from the browser locale and is
+  // stored as a plain code.
+  const [currency, setCurrency] = useState(saved.currency || detectCurrency());
   const [dateFormat, setDateFormat] = useState(saved.dateFormat || 'DD/MM/YYYY');
 
   const save = (key, data) => {
@@ -147,6 +153,14 @@ export function SettingsPage() {
                     { label: t('org_name_label'), el: <input value={orgName} onChange={e=>setOrgName(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm outline-none focus:border-emerald-500 transition-colors" placeholder={t('set_company_placeholder')} /> },
                     { label: t('time_zone_label'), el: <select value={timezone} onChange={e=>setTimezone(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm outline-none"><option>Europe/London</option><option>UTC</option><option>America/New_York</option><option>America/Los_Angeles</option><option>Europe/Paris</option><option>Asia/Tokyo</option></select> },
                     { label: t('date_format_label'), el: <select value={dateFormat} onChange={e=>setDateFormat(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm outline-none"><option>DD/MM/YYYY</option><option>MM/DD/YYYY</option><option>YYYY-MM-DD</option></select> },
+                    { label: t('currency_label'), el: (
+                      <>
+                        <select value={currency} onChange={e=>setCurrency(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm outline-none">
+                          {SUPPORTED_CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.label}</option>)}
+                        </select>
+                        <p className="text-xs text-slate-500 mt-1.5">{t('currency_help')}</p>
+                      </>
+                    ) },
                   ].map(({ label, el }) => (
                     <div key={label}>
                       <label className="block text-sm font-medium text-slate-300 mb-1.5">{label}</label>

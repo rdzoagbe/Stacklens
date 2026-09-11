@@ -6,7 +6,7 @@ import { buildBudgetCsv, buildBudgetPdfBlob, buildBudgetXlsxBlob, downloadBlob }
 import { useDbQuery, useDbMutations } from '../../hooks/useDbQuery';
 import { useLang } from '../../contexts/LangContext';
 import { useTranslation } from '../../translations';
-import { getCurrency, convertCurrency } from '../../lib/currency';
+import { getCurrency, displayAmount } from '../../lib/currency';
 import { callAI, invoiceInboxAddress, invoiceInboxList, invoiceInboxAck, bankConnect, bankStatus, bankSync } from '../../firebase-config';
 import { Landmark } from 'lucide-react';
 import { UNALLOCATED, allocateSpendByDepartment, parseBudgetCsv, monthlyAmountFromInvoice } from '../../lib/budget';
@@ -29,7 +29,7 @@ export function BudgetTabContent() {
   const { setBudgets, importInvoices } = useDbMutations();
   const { language } = useLang();
   const t = useTranslation(language);
-  const cur = (n) => getCurrency(language) + Math.round(convertCurrency(n, language)).toLocaleString();
+  const cur = (n) => getCurrency(language) + Math.round(displayAmount(n)).toLocaleString();
   const fileRef = useRef(null);
   const invoiceRef = useRef(null);
 
