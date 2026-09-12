@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useSyncExternalStore } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { loadUserData, logConsent, workspaceMine, workspaceRead } from '../firebase-config';
+import { loadUserData, logConsent, workspaceMine, workspaceRead, workspaceListOrgs, workspaceCreateOrg } from '../firebase-config';
 import { enterSharedView, exitSharedView, getSharedView } from '../lib/db';
 import { subscribeSync, getSyncSnapshot, retrySync } from '../lib/syncStatus';
 import { useQueryClient } from '@tanstack/react-query';
@@ -648,6 +648,7 @@ function CloudSyncBanner() {
 // Module-level cache so the list is fetched once per page load, not on every
 // navigation (AppShell remounts per page).
 let _workspacesPromise = null;
+let _orgsPromise = null;
 
 export function SharedWorkspaceBanner() {
   const { language } = useLang();
@@ -655,14 +656,17 @@ export function SharedWorkspaceBanner() {
   const { firebaseUser, isDemo } = useAuth();
   const qc = useQueryClient();
   const [workspaces, setWorkspaces] = useState([]);
+  const [orgs, setOrgs] = useState([]);
   const [busy, setBusy] = useState(false);
   const shared = getSharedView();
 
   useEffect(() => {
     if (!firebaseUser || isDemo) return;
     if (!_workspacesPromise) _workspacesPromise = workspaceMine().catch(() => ({ workspaces: [] }));
+    if (!_orgsPromise) _orgsPromise = workspaceListOrgs().catch(() => ({ orgs: [] }));
     let alive = true;
     _workspacesPromise.then(r => { if (alive) setWorkspaces(r.workspaces || []); });
+    _orgsPromise.then(r => { if (alive) setOrgs(r.orgs || []); });
     return () => { alive = false; };
   }, [firebaseUser, isDemo]);
 
@@ -705,9 +709,48 @@ export function SharedWorkspaceBanner() {
       </div>
     );
   }
-  if (!workspaces.length) return null;
-  return (
+  const addClient = async () => {
+    const name = window.prompt(t('ws_client_prompt'));
+    if (!name || busy) return;
+    setBusy(true);
+    try {
+      const { org } = await workspaceCreateOrg(name);
+      setOrgs(o => [...o, org]);
+      _orgsPromise = null;             // refetch on next mount
+      toast.success(t('ws_client_created'));
+    } catch (err) {
+      toast.error(err.message || t('ws_client_failed'));
+    } finally { setBusy(false); }
+  };
+
+  // Client workspaces this agency manages. They open through the same path —
+  // the server resolves the agency's ownership to an editor role.
+  if (orgs.length || workspaces.length) return (
     <div className="flex flex-wrap items-center justify-center gap-3 bg-indigo-500/10 border-b border-indigo-500/30 px-4 py-2 text-sm">
+      {orgs.length > 0 && (
+        <>
+          <span className="text-indigo-300">🏢 {t('ws_clients')}</span>
+          {orgs.map(o => (
+            <button key={o.org_id} onClick={() => openWorkspace({ owner_uid: o.org_id, owner_email: o.name })} disabled={busy}
+              className="px-3 py-1 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-200 text-xs font-bold transition-colors disabled:opacity-50">
+              {o.name}
+            </button>
+          ))}
+        </>
+      )}
+      <button onClick={addClient} disabled={busy}
+        className="px-3 py-1 rounded-lg border border-indigo-400/40 hover:bg-indigo-500/20 text-indigo-200 text-xs font-bold transition-colors disabled:opacity-50">
+        + {t('ws_add_client')}
+      </button>
+      {workspaces.length > 0 && <WorkspaceOffers workspaces={workspaces} openWorkspace={openWorkspace} busy={busy} t={t} />}
+    </div>
+  );
+  return null;
+}
+
+function WorkspaceOffers({ workspaces, openWorkspace, busy, t }) {
+  return (
+    <>
       <span className="text-indigo-300">
         🤝 {workspaces.length > 1 ? t('ws_offer_many') : `${workspaces[0].owner_email || 'Un collègue'} ${t('ws_offer')}`}
       </span>
@@ -717,7 +760,7 @@ export function SharedWorkspaceBanner() {
           {t('ws_view')}{workspaces.length > 1 ? ` — ${w.owner_email || w.owner_uid}` : ''}
         </button>
       ))}
-    </div>
+    </>
   );
 }
 

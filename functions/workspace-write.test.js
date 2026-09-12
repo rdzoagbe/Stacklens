@@ -189,3 +189,140 @@ describe('what of a member payload is trusted', () => {
     expect(MEMBER_WRITABLE_KEYS).toContain('access');
   });
 });
+
+// ── Client workspaces owned by an agency (Phase 2) ──────────────────────────
+// A client workspace has no owning user, so access rests entirely on the
+// /client_orgs record. firestore.rules cannot help here — `isOwner(uid)` can
+// never match an "org_..." id — so these decisions are the whole boundary.
+
+const {
+  ORG_ID_PREFIX, MAX_ORG_NAME,
+  isClientOrgId, newClientOrgId, cleanOrgName, resolveWorkspaceAccess,
+} = require_('./workspace-write.js');
+
+describe('client workspace ids', () => {
+  it('accepts an id this module generated', () => {
+    const id = newClientOrgId('a1b2c3d4e5f6a7b8c9d0e1f2');
+    expect(isClientOrgId(id)).toBe(true);
+    expect(id.startsWith(ORG_ID_PREFIX)).toBe(true);
+  });
+
+  it('rejects anything that is not one, including an auth uid', () => {
+    // The whole design rests on a client-org id never colliding with a real
+    // uid, because that is what keeps isOwner(uid) from ever matching.
+    for (const bad of [
+      'abc123', 'org_', 'org_short', 'ORG_A1B2C3D4E5F6A7B8C9D0',
+      'org_a1b2c3d4e5f6a7b8c9d0e', 'xorg_a1b2c3d4e5f6a7b8c9d0',
+      '', null, undefined, 42, {},
+    ]) {
+      expect(isClientOrgId(bad), String(bad)).toBe(false);
+    }
+  });
+
+  it('refuses to mint an id from thin randomness', () => {
+    for (const weak of ['', 'abc', null, undefined, '1234567890']) {
+      expect(() => newClientOrgId(weak), String(weak)).toThrow(/randomness/);
+    }
+  });
+
+  it('ids are distinct for distinct randomness', () => {
+    const a = newClientOrgId('a1b2c3d4e5f6a7b8c9d0');
+    const b = newClientOrgId('0d9c8b7a6f5e4d3c2b1a');
+    expect(a).not.toBe(b);
+  });
+});
+
+describe('client names', () => {
+  it('trims and keeps a normal name', () => {
+    expect(cleanOrgName('  Acme Ltd  ')).toBe('Acme Ltd');
+  });
+
+  it('rejects empty, whitespace and non-strings', () => {
+    for (const bad of ['', '   ', null, undefined, 5, {}, []]) {
+      expect(() => cleanOrgName(bad), String(bad)).toThrow(/required/);
+    }
+  });
+
+  it('rejects an oversized name', () => {
+    expect(() => cleanOrgName('x'.repeat(MAX_ORG_NAME + 1))).toThrow(/characters or fewer/);
+  });
+});
+
+describe('who may reach a workspace', () => {
+  const org = { owner_uid: 'msp1', name: 'Acme' };
+
+  it('the agency that owns a client workspace gets editor', () => {
+    const a = resolveWorkspaceAccess({ clientOrg: org, memberships: [], callerUid: 'msp1', callerEmail: '' });
+    expect(a).toEqual({ role: 'editor', via: 'client_org' });
+  });
+
+  it('ANOTHER agency gets nothing, even though the workspace exists', () => {
+    // The failure that would matter most: one MSP reading another MSP's
+    // client. There is no rule behind this — only this check.
+    expect(resolveWorkspaceAccess({
+      clientOrg: org, memberships: [], callerUid: 'msp2', callerEmail: 'msp2@x.com',
+    })).toBeNull();
+  });
+
+  it('falls through to membership for an ordinary workspace', () => {
+    const a = resolveWorkspaceAccess({
+      clientOrg: null,
+      memberships: [{ owner_uid: 'o1', member_uid: 'u1', role: 'editor' }],
+      callerUid: 'u1', callerEmail: '',
+    });
+    expect(a).toEqual({ role: 'editor', via: 'membership' });
+  });
+
+  it('honours a viewer membership rather than promoting it', () => {
+    const a = resolveWorkspaceAccess({
+      clientOrg: null,
+      memberships: [{ owner_uid: 'o1', member_uid: 'u1', role: 'viewer' }],
+      callerUid: 'u1', callerEmail: '',
+    });
+    expect(a.role).toBe('viewer');
+  });
+
+  it('an unrecognised membership role falls closed to viewer', () => {
+    for (const role of ['owner', 'admin', 'EDITOR', '', null]) {
+      const a = resolveWorkspaceAccess({
+        clientOrg: null,
+        memberships: [{ owner_uid: 'o1', member_uid: 'u1', role }],
+        callerUid: 'u1', callerEmail: '',
+      });
+      expect(a.role, String(role)).toBe('viewer');
+    }
+  });
+
+  it('grants nothing without a caller uid', () => {
+    expect(resolveWorkspaceAccess({ clientOrg: org, memberships: [], callerUid: '', callerEmail: 'msp1@x.com' })).toBeNull();
+    expect(resolveWorkspaceAccess({ clientOrg: null, memberships: [], callerUid: null, callerEmail: '' })).toBeNull();
+  });
+
+  it('grants nothing when neither an org nor a membership matches', () => {
+    expect(resolveWorkspaceAccess({ clientOrg: null, memberships: [], callerUid: 'u1', callerEmail: 'u1@x.com' })).toBeNull();
+  });
+
+  it('an empty caller uid never matches an empty owner_uid', () => {
+    // Found by mutation testing: removing the callerUid guard left every other
+    // test green, because findMembership guards itself. This is the case that
+    // makes the guard load-bearing — two empty strings comparing equal would
+    // hand an unauthenticated caller editor rights on a malformed record.
+    expect(resolveWorkspaceAccess({
+      clientOrg: { owner_uid: '' }, memberships: [], callerUid: '', callerEmail: '',
+    })).toBeNull();
+    expect(resolveWorkspaceAccess({
+      clientOrg: { owner_uid: undefined }, memberships: [], callerUid: undefined, callerEmail: '',
+    })).toBeNull();
+    expect(resolveWorkspaceAccess({
+      clientOrg: { owner_uid: null }, memberships: [], callerUid: null, callerEmail: '',
+    })).toBeNull();
+  });
+
+  it('a malformed client-org record does not grant access', () => {
+    for (const bad of [{}, { owner_uid: null }, { owner_uid: undefined }, { owner_uid: '' }]) {
+      expect(resolveWorkspaceAccess({
+        clientOrg: bad, memberships: [], callerUid: 'msp1', callerEmail: '',
+      }), JSON.stringify(bad)).toBeNull();
+    }
+  });
+});

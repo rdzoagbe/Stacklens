@@ -167,6 +167,73 @@ function buildSafeUpdate(ownerData, memberPayload) {
   return out;
 }
 
+
+// ── Client workspaces owned by an agency (Phase 2 of multi-tenancy) ─────────
+//
+// An MSP or fractional IT director manages several companies. Until now a
+// workspace existed only because a person signed up, so each client would need
+// their own account and their own subscription — which is not how that market
+// works.
+//
+// A client workspace therefore lives at /userdata/org_<random>, and the id is
+// deliberately NOT an auth uid. firestore.rules says `isOwner(uid)`, and no
+// signed-in user's uid can ever equal "org_...", so the rule can never match
+// and every read or write is forced through the endpoint, where ownership is
+// checked. The tenant boundary gets stricter here, not looser: there is no
+// direct-database path to a client workspace at all.
+//
+// Ownership is recorded in /client_orgs/{orgId}, which like /workspace_members
+// has no security rule and is therefore unreachable from any browser.
+
+const ORG_ID_PREFIX = 'org_';
+const ORG_ID_RE = /^org_[a-z0-9]{20}$/;
+const MAX_ORG_NAME = 80;
+
+/** True if this workspace id is an agency-owned client workspace. */
+function isClientOrgId(id) {
+  return typeof id === 'string' && ORG_ID_RE.test(id);
+}
+
+/**
+ * Generate a client workspace id.
+ *
+ * `randomHex` is injected so the caller supplies crypto; this module stays
+ * free of Node built-ins and therefore testable without mocking them.
+ */
+function newClientOrgId(randomHex) {
+  const raw = String(randomHex || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (raw.length < 20) throw new WorkspaceWriteError('Insufficient randomness for a workspace id', 500);
+  return ORG_ID_PREFIX + raw.slice(0, 20);
+}
+
+/** Reject a client name that is empty, oversized, or not a string. */
+function cleanOrgName(name) {
+  const s = typeof name === 'string' ? name.trim() : '';
+  if (!s) throw new WorkspaceWriteError('A client name is required');
+  if (s.length > MAX_ORG_NAME) throw new WorkspaceWriteError(`Client name must be ${MAX_ORG_NAME} characters or fewer`);
+  return s;
+}
+
+/**
+ * Decide what a caller may do with a workspace, from the two things that can
+ * grant access. Pure: the caller does the lookups and passes what it found.
+ *
+ * An agency owning a client workspace gets 'editor' — it is their data, held
+ * on their plan, and there is no separate owner to defer to.
+ *
+ * Returns { role, via } or null when nothing grants access.
+ */
+function resolveWorkspaceAccess({ clientOrg, memberships, callerUid, callerEmail }) {
+  if (!callerUid) return null;
+  if (clientOrg && clientOrg.owner_uid === callerUid) {
+    return { role: 'editor', via: 'client_org' };
+  }
+  const membership = findMembership(memberships, { callerUid, callerEmail });
+  if (!membership) return null;
+  const role = MEMBER_ROLES.includes(membership.role) ? membership.role : 'viewer';
+  return { role, via: 'membership' };
+}
+
 module.exports = {
   MEMBER_ROLES,
   MEMBER_WRITABLE_KEYS,
@@ -179,4 +246,10 @@ module.exports = {
   assertCanWrite,
   buildSafeUpdate,
   sliceCollection,
+  ORG_ID_PREFIX,
+  MAX_ORG_NAME,
+  isClientOrgId,
+  newClientOrgId,
+  cleanOrgName,
+  resolveWorkspaceAccess,
 };
