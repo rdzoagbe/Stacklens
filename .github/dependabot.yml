@@ -1,3 +1,20 @@
+# Dependabot was already weekly, but opened one pull request per package. That
+# is how eight accumulated over five weeks: each is individually trivial, none
+# is individually urgent, and merging them one at a time means eight CI runs,
+# eight deploys, and a lockfile conflict on every one after the first.
+#
+# They are now grouped, with one deliberate exception.
+#
+# Minor and patch updates arrive as a single pull request per ecosystem: one
+# thing to look at, one CI run, one merge.
+#
+# Major versions are left ungrouped, so each still gets its own pull request.
+# They are the ones that break things, and they need to be looked at on their
+# own. framer-motion 12 -> 13 was the only risky update in that batch of eight,
+# and it could not be cleared by the test suite — nothing in 225 tests renders
+# an animation, so it had to be checked by opening a modal in the running app.
+# Burying that in a group of seven harmless bumps is how it would get waved
+# through.
 version: 2
 updates:
   - package-ecosystem: "npm"
@@ -9,6 +26,13 @@ updates:
     open-pull-requests-limit: 5
     labels:
       - "dependencies"
+    groups:
+      minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
 
   - package-ecosystem: "npm"
     directory: "/functions"
@@ -19,3 +43,10 @@ updates:
     open-pull-requests-limit: 5
     labels:
       - "dependencies"
+    groups:
+      minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
