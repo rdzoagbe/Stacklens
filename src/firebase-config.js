@@ -709,6 +709,11 @@ export const workspaceSetRole = (id, role) => callWorkspace({ action: 'setrole',
 // isOwner(uid) — so this is the only write path, and the endpoint decides what
 // of the payload it trusts (see functions/workspace-write.js).
 export const workspaceWrite   = (ownerUid, data) => callWorkspace({ action: 'write', ownerUid, data });
+// Client workspaces an agency manages on its own plan. The id is not an auth
+// uid, so there is no direct Firestore path to one — these are the only way in.
+export const workspaceCreateOrg = (name) => callWorkspace({ action: 'createorg', name });
+export const workspaceListOrgs  = () => callWorkspace({ action: 'listorgs' });
+export const workspaceDeleteOrg = (id) => callWorkspace({ action: 'deleteorg', id });
 
 // Bank feed — GoCardless open-banking connection + recurring-charge sync
 async function callBankfeed(body) {

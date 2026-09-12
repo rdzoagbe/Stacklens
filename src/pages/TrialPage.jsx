@@ -394,9 +394,18 @@ export function TrialPage() {
                   </div>
                 )}
                 <div className="text-sm font-semibold text-slate-400 mb-2">{p.name}</div>
-                <div className="flex items-baseline gap-1 mb-5">
-                  <span className="text-4xl font-black text-white">{pricing.format(p.eur)}</span>
-                  <span className="text-sm text-slate-500">{p.sub}</span>
+                <div className="mb-5">
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-4xl font-black text-white">{pricing.format(p.eur)}</span>
+                    <span className="text-sm text-slate-500">{p.sub}</span>
+                  </div>
+                  {/* Euros are the contract price; this is what it costs a
+                      visitor who does not think in euros. Explicitly
+                      approximate, so it stays true whether Stripe converts at
+                      checkout or the customer's bank converts afterwards. */}
+                  {pricing.approx(p.eur) && (
+                    <div className="text-xs text-slate-500 mt-0.5">{pricing.approx(p.eur)}</div>
+                  )}
                 </div>
                 <ul className="space-y-2 mb-6">
                   {p.features.map((f, j) => (

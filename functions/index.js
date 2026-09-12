@@ -14,6 +14,7 @@ const { getFirestore, Timestamp, FieldValue } = require('firebase-admin/firestor
 const { getAppCheck } = require('firebase-admin/app-check');
 const {
   MEMBER_ROLES, CHUNKED_KEYS, findMembership, assertCanWrite, buildSafeUpdate, sliceCollection,
+  isClientOrgId, newClientOrgId, cleanOrgName, resolveWorkspaceAccess, WorkspaceWriteError,
 } = require('./workspace-write.js');
 
 // Explicitly allow stacklens.fr and Firebase preview domains
@@ -1070,6 +1071,9 @@ exports.integrations = onRequest({ cors: true, timeoutSeconds: 120 }, async (req
 // ENDPOINT only. Viewers never receive Firestore credentials for the owner's
 // data — /workspace_members is server-only and no security rule was widened.
 const MAX_WORKSPACE_MEMBERS = 10;
+// An agency managing more than this is past what a single-console product
+// serves well, and the cap keeps one account from filling the collection.
+const MAX_CLIENT_ORGS = 50;
 
 exports.workspace = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, res) => {
   cors(req, res, async () => {
@@ -1081,7 +1085,7 @@ exports.workspace = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, re
     // 'mine' runs on app load.
     if (!await checkRateLimit(decoded.uid, res, WORKSPACE_RATE_LIMIT, 'workspace')) return;
     const db = getFirestore();
-    const { action, email, id, ownerUid, role } = req.body || {};
+    const { action, email, id, ownerUid, role, name } = req.body || {};
     // SECURITY: only trust the token's email for authorization when Firebase
     // has verified ownership of that mailbox. Otherwise an attacker could
     // register (email/password) under an invited address they don't own — the
@@ -1143,25 +1147,109 @@ exports.workspace = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, re
         }
         return res.json({ workspaces: out.map(w => ({ owner_uid: w.owner_uid, owner_email: w.owner_email, role: w.role })) });
       }
+      // ── Client workspaces owned by this agency ──────────────────────
+      // A workspace with no owning user, for an MSP managing several
+      // companies. The id is deliberately not an auth uid, so isOwner(uid) in
+      // firestore.rules can never match it and there is no direct-database
+      // path to one: every read and write comes through here.
+      if (action === 'createorg') {
+        let clientName;
+        try { clientName = cleanOrgName(name); }
+        catch (err) { return res.status(err.httpStatus || 400).json({ error: err.message }); }
+
+        // Client workspaces are a paid capability, like team sharing.
+        if (!FOUNDER_UIDS.includes(decoded.uid)) {
+          const userSnap = await db.collection('users').doc(decoded.uid).get();
+          const plan = userSnap.exists ? (userSnap.data().plan || userSnap.data().subscription_plan || 'free') : 'free';
+          if (['free', 'trial'].includes(plan) && userSnap.data()?.is_founder !== true) {
+            return res.status(403).json({ error: 'Managing client workspaces requires a paid plan' });
+          }
+        }
+
+        const orgsCol = db.collection('client_orgs');
+        const existing = await orgsCol.where('owner_uid', '==', decoded.uid).get();
+        if (existing.size >= MAX_CLIENT_ORGS) {
+          return res.status(400).json({ error: `Maximum ${MAX_CLIENT_ORGS} client workspaces` });
+        }
+
+        let orgId;
+        try { orgId = newClientOrgId(nodeCrypto.randomBytes(16).toString('hex')); }
+        catch (err) { return res.status(500).json({ error: err.message }); }
+
+        await orgsCol.doc(orgId).set({
+          org_id: orgId, owner_uid: decoded.uid, owner_email: callerEmail || null,
+          name: clientName, created_at: Date.now(),
+        });
+        // Seed an empty workspace so `read` has something to return.
+        await db.collection('userdata').doc(orgId).set({
+          _uid: orgId, _updatedAt: Date.now(),
+          user: { company: clientName, is_client_org: true },
+          tools: [], employees: [], access: [],
+        });
+        return res.json({ org: { org_id: orgId, name: clientName } });
+      }
+
+      if (action === 'listorgs') {
+        const snap = await db.collection('client_orgs').where('owner_uid', '==', decoded.uid).get();
+        return res.json({
+          orgs: snap.docs.map(d => ({ org_id: d.id, name: d.data().name, created_at: d.data().created_at })),
+        });
+      }
+
+      if (action === 'deleteorg') {
+        const orgId = String(id || '');
+        if (!isClientOrgId(orgId)) return res.status(400).json({ error: 'Not a client workspace id' });
+        const ref = db.collection('client_orgs').doc(orgId);
+        const snap = await ref.get();
+        if (!snap.exists || snap.data().owner_uid !== decoded.uid) {
+          return res.status(404).json({ error: 'Not found' });
+        }
+        const dataRef = db.collection('userdata').doc(orgId);
+        const chunks = await dataRef.collection('chunks').get();
+        const batch = db.batch();
+        chunks.forEach(c => batch.delete(c.ref));
+        batch.delete(dataRef);
+        batch.delete(ref);
+        await batch.commit();
+        return res.json({ ok: true });
+      }
+
       if (action === 'read') {
         const target = String(ownerUid || '');
+        const orgSnap = isClientOrgId(target)
+          ? await db.collection('client_orgs').doc(target).get() : null;
         const snap = await col.where('owner_uid', '==', target).get();
+        const access = resolveWorkspaceAccess({
+          clientOrg: orgSnap?.exists ? orgSnap.data() : null,
+          memberships: snap.docs.map(d => d.data()),
+          callerUid: decoded.uid, callerEmail,
+        });
+        if (!access) return res.status(403).json({ error: 'Not a member of this workspace' });
         const me = snap.docs.find(d => d.data().member_uid === decoded.uid ||
           (callerEmail && d.data().member_email === callerEmail));
-        if (!me) return res.status(403).json({ error: 'Not a member of this workspace' });
-        if (!me.data().member_uid) await me.ref.update({ member_uid: decoded.uid, status: 'accepted' });
+        if (me && !me.data().member_uid) await me.ref.update({ member_uid: decoded.uid, status: 'accepted' });
         const dataSnap = await db.collection('userdata').doc(target).get();
         if (!dataSnap.exists) return res.status(404).json({ error: 'Workspace has no data yet' });
         const data = await assembleUserdata(dataSnap);
         // Owner's billing internals never leave the server.
         const u = data.user || {};
+        // A client workspace has no owning user and therefore no plan of its
+        // own. It runs on the agency's entitlement, read fresh here so a plan
+        // change takes effect without touching every client record.
+        let planSource = u;
+        if (access.via === 'client_org') {
+          const agency = await db.collection('users').doc(decoded.uid).get();
+          planSource = agency.exists ? agency.data() : {};
+        }
         data.user = {
           email: u.email || null, displayName: u.displayName || null, company: u.company || null,
-          plan: u.plan || u.subscription_plan || 'free', subscription_plan: u.subscription_plan || u.plan || 'free',
-          is_founder: u.is_founder === true,
+          plan: planSource.plan || planSource.subscription_plan || 'free',
+          subscription_plan: planSource.subscription_plan || planSource.plan || 'free',
+          is_founder: planSource.is_founder === true,
+          is_client_org: u.is_client_org === true,
         };
         delete data._uid;
-        return res.json({ data, role: me.data().role || 'viewer' });
+        return res.json({ data, role: access.role });
       }
 
       // Owner promotes or demotes a member. Only the owner of the workspace
@@ -1191,13 +1279,16 @@ exports.workspace = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, re
         const target = String(ownerUid || '');
         if (!target) return res.status(400).json({ error: 'ownerUid required' });
 
+        const orgSnap = isClientOrgId(target)
+          ? await db.collection('client_orgs').doc(target).get() : null;
         const snap = await col.where('owner_uid', '==', target).get();
-        const membership = findMembership(
-          snap.docs.map(d => d.data()),
-          { callerUid: decoded.uid, callerEmail }
-        );
+        const access = resolveWorkspaceAccess({
+          clientOrg: orgSnap?.exists ? orgSnap.data() : null,
+          memberships: snap.docs.map(d => d.data()),
+          callerUid: decoded.uid, callerEmail,
+        });
         try {
-          assertCanWrite(membership);
+          assertCanWrite(access && { role: access.role });
         } catch (err) {
           return res.status(err.httpStatus || 403).json({ error: err.message });
         }

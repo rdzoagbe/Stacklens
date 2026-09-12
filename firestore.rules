@@ -169,6 +169,15 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Which agency owns which client workspace. Like /workspace_members this
+    // is reached only through the workspace endpoint; the default deny already
+    // covers it, and the explicit rule is written out so the intent survives
+    // future edits. A browser that could read this could enumerate every
+    // agency's client list.
+    match /client_orgs/{orgId} {
+      allow read, write: if false;
+    }
+
     // Default deny
     match /{document=**} {
       allow read, write: if false;
