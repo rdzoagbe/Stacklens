@@ -5,6 +5,21 @@
  */
 
 const { onRequest } = require('firebase-functions/v2/https');
+const { setGlobalOptions } = require('firebase-functions/v2');
+
+// Cap how much capacity this project reserves, for two reasons.
+//
+// Deploys were failing: "Quota exceeded for total allowable CPU per project
+// per region". Each gen2 function is a Cloud Run service, and with no
+// maxInstances set Firebase defaults each to 100. Nineteen functions therefore
+// ask GCP to reserve up to 1,900 concurrent CPUs in us-central1, which exceeds
+// the regional quota — so one function failed to deploy and the whole job
+// failed with it.
+//
+// And cost: a runaway loop or a traffic spike against an unbounded function
+// bills for as many instances as it can start. Ten each is far above anything
+// this product's traffic needs and puts a ceiling on the damage.
+setGlobalOptions({ maxInstances: 10 });
 const { defineSecret } = require('firebase-functions/params');
 // firebase-admin v14 removed the legacy namespaced API (admin.auth(), admin.firestore(), …)
 // — only the modular entry points exist now.
