@@ -192,5 +192,30 @@ jobs:
           echo "$SA_JSON" > "$RUNNER_TEMP/sa.json"
           echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/sa.json" >> "$GITHUB_ENV"
 
-      - name: Deploy Cloud Functions
-        run: firebase deploy --only functions --project accessguard-v2 --force --non-interactive
+      # Deployed in batches, not all nineteen at once.
+      #
+      # `firebase deploy --only functions` updates every function in parallel.
+      # Each one being updated has to start a container to pass a Cloud Run
+      # health check, and each of those needs real CPU — so nineteen at once
+      # exceeded "Total allowable CPU per project per region" and the deploy
+      # failed with fifteen functions unable to start.
+      #
+      # Batches of five need a fifth of the concurrent headroom. Slower, and it
+      # completes. `|| exit 1` on each keeps a failing batch failing the job
+      # rather than being masked by a later success.
+      #
+      # Every exported function must appear in exactly one batch below. A
+      # function missing from all of them is silently never deployed, so
+      # functions/deploy-batches.test.js compares this list against the
+      # exports in functions/index.js and fails the build if they diverge.
+      - name: Deploy Cloud Functions (batch 1/4)
+        run: firebase deploy --project accessguard-v2 --force --non-interactive --only functions:ai,functions:api,functions:apikeys,functions:bankfeed,functions:clientErrors
+
+      - name: Deploy Cloud Functions (batch 2/4)
+        run: firebase deploy --project accessguard-v2 --force --non-interactive --only functions:createCheckout,functions:createPortal,functions:dailyAlerts,functions:founderops,functions:integrations
+
+      - name: Deploy Cloud Functions (batch 3/4)
+        run: firebase deploy --project accessguard-v2 --force --non-interactive --only functions:invoiceInbound,functions:invoiceInbox,functions:refreshClaims,functions:sendInvite,functions:stripeWebhook
+
+      - name: Deploy Cloud Functions (batch 4/4)
+        run: firebase deploy --project accessguard-v2 --force --non-interactive --only functions:syncuser,functions:weeklyBackup,functions:weeklySummary,functions:workspace
