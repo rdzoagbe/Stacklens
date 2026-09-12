@@ -1,6 +1,13 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { resolve } from 'path'
+import { fileURLToPath } from 'url'
+
+// This file is ESM, so it has no dirname global of its own. Vite has been
+// supplying one by bundling the config through esbuild, but the native config
+// loader (the planned default) does not, and it warns about the use on every
+// run. Deriving the path from import.meta.url works under either loader.
+const rootDir = fileURLToPath(new URL('.', import.meta.url))
 
 export default defineConfig({
   plugins: [react()],
@@ -24,8 +31,8 @@ export default defineConfig({
     chunkSizeWarningLimit: 700,
     rollupOptions: {
       input: {
-        main: resolve(__dirname, 'index.html'),
-        authRedirect: resolve(__dirname, 'auth-redirect.html'),
+        main: resolve(rootDir, 'index.html'),
+        authRedirect: resolve(rootDir, 'auth-redirect.html'),
       },
       output: {
         manualChunks: (id) => {
