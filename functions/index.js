@@ -1089,6 +1089,9 @@ const MAX_WORKSPACE_MEMBERS = 10;
 // An agency managing more than this is past what a single-console product
 // serves well, and the cap keeps one account from filling the collection.
 const MAX_CLIENT_ORGS = 50;
+// Enough for a trialling agency to load two real clients and see whether the
+// cross-client story works for them, without running a book of business free.
+const TRIAL_CLIENT_ORGS = 3;
 
 exports.workspace = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, res) => {
   cors(req, res, async () => {
@@ -1172,19 +1175,30 @@ exports.workspace = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, re
         try { clientName = cleanOrgName(name); }
         catch (err) { return res.status(err.httpStatus || 400).json({ error: err.message }); }
 
-        // Client workspaces are a paid capability, like team sharing.
-        if (!FOUNDER_UIDS.includes(decoded.uid)) {
-          const userSnap = await db.collection('users').doc(decoded.uid).get();
-          const plan = userSnap.exists ? (userSnap.data().plan || userSnap.data().subscription_plan || 'free') : 'free';
-          if (['free', 'trial'].includes(plan) && userSnap.data()?.is_founder !== true) {
-            return res.status(403).json({ error: 'Managing client workspaces requires a paid plan' });
-          }
+        // Client workspaces are a paid capability, but a trial has to be able
+        // to reach them or it cannot evaluate the thing it is trialling. The
+        // audience for this feature is an agency managing several companies;
+        // blocking them until they pay means the only feature they care about
+        // is the one they cannot see. A free plan stays blocked; a trial gets
+        // a small allowance, enough to judge it and not enough to run an
+        // agency on indefinitely.
+        const userSnap = await db.collection('users').doc(decoded.uid).get();
+        const plan = userSnap.exists ? (userSnap.data().plan || userSnap.data().subscription_plan || 'free') : 'free';
+        const privileged = FOUNDER_UIDS.includes(decoded.uid) || userSnap.data()?.is_founder === true;
+        if (!privileged && plan === 'free') {
+          return res.status(403).json({ error: 'Managing client workspaces requires a trial or a paid plan' });
         }
 
         const orgsCol = db.collection('client_orgs');
         const existing = await orgsCol.where('owner_uid', '==', decoded.uid).get();
-        if (existing.size >= MAX_CLIENT_ORGS) {
-          return res.status(400).json({ error: `Maximum ${MAX_CLIENT_ORGS} client workspaces` });
+        const cap = privileged ? MAX_CLIENT_ORGS
+          : plan === 'trial' ? TRIAL_CLIENT_ORGS : MAX_CLIENT_ORGS;
+        if (existing.size >= cap) {
+          return res.status(400).json({
+            error: plan === 'trial'
+              ? `A trial covers ${TRIAL_CLIENT_ORGS} client workspaces. Subscribe to add more.`
+              : `Maximum ${MAX_CLIENT_ORGS} client workspaces`,
+          });
         }
 
         let orgId;
