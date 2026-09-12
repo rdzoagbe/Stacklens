@@ -11,8 +11,9 @@ import { resolve } from 'node:path';
 //   Sentry     receives stack traces and the URL being viewed, and was absent
 //              from the published sub-processor list — a page that states it
 //              is complete.
-//   ipwho.is   receives every user's IP address, which is personal data under
-//              GDPR, and was likewise absent.
+//   ipwho.is   received every user's IP address, which is personal data under
+//              GDPR, and was likewise absent. Removed rather than declared —
+//              it powered a flag on an internal admin screen and nothing else.
 //
 // Adding a `fetch` to a new host is a one-line change that silently creates a
 // legal obligation: the sub-processor page must name it, the CSP must allow
@@ -72,7 +73,7 @@ const SERVICES = [
   { id: 'asana',       hosts: ['app.asana.com'],                                    where: 'server',  personalData: true, published: null, noProcessing: "The customer's own Asana workspace." },
   { id: 'salesforce',  hosts: ['salesforce.com'],                                   where: 'server',  personalData: true, published: null, noProcessing: "The customer's own Salesforce org." },
 
-  // ── Open gaps: real processors, not yet on the published list ──
+  // ── Open gap: a real processor, not yet on the published list ──
   {
     id: 'sentry', hosts: ['ingest.sentry.io', 'ingest.de.sentry.io', 'ingest.us.sentry.io'],
     where: 'browser', personalData: true, published: null,
@@ -80,15 +81,6 @@ const SERVICES = [
       found: '2026-09-11',
       what: 'Receives stack traces and the URL being viewed, which can carry identifiers.',
       blockedOn: 'Which Sentry region the production DSN points at (de = EU, no transfer; us = USA, needs SCCs). Read it from sentry.io > Settings > Client Keys.',
-    },
-  },
-  {
-    id: 'ipwho', hosts: ['ipwho.is'],
-    where: 'server', personalData: true, published: null,
-    gap: {
-      found: '2026-09-11',
-      what: "Receives every signing-in user's IP address. Retained 30-90 days per its privacy policy, across a global edge network with no agreed transfer mechanism.",
-      blockedOn: 'A decision: it powers only the flag and city on the internal founder-admin screen, so removing the call is cheaper than declaring it.',
     },
   },
 ];

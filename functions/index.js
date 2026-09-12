@@ -335,28 +335,21 @@ exports.stripeWebhook = onRequest({ secrets: [STRIPE_SECRET_KEY, STRIPE_WEBHOOK_
   } catch (err) { console.error('Webhook error:', err); return res.status(500).json({ error: 'Handler failed' }); }
 });
 
-// Coarse geo-location from the request IP — country/city/region only, no raw
-// IP stored. Best-effort: any failure or 2.5s timeout returns null so it never
-// slows or breaks sign-in. Used to show founders where users are testing from.
-async function geoFromRequest(req) {
-  try {
-    const ip = String(req.headers['x-forwarded-for'] || req.ip || '').split(',')[0].trim();
-    if (!ip || ip.startsWith('127.') || ip.startsWith('10.') || ip.startsWith('192.168.') || ip.startsWith('::1')) return null;
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 2500);
-    const r = await fetch(`https://ipwho.is/${encodeURIComponent(ip)}?fields=success,country,country_code,city,region`, { signal: ctrl.signal });
-    clearTimeout(timer);
-    const g = await r.json();
-    if (!g || g.success === false) return null;
-    return {
-      last_country: g.country || null,
-      last_country_code: g.country_code || null,
-      last_city: g.city || null,
-      last_region: g.region || null,
-      last_seen_at: Date.now(),
-    };
-  } catch { return null; }
-}
+// Sign-in location lookup removed.
+//
+// This used to send the request IP to ipwho.is to record an approximate
+// country and city, shown as a flag on the internal founder-admin screen and
+// nowhere else. That meant every user's IP address went to a third party that
+// retains it for 30-90 days across a global edge network, with no transfer
+// mechanism agreed and no mention on a sub-processor page that states it is
+// complete — in exchange for a cosmetic column only we could see. For a
+// product whose differentiation is EU data residency, that is not a trade
+// worth making.
+//
+// last_seen_at is kept: it is genuinely useful, and it needs no third party.
+// The stale location fields are removed from each user's record the next time
+// they sign in, so no separate migration is needed.
+const GEO_FIELDS = ['last_country', 'last_country_code', 'last_city', 'last_region'];
 
 // ── /syncuser ────────────────────────────────────────────────
 exports.syncuser = onRequest({ cors: true }, async (req, res) => {
@@ -368,14 +361,17 @@ exports.syncuser = onRequest({ cors: true }, async (req, res) => {
     const allowed = await checkRateLimit(decoded.uid, res, SYNCUSER_RATE_LIMIT, 'syncuser'); if (!allowed) return;
     const { email, displayName, photoURL } = req.body;
     const uid = decoded.uid;
-    const geo = await geoFromRequest(req);
     const userRef = getFirestore().collection('users').doc(uid);
     const snap = await userRef.get();
     if (!snap.exists) {
-      await userRef.set({ uid, email: decoded.email || email || '', displayName: displayName || decoded.name || '', photoURL: photoURL || decoded.picture || '', plan: 'free', createdAt: Date.now(), updatedAt: Date.now(), ...(geo || {}) });
+      await userRef.set({ uid, email: decoded.email || email || '', displayName: displayName || decoded.name || '', photoURL: photoURL || decoded.picture || '', plan: 'free', createdAt: Date.now(), updatedAt: Date.now(), last_seen_at: Date.now() });
       return res.json({ isNew: true });
     } else {
-      await userRef.update({ updatedAt: Date.now(), ...(geo || {}) });
+      await userRef.update({
+        updatedAt: Date.now(), last_seen_at: Date.now(),
+        // Clear location recorded by the removed lookup, one record per sign-in.
+        ...Object.fromEntries(GEO_FIELDS.map(f => [f, FieldValue.delete()])),
+      });
       const d = snap.data();
       return res.json({ isNew: false, plan: d.plan || 'free', stripe_customer_id: d.stripe_customer_id || null, subscription_status: d.subscription_status || null });
     }
