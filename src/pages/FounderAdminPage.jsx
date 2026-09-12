@@ -22,11 +22,6 @@ const PLAN_COLORS = {
 
 const VALID_PLANS = ['free', 'trial', 'starter', 'hr_finance', 'pro', 'enterprise', 'scale'];
 
-// ISO country code → flag emoji (regional-indicator letters).
-function flagEmoji(code) {
-  if (!code || code.length !== 2) return '📍';
-  return code.toUpperCase().replace(/./g, c => String.fromCodePoint(127397 + c.charCodeAt(0)));
-}
 
 function timeAgo(ms) {
   const s = Math.floor((Date.now() - ms) / 1000);
@@ -208,17 +203,13 @@ function UserTableRow({ u, onAction }) {
           ))}
         </select>
       </td>
+      {/* Sign-in location is gone: showing a flag here cost every user's IP
+          address to a third party. The last-seen time needed no third party
+          and stays. */}
       <td className="px-4 py-3 text-sm whitespace-nowrap align-middle">
-        {u.last_country ? (
-          <div className="min-w-0">
-            <div className="text-slate-200 truncate">
-              {flagEmoji(u.last_country_code)} {[u.last_city, u.last_country].filter(Boolean).join(', ')}
-            </div>
-            {u.last_seen_at && <div className="text-[11px] text-slate-500">{timeAgo(u.last_seen_at)}</div>}
-          </div>
-        ) : (
-          <span className="text-xs text-slate-600">—</span>
-        )}
+        {u.last_seen_at
+          ? <span className="text-slate-300">{timeAgo(u.last_seen_at)}</span>
+          : <span className="text-xs text-slate-600">—</span>}
       </td>
       <td className="px-4 py-3 text-sm whitespace-nowrap align-middle">
         <div className="flex items-center gap-2">
@@ -562,7 +553,7 @@ export function FounderAdminPage() {
                 <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">User Name</th>
                 <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Registered</th>
                 <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Plan</th>
-                <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Location</th>
+                <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Last seen</th>
                 <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Expiry</th>
               </tr>
             </thead>
