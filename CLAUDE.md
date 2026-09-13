@@ -139,9 +139,7 @@ All routes are in `src/App.jsx`. Public routes: `/` and legal pages (`/privacy`,
 
 Redirects: `/integrations` → `/settings`, `/billing` → `/settings`, `/analytics` → `/finance`, `/licenses` → `/finance`, `/renewals` → `/finance`, `/invoices` → `/finance`, `/contracts` → `/finance`.
 
-Also routed and previously undocumented: `/cost`, `/executive`, `/import`, `/founder-admin`, `/report/:token`.
-
-`/report/:token` currently renders `<NotFound>` while `saveReport`/`getReport` and the `/reports/{token}` Firestore rule (anonymous read) are live — a shareable-report feature with no page behind it. Either wire it up or remove the endpoint and the rule.
+Also routed and previously undocumented: `/cost`, `/executive`, `/import`, `/founder-admin`.
 
 ### Authentication
 

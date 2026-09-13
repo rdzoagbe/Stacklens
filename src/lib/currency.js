@@ -45,18 +45,45 @@ const REGION_CURRENCY = {
   NL: 'EUR', IE: 'EUR', AT: 'EUR', LU: 'EUR', FI: 'EUR', GR: 'EUR',
 };
 
+// Timezones that are not the euro. Anything else under Europe/ is, and
+// anything else under America/ is the dollar.
+const TZ_CURRENCY = {
+  'Europe/London': 'GBP', 'Europe/Belfast': 'GBP', 'Europe/Jersey': 'GBP',
+  'Europe/Guernsey': 'GBP', 'Europe/Isle_of_Man': 'GBP',
+  'Europe/Zurich': 'CHF', 'Europe/Bern': 'CHF', 'Europe/Vaduz': 'CHF',
+  'America/Toronto': 'CAD', 'America/Vancouver': 'CAD', 'America/Edmonton': 'CAD',
+  'America/Winnipeg': 'CAD', 'America/Halifax': 'CAD', 'America/St_Johns': 'CAD',
+  'America/Montreal': 'CAD', 'America/Regina': 'CAD', 'America/Moncton': 'CAD',
+};
+
+/** Currency from where the browser thinks it is, or '' if it cannot say. */
+function currencyFromTimeZone() {
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+  if (!tz) return '';
+  if (TZ_CURRENCY[tz]) return TZ_CURRENCY[tz];
+  if (tz.startsWith('Europe/')) return 'EUR';
+  if (tz.startsWith('America/')) return 'USD';
+  return '';
+}
+
 /** Best guess at the currency for a new workspace, from the browser locale. */
 export function detectCurrency() {
   try {
+    // Timezone first, because it says where someone is; the browser's
+    // language says what language they installed it in. Those disagree
+    // constantly — Chrome set up in English reports en-US whoever you are,
+    // so checking the language first billed a Belgian company in dollars and
+    // no amount of switching the interface to French changed it. The clock
+    // is the better signal, and it is the one the customer cannot get wrong.
+    const fromTz = currencyFromTimeZone();
+    if (fromTz) return fromTz;
+
     const langs = (typeof navigator !== 'undefined' && (navigator.languages || [navigator.language])) || [];
     for (const l of langs) {
       const region = (String(l).split('-')[1] || '').toUpperCase();
       if (region && REGION_CURRENCY[region]) return REGION_CURRENCY[region];
     }
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
-    if (tz.startsWith('America/')) return 'USD';
-    if (tz === 'Europe/London') return 'GBP';
-  } catch { /* no navigator (tests, SSR) — fall through */ }
+  } catch { /* no navigator or Intl (tests, SSR) — fall through */ }
   return DEFAULT_CODE;
 }
 

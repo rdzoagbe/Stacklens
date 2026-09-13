@@ -654,7 +654,7 @@ let _orgsPromise = null;
 export function SharedWorkspaceBanner() {
   const { language } = useLang();
   const t = useTranslation(language);
-  const { firebaseUser, isDemo } = useAuth();
+  const { firebaseUser, isDemo, user } = useAuth();
   const qc = useQueryClient();
   const [workspaces, setWorkspaces] = useState([]);
   const [orgs, setOrgs] = useState([]);
@@ -728,8 +728,25 @@ export function SharedWorkspaceBanner() {
 
   // Client workspaces this agency manages. They open through the same path —
   // the server resolves the agency's ownership to an editor role.
-  if (orgs.length || workspaces.length) return (
+  //
+  // This whole bar — the "+ Add a client" button included — used to render
+  // only `if (orgs.length || workspaces.length)`. So the only way to see the
+  // button that creates your first client workspace was to already have one.
+  // Nobody has one to begin with, which made the feature unreachable for
+  // every user rather than merely hard to find.
+  //
+  // It now shows for anyone the server would actually let create one: the
+  // createorg endpoint refuses a free plan, so offering the button to a free
+  // user would just produce an error toast. resolvePlan applies trial expiry,
+  // so an expired trial correctly stops seeing it.
+  const canManageClients = !isDemo && !!firebaseUser && resolvePlan(user) !== 'free';
+  if (orgs.length || workspaces.length || canManageClients) return (
     <div className="flex flex-wrap items-center justify-center gap-3 bg-indigo-500/10 border-b border-indigo-500/30 px-4 py-2 text-sm">
+      {orgs.length === 0 && workspaces.length === 0 && (
+        <span className="text-indigo-300">
+          🏢 {t('ws_no_clients_yet') || 'Managing other companies? Add them as client workspaces.'}
+        </span>
+      )}
       {orgs.length > 0 && (
         <>
           <span className="text-indigo-300">🏢 {t('ws_clients')}</span>
@@ -741,10 +758,12 @@ export function SharedWorkspaceBanner() {
           ))}
         </>
       )}
-      <button onClick={addClient} disabled={busy}
-        className="px-3 py-1 rounded-lg border border-indigo-400/40 hover:bg-indigo-500/20 text-indigo-200 text-xs font-bold transition-colors disabled:opacity-50">
-        + {t('ws_add_client')}
-      </button>
+      {canManageClients && (
+        <button onClick={addClient} disabled={busy}
+          className="px-3 py-1 rounded-lg border border-indigo-400/40 hover:bg-indigo-500/20 text-indigo-200 text-xs font-bold transition-colors disabled:opacity-50">
+          + {t('ws_add_client')}
+        </button>
+      )}
       {workspaces.length > 0 && <WorkspaceOffers workspaces={workspaces} openWorkspace={openWorkspace} busy={busy} t={t} />}
     </div>
   );

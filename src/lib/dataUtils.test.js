@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { subDays, format } from 'date-fns';
 
 vi.mock('../firebase-config', () => ({
@@ -494,5 +494,77 @@ describe('malformed dates do not silently disable risk detection', () => {
   it('an empty or missing date does not crash the risk pipeline', () => {
     expect(() => computeToolDerivedStatus({ owner_email: 'a@x.com' })).not.toThrow();
     expect(() => computeToolDerivedStatus({ owner_email: 'a@x.com', last_used_date: '' })).not.toThrow();
+  });
+});
+
+
+// ── Which currency a brand-new workspace starts in ────────────────────────
+//
+// The first-run default used to read navigator.languages before the clock.
+// A browser installed in English reports en-US whoever owns it, so a Belgian
+// company was defaulted to dollars — and switching the interface to French
+// changed nothing, because currency is a property of the workspace, not of
+// the interface language. The reported symptom was exactly that: "currency
+// still shows dollars in french language".
+//
+// Location comes first now. These pin the order, because the fix is a
+// reordering and a reordering is the easiest thing in the world to undo.
+
+describe('the default currency follows where you are, not your browser language', () => {
+  const inPlace = (timeZone, ...languages) => {
+    vi.spyOn(Intl, 'DateTimeFormat').mockReturnValue({ resolvedOptions: () => ({ timeZone }) });
+    vi.spyOn(navigator, 'languages', 'get').mockReturnValue(languages);
+  };
+
+  beforeEach(() => { localStorage.clear(); vi.restoreAllMocks(); });
+  afterEach(() => { vi.restoreAllMocks(); });
+
+  it('an English browser in Belgium gets euros', async () => {
+    const { detectCurrency } = await import('./currency');
+    inPlace('Europe/Brussels', 'en-US', 'en');
+    expect(detectCurrency()).toBe('EUR');
+  });
+
+  it('a French browser in New York gets dollars', async () => {
+    const { detectCurrency } = await import('./currency');
+    inPlace('America/New_York', 'fr-FR');
+    expect(detectCurrency()).toBe('USD');
+  });
+
+  it('places the non-euro corners of Europe', async () => {
+    const { detectCurrency } = await import('./currency');
+    inPlace('Europe/London', 'fr-FR');
+    expect(detectCurrency()).toBe('GBP');
+    inPlace('Europe/Zurich', 'en-US');
+    expect(detectCurrency()).toBe('CHF');
+  });
+
+  it('tells Canada apart from the United States', async () => {
+    const { detectCurrency } = await import('./currency');
+    inPlace('America/Toronto', 'en-US');
+    expect(detectCurrency()).toBe('CAD');
+    inPlace('America/Chicago', 'en-US');
+    expect(detectCurrency()).toBe('USD');
+  });
+
+  it('falls back to the browser language where the clock says nothing', async () => {
+    const { detectCurrency } = await import('./currency');
+    inPlace('Asia/Tokyo', 'en-GB');
+    expect(detectCurrency()).toBe('GBP');
+    inPlace('', 'en-US');
+    expect(detectCurrency()).toBe('USD');
+  });
+
+  it('ends at euros rather than guessing', async () => {
+    const { detectCurrency } = await import('./currency');
+    inPlace('Asia/Tokyo', 'ja');
+    expect(detectCurrency()).toBe('EUR');
+  });
+
+  it('an explicit choice always beats detection', async () => {
+    const { getCurrencyCode } = await import('./currency');
+    inPlace('America/New_York', 'en-US');
+    localStorage.setItem('sg_general', JSON.stringify({ currency: 'EUR' }));
+    expect(getCurrencyCode()).toBe('EUR');
   });
 });

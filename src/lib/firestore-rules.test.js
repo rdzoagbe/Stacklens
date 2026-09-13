@@ -242,36 +242,31 @@ describe('/legal_acceptances — you can only accept as yourself', () => {
   });
 });
 
-describe('/reports — shareable snapshots expire', () => {
-  const future = () => Date.now() + 86_400_000;
-  const past   = () => Date.now() - 1000;
+// ── /reports is closed, and stays closed ──────────────────────────────────
+//
+// This collection had a rule permitting an unauthenticated read of any
+// unexpired token, for a shareable-report feature that was never finished:
+// /report/:token rendered <NotFound> and nothing ever called saveReport, so
+// no document could exist for the rule to hand out. The rule, the three
+// client functions and the route were removed together.
+//
+// Replacing the five tests that covered that rule with these two is
+// deliberate: deleting coverage for a removed rule leaves nothing to notice
+// if the rule comes back without the page.
 
-  it('anyone holding the token may read an unexpired report', async () => {
-    await admin(db => setDoc(doc(db, 'reports', 'tok1'), { owner_uid: ALICE, expires_at: future() }));
-    await assertSucceeds(getDoc(doc(asAnon(), 'reports', 'tok1')));
-  });
-
-  it('an EXPIRED report can no longer be read', async () => {
-    await admin(db => setDoc(doc(db, 'reports', 'tok2'), { owner_uid: ALICE, expires_at: past() }));
-    await assertFails(getDoc(doc(asAnon(), 'reports', 'tok2')));
-  });
-
-  it('a user cannot create a report owned by someone else', async () => {
-    await assertFails(setDoc(doc(asAlice(), 'reports', 'tok3'), {
-      owner_uid: BOB, expires_at: future(),
+describe('/reports stays closed', () => {
+  it('is unreadable, even to its own signed-in owner', async () => {
+    await admin(db => setDoc(doc(db, 'reports', 'tok1'), {
+      owner_uid: ALICE, expires_at: Date.now() + 86_400_000,
     }));
+    await assertFails(getDoc(doc(asAnon(), 'reports', 'tok1')));
+    await assertFails(getDoc(doc(asAlice(), 'reports', 'tok1')));
   });
 
-  it('a report cannot be created already-expired or non-expiring', async () => {
-    await assertFails(setDoc(doc(asAlice(), 'reports', 'tok4'), { owner_uid: ALICE, expires_at: past() }));
-    await assertFails(setDoc(doc(asAlice(), 'reports', 'tok5'), { owner_uid: ALICE }));
-  });
-
-  it('only the owner can delete a report, and nobody can edit one', async () => {
-    await admin(db => setDoc(doc(db, 'reports', 'tok6'), { owner_uid: ALICE, expires_at: future() }));
-    await assertFails(deleteDoc(doc(asBob(), 'reports', 'tok6')));
-    await assertFails(updateDoc(doc(asAlice(), 'reports', 'tok6'), { expires_at: future() }));
-    await assertSucceeds(deleteDoc(doc(asAlice(), 'reports', 'tok6')));
+  it('cannot be written to', async () => {
+    await assertFails(setDoc(doc(asAlice(), 'reports', 'tok2'), {
+      owner_uid: ALICE, expires_at: Date.now() + 86_400_000,
+    }));
   });
 });
 
