@@ -65,6 +65,30 @@ export function loadDb() {
   try { return _migrateSpendHistory(JSON.parse(raw)); } catch { return null; }
 }
 
+// ── Installing a copy that is known to be complete ─────────────────────────
+//
+// `_trimmed` means "this browser's copy is missing records the source of truth
+// still has". saveDb sets it when the blob will not fit in localStorage, and
+// keeps it on every later save — correctly, because a save whose blob happens
+// to fit is usually the already-trimmed data, and syncing that to a shared
+// workspace would delete the owner's history.
+//
+// What was missing was any way back. Nothing cleared the flag, so once a
+// shared-workspace editor hit the ceiling every subsequent save was refused
+// with "Workspace too large for this browser to sync safely" — for good, even
+// after they deleted enough data to fit. Worse, saveUserData stored the flag
+// in Firestore, so the next hydrate handed it back on every device.
+//
+// The flag can only be cleared by a copy that is complete by definition: one
+// just read from Firestore or from the workspace endpoint. That is what this
+// marks, and the only place it is safe to do.
+function asCompleteCopy(data) {
+  const copy = { ...data };
+  delete copy._trimmed;
+  delete copy._shared_view;
+  return copy;
+}
+
 const LS_SIZE_WARN_BYTES = 3 * 1024 * 1024;
 const LS_SIZE_MAX_BYTES  = 4.5 * 1024 * 1024;
 
@@ -156,7 +180,7 @@ export function enterSharedView(sharedDb, meta) {
   // must not silently grant write access.
   const role = meta?.role === 'editor' ? 'editor' : 'viewer';
   const view = {
-    ...sharedDb,
+    ...asCompleteCopy(sharedDb),
     _shared_view: { ...meta, role }, // { owner_uid, owner_email, role }
     user: { ...(sharedDb.user || {}), role, is_authenticated: true, is_demo: false },
   };
@@ -205,24 +229,39 @@ export async function hydrateFromFirestore(uid) {
     // losing newer data saved from another device.
     const cloudTs = cloudData?._saved_at || cloudData?._updatedAt || 0;
 
-    // Billing fields always come from Firestore (only the webhook can set them)
+    // Billing fields always come from Firestore (only the webhook can set them).
+    //
+    // This used to return `target` on every path, so the caller's
+    // `if (merged !== freshLocal) saveDb(merged)` compared an object with
+    // itself and was never true: the merge applied in memory for the session
+    // and was never written down. On the next load, if the cloud read failed,
+    // the user dropped back to whatever plan their stale local copy claimed.
+    // It now reports whether it changed anything.
     const mergeBilling = (target, cloud) => {
-      if (!cloud?.user) return target;
+      if (!cloud?.user) return false;
       if (!target.user) target.user = {};
+      const before = JSON.stringify([
+        target.user.plan, target.user.subscription_plan,
+        target.user.stripe_customer_id, target.user.subscription_status,
+      ]);
       if (cloud.user.plan && cloud.user.plan !== 'free') {
         target.user.plan = cloud.user.plan;
         target.user.subscription_plan = cloud.user.plan;
       }
       target.user.stripe_customer_id  = cloud.user.stripe_customer_id  || target.user.stripe_customer_id;
       target.user.subscription_status = cloud.user.subscription_status || target.user.subscription_status;
-      return target;
+      return JSON.stringify([
+        target.user.plan, target.user.subscription_plan,
+        target.user.stripe_customer_id, target.user.subscription_status,
+      ]) !== before;
     };
 
     // No local data at all → use cloud
     if (!freshLocal || (!freshLocal.tools?.length && !freshLocal.employees?.length)) {
       if (cloudData && cloudData.tools !== undefined) {
-        localStorage.setItem(LS_KEY, JSON.stringify(cloudData));
-        return cloudData;
+        const complete = asCompleteCopy(cloudData);
+        localStorage.setItem(LS_KEY, JSON.stringify(complete));
+        return complete;
       }
       // New user — nothing in cloud either, push local stub up
       const local = loadDb();
@@ -232,14 +271,17 @@ export async function hydrateFromFirestore(uid) {
 
     // Both exist — use the newer copy, always trust cloud for billing
     if (cloudData && cloudData.tools !== undefined && cloudTs > localTs) {
-      localStorage.setItem(LS_KEY, JSON.stringify(cloudData));
-      return cloudData;
+      const complete = asCompleteCopy(cloudData);
+      localStorage.setItem(LS_KEY, JSON.stringify(complete));
+      return complete;
     }
 
     // Local is newer (or cloud missing) — merge billing from cloud and return local
-    const merged = mergeBilling(freshLocal, cloudData);
-    if (merged !== freshLocal) saveDb(merged);
-    return merged;
+    const billingChanged = mergeBilling(freshLocal, cloudData);
+    // Written straight to localStorage rather than through saveDb: the values
+    // came from Firestore, so a cloud write here would only send them back.
+    if (billingChanged) localStorage.setItem(LS_KEY, JSON.stringify(freshLocal));
+    return freshLocal;
   } catch (err) {
     console.warn('Firestore hydration failed, using local cache:', err);
     return loadDb();
