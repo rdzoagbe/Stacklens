@@ -42,6 +42,7 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 import { getAnalytics, isSupported, setConsent as firebaseSetConsent } from 'firebase/analytics';
+import { track } from './lib/analytics';
 import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
 
 // Firebase config — values come from environment variables (VITE_FIREBASE_*).
@@ -848,6 +849,7 @@ export async function startTrial(uid) {
       },
       { merge: true }
     );
+    track('trial_started');
   } catch (e) {
     console.warn('startTrial failed (continuing on free):', e?.message);
   }

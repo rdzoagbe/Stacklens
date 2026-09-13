@@ -6,6 +6,20 @@ import { track } from '../lib/analytics';
 import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
 
+// A plan limit is the clearest upgrade signal this product produces: it marks
+// the exact moment someone wanted to do more and the plan said no. The throw
+// carries the numbers so the handler can report which limit bit, rather than
+// re-deriving them from a sentence written for a human.
+function planLimitError(kind, plan, label, cap) {
+  const err = new Error(
+    `PLAN_LIMIT:You've reached your ${label} plan limit of ${cap} ${kind}. Upgrade to add more.`
+  );
+  err.limitKind = kind;
+  err.limitPlan = plan;
+  err.limitCap  = cap;
+  return err;
+}
+
 export function useDbQuery() {
   return useQuery({
     queryKey: ['db'],
@@ -38,7 +52,7 @@ export function useDbMutations() {
       const plan = current?.user?.is_founder ? 'scale' : (current?.user?.plan || current?.user?.subscription_plan || 'free');
       const limits = getPlanLimits(plan);
       if ((current?.tools?.length || 0) >= limits.tools) {
-        throw new Error(`PLAN_LIMIT:You've reached your ${limits.label} plan limit of ${limits.tools} tools. Upgrade to add more.`);
+        throw planLimitError('tools', plan, limits.label, limits.tools);
       }
       setDb((db) => {
         db.tools.unshift({ ...tool, id: uid('tool') });
@@ -48,6 +62,7 @@ export function useDbMutations() {
     onSuccess: () => { invalidate(); track('tool_added'); },
     onError: (err) => {
       if (err.message?.startsWith('PLAN_LIMIT:')) {
+        track('plan_limit_hit', { limit: err.limitKind, plan: err.limitPlan, cap: err.limitCap });
         toast.error(err.message.replace('PLAN_LIMIT:', ''), { duration: 6000 });
       }
     },
@@ -86,7 +101,7 @@ export function useDbMutations() {
       const plan = current?.user?.is_founder ? 'scale' : (current?.user?.plan || current?.user?.subscription_plan || 'free');
       const limits = getPlanLimits(plan);
       if ((current?.employees?.length || 0) >= limits.employees) {
-        throw new Error(`PLAN_LIMIT:You've reached your ${limits.label} plan limit of ${limits.employees} employees. Upgrade to add more.`);
+        throw planLimitError('employees', plan, limits.label, limits.employees);
       }
       setDb((db) => {
         db.employees.unshift({ ...emp, id: uid('emp') });
@@ -96,6 +111,7 @@ export function useDbMutations() {
     onSuccess: () => { invalidate(); track('employee_added'); },
     onError: (err) => {
       if (err.message?.startsWith('PLAN_LIMIT:')) {
+        track('plan_limit_hit', { limit: err.limitKind, plan: err.limitPlan, cap: err.limitCap });
         toast.error(err.message.replace('PLAN_LIMIT:', ''), { duration: 6000 });
       }
     },

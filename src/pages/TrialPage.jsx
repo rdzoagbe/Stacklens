@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import { Check, ChevronDown, ChevronRight, Lock, Mail, Play, Shield } from 'lucide-react';
 import { sendMagicLink, signInWithMicrosoft, signInWithEmail, resetPassword, registerWithEmail, authErrorKey } from '../firebase-config';
 import { saveDb, seedDbIfEmpty } from '../lib/db';
+import { track } from '../lib/analytics';
 import { useAuth } from '../hooks/useAuth';
 import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
@@ -60,13 +61,6 @@ export function TrialPage() {
   const [, setCurrentTestimonial] = useState(0);
   const [loading, setLoading] = useState(false);
 
-  // Analytics tracking helper
-  const trackEvent = (eventName, params = {}) => {
-    if (typeof gtag !== 'undefined') {
-      gtag('event', eventName, params);
-    }
-  };
-
   // No fake testimonials — we're in early access. Real testimonials come from real customers.
   const testimonials = [];
 
@@ -81,7 +75,7 @@ export function TrialPage() {
   // Handle SSO provider click
   const handleSSOClick = async (provider) => {
     setLoading(true);
-    trackEvent('sso_clicked', { provider: provider.id });
+    track('sso_clicked', { provider: provider.id });
 
     try {
       if (provider.id === 'google') {
@@ -135,7 +129,7 @@ export function TrialPage() {
                 {t('lp_nav_sign_in')}
               </button>
               <button
-                onClick={() => { trackEvent('cta_click', { location: 'nav' }); setShowAuth(true); }}
+                onClick={() => { track('cta_click', { location: 'nav' }); setShowAuth(true); }}
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-semibold text-white transition-colors">
                 {t('lp_nav_start_free')}
               </button>
@@ -165,12 +159,12 @@ export function TrialPage() {
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-6">
             <button
-              onClick={() => { trackEvent('cta_click', { location: 'hero_primary' }); setShowAuth(true); }}
+              onClick={() => { track('cta_click', { location: 'hero_primary' }); setShowAuth(true); }}
               className="px-8 py-4 bg-blue-600 hover:bg-blue-500 rounded-xl text-base font-semibold text-white transition-all hover:scale-[1.02] shadow-lg shadow-blue-900/40">
               {t('lp_cta_start')}
             </button>
             <button
-              onClick={() => { trackEvent('cta_click', { location: 'hero_demo' }); startDemo(); navigate('/dashboard'); }}
+              onClick={() => { track('cta_click', { location: 'hero_demo' }); startDemo(); navigate('/dashboard'); }}
               className="px-8 py-4 border border-slate-700 hover:border-slate-600 hover:bg-slate-900/60 rounded-xl text-base font-semibold text-slate-300 transition-all">
               {t('lp_cta_demo')}
             </button>
@@ -328,7 +322,7 @@ export function TrialPage() {
 
           <div className="text-center mt-10">
             <button
-              onClick={() => { trackEvent('cta_click', { location: 'outcomes' }); setShowAuth(true); }}
+              onClick={() => { track('cta_click', { location: 'outcomes' }); setShowAuth(true); }}
               className="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl text-sm font-semibold text-white transition-all">
               {t('lp_find_hiding')}
             </button>
@@ -417,7 +411,7 @@ export function TrialPage() {
                 </ul>
                 <button
                   onClick={() => {
-                    trackEvent('cta_click', { location: 'pricing_' + p.name.toLowerCase() });
+                    track('cta_click', { location: 'pricing_' + p.name.toLowerCase() });
                     if (p.name === 'Enterprise') {
                       window.location.href = '/contact?subject=enterprise';
                     } else {
@@ -484,7 +478,7 @@ export function TrialPage() {
             {t('lp_final_cta_body')}
           </p>
           <button
-            onClick={() => { trackEvent('cta_click', { location: 'final' }); setShowAuth(true); }}
+            onClick={() => { track('cta_click', { location: 'final' }); setShowAuth(true); }}
             className="px-10 py-4 bg-blue-600 hover:bg-blue-500 rounded-xl text-base font-semibold text-white transition-all hover:scale-[1.02] shadow-lg shadow-blue-900/40">
             {t('lp_final_cta_btn')}
           </button>
@@ -654,7 +648,7 @@ export function TrialPage() {
                             setLoading(false); return;
                           }
                           if (user) {
-                            trackEvent('login', { method: 'password' });
+                            track('login', { method: 'password' });
                             const cur = seedDbIfEmpty();
                             cur.user = { ...cur.user, is_authenticated: true, is_demo: false, email: user.email, displayName: user.displayName || authEmail.split('@')[0], uid: user.uid };
                             saveDb(cur);
@@ -680,7 +674,7 @@ export function TrialPage() {
                           if (!authEmail) { setAuthError(t('lp_enter_email_first')); return; }
                           setLoading(true); setAuthError('');
                           const { error } = await sendMagicLink(authEmail);
-                          if (!error) { setMagicSent(true); trackEvent('magic_link_sent'); }
+                          if (!error) { setMagicSent(true); track('magic_link_sent'); }
                           else { setAuthError(t(authErrorKey(error) || 'err_auth_generic')); }
                           setLoading(false);
                         }}
@@ -787,7 +781,7 @@ export function TrialPage() {
                             setLoading(false); return;
                           }
                           if (user) {
-                            trackEvent('sign_up', { method: 'password' });
+                            track('sign_up', { method: 'password' });
                             toast.success(t('account_created_verify'));
                             const cur = seedDbIfEmpty();
                             cur.user = { ...cur.user, is_authenticated: true, is_demo: false, email: user.email, displayName: authName, uid: user.uid };

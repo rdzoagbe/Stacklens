@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { ChevronRight, RefreshCw } from 'lucide-react';
 import { loadUserData, saveUserData } from '../firebase-config';
+import { track } from '../lib/analytics';
 import { useAuth } from '../hooks/useAuth';
 import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
@@ -77,6 +78,12 @@ export function OnboardingPage() {
       });
 
       if (success) {
+        // Size and expected tool count only. workEmail, fullName and
+        // companyName are in this same formData and must never leave the app.
+        track('onboarding_completed', {
+          company_size: formData.companySize || undefined,
+          num_tools: Number(formData.numTools) || undefined,
+        });
         // Mark onboarding done in localStorage so redirect handler works instantly next time
         localStorage.setItem('sg_onboarded_' + firebaseUser.uid, 'true');
         navigate('/dashboard', { replace: true });

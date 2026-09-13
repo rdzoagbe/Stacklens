@@ -3,6 +3,7 @@ import React, { useState, useEffect, useSyncExternalStore } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { loadUserData, logConsent, workspaceMine, workspaceRead, workspaceListOrgs, workspaceCreateOrg } from '../firebase-config';
+import { track } from '../lib/analytics';
 import { enterSharedView, exitSharedView, getSharedView } from '../lib/db';
 import { subscribeSync, getSyncSnapshot, retrySync } from '../lib/syncStatus';
 import { useQueryClient } from '@tanstack/react-query';
@@ -715,6 +716,8 @@ export function SharedWorkspaceBanner() {
     setBusy(true);
     try {
       const { org } = await workspaceCreateOrg(name);
+      // Count only — a client workspace name is a customer's customer.
+      track('client_workspace_created', { total: orgs.length + 1 });
       setOrgs(o => [...o, org]);
       _orgsPromise = null;             // refetch on next mount
       toast.success(t('ws_client_created'));
