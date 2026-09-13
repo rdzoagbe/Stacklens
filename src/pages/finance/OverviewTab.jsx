@@ -20,6 +20,9 @@ import { useTranslation } from '../../translations';
 function SpendTrendChart({ monthlyTrend, byCategory }) {
   const { language } = useLang();
   const t = useTranslation(language);
+  // One point is this month and nothing to compare it with. A single bar
+  // labelled "Last 6 months" reads as history, so say what it actually is.
+  const hasTrend = monthlyTrend.length >= 2;
   const maxSpend = Math.max(...monthlyTrend.map(m => m.spend), 1);
   const colors = ['#3b82f6','#10b981','#f59e0b','#8b5cf6','#ef4444'];
   const totalMonthly = byCategory.reduce((s, c) => s + c.spend, 0);
@@ -32,7 +35,12 @@ function SpendTrendChart({ monthlyTrend, byCategory }) {
         <div className="flex items-center justify-between mb-5">
           <div>
             <h2 className="text-base font-semibold text-white">{t('monthly_spend_trend_title') || 'Monthly Spend Trend'}</h2>
-            <p className="text-sm text-slate-500 mt-0.5">{t('last_6_months') || 'Last 6 months'}</p>
+            <p className="text-sm text-slate-500 mt-0.5">
+              {hasTrend
+                ? (monthlyTrend.length >= 6 ? (t('last_6_months') || 'Last 6 months')
+                                            : `${monthlyTrend.length} recorded months`)
+                : (t('trend_no_history') || 'No history yet')}
+            </p>
           </div>
           <div className="text-right">
             <div className="text-2xl font-black text-white">{getCurrency(language)}{displayAmount(Math.round(monthlyTrend[monthlyTrend.length-1]?.spend || 0)).toLocaleString()}</div>
@@ -41,6 +49,14 @@ function SpendTrendChart({ monthlyTrend, byCategory }) {
         </div>
 
         {/* Area-style bar chart */}
+        {!hasTrend ? (
+          <div className="flex flex-col items-center justify-center text-center" style={{height: '160px'}}>
+            <p className="text-sm text-slate-400">{t('trend_building_title') || 'Building your spend history'}</p>
+            <p className="text-xs text-slate-500 mt-1 max-w-xs">
+              {t('trend_building_sub') || 'Your spend is recorded once a month. The trend appears here after your second month.'}
+            </p>
+          </div>
+        ) : (
         <div className="flex items-end gap-2 md:gap-3" style={{height: '160px'}}>
           {monthlyTrend.map((m, idx) => {
             const isLast = idx === monthlyTrend.length - 1;
@@ -58,6 +74,7 @@ function SpendTrendChart({ monthlyTrend, byCategory }) {
             );
           })}
         </div>
+        )}
 
         {/* Trend line indicator */}
         {monthlyTrend.length >= 2 && (() => {
@@ -197,13 +214,16 @@ export function FinanceOverviewTab({ financialData, showBudgetModal, setShowBudg
     if (firebaseUser?.uid) saveUserData(firebaseUser.uid, cur).catch(() => {});
     qc.invalidateQueries({ queryKey: ['db'] });
   };
-  const savingsVsLastMonth = financialData.lastMonthSpend - financialData.totalMonthlySpend;
+  // lastMonthSpend is null until this workspace has a completed month in
+  // spend_history. No history, no comparison — rather than a made-up one.
+  const lastMonth = financialData.lastMonthSpend;
+  const hasRealComparison = Number(lastMonth) > 0 && financialData.totalMonthlySpend > 0;
+  const savingsVsLastMonth = hasRealComparison ? lastMonth - financialData.totalMonthlySpend : 0;
   const annualSpend = financialData.totalMonthlySpend * 12;
-  const hasRealComparison = financialData.lastMonthSpend > 0 && financialData.totalMonthlySpend > 0;
-  const monthlyChange = hasRealComparison ? ((financialData.totalMonthlySpend / financialData.lastMonthSpend - 1) * 100) : 0;
+  const monthlyChange = hasRealComparison ? ((financialData.totalMonthlySpend / lastMonth - 1) * 100) : 0;
   const upcomingTotal = financialData.upcomingBills.reduce((s, b) => s + b.amount, 0);
   const topCategory = financialData.byCategory.length > 0 ? [...financialData.byCategory].sort((a,b) => b.spend - a.spend)[0] : null;
-  const potentialSavings = Math.round(financialData.totalMonthlySpend * 0.14);
+  const potentialSavings = Math.round(Number(financialData.recoverable) || 0);
 
   // Empty state for real users with no tools yet
   if (financialData.isReal && financialData.toolCount === 0) {
@@ -262,7 +282,7 @@ export function FinanceOverviewTab({ financialData, showBudgetModal, setShowBudg
             )}
           </div>
           <div className="text-sm text-slate-400 mb-5">
-            {getCurrency(language)}{displayAmount(annualSpend).toLocaleString()}/year{hasRealComparison ? ' · ' + getCurrency(language) + displayAmount(financialData.lastMonthSpend).toLocaleString() + ' last month' : ''}
+            {getCurrency(language)}{displayAmount(annualSpend).toLocaleString()}/year{hasRealComparison ? ' · ' + getCurrency(language) + displayAmount(lastMonth).toLocaleString() + ' last month' : ''}
           </div>
 
           {/* Budget bar */}

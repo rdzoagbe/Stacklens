@@ -4,7 +4,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import {
   buildRiskAlerts, computeToolDerivedRisk,
 } from '../lib/dataUtils';
-import { maybeSnapshotSpend } from '../lib/budget';
+import { maybeSnapshotSpend, previousMonthSpend, spendTrend } from '../lib/budget';
+import { computeWaste } from '../lib/waste';
 import { useDbQuery } from '../hooks/useDbQuery';
 import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
@@ -82,8 +83,7 @@ export function FinanceDashboard() {
     return acc;
   }, {}));
   const _months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const _now = new Date();
-  const _trend = Array.from({length:6},(_,i)=>{ const d=new Date(_now.getFullYear(),_now.getMonth()-5+i,1); return {month:_months[d.getMonth()],spend:_totalSpend*(0.9+i*0.02)}; });
+  const _trend = spendTrend(db, _totalSpend).map(p => ({ month: _months[p.monthIndex], spend: p.spend }));
   const _bills = _tools.filter(t=>t.renewal_date).sort((a,b)=>new Date(a.renewal_date)-new Date(b.renewal_date)).slice(0,5).map(t=>({app:t.name,amount:_cost(t)*12,dueDate:t.renewal_date,status:'pending',category:t.category||'Other'}));
   // Budget cap — read from db (persisted to Firestore) with localStorage fallback
   const _savedBudgetCap = db?.user?.budget_cap || parseInt(localStorage.getItem('sg_budget_cap') || '0') || 0;
@@ -93,7 +93,7 @@ export function FinanceDashboard() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (db?.user?.budget_cap && db.user.budget_cap !== budgetCap) setBudgetCap(db.user.budget_cap);
   }, [db?.user?.budget_cap, budgetCap]);
-  const _financialData = {totalMonthlySpend:_totalSpend,budgetLimit:budgetCap||0,lastMonthSpend:_totalSpend*0.95,upcomingBills:_bills,byCategory:_byCategory,monthlyTrend:_trend,isReal:true,toolCount:_tools.filter(t=>t.status!=='archived').length};
+  const _financialData = {totalMonthlySpend:_totalSpend,budgetLimit:budgetCap||0,lastMonthSpend:previousMonthSpend(db),upcomingBills:_bills,byCategory:_byCategory,monthlyTrend:_trend,isReal:true,recoverable:computeWaste(db).recoverable,toolCount:_tools.filter(t=>t.status!=='archived').length};
 
   // Record one spend snapshot per month so the Budget tab's "spent to date"
   // uses real recorded figures instead of run-rate estimates over time.
@@ -114,7 +114,12 @@ export function FinanceDashboard() {
   ];
 
   return (
-    <PlanGate requires="growth" feature={t('feat_finance_dashboard')}><AppShell title={t("finance_title") || "Finance"}
+    // Gated by ModuleGate module="finance" on every route into this page
+    // (App.jsx). That list admits hr_finance, the €49 plan named after this
+    // very board. The PlanGate that used to sit here required tier 3, so an
+    // hr_finance customer passed the module gate and was then refused by a
+    // wall naming a plan that is not on the pricing page.
+    <AppShell title={t("finance_title") || "Finance"}
       right={
         <div className="flex gap-1 p-1 bg-slate-900 rounded-xl border border-slate-800 overflow-x-auto [&::-webkit-scrollbar]:h-0">
           {TABS.map(tab => (
@@ -133,7 +138,7 @@ export function FinanceDashboard() {
       {finTab === 'renewals' && <React.Suspense fallback={<TabLoader />}><LazyRenewalAlerts /></React.Suspense>}
       {finTab === 'contracts' && <React.Suspense fallback={<TabLoader />}><LazyContractsTab /></React.Suspense>}
       {finTab === 'analytics' && <React.Suspense fallback={<TabLoader />}><LazyAnalyticsTab /></React.Suspense>}
-    </AppShell></PlanGate>
+    </AppShell>
   );
 }
 

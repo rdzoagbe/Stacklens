@@ -7,6 +7,7 @@ import {
   displayAmount,
   getCurrency,
 } from '../../lib/dataUtils';
+import { enrichToolCosts } from '../../lib/waste';
 import { useDbQuery } from '../../hooks/useDbQuery';
 import { useLang } from '../../contexts/LangContext';
 import { useTranslation } from '../../translations';
@@ -20,22 +21,9 @@ export function CostTabContent({ setFinTab }) {
   const [page, setPage] = useState(0);
   const PAGE_SIZE = 15;
 
-  const enriched = useMemo(() => {
-    const tools = db?.tools || [];
-    const access = db?.access || [];
-    return tools
-      .filter(t => t.status === 'active')
-      .map(tool => {
-        const activeUsers = access.filter(a => a.tool_id === tool.id && a.status === 'active').length;
-        const cost = Number(tool.cost_per_month || 0);
-        const costPerUser = activeUsers > 0 ? cost / activeUsers : cost;
-        const noUsers = activeUsers === 0;
-        const expensive = activeUsers > 0 && costPerUser > 200;
-        const wasteFlag = noUsers || expensive;
-        const wasteReason = noUsers ? 'no-users' : expensive ? 'expensive' : null;
-        return { ...tool, activeUsers, cost, costPerUser, wasteFlag, wasteReason };
-      });
-  }, [db]);
+  // Enrichment and the waste rule live in lib/waste so this screen, the
+  // Licenses tab, the Dashboard and the Executive summary cannot drift.
+  const enriched = useMemo(() => enrichToolCosts(db), [db]);
 
   const filtered = useMemo(() => {
     return enriched
@@ -54,9 +42,11 @@ export function CostTabContent({ setFinTab }) {
   const wasteAmount = wasteTools.reduce((s, t) => s + t.cost, 0);
   const unusedTools = enriched.filter(t => t.activeUsers === 0);
   const unusedAmount = unusedTools.reduce((s, t) => s + t.cost, 0);
+  // Recoverable spend is the cost of tools nobody holds access to —
+  // countable, not a fraction of flagged spend. Same figure everywhere.
+  const potentialSavings = Math.round(unusedAmount);
   const expensiveTools = enriched.filter(t => t.wasteReason === 'expensive');
   const expensiveAmount = expensiveTools.reduce((s, t) => s + t.cost, 0);
-  const potentialSavings = Math.round(wasteAmount * 0.7);
   const wastePercent = totalSpend > 0 ? Math.round((wasteAmount / totalSpend) * 100) : 0;
 
   // Top 3 quick wins (highest waste potential)
@@ -79,7 +69,7 @@ export function CostTabContent({ setFinTab }) {
             <span className="text-base text-slate-500">/ month</span>
           </div>
           <div className="text-sm text-slate-400 mb-4">
-            {getCurrency(language)}{displayAmount(potentialSavings * 12).toLocaleString()}/year if you reclaim flagged waste
+            {getCurrency(language)}{displayAmount(potentialSavings * 12).toLocaleString()}/year on tools with no active users
           </div>
           <div className="flex flex-wrap gap-2">
             <button onClick={() => setFinTab && setFinTab('licenses')}
@@ -179,10 +169,16 @@ export function CostTabContent({ setFinTab }) {
                     <span className="text-slate-500">{t('col_active_users')}</span>
                     <span className={tool.activeUsers === 0 ? "text-red-400 font-semibold" : "text-white"}>{tool.activeUsers}</span>
                   </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-slate-500">{t('act_save')}</span>
-                    <span className="text-emerald-400 font-semibold">{getCurrency(language)}{displayAmount(Math.round(tool.cost * 0.7)).toLocaleString()}/mo</span>
-                  </div>
+                  {/* This used to show a fixed fraction of the tool's price
+                      as the saving. For a tool nobody can log into, the
+                      recoverable amount is its full cost; for an expensive
+                      one there is no defensible number, so none is shown. */}
+                  {tool.wasteReason === 'no-users' && (
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-slate-500">{t('act_save')}</span>
+                      <span className="text-emerald-400 font-semibold">{getCurrency(language)}{displayAmount(Math.round(tool.cost)).toLocaleString()}/mo</span>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}

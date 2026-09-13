@@ -234,6 +234,71 @@ function resolveWorkspaceAccess({ clientOrg, memberships, callerUid, callerEmail
   return { role, via: 'membership' };
 }
 
+// ── A trial that has run out is not a trial ─────────────────────────────────
+//
+// resolvePlan() in src/lib/plan.js applies trial expiry, but it is client-only
+// and nothing server-side or scheduled ever rewrites /users/{uid}.plan from
+// 'trial' back to 'free'. So the endpoints read a raw Firestore field that
+// still says 'trial' on day 400, and kept granting the trial's allowance of
+// client workspaces forever, while the customer's own screen had long since
+// shown the trial-expired banner.
+//
+// Kept in step with the client by src/lib/plan-parity.test.js.
+const TRIAL_DAYS = 7;
+const TRIAL_MS = TRIAL_DAYS * 24 * 60 * 60 * 1000;
+
+/** Milliseconds from a Firestore Timestamp, an epoch number, or an ISO string. */
+function toMillis(value) {
+  if (!value) return 0;
+  if (typeof value === 'number') return value;
+  if (typeof value.toMillis === 'function') return value.toMillis();
+  if (typeof value.toDate === 'function') return value.toDate().getTime();
+  if (typeof value === 'string') return Date.parse(value) || 0;
+  if (typeof value.seconds === 'number') return value.seconds * 1000;
+  return 0;
+}
+
+/**
+ * The plan a user is actually on right now. Mirrors resolvePlan() for the one
+ * case the stored field gets wrong: an expired trial reads as 'free'.
+ */
+function effectivePlan(userData, now = Date.now()) {
+  if (!userData) return 'free';
+  if (userData.is_founder === true) return 'scale';
+  const stored = userData.plan || userData.subscription_plan;
+  if (stored && stored !== 'trial' && stored !== 'free') return stored;
+  if (stored === 'trial') {
+    const startedAt = toMillis(userData.trial_started_at);
+    if (startedAt > 0 && (now - startedAt) < TRIAL_MS) return 'trial';
+    return 'free';
+  }
+  return stored || 'free';
+}
+
+// ── The workspace currency, for anything the server renders ─────────────────
+//
+// Costs are stored as plain numbers and never converted; the currency is only
+// a label. But dailyAlerts and weeklySummary hardcoded a euro sign, so a US
+// workspace set to USD read "$4,140/yr" in the Renewals tab and received
+// "renews 2026-10-02 · EUR 4,140/yr" by email the same morning.
+//
+// The chosen code now rides along in the workspace blob (db.user.currency),
+// written by Settings > General. Kept in step with SUPPORTED_CURRENCIES in
+// src/lib/currency.js by src/lib/currency-parity.test.js.
+const CURRENCY_SYMBOLS = {
+  EUR: '\u20ac',
+  USD: '$',
+  GBP: '\u00a3',
+  CHF: 'CHF ',
+  CAD: 'C$',
+};
+
+/** The symbol for a workspace blob, falling back to the euro. */
+function currencySymbol(data) {
+  const code = String(data?.user?.currency || '').toUpperCase();
+  return CURRENCY_SYMBOLS[code] || CURRENCY_SYMBOLS.EUR;
+}
+
 module.exports = {
   MEMBER_ROLES,
   MEMBER_WRITABLE_KEYS,
@@ -252,4 +317,8 @@ module.exports = {
   newClientOrgId,
   cleanOrgName,
   resolveWorkspaceAccess,
+  TRIAL_DAYS,
+  effectivePlan,
+  CURRENCY_SYMBOLS,
+  currencySymbol,
 };

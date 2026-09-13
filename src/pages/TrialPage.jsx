@@ -92,7 +92,7 @@ export function TrialPage() {
         setShowEmailForm(true);
         setLoading(false);
       } else {
-        toast.info(`${provider.name} SSO coming soon.`);
+        toast(`${provider.name} SSO coming soon.`, { icon: 'ℹ️' });
         setLoading(false);
       }
     } catch (error) {
@@ -852,7 +852,7 @@ export function TrialPage() {
                     { id: 'saml',      name: 'SAML 2.0',         sub: 'Custom SAML identity provider',   live: false, logo: <div className="w-5 h-5 rounded bg-slate-600 flex items-center justify-center"><Lock className="w-3 h-3 text-slate-300" /></div> },
                   ].map(p => (
                     <button key={p.id}
-                      onClick={() => p.live ? handleSSOClick({ id: p.id, live: true }) : toast.info(p.name + ' SSO is coming soon. Use Google or magic link for now.')}
+                      onClick={() => p.live ? handleSSOClick({ id: p.id, live: true }) : toast(p.name + ' SSO is coming soon. Use Google or magic link for now.', { icon: 'ℹ️' })}
                       className={"w-full flex items-center justify-between p-4 rounded-2xl border transition-all group " +
                         (p.live ? "border-slate-700 bg-slate-800/60 hover:bg-slate-800 hover:border-blue-500/40" : "border-slate-800 bg-slate-800/20 opacity-50 cursor-not-allowed")}>
                       <div className="flex items-center gap-3">

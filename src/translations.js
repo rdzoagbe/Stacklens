@@ -2745,6 +2745,8 @@ export const translations = {
     subproc_ovh_transfer: "EU — no transfer outside EU",
     subproc_ga_purpose: "Anonymised audience measurement — only with explicit consent via CNIL cookie banner",
     subproc_ga_transfer: "Anonymised data only, EU storage",
+    subproc_sentry_purpose: "Application error monitoring — stack traces and the page URL where an error occurred, so faults are found and fixed",
+    subproc_sentry_transfer: "Standard Contractual Clauses; no customer records are sent, only diagnostic data",
     subproc_privacy_policy_link: "Privacy policy →",
     subproc_change_notif_title: "Change notification",
     subproc_change_notif_body: "If we add or replace a sub-processor, we will inform you by email to your account address with 30 days notice. You will have the opportunity to object to the change. If no objection is received within this period, the change will be deemed accepted.",
@@ -3654,6 +3656,7 @@ export const translations = {
     subproc_ovh_purpose: "Registrar du domaine stacklens.fr, e-mail hello@stacklens.fr",
     subproc_ovh_transfer: "UE — aucun transfert hors UE",
     subproc_ga_transfer: "Données anonymisées uniquement, stockage UE",
+    subproc_sentry_transfer: "Clauses contractuelles types ; aucune donnée client n'est transmise, uniquement des données de diagnostic",
     subproc_privacy_policy_link: "Politique de confidentialité →",
     subproc_questions: "Questions :",
     subproc_dpa_link: "Accord DPA",
@@ -3898,6 +3901,7 @@ export const translations = {
     subproc_anthropic_purpose: "Analyse de contrats assistée par IA — uniquement lorsque la fonctionnalité est utilisée explicitement. Les textes soumis ne sont pas conservés par Anthropic pour l'entraînement.",
     subproc_anthropic_transfer: "Transfert vers USA — SCCs + politique de non-conservation des données",
     subproc_ga_purpose: "Mesure d'audience anonymisée — uniquement avec consentement explicite via le bandeau CNIL",
+    subproc_sentry_purpose: "Surveillance des erreurs applicatives — traces d'exécution et URL de la page concernée, afin d'identifier et corriger les anomalies",
     subproc_change_notif_title: "Notification des changements",
     subproc_change_notif_body: "Si nous ajoutons ou remplaçons un sous-traitant, nous vous informerons par email à l'adresse associée à votre compte avec un préavis de 30 jours. Vous aurez la possibilité de vous opposer à ce changement. Si aucune opposition n'est reçue dans ce délai, le changement sera considéré comme accepté.",
     legal_publication_director_title: "Directeur de la publication",
@@ -11388,6 +11392,9 @@ export const translations = {
 
 const TRANS_CACHE_KEY = 'ag_live_translations';
 const TRANS_QUEUE_DELAY = 2000; // Wait 2s to batch multiple missing keys
+// How long a failed language is left alone before being retried. In memory
+// only and deliberately not persisted: a page load should retry.
+const TRANS_RETRY_MS = 10 * 60 * 1000;
 
 // Load cached translations from localStorage
 function loadTransCache() {
@@ -11406,6 +11413,7 @@ function saveTransCache(cache) {
 // Queue for batch translation
 let _transQueue = {};
 let _transTimer = null;
+let _transFailures = {};   // `${lang}:${key}` -> when the AI call last failed
 let _transCallbacks = [];
 let _translating = false;
 
@@ -11464,13 +11472,22 @@ async function flushTranslationQueue() {
       }
     } catch (err) {
       console.warn(`Live translation failed for ${langName}:`, err.message);
-      // Fallback: use simple word-level translation for common UI terms
-      if (!cache[lang]) cache[lang] = {};
-      items.forEach(({ key, enValue }) => {
-        // At minimum, keep the English value so it doesn't show as a raw key
-        if (!cache[lang][key]) cache[lang][key] = enValue;
-      });
-      saveTransCache(cache);
+      // The English value used to be written into the persisted cache here,
+      // under a comment promising a word-level fallback it never performed.
+      // t() checks the cache (step 2) before the queue branch (step 3), so
+      // once English landed in the cache that key was never retried — and /ai
+      // is rate limited to 20 calls an hour shared with the chatbot, AI
+      // recommendations and contract analysis, so one 429 mid-flush pinned
+      // those labels to English permanently, with no way to clear them.
+      //
+      // Nothing is cached now. t() falls through to step 3 and returns the
+      // English string exactly as before, so the screen is unchanged, and the
+      // key stays eligible for translation. The failure is remembered in
+      // memory only, to keep a failing language from re-queueing on every
+      // render and burning the rate limit; it retries after the cooldown or
+      // on the next page load.
+      const failedAt = Date.now();
+      items.forEach(({ cacheKey }) => { _transFailures[cacheKey] = failedAt; });
     }
   }
 
@@ -11479,6 +11496,11 @@ async function flushTranslationQueue() {
 
 function queueForTranslation(key, enValue, lang) {
   const cacheKey = `${lang}:${key}`;
+  // A key whose translation just failed is not retried until the cooldown
+  // passes. Without this, not caching the failure would re-queue it on every
+  // render and hammer a rate-limited endpoint.
+  const failedAt = _transFailures[cacheKey];
+  if (failedAt && (Date.now() - failedAt) < TRANS_RETRY_MS) return;
   _transQueue[cacheKey] = { key, enValue, lang };
   
   if (_transTimer) clearTimeout(_transTimer);

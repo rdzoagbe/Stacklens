@@ -3,6 +3,7 @@ import toast from 'react-hot-toast';
 import { Download, FileText, Users } from 'lucide-react';
 import { todayISO } from '../lib/db';
 import { computeToolDerivedStatus, computeToolDerivedRisk, computeAccessDerivedRiskFlag, formatMoney, downloadText, toCsv } from '../lib/dataUtils';
+import { computeWaste } from '../lib/waste';
 import { cx } from '../lib/utils';
 import { useDbQuery } from '../hooks/useDbQuery';
 import { useLang } from '../contexts/LangContext';
@@ -22,7 +23,7 @@ function generateAuditReportHTML(derived, language, t) {
   const hScore = derived.healthScore;
   const hColor = hScore >= 80 ? '#10b981' : hScore >= 60 ? '#f59e0b' : '#ef4444';
   const hLabel = hScore >= 80 ? t('rep_healthy') : hScore >= 60 ? t('rep_needs_attention') : t('rep_at_risk');
-  const wastedSpend = Math.round(derived.spend * 0.14);
+  const wastedSpend = Math.round(computeWaste(derived).recoverable);
   const annualSavings = wastedSpend * 12;
   const topSpend = [...derived.tools].filter(t => t.cost_per_month > 0).sort((a, b) => b.cost_per_month - a.cost_per_month).slice(0, 10);
   const highRiskTools = derived.tools.filter(t => t.derived_risk === 'high');

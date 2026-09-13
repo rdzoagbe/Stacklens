@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AlertTriangle, BarChart3, TrendingDown, Zap, Target, Download, Boxes, Users, Shield, Award } from 'lucide-react';
 import { formatMoney, getCurrency, displayAmount } from '../lib/dataUtils';
+import { enrichToolCosts } from '../lib/waste';
 import { useDbQuery } from '../hooks/useDbQuery';
 import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
@@ -20,15 +21,7 @@ export function CostManagementPage() {
   const tools = db?.tools || [];
   const access = db?.access || [];
 
-  const enriched = tools
-    .filter(t => t.status === 'active')
-    .map(tool => {
-      const activeUsers = access.filter(a => a.tool_id === tool.id && a.status === 'active').length;
-      const cost = Number(tool.cost_per_month || 0);
-      const costPerUser = activeUsers > 0 ? cost / activeUsers : cost;
-      const wasteFlag = activeUsers === 0 || costPerUser > 200;
-      return { ...tool, activeUsers, cost, costPerUser, wasteFlag };
-    })
+  const enriched = enrichToolCosts({ tools, access })
     .filter(t => filter === 'all' ? true : filter === 'waste' ? t.wasteFlag : !t.wasteFlag)
     .sort((a, b) => sortBy === 'cost' ? b.cost - a.cost : b.costPerUser - a.costPerUser);
 
@@ -36,6 +29,7 @@ export function CostManagementPage() {
   const wasteTools = enriched.filter(t => t.wasteFlag);
   const wasteAmount = wasteTools.reduce((s, t) => s + t.cost, 0);
   const unusedTools = enriched.filter(t => t.activeUsers === 0);
+  const unusedAmount = unusedTools.reduce((s, t) => s + t.cost, 0);
 
   return (
     <PlanGate requires="growth" feature={t('feat_cost_management')}><AppShell title={t("cost_mgmt_title")}>
@@ -56,7 +50,7 @@ export function CostManagementPage() {
             { label: 'Total Monthly Spend', value: formatMoney(totalSpend, null, language), sub: tools.filter(t=>t.status==='active').length + ' active tools', color: 'text-white', Icon: BarChart3 },
             { label: 'Estimated Waste', value: formatMoney(wasteAmount, null, language), sub: wasteTools.length + ' flagged tools', color: 'text-rose-400', Icon: TrendingDown },
             { label: 'Unused Tools', value: unusedTools.length, sub: 'no active users assigned', color: 'text-amber-400', Icon: Zap },
-            { label: 'Potential Savings', value: getCurrency(language) + Math.round(wasteAmount * 0.7).toLocaleString(), sub: 'if waste reclaimed', color: 'text-emerald-400', Icon: Target },
+            { label: 'Potential Savings', value: getCurrency(language) + Math.round(unusedAmount).toLocaleString(), sub: 'if waste reclaimed', color: 'text-emerald-400', Icon: Target },
           ].map(({ label, value, sub, color, Icon }) => (
             <Card key={label}><CardBody>
               <div className="flex items-start justify-between gap-2">

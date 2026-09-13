@@ -22,7 +22,7 @@ cd functions && npm run serve      # Firebase emulator for functions only
 
 # Quality
 npm run lint         # ESLint — must stay at 0 errors
-npm test             # Vitest — 84 tests across lib/
+npm test             # Vitest — 274 tests (src/lib, src/pages, functions/)
 ```
 
 There is a **husky pre-commit hook** that runs ESLint on staged files — commits will be blocked on lint errors.
@@ -43,9 +43,15 @@ Plan/billing state lives in a **separate** Firestore collection (`/users/{uid}`)
 ### Plan & access control
 
 Three gating systems:
-- `PlanGate({ requires })` — checks `resolvePlan(user)` against plan hierarchy: `free → trial → starter → hr_finance → pro → enterprise → scale`
+- `PlanGate({ requires })` — compares `resolvePlan(user)` against `PLAN_TIERS` in `src/lib/plan.js`. The tiers are **not** a single sales ladder: `free` 0, `starter` 2, `hr_finance` 2, `pro` 3, `enterprise` 4, `scale`/`unlimited`/`professional` 4, and `trial` 4 — a trial deliberately has full access and expires after `TRIAL_DAYS`. `starter` and `hr_finance` are the same tier, so `requires` cannot distinguish them; use `ModuleGate` when the distinction matters.
 - `ModuleGate({ module })` — maps plan to enabled modules (`security`, `finance`, `people`)
 - `RoleGate({ requires })` — RBAC within the app (`viewer`, `editor`, `admin`, `owner`)
+
+**Server side:** `resolvePlan()` is client-only, and nothing ever rewrites
+`/users/{uid}.plan` from `'trial'` back to `'free'`. Cloud Functions must use
+`effectivePlan()` from `functions/workspace-write.js`, which applies trial
+expiry to the stored field — reading `plan` directly let an expired trial keep
+its allowance indefinitely. `src/lib/plan-parity.test.js` keeps the two in step.
 
 `resolvePlan()` in `src/lib/plan.js` is the **single source of truth** — always use it, never derive plan from `db.user.plan` directly. Founder override (`is_founder=true`) always returns `'scale'`. Trial expiry is checked client-side against `trial_started_at` + `TRIAL_MS` (7 days).
 
@@ -73,18 +79,20 @@ Three gating systems:
 | `AccessPage.jsx` | `/access` |
 | `OffboardingPage.jsx` | `/offboarding` |
 | `SettingsPage.jsx` | `/settings` (shell; tabs below) |
-| `AuditPage.jsx` | `/audit` |
+| `SecurityCompliancePage.jsx` | `/audit` (same page as `/security`) |
 | `OnboardingPage.jsx` | `/onboarding` |
 | `LegalPages.jsx` | `/privacy`, `/terms`, `/dpa`, `/sub-processors`, `/security-info`, `/legal`, `/about`, `/contact` |
 | `FinishSignUpPage.jsx` | `/finishSignUp` |
 
 #### Finance tabs (`src/pages/finance/`)
 
-`OverviewTab`, `CostTab`, `LicensesTab`, `RenewalsTab`, `AnalyticsTab`, `ExecutiveDashboard`
+`OverviewTab`, `CostTab`, `LicensesTab`, `RenewalsTab`, `AnalyticsTab`, `BudgetTab`, `ExecutiveDashboard`
 
 #### Settings tabs (`src/pages/settings/`)
 
-`BillingTab`, `IntegrationsTab`
+`BillingTab`, `IntegrationsTab`, `TeamTab`, `NotificationsTab`, `SecurityTab`, `ApiKeysTab`, `DataTab`
+
+`ApiKeysTab` is wrapped in `ModuleGate module="api"`, whose plan list must stay equal to `API_PLANS` in `functions/index.js` — enforced by `src/lib/plan-parity.test.js`.
 
 #### Components (`src/components/`)
 
@@ -99,9 +107,8 @@ Three gating systems:
 
 | File | Purpose |
 |---|---|
-| `DashboardComponents.jsx` | Spend cards, KPI widgets used by DashboardPage |
-| `ExecutiveDashboard.jsx` | Executive summary view |
-| `Modals.jsx` | Shared modal components (AddTool, ImportWizard, etc.) |
+| `components/ImportWizard.jsx` | CSV/spreadsheet import flow |
+| `components/SlackNotifications.jsx` | Slack webhook digests |
 | `google-workspace.js` | GWS OAuth + Directory API helpers |
 | `auth-redirect.js` | OAuth popup relay (Microsoft/Okta postMessage bridge) |
 
@@ -119,7 +126,10 @@ Three gating systems:
 | `src/lib/dataUtils.js` | Pure data utilities (sorting, filtering, CSV export) |
 | `src/lib/currency.js` | Currency formatting and conversion |
 | `src/lib/constants.js` | App-wide constants |
-| `src/lib/utils.js` | `cn()` classname helper |
+| `src/lib/utils.js` | `cx()` classname helper |
+| `src/lib/waste.js` | `computeWaste()` — the single definition of recoverable spend |
+| `src/lib/budget.js` | Department budgets, `spend_history` snapshots, `previousMonthSpend()`, `spendTrend()` |
+| `src/lib/analytics.js` | `track()` — the only place that talks to gtag |
 
 ### Routing
 
@@ -128,6 +138,10 @@ All routes are in `src/App.jsx`. Public routes: `/` and legal pages (`/privacy`,
 **There are no `/pricing` or `/features` routes** — unknown paths hit `<NotFound>` which redirects to `/`.
 
 Redirects: `/integrations` → `/settings`, `/billing` → `/settings`, `/analytics` → `/finance`, `/licenses` → `/finance`, `/renewals` → `/finance`, `/invoices` → `/finance`, `/contracts` → `/finance`.
+
+Also routed and previously undocumented: `/cost`, `/executive`, `/import`, `/founder-admin`, `/report/:token`.
+
+`/report/:token` currently renders `<NotFound>` while `saveReport`/`getReport` and the `/reports/{token}` Firestore rule (anonymous read) are live — a shareable-report feature with no page behind it. Either wire it up or remove the endpoint and the rule.
 
 ### Authentication
 
@@ -158,6 +172,6 @@ Secrets (ANTHROPIC_API_KEY, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, SENDGRID_A
 
 ### Deployment
 
-Firebase Hosting (`dist/`) with security headers in `firebase.json` including a strict CSP. After any `vite build`, run `firebase deploy --only hosting`. The CSP `connect-src` must include all external APIs the app fetches (googleapis, google.com, gstatic.com, apis.google.com, accounts.google.com, open.er-api.com).
+Firebase Hosting (`dist/`) with security headers in `firebase.json` including a strict CSP. After any `vite build`, run `firebase deploy --only hosting`. The CSP `connect-src` must include all external APIs the app fetches (googleapis, google.com, gstatic.com, apis.google.com, accounts.google.com). Note: `open.er-api.com` was removed deliberately — amounts are never converted (see `src/lib/currency.js`), so nothing fetches exchange rates.
 
 Source maps are disabled in production (`sourcemap: false` in `vite.config.js`).

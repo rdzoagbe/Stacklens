@@ -364,6 +364,7 @@ export function SubProcessorsPage() {
     { name: 'Web3Forms', purpose: t('subproc_web3forms_purpose'), location: 'USA', link: 'https://web3forms.com/privacy', transfer: t('subproc_web3forms_transfer') },
     { name: 'OVHcloud', purpose: t('subproc_ovh_purpose'), location: 'EU (France)', link: 'https://www.ovhcloud.com/fr/personal-data-protection/', transfer: t('subproc_ovh_transfer') },
     { name: 'Google Analytics', purpose: t('subproc_ga_purpose'), location: 'EU', link: 'https://support.google.com/analytics/answer/6004245', transfer: t('subproc_ga_transfer') },
+    { name: 'Sentry (Functional Software, Inc.)', purpose: t('subproc_sentry_purpose'), location: 'EU / USA', link: 'https://sentry.io/privacy/', transfer: t('subproc_sentry_transfer') },
   ];
 
   return (

@@ -6,6 +6,7 @@ import {
   GitMerge, RefreshCw, Sparkles, Upload, UserMinus,
 } from 'lucide-react';
 import { resetDb } from '../lib/db';
+import { computeWaste } from '../lib/waste';
 import {
   computeToolDerivedStatus, computeToolDerivedRisk,
   computeAccessDerivedRiskFlag, buildRiskAlerts, riskSeverityCounts,
@@ -343,7 +344,11 @@ export function DashboardPage() {
         // eslint-disable-next-line react-hooks/purity
         const ninetyDaysAgo = Date.now() - 90 * 24 * 60 * 60 * 1000;
         const overdueReviews = derived.access.filter(a => !a.last_reviewed_date || new Date(a.last_reviewed_date).getTime() < ninetyDaysAgo).length;
-        const wastedSpend = Math.round((derived.spend || 0) * 0.14);
+        // Was a flat percentage of total spend, which produced a waste
+        // figure for a workspace with nothing wrong with it and moved when
+        // spend moved rather than when waste did. Now the real cost of
+        // tools that nobody holds active access to.
+        const wastedSpend = Math.round(computeWaste(db).recoverable);
         const annualSpend = (derived.spend || 0) * 12;
         const avgPerEmployee = totalEmployees > 0 ? Math.round((derived.spend || 0) / totalEmployees) : 0;
 
@@ -666,7 +671,7 @@ export function DashboardPage() {
               <Activity className="h-5 w-5 text-slate-400 flex-shrink-0" />
               <div>
                 <div className="text-sm font-semibold text-white">{t('reclaim_licenses')}</div>
-                <div className="text-xs text-slate-500">{t('dash_save_approx')}{money(Math.round((derived.spend||0)*0.14))}{t('per_mo_short')}</div>
+                <div className="text-xs text-slate-500">{t('dash_save_approx')}{money(Math.round(computeWaste(db).recoverable))}{t('per_mo_short')}</div>
               </div>
             </button>
           </Link>
