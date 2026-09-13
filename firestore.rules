@@ -145,20 +145,14 @@ service cloud.firestore {
         request.resource.data.accepted_at == request.time;
     }
 
-    // /reports/{token} — shareable read-only snapshots
-    // Anyone with the token can read, but only before the report has expired.
-    // Only the authenticated owner can create/delete.
-    match /reports/{token} {
-      allow read: if resource.data.expires_at is int
-                  && resource.data.expires_at > request.time.toMillis();
-      allow create: if request.auth != null
-                    && request.resource.data.owner_uid == request.auth.uid
-                    && request.resource.data.expires_at is int
-                    && request.resource.data.expires_at > request.time.toMillis();
-      allow delete: if request.auth != null
-                    && resource.data.owner_uid == request.auth.uid;
-      allow update: if false;
-    }
+    // /reports/{token} is deliberately absent, so the default deny below
+    // covers it. It allowed an unauthenticated read of any unexpired token
+    // for a shareable-report feature that was never finished: /report/:token
+    // rendered <NotFound>, and no code path ever called saveReport, so no
+    // document could exist for the rule to expose. The rule, the three
+    // client functions and the route are all removed together rather than
+    // left as an access path with nothing behind it. Restoring it means
+    // restoring the page in the same change.
 
     // Integration credentials (Zoom S2S client secret, and future vendors).
     // Server-only: written and read exclusively by the zoomsync function via

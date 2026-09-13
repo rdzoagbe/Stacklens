@@ -210,7 +210,6 @@ export default function App() {
           <Route path="/sub-processors" element={<SubProcessorsPage />} />
           <Route path="/security-info" element={<SecurityPage />} />
           <Route path="/finishSignUp" element={<FinishSignUpPage />} />
-          <Route path="/report/:token" element={<NotFound />} />
           <Route path="/onboarding" element={<OnboardingPage />} />
           <Route
             path="/dashboard"

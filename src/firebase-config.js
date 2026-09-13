@@ -807,37 +807,6 @@ export async function founderTestEmail(to) {
 // Sets plan='trial' and trial_started_at on /users/{uid}.
 // Best-effort: silently fails if Firestore rules reject (Cloud Function may have already set it).
 // ============================================================================
-export async function saveReport(token, payload) {
-  if (!firestoreDb) throw new Error('Firestore unavailable');
-  try {
-    await setDoc(doc(firestoreDb, 'reports', token), payload);
-  } catch (err) {
-    console.error('saveReport:', err);
-    throw err;
-  }
-}
-
-export async function getReport(token) {
-  if (!firestoreDb) return null;
-  try {
-    const snap = await getDoc(doc(firestoreDb, 'reports', token));
-    return snap.exists() ? snap.data() : null;
-  } catch (err) {
-    console.error('getReport:', err);
-    return null;
-  }
-}
-
-export async function deleteReport(token) {
-  if (!firestoreDb) return;
-  try {
-    const { deleteDoc } = await import('firebase/firestore');
-    await deleteDoc(doc(firestoreDb, 'reports', token));
-  } catch (err) {
-    console.error('deleteReport:', err);
-    throw err;
-  }
-}
 
 export async function startTrial(uid) {
   if (!firestoreDb) return;
