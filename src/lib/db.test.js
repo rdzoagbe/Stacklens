@@ -1,4 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 vi.mock('../firebase-config', () => ({
   saveUserData: vi.fn().mockResolvedValue(undefined),
@@ -9,6 +11,7 @@ vi.mock('../firebase-config', () => ({
 
 import { uid, todayISO, safeParseISO, loadDb, saveDb, seedDbIfEmpty, enterSharedView } from './db';
 import { saveUserData, workspaceWrite } from '../firebase-config';
+import { stripLocalOnly } from './constants';
 
 const LS_KEY = 'accessguard_v1';
 
@@ -267,5 +270,122 @@ describe('saveDb routing inside a shared workspace', () => {
     const db = shared('editor');
     saveDb({ ...db, tools: [{ id: 'local' }] });
     expect(loadDb().tools).toEqual([{ id: 'local' }]);
+  });
+});
+
+
+// ── Getting out of the trimmed state ──────────────────────────────────────
+//
+// `_trimmed` says "this browser's copy is missing records the source of truth
+// still has", and saveDb rightly refuses to push such a copy into a shared
+// workspace. But nothing ever cleared it, so the first time an editor hit the
+// 4.5 MB localStorage ceiling every later save was refused for good — even
+// after they deleted enough data to fit — and saveUserData stored the flag in
+// Firestore, so the next hydrate handed it straight back, on every device.
+//
+// These pin both halves: the flag survives an ordinary save, and a copy that
+// is complete by definition clears it.
+
+describe('the trimmed flag can be recovered from', () => {
+  it('survives an ordinary save, because the data is still incomplete', () => {
+    // The blob now fits precisely because it was cut down. Clearing the flag
+    // here is what would let truncated data overwrite the owner's history.
+    saveDb({ tools: [], employees: [], access: [], user: {}, _trimmed: true });
+    expect(loadDb()._trimmed).toBe(true);
+  });
+
+  it('is cleared by entering a shared workspace, which is a fresh server read', () => {
+    saveDb({ tools: [], employees: [], access: [], user: {}, _trimmed: true });
+    expect(loadDb()._trimmed).toBe(true);
+
+    const view = enterSharedView(
+      { tools: [{ id: 't1' }], employees: [], access: [], user: {} },
+      { owner_uid: 'owner1', owner_email: 'owner@acme.com', role: 'editor' }
+    );
+    expect(view._trimmed).toBeUndefined();
+    expect(loadDb()._trimmed).toBeUndefined();
+  });
+
+  it('does not carry a stale flag out of the workspace payload either', () => {
+    // If an older build stored the flag in the owner's Firestore document, it
+    // comes back down inside the shared blob.
+    const view = enterSharedView(
+      { tools: [], employees: [], access: [], user: {}, _trimmed: true },
+      { owner_uid: 'owner1', owner_email: 'owner@acme.com', role: 'editor' }
+    );
+    expect(view._trimmed).toBeUndefined();
+  });
+
+  it('lets an editor sync again once the flag is gone', async () => {
+    vi.useFakeTimers();
+    saveDb({ tools: [], employees: [], access: [], user: {}, _trimmed: true });
+    const view = enterSharedView(
+      { tools: [{ id: 't1' }], employees: [], access: [], user: {} },
+      { owner_uid: 'owner1', owner_email: 'owner@acme.com', role: 'editor' }
+    );
+    saveDb({ ...view, tools: [{ id: 't2' }] });
+    vi.advanceTimersByTime(2000);
+    expect(workspaceWrite).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
+  });
+});
+
+// ── What must never become workspace data ─────────────────────────────────
+//
+// saveUserData spreads the whole blob into the Firestore document. `_trimmed`
+// is a property of one browser, and `_shared_view` marks the blob as somebody
+// else's workspace — stored in the owner's own document, the next hydrate
+// would load it and the app would believe the user is inside a workspace they
+// may not have access to.
+//
+// firebase-config is mocked in this file (it boots the Firebase SDK), so the
+// stripping is checked against the source: the object saveUserData writes must
+// have every LOCAL_ONLY_KEYS entry deleted from it.
+
+describe('browser-local markers stay out of the cloud', () => {
+  it('removes both markers', () => {
+    const out = stripLocalOnly({
+      tools: [{ id: 't1' }], user: { plan: 'pro' },
+      _trimmed: true, _shared_view: { owner_uid: 'someone-else' },
+    });
+    expect(out._trimmed).toBeUndefined();
+    expect(out._shared_view).toBeUndefined();
+  });
+
+  it('keeps everything else exactly as it was', () => {
+    const blob = { tools: [{ id: 't1' }], employees: [], user: { plan: 'pro' }, _saved_at: 123 };
+    expect(stripLocalOnly(blob)).toEqual(blob);
+  });
+
+  it('does not mutate the caller\'s object', () => {
+    // saveDb hands its live blob to saveUserData; stripping in place would
+    // clear the flag the very next save depends on.
+    const blob = { tools: [], _trimmed: true };
+    stripLocalOnly(blob);
+    expect(blob._trimmed).toBe(true);
+  });
+
+  it('survives an empty or absent blob', () => {
+    expect(stripLocalOnly({})).toEqual({});
+    expect(stripLocalOnly(undefined)).toEqual({});
+  });
+
+  it('is what saveUserData writes to Firestore', () => {
+    // firebase-config boots the Firebase SDK and is mocked here, so this last
+    // step is checked against the source — with comments removed first,
+    // because an earlier version of this guard was satisfied by the comment
+    // describing the code rather than the code itself.
+    const source = readFileSync(resolve(process.cwd(), 'src/firebase-config.js'), 'utf8');
+    const start = source.indexOf('export async function saveUserData');
+    expect(start, 'saveUserData not found').toBeGreaterThan(-1);
+    const next = source.indexOf('\nexport ', start + 1);
+    const body = source.slice(start, next === -1 ? undefined : next)
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/(^|[^:])\/\/.*$/gm, '$1');
+    expect(body, 'saveUserData spreads the whole blob into the Firestore ' +
+      'document, so it must pass it through stripLocalOnly first or a ' +
+      'browser-local marker becomes workspace data on every device.'
+    ).toMatch(/stripLocalOnly\(/);
+    expect(body).toMatch(/batch\.set\(doc\(firestoreDb, 'userdata', uid\), meta\)/);
   });
 });

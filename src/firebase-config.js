@@ -43,6 +43,7 @@ import {
 } from 'firebase/firestore';
 import { getAnalytics, isSupported, setConsent as firebaseSetConsent } from 'firebase/analytics';
 import { track } from './lib/analytics';
+import { stripLocalOnly } from './lib/constants';
 import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
 
 // Firebase config — values come from environment variables (VITE_FIREBASE_*).
@@ -242,7 +243,7 @@ const CHUNK_MAX_CHARS = 500000; // ~500KB serialized per slice
 export async function saveUserData(uid, db) {
   if (!firestoreDb) return;
   try {
-    const meta = { ...db, _uid: uid, _updatedAt: Date.now() };
+    const meta = stripLocalOnly({ ...db, _uid: uid, _updatedAt: Date.now() });
     const chunkCounts = {};
     const batch = writeBatch(firestoreDb);
     const chunksRef = collection(firestoreDb, 'userdata', uid, 'chunks');
