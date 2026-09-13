@@ -30,6 +30,8 @@ const { getAppCheck } = require('firebase-admin/app-check');
 const {
   MEMBER_ROLES, CHUNKED_KEYS, findMembership, assertCanWrite, buildSafeUpdate, sliceCollection,
   isClientOrgId, newClientOrgId, cleanOrgName, resolveWorkspaceAccess, WorkspaceWriteError,
+  effectivePlan,
+  currencySymbol,
 } = require('./workspace-write.js');
 
 // Explicitly allow stacklens.fr and Firebase preview domains
@@ -412,7 +414,9 @@ exports.refreshClaims = onRequest({ cors: true }, async (req, res) => {
     const decoded = await verifyAuth(req, res); if (!decoded) return;
     // Read current Firestore plan and sync it to claims
     const snap = await getFirestore().collection('users').doc(decoded.uid).get();
-    const plan = snap.exists ? (snap.data().plan || 'free') : 'free';
+    // Claims outlive the request that set them, so baking a stale 'trial' into
+    // a token is the one place an expired trial would persist longest.
+    const plan = effectivePlan(snap.exists ? snap.data() : null);
     await getAuth().setCustomUserClaims(decoded.uid, { plan });
     return res.json({ plan });
   });
@@ -675,7 +679,7 @@ exports.clientErrors = onRequest({ cors: true, timeoutSeconds: 10 }, async (req,
 // the doc ID, so lookup is a direct get). API calls are Enterprise-plan gated.
 const nodeCrypto = require('crypto');
 const API_RATE_LIMIT = { maxCalls: 120, windowMs: 60 * 60 * 1000 };
-const API_PLANS = new Set(['enterprise', 'scale', 'unlimited', 'professional']);
+const API_PLANS = new Set(['enterprise', 'scale', 'unlimited', 'professional', 'trial']);
 const MAX_API_KEYS_PER_USER = 5;
 
 function hashApiKey(secret) {
@@ -727,6 +731,16 @@ exports.apikeys = onRequest({ cors: true, timeoutSeconds: 30 }, async (req, res)
         return res.json({ keys });
       }
       if (action === 'create') {
+        // The tab is gated now, but the endpoint is reachable with any signed-in
+        // token, so a key must not be mintable by a plan the API will refuse.
+        // Minting one and 403ing every call is worse than saying no here.
+        if (!FOUNDER_UIDS.includes(decoded.uid)) {
+          const userSnap = await db.collection('users').doc(decoded.uid).get();
+          const plan = effectivePlan(userSnap.exists ? userSnap.data() : null);
+          if (!API_PLANS.has(plan) && userSnap.data()?.is_founder !== true) {
+            return res.status(403).json({ error: 'API access requires the Enterprise plan.' });
+          }
+        }
         const existing = await db.collection('api_keys').where('uid', '==', decoded.uid).get();
         if (existing.size >= MAX_API_KEYS_PER_USER) {
           return res.status(400).json({ error: `Key limit reached (${MAX_API_KEYS_PER_USER}). Revoke a key first.` });
@@ -780,7 +794,7 @@ exports.api = onRequest({ timeoutSeconds: 30 }, async (req, res) => {
     const { uid } = keySnap.data();
 
     const userSnap = await db.collection('users').doc(uid).get();
-    const plan = userSnap.exists ? (userSnap.data().plan || 'free') : 'free';
+    const plan = effectivePlan(userSnap.exists ? userSnap.data() : null);
     const isFounder = FOUNDER_UIDS.includes(uid) || (userSnap.exists && userSnap.data().is_founder === true);
     if (!API_PLANS.has(plan) && !isFounder) {
       return res.status(403).json({ error: 'API access requires the Enterprise plan.' });
@@ -945,7 +959,7 @@ exports.bankfeed = onRequest({ cors: true, timeoutSeconds: 120 }, async (req, re
     // Bank connectivity is an Enterprise-tier feature (founders exempt).
     if (!FOUNDER_UIDS.includes(decoded.uid)) {
       const userSnap = await getFirestore().collection('users').doc(decoded.uid).get();
-      const plan = userSnap.exists ? (userSnap.data().plan || userSnap.data().subscription_plan || 'free') : 'free';
+      const plan = effectivePlan(userSnap.exists ? userSnap.data() : null);
       if (!API_PLANS.has(plan) && userSnap.data()?.is_founder !== true) {
         return res.status(403).json({ error: 'Bank connectivity requires an Enterprise plan' });
       }
@@ -1121,7 +1135,7 @@ exports.workspace = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, re
         // Team sharing is a paid feature (founders exempt).
         if (!FOUNDER_UIDS.includes(decoded.uid)) {
           const userSnap = await db.collection('users').doc(decoded.uid).get();
-          const plan = userSnap.exists ? (userSnap.data().plan || userSnap.data().subscription_plan || 'free') : 'free';
+          const plan = effectivePlan(userSnap.exists ? userSnap.data() : null);
           if (['free', 'trial'].includes(plan) && userSnap.data()?.is_founder !== true) {
             return res.status(403).json({ error: 'Team sharing requires a paid plan' });
           }
@@ -1183,7 +1197,10 @@ exports.workspace = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, re
         // a small allowance, enough to judge it and not enough to run an
         // agency on indefinitely.
         const userSnap = await db.collection('users').doc(decoded.uid).get();
-        const plan = userSnap.exists ? (userSnap.data().plan || userSnap.data().subscription_plan || 'free') : 'free';
+        // effectivePlan, not the raw field: nothing ever rewrites plan from
+        // 'trial' back to 'free' when the seven days are up, so reading the
+        // field directly kept granting the trial allowance indefinitely.
+        const plan = effectivePlan(userSnap.exists ? userSnap.data() : null);
         const privileged = FOUNDER_UIDS.includes(decoded.uid) || userSnap.data()?.is_founder === true;
         if (!privileged && plan === 'free') {
           return res.status(403).json({ error: 'Managing client workspaces requires a trial or a paid plan' });
@@ -1272,7 +1289,7 @@ exports.workspace = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, re
         }
         data.user = {
           email: u.email || null, displayName: u.displayName || null, company: u.company || null,
-          plan: planSource.plan || planSource.subscription_plan || 'free',
+          plan: effectivePlan(planSource),
           subscription_plan: planSource.subscription_plan || planSource.plan || 'free',
           is_founder: planSource.is_founder === true,
           is_client_org: u.is_client_org === true,
@@ -1653,6 +1670,7 @@ exports.dailyAlerts = onSchedule({
     if (ALERTS_FOUNDERS_ONLY && !FOUNDER_UIDS.includes(uid)) continue;
     const data = await assembleUserdata(docSnap);
     const email = await verifiedEmailForUid(uid);
+    const cur = currencySymbol(data);
     if (!email) continue;
     if (data?.user?.daily_alerts === false) continue;
 
@@ -1687,12 +1705,16 @@ exports.dailyAlerts = onSchedule({
       const byDeptMonthly = allocSpendByDept(data);
       const spent = spentToDateByDept(data, byDeptMonthly, now);
       budgets.forEach(b => {
-        const pct = ((spent[(b.department || '').toLowerCase()] || 0) / b.annual) * 100;
+        // One lookup, computed once: the percentage and the amount in the
+        // email must come from the same key or they contradict each other.
+        const deptKey = (b.department || '').toLowerCase();
+        const deptSpent = spent[deptKey] || 0;
+        const pct = (deptSpent / b.annual) * 100;
         for (const threshold of [100, 80]) {
           const key = `budget_${year}_${b.department}_${threshold}`;
           if (pct >= threshold && !sentKeys[key] && !newKeys[key]) {
             newKeys[key] = todayStr;
-            alerts.budgets.push({ department: b.department, pct: Math.round(pct), budget: b.annual, spent: Math.round(spent[b.department] || 0) });
+            alerts.budgets.push({ department: b.department, pct: Math.round(pct), budget: b.annual, spent: Math.round(deptSpent) });
             break;
           }
         }
@@ -1728,8 +1750,8 @@ exports.dailyAlerts = onSchedule({
     const html = `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;background:#0f172a;border-radius:12px;overflow:hidden">
       <div style="padding:24px;background:#1e293b"><h1 style="color:white;margin:0 0 4px;font-size:22px">Stacklens</h1><p style="color:#94a3b8;margin:0">${total} new alert${total > 1 ? 's' : ''} in your environment</p></div>
       <div style="padding:24px">
-        ${section('Upcoming renewals', alerts.renewals.map(r => line(r.name, `renews ${r.date} (${r.days} days)` + (r.annual ? ` · €${fmt(r.annual)}/yr` : ''), r.days <= 7 ? '#ef4444' : '#f59e0b')))}
-        ${section('Budget thresholds', alerts.budgets.map(b => line(b.department, `${b.pct}% of annual budget consumed (€${fmt(b.spent)} of €${fmt(b.budget)})`, b.pct >= 100 ? '#ef4444' : '#f59e0b')))}
+        ${section('Upcoming renewals', alerts.renewals.map(r => line(r.name, `renews ${r.date} (${r.days} days)` + (r.annual ? ` · ${cur}${fmt(r.annual)}/yr` : ''), r.days <= 7 ? '#ef4444' : '#f59e0b')))}
+        ${section('Budget thresholds', alerts.budgets.map(b => line(b.department, `${b.pct}% of annual budget consumed (${cur}${fmt(b.spent)} of ${cur}${fmt(b.budget)})`, b.pct >= 100 ? '#ef4444' : '#f59e0b')))}
         ${section('Access security', alerts.security.map(s => line(s.name, `no longer active but still holds ${s.count} access grant${s.count > 1 ? 's' : ''}`, '#ef4444')))}
         <div style="text-align:center;margin-top:24px"><a href="https://stacklens.fr/dashboard" style="background:#3b82f6;color:white;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block">Open Stacklens →</a></div>
       </div>
@@ -1808,6 +1830,7 @@ exports.weeklySummary = onSchedule({
   for (const docSnap of snapshot.docs) {
     const data  = await assembleUserdata(docSnap);
     const email = await verifiedEmailForUid(uid);
+    const cur = currencySymbol(data);
     if (!email) continue;
     // Respect opt-out (default: send)
     if (data?.user?.weekly_summary === false) continue;
@@ -1867,7 +1890,7 @@ exports.weeklySummary = onSchedule({
     const renewalRows = upcoming.slice(0, 5).map(t => {
       const days = Math.floor((new Date(t.renewal_date) - today) / 86400000);
       const c    = days <= 7 ? '#ef4444' : '#f59e0b';
-      const cost = t.cost_per_month ? `€${fmt(t.cost_per_month * 12)}/yr` : '—';
+      const cost = t.cost_per_month ? `${cur}${fmt(t.cost_per_month * 12)}/yr` : '\u2014';
       return `<tr>
         <td style="padding:8px;color:#e2e8f0;border-bottom:1px solid #1e293b;font-size:13px">${t.name}</td>
         <td style="padding:8px;color:#94a3b8;border-bottom:1px solid #1e293b;font-size:13px">${t.renewal_date}</td>
@@ -1894,7 +1917,7 @@ exports.weeklySummary = onSchedule({
 
     // ── Alerts section ────────────────────────────────────────────────────
     const alerts = [];
-    if (idleMonthly > 0) alerts.push(`💸 <strong style="color:#f59e0b">€${fmt(idleMonthly)}/mo</strong> going to ${idleTools.length} unused or orphaned tool${idleTools.length > 1 ? 's' : ''} — €${fmt(idleMonthly * 12)}/yr recoverable`);
+    if (idleMonthly > 0) alerts.push(`\ud83d\udcb8 <strong style="color:#f59e0b">${cur}${fmt(idleMonthly)}/mo</strong> going to ${idleTools.length} unused or orphaned tool${idleTools.length > 1 ? 's' : ''} \u2014 ${cur}${fmt(idleMonthly * 12)}/yr recoverable`);
     if (exEmployeeAccess > 0) alerts.push(`🚪 <strong style="color:#ef4444">${exEmployeeAccess} access grant${exEmployeeAccess > 1 ? 's' : ''}</strong> still active for former employees`);
     if (orphaned > 0) alerts.push(`⚠️ <strong style="color:#f59e0b">${orphaned} orphaned tool${orphaned > 1 ? 's' : ''}</strong> with no assigned owner`);
     if (highRisk  > 0) alerts.push(`🔴 <strong style="color:#ef4444">${highRisk} high-risk access record${highRisk > 1 ? 's' : ''}</strong> need review`);
@@ -1932,7 +1955,7 @@ exports.weeklySummary = onSchedule({
     <!-- Stat cards -->
     <table style="width:100%;border-collapse:collapse;margin-bottom:4px">
       <tr>
-        ${statCard('Monthly Spend', `€${fmt(monthlySpend)}`, `€${fmt(monthlySpend * 12)}/yr`, '#e2e8f0')}
+        ${statCard('Monthly Spend', `${cur}${fmt(monthlySpend)}`, `${cur}${fmt(monthlySpend * 12)}/yr`, '#e2e8f0')}
         ${statCard('Health Score', `${healthScore}`, healthLabel, healthColor)}
         ${statCard('Renewals Soon', `${upcoming.length}`, 'next 30 days', upcoming.length > 0 ? '#f59e0b' : '#10b981')}
         ${statCard('High-Risk Access', `${highRisk}`, 'records', highRisk > 0 ? '#ef4444' : '#10b981')}
@@ -1964,8 +1987,8 @@ exports.weeklySummary = onSchedule({
         to: email,
         from: { email: 'hello@stacklens.fr', name: 'Stacklens' },
         subject: idleMonthly > 0
-          ? `📊 Weekly SaaS summary — €${fmt(monthlySpend)}/mo · €${fmt(idleMonthly)}/mo recoverable`
-          : `📊 Your weekly SaaS summary — €${fmt(monthlySpend)}/mo · Score ${healthScore}`,
+          ? `\ud83d\udcca Weekly SaaS summary \u2014 ${cur}${fmt(monthlySpend)}/mo \u00b7 ${cur}${fmt(idleMonthly)}/mo recoverable`
+          : `\ud83d\udcca Your weekly SaaS summary \u2014 ${cur}${fmt(monthlySpend)}/mo \u00b7 Score ${healthScore}`,
         html,
       });
       sent++;

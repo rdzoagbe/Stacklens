@@ -112,6 +112,12 @@ export const MODULE_PLANS = {
   security:  ['pro', 'enterprise', 'scale', 'unlimited', 'growth'],
   ai:        ['pro', 'enterprise', 'scale', 'unlimited', 'growth'],
   analytics: ['pro', 'enterprise', 'scale', 'unlimited', 'growth'],
+  // Must stay equal to API_PLANS in functions/index.js, which is what the
+  // endpoint actually enforces. The Settings > API tab had no gate at all, so
+  // a free user could mint a key, copy the curl example, and get 403 on every
+  // call with nothing on the page saying a plan was needed.
+  // Guarded by src/lib/plan-parity.test.js.
+  api:       ['enterprise', 'scale', 'unlimited', 'professional'],
 };
 
 export function ModuleGate({ module, children, _feature = 'this module' }) {
@@ -126,10 +132,12 @@ export function ModuleGate({ module, children, _feature = 'this module' }) {
   const moduleNames = {
     finance: t('module_finance'), people: t('module_people'),
     security: t('module_security'), ai: t('module_ai'), analytics: t('module_analytics'),
+    api: t('module_api') || 'API access',
   };
   const moduleDesc = {
     finance: t('module_desc_finance'), people: t('module_desc_people'),
     security: t('module_desc_security'), ai: t('module_desc_ai'), analytics: t('module_desc_analytics'),
+    api: t('module_desc_api') || 'Read-only REST API access to your workspace data.',
   };
   const isHrFinance      = ['finance', 'people'].includes(module);
   const recommendedPlan  = isHrFinance ? 'HR & Finance Pack' : 'Pro';

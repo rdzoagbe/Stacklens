@@ -11392,6 +11392,9 @@ export const translations = {
 
 const TRANS_CACHE_KEY = 'ag_live_translations';
 const TRANS_QUEUE_DELAY = 2000; // Wait 2s to batch multiple missing keys
+// How long a failed language is left alone before being retried. In memory
+// only and deliberately not persisted: a page load should retry.
+const TRANS_RETRY_MS = 10 * 60 * 1000;
 
 // Load cached translations from localStorage
 function loadTransCache() {
@@ -11410,6 +11413,7 @@ function saveTransCache(cache) {
 // Queue for batch translation
 let _transQueue = {};
 let _transTimer = null;
+let _transFailures = {};   // `${lang}:${key}` -> when the AI call last failed
 let _transCallbacks = [];
 let _translating = false;
 
@@ -11468,13 +11472,22 @@ async function flushTranslationQueue() {
       }
     } catch (err) {
       console.warn(`Live translation failed for ${langName}:`, err.message);
-      // Fallback: use simple word-level translation for common UI terms
-      if (!cache[lang]) cache[lang] = {};
-      items.forEach(({ key, enValue }) => {
-        // At minimum, keep the English value so it doesn't show as a raw key
-        if (!cache[lang][key]) cache[lang][key] = enValue;
-      });
-      saveTransCache(cache);
+      // The English value used to be written into the persisted cache here,
+      // under a comment promising a word-level fallback it never performed.
+      // t() checks the cache (step 2) before the queue branch (step 3), so
+      // once English landed in the cache that key was never retried — and /ai
+      // is rate limited to 20 calls an hour shared with the chatbot, AI
+      // recommendations and contract analysis, so one 429 mid-flush pinned
+      // those labels to English permanently, with no way to clear them.
+      //
+      // Nothing is cached now. t() falls through to step 3 and returns the
+      // English string exactly as before, so the screen is unchanged, and the
+      // key stays eligible for translation. The failure is remembered in
+      // memory only, to keep a failing language from re-queueing on every
+      // render and burning the rate limit; it retries after the cooldown or
+      // on the next page load.
+      const failedAt = Date.now();
+      items.forEach(({ cacheKey }) => { _transFailures[cacheKey] = failedAt; });
     }
   }
 
@@ -11483,6 +11496,11 @@ async function flushTranslationQueue() {
 
 function queueForTranslation(key, enValue, lang) {
   const cacheKey = `${lang}:${key}`;
+  // A key whose translation just failed is not retried until the cooldown
+  // passes. Without this, not caching the failure would re-queue it on every
+  // render and hammer a rate-limited endpoint.
+  const failedAt = _transFailures[cacheKey];
+  if (failedAt && (Date.now() - failedAt) < TRANS_RETRY_MS) return;
   _transQueue[cacheKey] = { key, enValue, lang };
   
   if (_transTimer) clearTimeout(_transTimer);

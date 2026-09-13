@@ -4,10 +4,10 @@ import {
   Bell, CreditCard, Download, Plug, Shield, Users, Wrench, Zap,
 } from 'lucide-react';
 import {
-  getUserPlanFromFirestore, syncClaimsFromServer,
+  getUserPlanFromFirestore, syncClaimsFromServer, saveUserData,
 } from '../firebase-config';
 import { loadDb, saveDb, seedDbIfEmpty } from '../lib/db';
-import { SUPPORTED_CURRENCIES, detectCurrency } from '../lib/currency';
+import { SUPPORTED_CURRENCIES, getCurrencyCode } from '../lib/currency';
 import { track } from '../lib/analytics';
 import { useDbQuery } from '../hooks/useDbQuery';
 import { useQueryClient } from '@tanstack/react-query';
@@ -15,7 +15,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
 import { Card, CardHeader, CardBody } from '../components/ui';
-import { RoleGate } from '../components/gates';
+import { RoleGate, ModuleGate } from '../components/gates';
 import { AppShell } from '../components/AppShell';
 import { TeamTab } from './settings/TeamTab';
 import { NotificationsTab } from './settings/NotificationsTab';
@@ -93,11 +93,22 @@ export function SettingsPage() {
   // organisation switched every figure in the app to pounds, a currency the
   // user was never offered. It now defaults from the browser locale and is
   // stored as a plain code.
-  const [currency, setCurrency] = useState(saved.currency || detectCurrency());
+  const [currency, setCurrency] = useState(getCurrencyCode());
   const [dateFormat, setDateFormat] = useState(saved.dateFormat || 'DD/MM/YYYY');
 
   const save = (key, data) => {
     localStorage.setItem(key, JSON.stringify(data));
+    if (key === 'sg_general' && data.currency) {
+      // Same path budget_cap uses: into db.user, then up to Firestore, so the
+      // scheduled emails can format money in the currency the customer chose.
+      try {
+        const cur = loadDb() || seedDbIfEmpty();
+        cur.user = { ...cur.user, currency: data.currency };
+        saveDb(cur);
+        if (firebaseUser?.uid) saveUserData(firebaseUser.uid, cur).catch(() => {});
+        qc.invalidateQueries({ queryKey: ['db'] });
+      } catch { /* a failed sync must not block the local save */ }
+    }
     setSaveMsg(t('saved_msg'));
     setTimeout(() => setSaveMsg(''), 2000);
   };
@@ -185,7 +196,7 @@ export function SettingsPage() {
 
           {activeTab === 'security' && <SecurityTab t={t} />}
 
-          {activeTab === 'api' && <ApiKeysTab t={t} />}
+          {activeTab === 'api' && <ModuleGate module="api" _feature={t('settings_api')}><ApiKeysTab t={t} /></ModuleGate>}
 
           {activeTab === 'data' && <DataTab db={db} firebaseUser={firebaseUser} isDemo={isDemo} qc={qc} t={t} />}
 
