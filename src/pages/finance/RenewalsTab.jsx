@@ -72,7 +72,6 @@ export function RenewalAlerts() {
   const autoRenewing = renewals.filter(r => r.autoRenew && r.daysUntil <= 90);
 
   const totalAtRisk = next90Days.reduce((s, r) => s + r.annualCost, 0);
-  const negotiationPotential = next90Days.reduce((s, r) => s + r.annualCost * 0.15, 0); // typical 15% savings
 
   // Most urgent renewal (highest cost in next 30 days)
   const mostUrgent = [...overdue, ...critical, ...urgent].sort((a, b) => b.annualCost - a.annualCost)[0];
@@ -372,8 +371,11 @@ export function RenewalAlerts() {
               <p className="text-sm text-slate-500">{t("ren_neg_sub")}</p>
             </div>
             <div className="text-right">
-              <div className="text-xs text-slate-500 uppercase tracking-wider">{t("ren_potential_savings")}</div>
-              <div className="text-lg font-black text-emerald-400">{getCurrency(language)}{displayAmount(Math.round(negotiationPotential)).toLocaleString()}/yr</div>
+              {/* Was 15% of the renewing contract value, labelled "potential
+                  savings" — an assumption about how a negotiation would go,
+                  presented as a figure. The contract value itself is a fact. */}
+              <div className="text-xs text-slate-500 uppercase tracking-wider">{t('ren_up_for_renewal') || 'Up for renewal'}</div>
+              <div className="text-lg font-black text-white">{getCurrency(language)}{displayAmount(Math.round(totalAtRisk)).toLocaleString()}/yr</div>
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -393,10 +395,7 @@ export function RenewalAlerts() {
                     <span className="text-slate-500">{t('ren_annual')}</span>
                     <span className="text-white font-semibold">{getCurrency(language)}{displayAmount(Math.round(opp.annualCost)).toLocaleString()}</span>
                   </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-slate-500">{t('ren_potential_save')}</span>
-                    <span className="text-emerald-400 font-semibold">{getCurrency(language)}{displayAmount(Math.round(opp.annualCost * 0.15)).toLocaleString()}/yr</span>
-                  </div>
+
                 </div>
                 <button onClick={() => sendNegotiationEmail(opp)}
                   className="mt-3 w-full px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/30 rounded-lg text-xs font-semibold text-emerald-400 transition-colors">

@@ -73,15 +73,15 @@ const SERVICES = [
   { id: 'asana',       hosts: ['app.asana.com'],                                    where: 'server',  personalData: true, published: null, noProcessing: "The customer's own Asana workspace." },
   { id: 'salesforce',  hosts: ['salesforce.com'],                                   where: 'server',  personalData: true, published: null, noProcessing: "The customer's own Salesforce org." },
 
-  // ── Open gap: a real processor, not yet on the published list ──
+  // Published 2026-09-13, closing the gap recorded here on 2026-09-11. Listed
+  // as 'EU / USA' because the production DSN's region is still unconfirmed:
+  // de = EU and no transfer, us = USA and the SCCs in subproc_sentry_transfer
+  // apply. Narrow the location once the region is read from
+  // sentry.io > Settings > Client Keys. Listing it imprecisely is honest;
+  // omitting it from a page that promises "the complete list" was not.
   {
     id: 'sentry', hosts: ['ingest.sentry.io', 'ingest.de.sentry.io', 'ingest.us.sentry.io'],
-    where: 'browser', personalData: true, published: null,
-    gap: {
-      found: '2026-09-11',
-      what: 'Receives stack traces and the URL being viewed, which can carry identifiers.',
-      blockedOn: 'Which Sentry region the production DSN points at (de = EU, no transfer; us = USA, needs SCCs). Read it from sentry.io > Settings > Client Keys.',
-    },
+    where: 'browser', personalData: true, published: 'Sentry (Functional Software, Inc.)',
   },
 ];
 

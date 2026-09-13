@@ -7,10 +7,34 @@ import {
 import {
   displayAmount,
   getCurrency,
+  downloadText,
+  toCsv,
 } from '../../lib/dataUtils';
+import { computeWaste, EXPENSIVE_PER_USER } from '../../lib/waste';
 import { useDbQuery } from '../../hooks/useDbQuery';
 import { useLang } from '../../contexts/LangContext';
 import { useTranslation } from '../../translations';
+
+// ── Only what the data actually says ───────────────────────────────────────
+//
+// This screen used to report provisioned seats, available seats, inactive
+// seats, utilization and per-tool waste. None of those existed in the data
+// model. They were computed from two constants:
+//
+//   const total    = Math.max(Math.ceil(used * 1.2), used + 1);
+//   const inactive = Math.max(0, Math.floor(used * 0.12));
+//
+// So "11 licenses, 2 available, 1 inactive, 91% utilization, €41/mo waste"
+// was arithmetic on 1.2 and 0.12, presented as measured inventory — and
+// handleReclaimAll then emailed those invented savings to the customer's own
+// colleagues. A prospect who asks "where does 11 come from?" gets no answer,
+// and a product sold on accurate SaaS spend cannot afford that question.
+//
+// What the data does support, per tool: how many people hold active access,
+// what it costs, and therefore what it costs per person. From that, two
+// honest findings — tools nobody can log into, and tools that cost more per
+// person than EXPENSIVE_PER_USER. Seat counts return when something actually
+// records them.
 
 export function LicenseManagement() {
   const { language } = useLang();
@@ -18,66 +42,39 @@ export function LicenseManagement() {
   const { data: db } = useDbQuery();
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
-  const [sortBy, setSortBy] = useState('waste');
+  const [sortBy, setSortBy] = useState('cost');
   const [page, setPage] = useState(0);
   const PAGE_SIZE = 15;
 
-  // Build per-app license data from real records (deduped by name)
-  const licenseData = useMemo(() => {
-    const tools = db?.tools || [];
-    const access = db?.access || [];
-    const seen = new Set();
-    return tools
-      .filter(t => t.status === 'active')
-      .filter(t => {
-        const key = (t.name || '').toLowerCase();
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      })
-      .map(tool => {
-        const toolAccess = access.filter(a => a.tool_id === tool.id && a.status === 'active');
-        const used = toolAccess.length;
-        // Provisioned = used + 20% buffer (typical SaaS over-provisioning)
-        const total = Math.max(Math.ceil(used * 1.2), used + 1);
-        const available = total - used;
-        // Inactive = users who haven't logged in in 30+ days (simulate as 10-15% of used)
-        const inactive = Math.max(0, Math.floor(used * 0.12));
-        const cost = Number(tool.cost_per_month || 0);
-        const costPerLicense = total > 0 ? cost / total : 0;
-        const utilization = total > 0 ? (used / total) * 100 : 0;
-        const waste = inactive * costPerLicense;
-        let health = 'optimal';
-        if (utilization < 50) health = 'underutilized';
-        else if (utilization > 95 && available < 5) health = 'maxed';
-        else if (available > 20) health = 'overprovisioned';
-        return {
-          id: tool.id,
-          app: tool.name,
-          category: tool.category || '—',
-          total, used, available, inactive, cost, costPerLicense,
-          utilization: Math.round(utilization),
-          waste,
-          health,
-        };
-      });
-  }, [db]);
+  const waste = useMemo(() => computeWaste(db), [db]);
 
-  // Filter
+  // Deduped by name, as before — an import can produce the same tool twice.
+  const apps = useMemo(() => {
+    const seen = new Set();
+    return waste.tools.filter(tool => {
+      const key = (tool.name || '').toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [waste]);
+
   const filtered = useMemo(() => {
-    return licenseData
+    return apps
       .filter(app => {
-        if (search && !app.app.toLowerCase().includes(search.toLowerCase())) return false;
+        if (search && !(app.name || '').toLowerCase().includes(search.toLowerCase())) return false;
         if (filter === 'all') return true;
-        return app.health === filter;
+        if (filter === 'no-users') return app.wasteReason === 'no-users';
+        if (filter === 'expensive') return app.wasteReason === 'expensive';
+        return app.wasteReason === null;
       })
       .sort((a, b) => {
-        if (sortBy === 'waste') return b.waste - a.waste;
         if (sortBy === 'cost') return b.cost - a.cost;
-        if (sortBy === 'utilization') return a.utilization - b.utilization;
+        if (sortBy === 'per_user') return b.costPerUser - a.costPerUser;
+        if (sortBy === 'users') return a.activeUsers - b.activeUsers;
         return 0;
       });
-  }, [licenseData, filter, search, sortBy]);
+  }, [apps, filter, search, sortBy]);
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
   React.useEffect(() => { setPage(0); }, [filter, search, sortBy]);
@@ -85,88 +82,80 @@ export function LicenseManagement() {
   const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
 
-  // KPIs
-  const totalLicenses = licenseData.reduce((s, a) => s + a.total, 0);
-  const totalUsed = licenseData.reduce((s, a) => s + a.used, 0);
-  const totalInactive = licenseData.reduce((s, a) => s + a.inactive, 0);
-  const totalWaste = licenseData.reduce((s, a) => s + a.waste, 0);
-  const utilizationPct = totalLicenses > 0 ? Math.round((totalUsed / totalLicenses) * 100) : 0;
-
-  // Health distribution
-  const healthCounts = {
-    optimal: licenseData.filter(a => a.health === 'optimal').length,
-    underutilized: licenseData.filter(a => a.health === 'underutilized').length,
-    overprovisioned: licenseData.filter(a => a.health === 'overprovisioned').length,
-    maxed: licenseData.filter(a => a.health === 'maxed').length,
+  const totalGrants = apps.reduce((s, a) => s + a.activeUsers, 0);
+  const unused = apps.filter(a => a.wasteReason === 'no-users');
+  const expensive = apps.filter(a => a.wasteReason === 'expensive');
+  const recoverable = unused.reduce((s, a) => s + a.cost, 0);
+  const counts = {
+    all: apps.length,
+    'no-users': unused.length,
+    expensive: expensive.length,
+    ok: apps.filter(a => a.wasteReason === null).length,
   };
 
-  // Top reclaim opportunities (highest waste)
-  const topOpportunities = [...licenseData]
-    .filter(a => a.waste > 0)
-    .sort((a, b) => b.waste - a.waste)
-    .slice(0, 3);
+  const topOpportunities = [...unused].sort((a, b) => b.cost - a.cost).slice(0, 3);
+
+  const money = (n) => getCurrency(language) + displayAmount(Math.round(n)).toLocaleString();
 
   const handleReclaimAll = () => {
-    const reclaimable = licenseData.filter(a => a.inactive > 0);
-    if (reclaimable.length === 0) {
-      toast('No inactive licenses to reclaim', { icon: '✅' });
+    if (unused.length === 0) {
+      toast(t('lic_nothing_to_reclaim') || 'No tools without active users', { icon: '✅' });
       return;
     }
-    const totalReclaim = reclaimable.reduce((s, a) => s + a.inactive, 0);
-    const totalSavings = reclaimable.reduce((s, a) => s + a.waste, 0);
     const userName = JSON.parse(localStorage.getItem('accessguard_v1') || '{}')?.user?.displayName || 'IT Admin';
-    const subject = encodeURIComponent("License Reclaim: " + totalReclaim + " inactive licenses");
+    const subject = encodeURIComponent('Review: ' + unused.length + ' tools with no active users');
     const body = encodeURIComponent(
-      "Hi team,\n\nFollowing our license audit, we have " + totalReclaim + " inactive licenses across " + reclaimable.length + " apps that should be reclaimed.\n\n" +
-      reclaimable.map(a => "• " + a.app + ": " + a.inactive + " inactive (" + getCurrency(language) + Math.round(a.waste).toLocaleString() + "/mo savings)").join("\n") +
-      "\n\nTotal monthly savings: " + getCurrency(language) + Math.round(totalSavings).toLocaleString() +
-      "\nTotal annual savings: " + getCurrency(language) + Math.round(totalSavings * 12).toLocaleString() +
-      "\n\nBest,\n" + userName
+      'Hi team,\n\nThese tools are being paid for and no one currently holds active access:\n\n' +
+      unused.map(a => '• ' + a.name + ': ' + money(a.cost) + '/mo').join('\n') +
+      '\n\nCombined: ' + money(recoverable) + '/mo (' + money(recoverable * 12) + '/year).\n' +
+      'Worth confirming whether each is still needed before the next renewal.\n\nBest,\n' + userName
     );
-    window.open("mailto:?subject=" + subject + "&body=" + body);
+    window.open('mailto:?subject=' + subject + '&body=' + body);
   };
 
   const handleExportCsv = () => {
-    const csv = "Application,Category,Total,Used,Available,Inactive,Utilization %,Cost/mo,Waste/mo\n" +
-      filtered.map(a => [a.app, a.category, a.total, a.used, a.available, a.inactive, a.utilization, a.cost, Math.round(a.waste)].join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'license-report-' + new Date().toISOString().slice(0,10) + '.csv';
-    link.click();
-    URL.revokeObjectURL(url);
+    const headers = ['Application', 'Category', 'Active users', 'Cost/mo', 'Cost per user', 'Finding'];
+    const rows = filtered.map(a => ({
+      Application: a.name || '',
+      Category: a.category || '',
+      'Active users': a.activeUsers,
+      'Cost/mo': Math.round(a.cost),
+      'Cost per user': a.activeUsers > 0 ? Math.round(a.costPerUser) : '',
+      Finding: a.wasteReason === 'no-users' ? 'No active users'
+             : a.wasteReason === 'expensive' ? 'High cost per user' : '',
+    }));
+    downloadText('license-report-' + new Date().toISOString().slice(0, 10) + '.csv', toCsv(rows, headers));
   };
 
   return (
     <div className="space-y-6 w-full">
 
-      {/* ── Row 1: KPI Strip ── */}
+      {/* ── Row 1: KPI Strip — every figure here is counted, not estimated ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-blue-500">
-          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t("lic_total_licenses")}</div>
-          <div className="text-3xl font-black text-blue-400">{totalLicenses.toLocaleString()}</div>
-          <div className="text-sm text-slate-500 mt-1">across {licenseData.length} apps</div>
+          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t('lic_tools_tracked') || 'Tools tracked'}</div>
+          <div className="text-3xl font-black text-blue-400">{apps.length.toLocaleString()}</div>
+          <div className="text-sm text-slate-500 mt-1">{t('lic_active_tools') || 'active tools'}</div>
         </div>
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-emerald-500">
           <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t("lic_active_users")}</div>
-          <div className="text-3xl font-black text-emerald-400">{totalUsed.toLocaleString()}</div>
-          <div className="text-sm text-slate-500 mt-1">{utilizationPct}% utilization</div>
+          <div className="text-3xl font-black text-emerald-400">{totalGrants.toLocaleString()}</div>
+          <div className="text-sm text-slate-500 mt-1">{t('lic_access_grants') || 'access grants'}</div>
         </div>
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-amber-500">
-          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t("lic_inactive_seats")}</div>
-          <div className="text-3xl font-black text-amber-400">{totalInactive.toLocaleString()}</div>
-          <div className="text-sm text-slate-500 mt-1">no recent activity</div>
+          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t('lic_no_active_users') || 'No active users'}</div>
+          <div className="text-3xl font-black text-amber-400">{unused.length.toLocaleString()}</div>
+          <div className="text-sm text-slate-500 mt-1">{t('lic_paid_nobody') || 'paid for, nobody has access'}</div>
         </div>
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-red-500">
-          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t("lic_wasted_spend")}</div>
-          <div className="text-3xl font-black text-red-400">{getCurrency(language)}{displayAmount(Math.round(totalWaste)).toLocaleString()}</div>
-          <div className="text-sm text-slate-500 mt-1">{getCurrency(language)}{displayAmount(Math.round(totalWaste * 12)).toLocaleString()}/year</div>
+          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t('lic_recoverable') || 'Recoverable'}</div>
+          <div className="text-3xl font-black text-red-400">{money(recoverable)}</div>
+          <div className="text-sm text-slate-500 mt-1">{money(recoverable * 12)}/year</div>
         </div>
       </div>
 
-      {/* ── Row 2: Reclaim Hero (only if waste > 0) ── */}
-      {totalWaste > 0 && (
+      {/* ── Row 2: Reclaim hero — only when there is something real to act on ── */}
+      {unused.length > 0 && (
         <div className="rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-slate-900 via-emerald-950/20 to-slate-900 p-6 lg:p-7">
           <div className="flex items-start justify-between gap-6 flex-wrap">
             <div className="flex-1 min-w-[280px]">
@@ -175,11 +164,11 @@ export function LicenseManagement() {
                 <span className="text-xs font-semibold uppercase tracking-wider text-emerald-400">{t("lic_reclaim_opportunity")}</span>
               </div>
               <div className="flex items-baseline gap-3 mb-2">
-                <span className="text-4xl font-black text-emerald-400">{getCurrency(language)}{displayAmount(Math.round(totalWaste)).toLocaleString()}</span>
-                <span className="text-sm text-slate-500">/ month savings available</span>
+                <span className="text-4xl font-black text-emerald-400">{money(recoverable)}</span>
+                <span className="text-sm text-slate-500">/ {t('lic_per_month_at_stake') || 'month on tools nobody uses'}</span>
               </div>
               <p className="text-sm text-slate-400">
-                {totalInactive} inactive seats across {topOpportunities.length} apps. Send your IT team a reclaim request in one click.
+                {unused.length} {unused.length === 1 ? (t('lic_tool_singular') || 'tool has') : (t('lic_tool_plural') || 'tools have')} {t('lic_no_one_access') || 'no one holding active access.'}
               </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-2 flex-shrink-0">
@@ -194,7 +183,6 @@ export function LicenseManagement() {
             </div>
           </div>
 
-          {/* Top 3 opportunities */}
           {topOpportunities.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mt-5 pt-5 border-t border-emerald-500/10">
               {topOpportunities.map((opp, i) => (
@@ -203,8 +191,8 @@ export function LicenseManagement() {
                     #{i + 1}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-semibold text-white truncate">{opp.app}</div>
-                    <div className="text-xs text-slate-500">{opp.inactive} inactive · {getCurrency(language)}{displayAmount(Math.round(opp.waste)).toLocaleString()}/mo</div>
+                    <div className="text-sm font-semibold text-white truncate">{opp.name}</div>
+                    <div className="text-xs text-slate-500">{money(opp.cost)}/mo · {t('lic_zero_users') || '0 active users'}</div>
                   </div>
                 </div>
               ))}
@@ -213,24 +201,23 @@ export function LicenseManagement() {
         </div>
       )}
 
-      {/* ── Row 3: License Health Distribution ── */}
-      {licenseData.length > 0 && (
+      {/* ── Row 3: Findings ── */}
+      {apps.length > 0 && (
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 lg:p-6">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-base font-semibold text-white">{t("lic_health_title")}</h2>
-              <p className="text-sm text-slate-500">{t("lic_health_sub")}</p>
+              <p className="text-sm text-slate-500">{t('lic_findings_sub') || 'Based on active access records and monthly cost'}</p>
             </div>
           </div>
           <div className="space-y-3">
             {[
-              { key: 'optimal', label: 'Optimal (80–95%)', color: 'bg-emerald-500', textColor: 'text-emerald-400' },
-              { key: 'underutilized', label: 'Underutilized (<50%)', color: 'bg-amber-500', textColor: 'text-amber-400' },
-              { key: 'overprovisioned', label: 'Overprovisioned (>20 unused)', color: 'bg-blue-500', textColor: 'text-blue-400' },
-              { key: 'maxed', label: 'At Capacity (>95%)', color: 'bg-red-500', textColor: 'text-red-400' },
-            ].map(({key, label, color, textColor}) => {
-              const count = healthCounts[key];
-              const pct = licenseData.length > 0 ? (count / licenseData.length) * 100 : 0;
+              { key: 'ok', label: t('lic_f_ok') || 'In use', color: 'bg-emerald-500', textColor: 'text-emerald-400' },
+              { key: 'no-users', label: t('lic_f_no_users') || 'No active users', color: 'bg-amber-500', textColor: 'text-amber-400' },
+              { key: 'expensive', label: (t('lic_f_expensive') || 'Over') + ' ' + getCurrency(language) + EXPENSIVE_PER_USER + ' ' + (t('lic_per_user') || 'per user'), color: 'bg-blue-500', textColor: 'text-blue-400' },
+            ].map(({ key, label, color, textColor }) => {
+              const count = counts[key];
+              const pct = apps.length > 0 ? (count / apps.length) * 100 : 0;
               return (
                 <button key={key} onClick={() => setFilter(key)}
                   className="w-full text-left hover:bg-slate-800/30 -mx-2 px-2 py-1 rounded-lg transition-colors">
@@ -239,7 +226,7 @@ export function LicenseManagement() {
                     <span className={"text-sm font-semibold " + textColor}>{count} {count === 1 ? 'app' : 'apps'}</span>
                   </div>
                   <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                    <div className={"h-full " + color + " transition-all"} style={{width: pct + '%'}} />
+                    <div className={"h-full " + color + " transition-all"} style={{ width: pct + '%' }} />
                   </div>
                 </button>
               );
@@ -248,7 +235,7 @@ export function LicenseManagement() {
         </div>
       )}
 
-      {/* ── Row 4: License Table ── */}
+      {/* ── Row 4: Table ── */}
       <div className="rounded-2xl border border-slate-800 bg-slate-900/60 overflow-hidden">
         <div className="p-4 border-b border-slate-800">
           <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
@@ -262,19 +249,18 @@ export function LicenseManagement() {
                 className="px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-slate-300 outline-none focus:border-blue-500 transition-colors w-40" />
               <select value={sortBy} onChange={e => setSortBy(e.target.value)}
                 className="px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-slate-300 outline-none">
-                <option value="waste">Sort: Waste</option>
                 <option value="cost">Sort: Cost</option>
-                <option value="utilization">Sort: Utilization</option>
+                <option value="per_user">Sort: Cost per user</option>
+                <option value="users">Sort: Active users</option>
               </select>
             </div>
           </div>
           <div className="flex gap-2 mt-3 flex-wrap">
             {[
-              ['all', 'All', licenseData.length],
-              ['optimal', 'Optimal', healthCounts.optimal],
-              ['underutilized', 'Underutilized', healthCounts.underutilized],
-              ['overprovisioned', 'Overprovisioned', healthCounts.overprovisioned],
-              ['maxed', 'At Capacity', healthCounts.maxed],
+              ['all', t('lic_f_all') || 'All', counts.all],
+              ['ok', t('lic_f_ok') || 'In use', counts.ok],
+              ['no-users', t('lic_f_no_users') || 'No active users', counts['no-users']],
+              ['expensive', t('lic_f_expensive_short') || 'High cost per user', counts.expensive],
             ].map(([val, label, count]) => (
               <button key={val} onClick={() => setFilter(val)}
                 className={"px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap " + (filter === val ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white')}>
@@ -290,7 +276,7 @@ export function LicenseManagement() {
               <CreditCard className="h-6 w-6 text-slate-500" />
             </div>
             <h3 className="text-base font-semibold text-white mb-1">{t("lic_no_licenses")}</h3>
-            <p className="text-sm text-slate-500">{search || filter !== 'all' ? 'Try adjusting your filters.' : 'Import or add tools to track license utilization.'}</p>
+            <p className="text-sm text-slate-500">{search || filter !== 'all' ? 'Try adjusting your filters.' : 'Import or add tools to see cost per tool.'}</p>
           </div>
         ) : (
           <>
@@ -299,60 +285,43 @@ export function LicenseManagement() {
                 <thead>
                   <tr className="border-b border-slate-800 bg-slate-950/50">
                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('col_application')}</th>
-                    <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('col_used_total')}</th>
-                    <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">{t('col_utilization')}</th>
+                    <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('col_active_users') || 'Active users'}</th>
                     <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden lg:table-cell">{t('col_cost_mo')}</th>
-                    <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('col_waste')}</th>
-                    <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('col_action')}</th>
+                    <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">{t('col_cost_per_user') || 'Per user'}</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('col_finding') || 'Finding'}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {paginated.map(app => (
                     <tr key={app.id} className="border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors">
                       <td className="py-3 px-4">
-                        <div className="text-sm font-semibold text-white truncate">{app.app}</div>
-                        <div className="text-xs text-slate-500 capitalize truncate">{app.category}</div>
+                        <div className="text-sm font-semibold text-white truncate">{app.name}</div>
+                        <div className="text-xs text-slate-500 capitalize truncate">{app.category || '—'}</div>
                       </td>
                       <td className="py-3 px-4 text-right whitespace-nowrap">
-                        <div className="text-sm font-semibold text-white">{app.used} / {app.total}</div>
-                        {app.inactive > 0 && <div className="text-xs text-amber-400">{app.inactive} inactive</div>}
-                      </td>
-                      <td className="py-3 px-4 text-center hidden md:table-cell">
-                        <div className="flex items-center gap-2">
-                          <div className="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                            <div className={"h-full transition-all " + (app.utilization < 50 ? 'bg-amber-500' : app.utilization > 95 ? 'bg-red-500' : 'bg-emerald-500')}
-                              style={{width: Math.min(100, app.utilization) + '%'}} />
-                          </div>
-                          <span className="text-xs text-slate-400 font-mono w-10 text-right">{app.utilization}%</span>
-                        </div>
+                        <span className={"text-sm font-semibold " + (app.activeUsers === 0 ? 'text-amber-400' : 'text-white')}>
+                          {app.activeUsers}
+                        </span>
                       </td>
                       <td className="py-3 px-4 text-right text-sm text-white whitespace-nowrap hidden lg:table-cell">
-                        {getCurrency(language)}{displayAmount(Math.round(app.cost)).toLocaleString()}
+                        {money(app.cost)}
                       </td>
-                      <td className="py-3 px-4 text-right whitespace-nowrap">
-                        {app.waste > 0 ? (
-                          <span className="text-sm font-semibold text-red-400">
-                            {getCurrency(language)}{displayAmount(Math.round(app.waste)).toLocaleString()}
+                      <td className="py-3 px-4 text-right whitespace-nowrap hidden md:table-cell">
+                        {app.activeUsers > 0 ? (
+                          <span className={"text-sm " + (app.wasteReason === 'expensive' ? 'font-semibold text-blue-400' : 'text-slate-300')}>
+                            {money(app.costPerUser)}
                           </span>
                         ) : (
                           <span className="text-xs text-slate-600">—</span>
                         )}
                       </td>
-                      <td className="py-3 px-4 text-center">
-                        {app.inactive > 0 ? (
-                          <button onClick={() => {
-                            const subject = encodeURIComponent("Reclaim " + app.inactive + " " + app.app + " licenses");
-                            const body = encodeURIComponent(
-                              "Hi,\n\nPlease reclaim " + app.inactive + " inactive " + app.app + " licenses.\n" +
-                              "Monthly savings: " + getCurrency(language) + Math.round(app.waste).toLocaleString() + "\n\nThanks"
-                            );
-                            window.open("mailto:?subject=" + subject + "&body=" + body);
-                          }}
-                            className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-xs font-semibold text-white transition-colors">
-                            {t('act_reclaim')}
-                          </button>
+                      <td className="py-3 px-4">
+                        {app.wasteReason === 'no-users' ? (
+                          <span className="text-xs font-semibold text-amber-400">{t('lic_f_no_users') || 'No active users'}</span>
+                        ) : app.wasteReason === 'expensive' ? (
+                          <span className="text-xs font-semibold text-blue-400">{t('lic_f_expensive_short') || 'High cost per user'}</span>
                         ) : (
-                          <span className="text-xs text-emerald-400">✓ OK</span>
+                          <span className="text-xs text-emerald-400">✓ {t('lic_f_ok') || 'In use'}</span>
                         )}
                       </td>
                     </tr>
@@ -386,7 +355,3 @@ export function LicenseManagement() {
     </div>
   );
 }
-
-// Continue in next message due to size...
-// RENEWAL ALERTS PAGE
-

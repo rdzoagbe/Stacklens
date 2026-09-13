@@ -77,7 +77,7 @@ function mapGoogleUser(u) {
     email:      u.primaryEmail,
     department: u.organizations?.[0]?.department || u.orgUnitPath?.replace(/^\//, '').split('/')[0] || '',
     role:       u.organizations?.[0]?.title || '',
-    status:     u.suspended ? 'inactive' : 'active',
+    status:     u.suspended ? 'offboarded' : 'active',
     start_date: u.creationTime ? u.creationTime.slice(0, 10) : '',
     end_date:   '',
   };

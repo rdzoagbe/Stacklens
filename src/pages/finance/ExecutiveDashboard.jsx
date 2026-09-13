@@ -3,6 +3,8 @@ import {
   AlertTriangle, ArrowDown, ArrowUp, Boxes, DollarSign, Download, TrendingUp,
 } from 'lucide-react';
 import { formatMoney, getCurrency } from '../../lib/dataUtils';
+import { computeWaste } from '../../lib/waste';
+import { spendTrend } from '../../lib/budget';
 import { useLang } from '../../contexts/LangContext';
 import { useTranslation } from '../../translations';
 import {
@@ -15,13 +17,10 @@ export function ExecutiveDashboard({ data }) {
   const t = useTranslation(language);
   const totalSpend = data?.tools?.reduce((sum, tool) => sum + (tool.cost_per_month || 0), 0) || 0;
   const annualSpend = totalSpend * 12;
-  const unusedTools = data?.tools?.filter(tool => {
-    const lastUsed = new Date(tool.last_used_date || 0);
-    // eslint-disable-next-line react-hooks/purity
-    const daysSinceUse = Math.floor((Date.now() - lastUsed) / (1000 * 60 * 60 * 24));
-    return daysSinceUse > 90;
-  }) || [];
-  const potentialSavings = unusedTools.reduce((sum, tool) => sum + (tool.cost_per_month || 0), 0);
+  // Was "unused for 90+ days", a fourth definition of savings that
+  // disagreed with the three other screens. One rule now, in lib/waste.
+  const _waste = computeWaste(data);
+  const potentialSavings = _waste.recoverable;
   const annualSavings = potentialSavings * 12;
   const roi = totalSpend > 0 ? ((potentialSavings / totalSpend) * 100).toFixed(1) : 0;
   const highRiskTools = data?.tools?.filter(tool => tool.derived_risk === 'high').length || 0;
@@ -33,14 +32,15 @@ export function ExecutiveDashboard({ data }) {
   });
   const categoryData = Object.entries(categorySpend).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value).slice(0, 6);
   const COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#6366f1'];
-  const trendData = [
-    { month: 'Jul', spend: totalSpend * 0.85, savings: potentialSavings * 0.6 },
-    { month: 'Aug', spend: totalSpend * 0.90, savings: potentialSavings * 0.7 },
-    { month: 'Sep', spend: totalSpend * 0.93, savings: potentialSavings * 0.8 },
-    { month: 'Oct', spend: totalSpend * 0.97, savings: potentialSavings * 0.85 },
-    { month: 'Nov', spend: totalSpend * 0.99, savings: potentialSavings * 0.92 },
-    { month: 'Dec', spend: totalSpend, savings: potentialSavings },
-  ];
+  // This was six hardcoded months — Jul through Dec, spend scaled 0.85 to 1.0
+  // and savings 0.6 to 1.0 — rendered as a trend line on the screen an
+  // executive is most likely to screenshot. It moved when this month's total
+  // moved and never reflected a single past month. Now: recorded history.
+  const MONTH_LABELS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const trendData = spendTrend(data, totalSpend).map(p => ({
+    month: MONTH_LABELS[p.monthIndex],
+    spend: p.spend,
+  }));
   const topTools = [...(data?.tools || [])].sort((a, b) => (b.cost_per_month || 0) - (a.cost_per_month || 0)).slice(0, 10);
   return (
     <div className="w-full space-y-6">
@@ -72,6 +72,11 @@ export function ExecutiveDashboard({ data }) {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
           <h3 className="text-xl font-bold text-white mb-6">{t('spend_trend_6m')}</h3>
+          {trendData.length < 2 ? (
+            <div className="flex items-center justify-center text-center text-sm text-slate-500" style={{height: 250}}>
+              {t('trend_building_sub') || 'Your spend is recorded once a month. The trend appears here after your second month.'}
+            </div>
+          ) : (
           <div className='recharts-wrapper-fix' style={{position:'relative',width:'100%',minWidth:'0',overflow:'hidden'}}>
           <ResponsiveContainer width="100%" height={250} minWidth={0}>
             <LineChart data={trendData}>
@@ -80,10 +85,10 @@ export function ExecutiveDashboard({ data }) {
               <YAxis stroke="#94a3b8" tickFormatter={val => getCurrency(language) + (val/1000).toFixed(0) + "K"} />
               <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }} formatter={val => [`${getCurrency(language)}${val.toLocaleString()}`, '']} />
               <Line type="monotone" dataKey="spend" stroke="#3b82f6" strokeWidth={3} />
-              <Line type="monotone" dataKey="savings" stroke="#10b981" strokeWidth={3} />
             </LineChart>
           </ResponsiveContainer>
           </div>
+          )}
         </div>
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
           <h3 className="text-xl font-bold text-white mb-6">{t('spend_by_category_title')}</h3>
@@ -93,7 +98,7 @@ export function ExecutiveDashboard({ data }) {
               <Pie data={categoryData} cx="50%" cy="50%" labelLine={false} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} outerRadius={100} dataKey="value">
                 {categoryData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
               </Pie>
-              <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }} formatter={val => [`$${val.toLocaleString()}/mo`, '']} />
+              <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }} formatter={val => [`${getCurrency(language)}${val.toLocaleString()}/mo`, '']} />
             </RPieChart>
           </ResponsiveContainer>
           </div>
@@ -113,8 +118,8 @@ export function ExecutiveDashboard({ data }) {
               <tr key={idx} className="border-b border-slate-800/50">
                 <td className="py-3 px-4 text-white font-medium">{tool.name}</td>
                 <td className="py-3 px-4 text-slate-400">{tool.category || 'Other'}</td>
-                <td className="py-3 px-4 text-right text-white">${(tool.cost_per_month || 0).toLocaleString()}</td>
-                <td className="py-3 px-4 text-right text-emerald-400">${((tool.cost_per_month || 0) * 12).toLocaleString()}</td>
+                <td className="py-3 px-4 text-right text-white">{getCurrency(language)}{(tool.cost_per_month || 0).toLocaleString()}</td>
+                <td className="py-3 px-4 text-right text-emerald-400">{getCurrency(language)}{((tool.cost_per_month || 0) * 12).toLocaleString()}</td>
                 <td className="py-3 px-4 text-center">
                   <span className={`px-3 py-1 rounded-full text-xs font-semibold ${tool.derived_risk === 'high' ? 'bg-red-500/20 text-red-400' : tool.derived_risk === 'medium' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
                     {tool.derived_risk || 'low'}
@@ -130,7 +135,7 @@ export function ExecutiveDashboard({ data }) {
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-xl font-bold text-white mb-2">{t('exec_summary_title')}</h3>
-            <p className="text-slate-300">Spending <span className="font-bold text-white">{getCurrency(language)}{totalSpend.toLocaleString()}/month</span> on {data?.tools?.length || 0} tools. Identified <span className="font-bold text-emerald-400">${potentialSavings.toLocaleString()}/month</span> in savings.{highRiskTools > 0 && <span className="text-orange-400"> {highRiskTools} high-risk tools need attention.</span>}</p>
+            <p className="text-slate-300">Spending <span className="font-bold text-white">{getCurrency(language)}{totalSpend.toLocaleString()}/month</span> on {data?.tools?.length || 0} tools. Identified <span className="font-bold text-emerald-400">{getCurrency(language)}{potentialSavings.toLocaleString()}/month</span> in savings.{highRiskTools > 0 && <span className="text-orange-400"> {highRiskTools} high-risk tools need attention.</span>}</p>
           </div>
           <div className="text-right"><div className="text-sm text-slate-400 mb-1">{t("hc_annual_roi")}</div><div className="text-2xl md:text-4xl font-black text-emerald-400">{roi}%</div></div>
         </div>
