@@ -1642,11 +1642,6 @@ exports.invoiceInbound = onRequest({ cors: false, timeoutSeconds: 120, memory: '
 // ── Daily Alerts (SendGrid) ──────────────────────────────────────────────
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 
-// ── Weekly data backup ───────────────────────────────────────────────────
-// Copies every /userdata doc (+ its chunks subcollection) into /backups so a
-// client-side bug that corrupts or wipes a user's blob can be recovered from a
-// copy no client code can touch (default-deny rules; Admin SDK only). Keeps
-// ~5 weeks, pruning older snapshots.
 // ── /purgeClientOrgs — the end of the retention window ────────────────────
 //
 // deleteorg marks a client workspace and keeps its data for RETENTION_DAYS so
@@ -1687,8 +1682,36 @@ exports.purgeClientOrgs = onSchedule({
   if (purged) console.warn(`purgeClientOrgs: removed ${purged} client workspace(s)`);
 });
 
+// ── Daily data backup ────────────────────────────────────────────────────
+// Copies every /userdata doc (+ its chunks subcollection) into /backups so a
+// client-side bug that corrupts or wipes a user's blob can be recovered from a
+// copy no client code can touch (default-deny rules; Admin SDK only).
+//
+// Was weekly, which meant up to seven days of work could be lost to recover
+// from anything. Daily costs almost nothing at this data volume — a snapshot
+// is a few documents per workspace — and turns "we lost your week" into "we
+// lost your morning".
+//
+// The export is still called weeklyBackup, which is a wart, and deliberate.
+// The deploy pipeline installs functions with `--only functions:<explicit
+// list>`, which never removes a function that disappeared from the source. So
+// renaming the export would create dailyBackup and leave weeklyBackup
+// deployed and still firing — a twenty-first function holding a vCPU against
+// the regional ceiling that has already failed three deploys. A misleading
+// identifier is a wart; a zombie scheduled function is an outage. Renaming it
+// safely means deleting the old one in the Firebase console first, which is a
+// separate deliberate step.
+//
+// BACKUP_RETENTION_DAYS is held to the window the DPA and the privacy page
+// promise, by src/lib/backup-retention.test.js. Snapshots outlive the account
+// they belong to otherwise: the pruner is the only thing that eventually
+// removes a deleted user's data from /backups, so a window longer than the
+// promise makes the promise false.
+
+const BACKUP_RETENTION_DAYS = 30;
+
 exports.weeklyBackup = onSchedule({
-  schedule: 'every sunday 03:00',
+  schedule: 'every day 03:00',
   timeZone: 'Europe/Paris',
   region: 'us-central1',
   timeoutSeconds: 540,
@@ -1696,6 +1719,19 @@ exports.weeklyBackup = onSchedule({
   const db = getFirestore();
   const now = new Date();
   const stamp = now.toISOString().slice(0, 10);
+
+  /** Remove one snapshot and the chunks underneath it. */
+  const dropSnapshot = async (ref) => {
+    const cs = await ref.collection('chunks').get();
+    let batch = db.batch(); let n = 0;
+    for (const c of cs.docs) {
+      batch.delete(c.ref);
+      if (++n % 400 === 0) { await batch.commit(); batch = db.batch(); }
+    }
+    batch.delete(ref);
+    await batch.commit();
+  };
+
   const snap = await db.collection('userdata').get();
   let backed = 0;
   for (const docSnap of snap.docs) {
@@ -1714,19 +1750,53 @@ exports.weeklyBackup = onSchedule({
       console.error('weeklyBackup failed for', docSnap.id, err?.message);
     }
   }
-  const cutoff = new Date(now); cutoff.setDate(cutoff.getDate() - 35);
+  const cutoff = new Date(now);
+  cutoff.setDate(cutoff.getDate() - BACKUP_RETENTION_DAYS);
   const olds = await db.collection('backups').where('created_at', '<', cutoff.toISOString().slice(0, 10)).get();
-  for (const o of olds.docs) {
-    const cs = await o.ref.collection('chunks').get();
-    let batch = db.batch(); let n = 0;
-    for (const c of cs.docs) {
-      batch.delete(c.ref);
-      if (++n % 400 === 0) { await batch.commit(); batch = db.batch(); }
+  for (const o of olds.docs) await dropSnapshot(o.ref);
+
+  // ── Snapshots whose account is gone ──────────────────────────────────────
+  //
+  // Deleting an account removes /users and /userdata. It does not touch
+  // /backups, so without this the full workspace — every employee name and
+  // email in it — sat here until the age cutoff caught it, which is the one
+  // thing the DPA's "deleted within 30 days" cannot afford to be late on.
+  //
+  // Written as a sweep rather than as a step inside the delete paths on
+  // purpose: there are several ways an account can go (self-service, the
+  // founder tool, a client workspace purged by purgeClientOrgs), and a sweep
+  // that asks "does the source still exist?" covers the one somebody forgets
+  // to wire up next year. The delete paths should still do it directly — this
+  // is the net underneath them, not a substitute.
+  //
+  // Conservative by construction: a snapshot is dropped only when the source
+  // read SUCCEEDS and reports the document absent. A transient read failure
+  // keeps the backup, because the cost of keeping one too long is a late
+  // deletion and the cost of getting this wrong is erasing the only copy of a
+  // live customer's data.
+  const sourceExists = new Map();
+  const allBackups = await db.collection('backups').get();
+  let orphans = 0;
+  for (const b of allBackups.docs) {
+    const ownerUid = b.data()?.uid;
+    if (!ownerUid) continue;
+    if (!sourceExists.has(ownerUid)) {
+      try {
+        const src = await db.collection('userdata').doc(ownerUid).get();
+        sourceExists.set(ownerUid, src.exists);
+      } catch (err) {
+        console.error('backup orphan check failed for', ownerUid, err?.message);
+        continue;
+      }
     }
-    batch.delete(o.ref);
-    await batch.commit();
+    if (sourceExists.get(ownerUid) === false) {
+      try { await dropSnapshot(b.ref); orphans++; }
+      catch (err) { console.error('orphan snapshot delete failed', b.id, err?.message); }
+    }
   }
-  console.log('Weekly backup:', backed, 'users backed up;', olds.size, 'old snapshots pruned');
+
+  console.log('Daily backup:', backed, 'workspaces backed up;',
+    olds.size, 'aged out;', orphans, 'orphaned snapshots removed');
 });
 
 // Rollout switch: was true during live validation (founder-only). Flipped to
