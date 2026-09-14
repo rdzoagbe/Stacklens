@@ -82,6 +82,13 @@ const RETAINED = {
   client_errors: 'no uid recorded; self-pruning',
   // Global configuration, not user data.
   app_config: 'not user data',
+  // One document holding crash fingerprints and alert send times, so a broken
+  // deploy sends one email instead of one per visitor. Not keyed to an account
+  // and not per-user: a fingerprint is a crash message with urls, ids and
+  // numbers stripped out, which is why it groups the same bug across users in
+  // the first place. Nothing here identifies anybody, and there is no account
+  // whose deletion it could belong to.
+  crash_alert_state: 'global alert bookkeeping, not keyed to any account',
   // Subcollection names, reached through their parents above.
   chunks: 'subcollection of userdata and backups',
   items: 'subcollection of inbox_invoices',
