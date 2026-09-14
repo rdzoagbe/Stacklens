@@ -132,12 +132,12 @@ export function ModuleGate({ module, children, _feature = 'this module' }) {
   const moduleNames = {
     finance: t('module_finance'), people: t('module_people'),
     security: t('module_security'), ai: t('module_ai'), analytics: t('module_analytics'),
-    api: t('module_api') || 'API access',
+    api: t('module_api'),
   };
   const moduleDesc = {
     finance: t('module_desc_finance'), people: t('module_desc_people'),
     security: t('module_desc_security'), ai: t('module_desc_ai'), analytics: t('module_desc_analytics'),
-    api: t('module_desc_api') || 'Read-only REST API access to your workspace data.',
+    api: t('module_desc_api'),
   };
   const isHrFinance      = ['finance', 'people'].includes(module);
   const recommendedPlan  = isHrFinance ? 'HR & Finance Pack' : 'Pro';

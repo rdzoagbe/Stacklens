@@ -74,7 +74,7 @@ export function ExecutiveDashboard({ data }) {
           <h3 className="text-xl font-bold text-white mb-6">{t('spend_trend_6m')}</h3>
           {trendData.length < 2 ? (
             <div className="flex items-center justify-center text-center text-sm text-slate-500" style={{height: 250}}>
-              {t('trend_building_sub') || 'Your spend is recorded once a month. The trend appears here after your second month.'}
+              {t('trend_building_sub')}
             </div>
           ) : (
           <div className='recharts-wrapper-fix' style={{position:'relative',width:'100%',minWidth:'0',overflow:'hidden'}}>
