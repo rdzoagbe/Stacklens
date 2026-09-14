@@ -61,6 +61,17 @@ const firebaseConfig = {
 
 const FIREBASE_CONFIGURED = !!(firebaseConfig.apiKey && firebaseConfig.projectId);
 
+/**
+ * The same config, for the App Check probe in lib/appCheckProbe.js.
+ *
+ * Exported so the probe can stand up a SECOND, throwaway Firebase app and
+ * attempt an App Check token exchange on that, leaving this one — the app Auth
+ * and Firestore are attached to — untouched. Every value here already ships in
+ * the client bundle, so exporting it reveals nothing that reading the built
+ * JavaScript would not.
+ */
+export const PUBLIC_FIREBASE_CONFIG = Object.freeze({ ...firebaseConfig });
+
 if (!FIREBASE_CONFIGURED) {
   console.warn(
     '[Stacklens] Firebase config missing — running in offline/demo mode. ' +
