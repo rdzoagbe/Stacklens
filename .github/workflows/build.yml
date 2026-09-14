@@ -218,4 +218,4 @@ jobs:
         run: firebase deploy --project accessguard-v2 --force --non-interactive --only functions:invoiceInbound,functions:invoiceInbox,functions:refreshClaims,functions:sendInvite,functions:stripeWebhook
 
       - name: Deploy Cloud Functions (batch 4/4)
-        run: firebase deploy --project accessguard-v2 --force --non-interactive --only functions:syncuser,functions:weeklyBackup,functions:weeklySummary,functions:workspace
+        run: firebase deploy --project accessguard-v2 --force --non-interactive --only functions:syncuser,functions:weeklyBackup,functions:weeklySummary,functions:workspace,functions:purgeClientOrgs

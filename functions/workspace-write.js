@@ -299,6 +299,59 @@ function currencySymbol(data) {
   return CURRENCY_SYMBOLS[code] || CURRENCY_SYMBOLS.EUR;
 }
 
+// ── Deleting a client workspace, reversibly ────────────────────────────────
+//
+// deleteorg used to batch-delete the chunks, the userdata document and the
+// org record in one commit. An agency removing the wrong client — one prompt,
+// one click, names that differ by a word — destroyed that company's entire
+// inventory with nothing to restore from, and a customer asking for their
+// data back a month later got an apology.
+//
+// So a delete marks the record and stops there. The workspace disappears from
+// the switcher, refuses writes, and stays readable so its data can still be
+// exported and handed back. After RETENTION_DAYS a scheduled purge removes it
+// for good — which is the part that makes "deleted" mean deleted rather than
+// "hidden forever and still billed to our storage".
+const RETENTION_DAYS = 90;
+const RETENTION_MS = RETENTION_DAYS * 24 * 60 * 60 * 1000;
+
+/** The fields that mark an org deleted. Stored as epoch ms, not Timestamps,
+ *  so the purge can compare them without a Firestore type dance. */
+function softDeleteFields(now = Date.now()) {
+  return { deleted_at: now, purge_after: now + RETENTION_MS };
+}
+
+/** Clears the marks. Restoring is the exact inverse of deleting. */
+function restoreFields() {
+  return { deleted_at: null, purge_after: null };
+}
+
+function isOrgDeleted(org) {
+  return !!(org && Number(org.deleted_at) > 0);
+}
+
+/** Whole days left before the purge takes it, floored at 0. */
+function daysUntilPurge(org, now = Date.now()) {
+  if (!isOrgDeleted(org)) return null;
+  const left = Number(org.purge_after || 0) - now;
+  if (!Number.isFinite(left) || left <= 0) return 0;
+  return Math.ceil(left / (24 * 60 * 60 * 1000));
+}
+
+/**
+ * Whether the retention window has closed.
+ *
+ * A record marked deleted but missing purge_after — written by an older build,
+ * or half-written — is due. The alternative is data that can never be purged
+ * and never be found, which is the worse failure for a retention promise.
+ */
+function isPurgeDue(org, now = Date.now()) {
+  if (!isOrgDeleted(org)) return false;
+  const after = Number(org.purge_after);
+  if (!Number.isFinite(after) || after <= 0) return true;
+  return now >= after;
+}
+
 module.exports = {
   MEMBER_ROLES,
   MEMBER_WRITABLE_KEYS,
@@ -321,4 +374,11 @@ module.exports = {
   effectivePlan,
   CURRENCY_SYMBOLS,
   currencySymbol,
+  RETENTION_DAYS,
+  RETENTION_MS,
+  softDeleteFields,
+  restoreFields,
+  isOrgDeleted,
+  daysUntilPurge,
+  isPurgeDue,
 };
