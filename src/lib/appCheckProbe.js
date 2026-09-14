@@ -23,6 +23,21 @@
 // cannot reach a real user's session. Run it on the live domain, read the
 // result, and then flipping the flag is a verified change rather than a third
 // attempt.
+//
+// It has now been run on stacklens.fr, and the answer is that the exchange is
+// still being rejected today — not that an old throttle is in the way:
+//
+//   appCheck/initial-throttle: AppCheck: 400 error.
+//   Attempts allowed again after 00m:01s (appCheck/initial-throttle).
+//
+// In a clean browser, with the reCAPTCHA key set to v3, stacklens.fr in its
+// allowed domains, and the provider showing Registered in Firebase Console,
+// that is a fresh 400. `initial-throttle` is the SDK's first-failure back-off
+// — one second — and not the day-long `appCheck/throttled`. The remaining
+// suspect is the one thing no console screen displays: the reCAPTCHA SECRET
+// key stored in App Check pairing with the site key above.
+//
+// So APP_CHECK_ENABLED stays false, and it is a finding rather than a mystery.
 
 import { initializeApp, deleteApp, getApps } from 'firebase/app';
 import {
@@ -46,13 +61,68 @@ export const PROBE_SITE_KEY = import.meta.env.DEV
 const PROBE_APP_NAME = 'appcheck-probe';
 
 /**
+ * How long Firebase says it will refuse to try again, in seconds.
+ *
+ * App Check writes the back-off into the message ("Attempts allowed again
+ * after 00m:01s"), and the number is the whole difference between two things
+ * that otherwise read identically:
+ *
+ *   appCheck/initial-throttle   the FIRST failure. Seconds. There is nothing
+ *                               to wait for — the status in the same message
+ *                               is the finding.
+ *   appCheck/throttled          repeated failures. Up to a day, and a retry
+ *                               before it expires tells you nothing.
+ *
+ * Returns null when no duration is quoted, which is the honest answer: better
+ * to point at the raw line than to invent a number.
+ */
+export function backoffSeconds(message) {
+  // One bounded character class rather than a nested quantifier: the same
+  // shape written as `\d+[dhms](?::\d+[dhms])*` is flagged for catastrophic
+  // backtracking, and this string arrives from the network. Whatever is
+  // matched here is validated per part below, so a loose match costs nothing.
+  const m = /allowed again after\s+([0-9dhms:]{2,40})/i.exec(String(message || ''));
+  if (!m) return null;
+  const units = { d: 86400, h: 3600, m: 60, s: 1 };
+  let total = 0;
+  let found = false;
+  for (const part of m[1].split(':')) {
+    const bit = /^(\d+)([dhms])$/.exec(part);
+    if (!bit) continue;
+    total += Number(bit[1]) * units[bit[2]];
+    found = true;
+  }
+  return found ? total : null;
+}
+
+/** The same duration in words, for a sentence rather than a log line. */
+export function describeBackoff(seconds) {
+  if (!Number.isFinite(seconds) || seconds <= 0) return 'less than a second';
+  if (seconds < 60) return `${seconds} second${seconds === 1 ? '' : 's'}`;
+  if (seconds < 3600) {
+    const m = Math.max(1, Math.round(seconds / 60));
+    return `${m} minute${m === 1 ? '' : 's'}`;
+  }
+  const h = Math.max(1, Math.round(seconds / 3600));
+  return `${h} hour${h === 1 ? '' : 's'}`;
+}
+
+/**
  * Turn whatever Firebase threw into something worth reading.
  *
- * The two codes that have actually happened here are worth naming, because
- * "it failed" sends you to the wrong console page. A 400 on the exchange is a
- * key-registration problem in Google Cloud; throttling is App Check refusing
- * after repeated failures, which means the underlying problem is unfixed AND
- * you now have to wait.
+ * The ordering here is the point, and the first version had it backwards. It
+ * tested for "throttl" before the HTTP status, so the one real failure the
+ * probe has ever caught —
+ *
+ *   appCheck/initial-throttle: AppCheck: 400 error.
+ *   Attempts allowed again after 00m:01s (appCheck/initial-throttle).
+ *
+ * — was labelled "throttled", with advice to wait out a back-off of up to a
+ * day. The back-off was one second. The 400 was the finding, and the panel
+ * sent its reader away to wait for nothing.
+ *
+ * So a status wins over a throttle code. A throttle is only ever a
+ * consequence of a rejection, and reporting the consequence hides the cause.
  */
 export function explain(err) {
   const code = err?.code || '';
@@ -64,18 +134,9 @@ export function explain(err) {
   // code and an HTTP status, never a credential, so there is no reason to drop
   // them. `raw` is the line to paste when asking someone what it means.
   const raw = [code, message].filter(Boolean).join(': ');
+  const throttled = /throttl/i.test(code) || /throttl/i.test(message);
+  const wait = backoffSeconds(message);
 
-  if (/throttl/i.test(code) || /throttl/i.test(message)) {
-    return {
-      verdict: 'throttled',
-      raw,
-      detail: 'App Check is throttling, which it does after a failed exchange — '
-        + 'so throttling is the symptom and the registration is still the cause. '
-        + 'Firebase backs off for up to a day after a 403. Fix the registration '
-        + 'first, then retry once the throttle has expired; retrying before that '
-        + 'tells you nothing either way.',
-    };
-  }
   if (/40[03]/.test(message) || /recaptcha/i.test(message)) {
     return {
       verdict: 'rejected',
@@ -84,7 +145,25 @@ export function explain(err) {
         + 'the web app in Firebase Console → App Check → Apps must have the '
         + 'reCAPTCHA v3 provider registered with the SECRET key that pairs with '
         + 'this site key, and this domain must be in the reCAPTCHA '
-        + 'allowed-domains list in Google Cloud Console.',
+        + 'allowed-domains list in Google Cloud Console.'
+        + (throttled
+          ? ' Firebase also reports a back-off of '
+            + `${describeBackoff(wait)}, but that is the SDK pausing after the `
+            + 'rejection, not the reason for it — there is nothing here to wait out.'
+          : ''),
+    };
+  }
+  if (throttled) {
+    return {
+      verdict: 'throttled',
+      raw,
+      detail: 'App Check is throttling, which it does after a failed exchange — '
+        + 'so throttling is the symptom and the registration is still the cause. '
+        + (wait === null
+          ? 'How long it is backing off for is in the raw line below. '
+          : `Firebase is backing off for ${describeBackoff(wait)}. `)
+        + 'Fix the registration first, then retry once the throttle has expired; '
+        + 'retrying before that tells you nothing either way.',
     };
   }
   return { verdict: 'failed', raw, detail: message };
