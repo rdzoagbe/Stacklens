@@ -39,11 +39,12 @@ import {
   orderBy,
   serverTimestamp,
   Timestamp,
-  writeBatch,
+  runTransaction,
 } from 'firebase/firestore';
 import { getAnalytics, isSupported, setConsent as firebaseSetConsent } from 'firebase/analytics';
 import { track } from './lib/analytics';
 import { stripLocalOnly } from './lib/constants';
+import { REV_FIELD, revOf, nextRev, isStaleWrite, StaleWriteError } from './lib/revision';
 import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
 
 // Firebase config — values come from environment variables (VITE_FIREBASE_*).
@@ -245,8 +246,8 @@ export async function saveUserData(uid, db) {
   try {
     const meta = stripLocalOnly({ ...db, _uid: uid, _updatedAt: Date.now() });
     const chunkCounts = {};
-    const batch = writeBatch(firestoreDb);
     const chunksRef = collection(firestoreDb, 'userdata', uid, 'chunks');
+    const chunkWrites = [];
 
     for (const key of CHUNKED_KEYS) {
       const arr = Array.isArray(db[key]) ? db[key] : [];
@@ -266,22 +267,45 @@ export async function saveUserData(uid, db) {
       }
       if (current.length || slices.length === 0) slices.push(current);
       chunkCounts[key] = slices.length;
-      slices.forEach((items, i) => batch.set(doc(chunksRef, `${key}_${i}`), { items }));
+      slices.forEach((items, i) => chunkWrites.push([doc(chunksRef, `${key}_${i}`), { items }]));
     }
     meta._chunks = chunkCounts;
-    batch.set(doc(firestoreDb, 'userdata', uid), meta);
 
-    // Remove slices left over from a previous, larger save.
+    // Slices left over from a previous, larger save. Read outside the
+    // transaction: the Firestore Web SDK allows only single-document gets
+    // inside one, not a collection query.
     const existing = await getDocs(chunksRef);
+    const staleChunks = [];
     existing.forEach(d => {
       const m = d.id.match(/^(.+)_(\d+)$/);
       if (!m || !(m[1] in chunkCounts) || Number(m[2]) >= chunkCounts[m[1]]) {
-        batch.delete(d.ref);
+        staleChunks.push(d.ref);
       }
     });
 
-    await batch.commit();
+    // Conditional on the revision this edit was based on, so a save from
+    // another tab or device cannot be silently overwritten. A transaction
+    // rather than a batch: the stored revision has to be read and compared
+    // inside the same atomic unit that writes, or two saves landing together
+    // both pass the check and one still disappears.
+    const baseRev = revOf(db);
+    const ownerRef = doc(firestoreDb, 'userdata', uid);
+    await runTransaction(firestoreDb, async (tx) => {
+      const snap = await tx.get(ownerRef);
+      const storedRev = snap.exists() ? revOf(snap.data()) : null;
+      if (snap.exists() && isStaleWrite(storedRev, baseRev)) {
+        throw new StaleWriteError(storedRev);
+      }
+      meta[REV_FIELD] = nextRev(storedRev);
+      tx.set(ownerRef, meta);
+      for (const [ref, value] of chunkWrites) tx.set(ref, value);
+      for (const ref of staleChunks) tx.delete(ref);
+    });
+    return meta[REV_FIELD];
   } catch (err) {
+    // A conflict is an expected outcome, not a fault: it means the guard did
+    // its job. Logging it as an error trains you to ignore the console.
+    if (err instanceof StaleWriteError) throw err;
     console.error('saveUserData:', err);
     throw err;
   }
@@ -697,7 +721,19 @@ async function callWorkspace(body) {
     body: JSON.stringify(body),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || 'Workspace request failed');
+  if (!res.ok) {
+    const err = new Error(data.error || 'Workspace request failed');
+    // A 409 from the write action means somebody else saved first. The flag
+    // and the stored revision have to survive being turned into an Error, or
+    // the caller cannot tell a conflict from a network failure — and it would
+    // then offer a retry that re-sends the same payload and overwrites them.
+    if (res.status === 409 && data.conflict) {
+      err.isConflict = true;
+      err.rev = Number.isFinite(data.rev) ? data.rev : null;
+    }
+    err.status = res.status;
+    throw err;
+  }
   return data;
 }
 export const workspaceInvite  = (email) => callWorkspace({ action: 'invite', email });

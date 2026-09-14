@@ -39,7 +39,7 @@ function SpendTrendChart({ monthlyTrend, byCategory }) {
               {hasTrend
                 ? (monthlyTrend.length >= 6 ? (t('last_6_months') || 'Last 6 months')
                                             : `${monthlyTrend.length} recorded months`)
-                : (t('trend_no_history') || 'No history yet')}
+                : (t('trend_no_history'))}
             </p>
           </div>
           <div className="text-right">
@@ -51,9 +51,9 @@ function SpendTrendChart({ monthlyTrend, byCategory }) {
         {/* Area-style bar chart */}
         {!hasTrend ? (
           <div className="flex flex-col items-center justify-center text-center" style={{height: '160px'}}>
-            <p className="text-sm text-slate-400">{t('trend_building_title') || 'Building your spend history'}</p>
+            <p className="text-sm text-slate-400">{t('trend_building_title')}</p>
             <p className="text-xs text-slate-500 mt-1 max-w-xs">
-              {t('trend_building_sub') || 'Your spend is recorded once a month. The trend appears here after your second month.'}
+              {t('trend_building_sub')}
             </p>
           </div>
         ) : (

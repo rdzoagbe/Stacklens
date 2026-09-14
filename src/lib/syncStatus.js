@@ -12,6 +12,9 @@
 
 let _state = { status: 'idle', error: null };
 let _retry = null;
+// A conflict needs two different resolutions rather than one retry, so they
+// are held separately from _retry — see markSyncConflict.
+let _resolve = null;
 const _listeners = new Set();
 
 function set(next) {
@@ -37,6 +40,7 @@ export function markSyncSaving() {
 
 export function markSyncSaved() {
   _retry = null;
+  _resolve = null;
   set({ status: 'saved', error: null });
 }
 
@@ -44,7 +48,57 @@ export function markSyncSaved() {
 // changes are what gets retried — not whatever is in the store later.
 export function markSyncFailed(err, retryFn) {
   _retry = typeof retryFn === 'function' ? retryFn : null;
+  _resolve = null;
   set({ status: 'error', error: err?.message || String(err || 'unknown error') });
+}
+
+// ── Somebody else saved first ──────────────────────────────────────────────
+//
+// A conflict is not a failed write, and the difference matters: the standard
+// failure path offers a retry that re-sends the same payload, which for a
+// conflict is precisely the silent overwrite the revision check exists to
+// prevent. So it gets its own status, and no _retry.
+//
+// Two resolutions, both explicit choices by the person who is about to lose
+// something:
+//
+//   keepTheirs  discard the edits in this browser and load the stored copy
+//   keepMine    replace the stored copy, knowing what that means
+//
+// The local data is never thrown away on its own. Silent loss becomes a
+// question — that is the entire fix; merging the two copies properly is a
+// separate and much larger piece of work.
+export function markSyncConflict(err, { keepTheirs, keepMine } = {}) {
+  _retry = null;
+  _resolve = {
+    keepTheirs: typeof keepTheirs === 'function' ? keepTheirs : null,
+    keepMine: typeof keepMine === 'function' ? keepMine : null,
+  };
+  set({
+    status: 'conflict',
+    error: err?.message || 'This workspace was changed somewhere else.',
+  });
+}
+
+/**
+ * Apply one of the two conflict resolutions.
+ *
+ * `which` is 'theirs' or 'mine'. Returns false when there is no conflict
+ * pending or that resolution was not supplied, so a stray click cannot put the
+ * indicator into a state the data does not match.
+ */
+export async function resolveConflict(which) {
+  const fn = which === 'mine' ? _resolve?.keepMine : _resolve?.keepTheirs;
+  if (!fn) return false;
+  set({ status: 'saving' });
+  try {
+    await fn();
+    markSyncSaved();
+    return true;
+  } catch (err) {
+    markSyncFailed(err, null);
+    return false;
+  }
 }
 
 export async function retrySync() {
@@ -65,5 +119,6 @@ export async function retrySync() {
 export function _resetSyncStatus() {
   _state = { status: 'idle', error: null };
   _retry = null;
+  _resolve = null;
   _listeners.clear();
 }

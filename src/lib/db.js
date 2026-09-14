@@ -1,6 +1,7 @@
 import { LS_KEY } from './constants';
-import { saveUserData, loadUserData, workspaceWrite } from '../firebase-config';
-import { markSyncSaving, markSyncSaved, markSyncFailed } from './syncStatus';
+import { saveUserData, loadUserData, workspaceWrite, workspaceRead } from '../firebase-config';
+import { markSyncSaving, markSyncSaved, markSyncFailed, markSyncConflict } from './syncStatus';
+import { REV_FIELD, revOf, isConflictError } from './revision';
 import { format, subDays, parseISO, isValid } from 'date-fns';
 
 // ─── ID / date helpers ────────────────────────────────────────────────────────
@@ -108,6 +109,44 @@ function _trimDbForStorage(db) {
   return trimmed;
 }
 
+// ── Keeping the local copy's base revision current ─────────────────────────
+//
+// Every cloud write is conditional on the revision it was based on (see
+// lib/revision.js). So after a write succeeds, the local blob has to learn the
+// revision that was just committed — otherwise the very next save declares the
+// old one, the check refuses it, and the app conflicts with itself.
+//
+// Written straight to localStorage rather than through saveDb: this is
+// bookkeeping about the cloud copy, and routing it back through saveDb would
+// schedule another cloud write for it.
+function stampLocalRev(rev) {
+  if (!Number.isFinite(rev)) return;
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return;
+    const blob = JSON.parse(raw);
+    if (!blob || typeof blob !== 'object') return;
+    blob[REV_FIELD] = rev;
+    localStorage.setItem(LS_KEY, JSON.stringify(blob));
+  } catch { /* bookkeeping must never break a save */ }
+}
+
+/**
+ * Replace this browser's copy with what is stored in the cloud.
+ *
+ * The "keep theirs" half of a conflict. A reload rather than a state update:
+ * every page derives its numbers from the blob at mount, and the point of this
+ * path is that the user has just agreed to look at different data — leaving
+ * half the screen computed from the copy they discarded would be worse than
+ * the conflict was.
+ */
+async function adoptCloudCopy(uid) {
+  const cloud = await loadUserData(uid);
+  if (!cloud) throw new Error('Could not read the stored copy');
+  localStorage.setItem(LS_KEY, JSON.stringify(asCompleteCopy(cloud)));
+  if (typeof window !== 'undefined') window.location.reload();
+}
+
 export function saveDb(db) {
   const serialized = JSON.stringify({ ...db, _saved_at: Date.now() });
   if (serialized.length > LS_SIZE_MAX_BYTES) {
@@ -139,7 +178,32 @@ export function saveDb(db) {
     _cloudSaveTimer = setTimeout(() => {
       const attempt = () => workspaceWrite(ownerUid, db);
       markSyncSaving();
-      attempt().then(markSyncSaved, (err) => markSyncFailed(err, attempt));
+      attempt().then(
+        (r) => { stampLocalRev(r?.rev); markSyncSaved(); },
+        (err) => {
+          // Two people, one workspace: the owner and an editor working the
+          // same afternoon used to delete each other's work without either of
+          // them ever finding out. The endpoint now answers 409 instead.
+          if (!isConflictError(err)) return markSyncFailed(err, attempt);
+          markSyncConflict(err, {
+            keepTheirs: async () => {
+              const { data, role } = await workspaceRead(ownerUid);
+              enterSharedView(data, {
+                owner_uid: ownerUid,
+                owner_email: db?._shared_view?.owner_email,
+                role: role || db?._shared_view?.role,
+              });
+              if (typeof window !== 'undefined') window.location.reload();
+            },
+            keepMine: async () => {
+              // The 409 carries the revision stored now, so re-basing costs no
+              // extra read.
+              const r = await workspaceWrite(ownerUid, { ...db, [REV_FIELD]: err.rev ?? null });
+              stampLocalRev(r?.rev);
+            },
+          });
+        },
+      );
     }, 1500);
     return;
   }
@@ -155,7 +219,25 @@ export function saveDb(db) {
       // backup stops being invisible to the user.
       const attempt = () => saveUserData(uid, db);
       markSyncSaving();
-      attempt().then(markSyncSaved, (err) => markSyncFailed(err, attempt));
+      attempt().then(
+        (rev) => { stampLocalRev(rev); markSyncSaved(); },
+        (err) => {
+          // A conflict must not reach the ordinary retry: that re-sends this
+          // same payload, which is the silent overwrite the revision check
+          // exists to prevent. The user is offered the two real choices.
+          if (!isConflictError(err)) return markSyncFailed(err, attempt);
+          markSyncConflict(err, {
+            keepTheirs: () => adoptCloudCopy(uid),
+            keepMine: async () => {
+              // Re-base on what is stored now, then write again. This is a
+              // deliberate overwrite, chosen by the user, not a blind retry.
+              const cloud = await loadUserData(uid);
+              const rev = await saveUserData(uid, { ...db, [REV_FIELD]: revOf(cloud) });
+              stampLocalRev(rev);
+            },
+          });
+        },
+      );
     }, 1500);
   }
 }
@@ -265,7 +347,13 @@ export async function hydrateFromFirestore(uid) {
       }
       // New user — nothing in cloud either, push local stub up
       const local = loadDb();
-      if (local && !local.user?.is_demo) await saveUserData(uid, local).catch(() => {});
+      if (local && !local.user?.is_demo) {
+        const rev = await saveUserData(uid, local).catch(() => null);
+        if (Number.isFinite(rev)) {
+          local[REV_FIELD] = rev;
+          localStorage.setItem(LS_KEY, JSON.stringify(local));
+        }
+      }
       return local;
     }
 
@@ -278,6 +366,25 @@ export async function hydrateFromFirestore(uid) {
 
     // Local is newer (or cloud missing) — merge billing from cloud and return local
     const billingChanged = mergeBilling(freshLocal, cloudData);
+    // The local copy deliberately keeps ITS OWN revision here, not the
+    // cloud's.
+    //
+    // Adopting the cloud's revision looks like tidy bookkeeping and is a
+    // data-loss bug: this branch is reached when the two copies have diverged
+    // and local is the newer by timestamp. If this browser edited offline
+    // while another device carried the cloud on to revision 7, stamping 7
+    // here would make the next save pass the staleness check and quietly
+    // replace that device's work — the exact overwrite the check exists to
+    // stop, reintroduced one layer up.
+    //
+    // Left alone, the next save declares the older revision, is refused, and
+    // the user is asked which copy to keep. A conflict is the correct answer
+    // to a genuine divergence.
+    //
+    // For the ordinary single-device case the two are already equal, because
+    // every successful save stamps the committed revision locally — so this
+    // costs nothing there.
+    //
     // Written straight to localStorage rather than through saveDb: the values
     // came from Firestore, so a cloud write here would only send them back.
     if (billingChanged) localStorage.setItem(LS_KEY, JSON.stringify(freshLocal));

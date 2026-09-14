@@ -2,16 +2,14 @@
 import React, { useState, useEffect, useSyncExternalStore } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { loadUserData, logConsent, workspaceMine, workspaceRead, workspaceListOrgs,
-  workspaceCreateOrg, workspaceDeleteOrg, workspaceRestoreOrg } from '../firebase-config';
-import { downloadWorkspaceExport } from '../lib/workspace-export';
-import { track } from '../lib/analytics';
-import { enterSharedView, exitSharedView, getSharedView } from '../lib/db';
-import { subscribeSync, getSyncSnapshot, retrySync } from '../lib/syncStatus';
+import { loadUserData, logConsent } from '../firebase-config';
+import { exitSharedView } from '../lib/db';
+import { subscribeSync, getSyncSnapshot, retrySync, resolveConflict } from '../lib/syncStatus';
 import { useQueryClient } from '@tanstack/react-query';
 import { resolvePlan, getTrialState, getPlanLimits, isFounderUser } from '../lib/plan';
 import { cx } from '../lib/utils';
 import { useDbQuery, useDbMutations } from '../hooks/useDbQuery';
+import { useClientWorkspaces } from '../hooks/useClientWorkspaces';
 import { saveDisplayName } from '../firebase-config';
 import { useAuth } from '../hooks/useAuth';
 import { useLang } from '../contexts/LangContext';
@@ -19,11 +17,17 @@ import { useTranslation } from '../translations';
 import { RDLogo, Button, Modal, Input } from '../components/ui';
 import {
   LayoutDashboard, Boxes, Users, GitMerge, UserMinus, Shield, BarChart3, Settings,
-  ChevronDown, BadgeX, ExternalLink, Languages,
+  ChevronDown, BadgeX, ExternalLink, Languages, Building2,
 } from 'lucide-react';
 
 export const NAV = [
   { to: "/dashboard",    tKey: "nav_dashboard",    icon: LayoutDashboard },
+  // Directly under the dashboard and above the per-company sections, because
+  // for an agency the order of work is "pick the company, then look at its
+  // tools" — clients contain everything below them. `when` is evaluated at
+  // render: a single-company customer never sees it, so the feature costs
+  // them nothing, and it appears the moment they have a client.
+  { to: "/clients",      tKey: "nav_clients",       icon: Building2, when: "showClients" },
   { separator: true,     tKey: "nav_access_identity" },
   { to: "/tools",        tKey: "nav_tools",         icon: Boxes },
   { to: "/employees",    tKey: "nav_employees",      icon: Users },
@@ -37,10 +41,25 @@ export const NAV = [
   { to: "/settings",     tKey: "nav_settings",       icon: Settings },
 ];
 
+/**
+ * Whether a conditional NAV entry should render.
+ *
+ * NAV is a module-level constant and "do I have a client" is per-user state,
+ * so the decision happens here at render time. Both consumers — the sidebar
+ * and the mobile menu — must use it, or the entry shows in one place and not
+ * the other.
+ */
+export function navItemVisible(item, ctx) {
+  if (!item.when) return true;
+  return !!ctx?.[item.when];
+}
+
 export function Sidebar({ collapsed, setCollapsed }) {
   const location = useLocation();
   const { language } = useLang();
   const t = useTranslation(language);
+  const { showClients } = useClientWorkspaces();
+  const navCtx = { showClients };
 
   return (
     <div
@@ -99,7 +118,7 @@ export function Sidebar({ collapsed, setCollapsed }) {
       </div>
 
       <nav className="flex-1 overflow-auto px-2 pb-6">
-        {NAV.map((item, idx) => {
+        {NAV.filter(item => navItemVisible(item, navCtx)).map((item, idx) => {
           if (item.separator) {
             return (
               <div key={`sep-${idx}`} className="my-4 px-3">
@@ -620,6 +639,50 @@ function CloudSyncBanner() {
   const sync = useSyncExternalStore(subscribeSync, getSyncSnapshot, getSyncSnapshot);
   const [retrying, setRetrying] = useState(false);
 
+  // ── Somebody else saved first ──────────────────────────────────────────
+  //
+  // Deliberately not the same banner. A failed save offers a retry; a conflict
+  // must not, because retrying re-sends this browser's copy and silently
+  // destroys the other person's work — the thing the revision check exists to
+  // stop. Both ways out are spelled out, and neither happens on its own.
+  if (sync.status === 'conflict') {
+    const resolve = async (which) => {
+      setRetrying(true);
+      const ok = await resolveConflict(which);
+      setRetrying(false);
+      if (!ok) toast.error(t('sync_conflict_failed'));
+    };
+    return (
+      <div className="bg-gradient-to-r from-amber-600 to-orange-600 text-white text-sm px-4 py-2.5 flex flex-wrap items-center gap-x-3 gap-y-2">
+        <div className="flex items-start gap-2 min-w-0 w-full sm:w-auto sm:flex-1">
+          <span className="text-base flex-shrink-0 leading-5">⚠️</span>
+          <span className="min-w-0">
+            <span className="font-semibold">{t('sync_conflict_title')}</span>
+            {/* Shown on phones too, unlike the failure banner above. There
+                "Retry" explains itself; here "Keep mine" does not, and the
+                sentence that says nothing was overwritten yet is the one
+                piece of information the person actually needs. */}
+            <span className="text-amber-100"> — {t('sync_conflict_sub')}</span>
+          </span>
+        </div>
+        <span className="flex items-center justify-end gap-2 flex-shrink-0 w-full sm:w-auto sm:ml-auto">
+          <button
+            onClick={() => resolve('theirs')}
+            disabled={retrying}
+            className="bg-white text-amber-700 hover:bg-amber-50 disabled:opacity-70 px-3 py-1 rounded-lg text-xs font-bold transition-all">
+            {t('sync_conflict_theirs')}
+          </button>
+          <button
+            onClick={() => resolve('mine')}
+            disabled={retrying}
+            className="border border-white/70 hover:bg-white/15 disabled:opacity-70 px-3 py-1 rounded-lg text-xs font-bold transition-all">
+            {t('sync_conflict_mine')}
+          </button>
+        </span>
+      </div>
+    );
+  }
+
   if (sync.status !== 'error') return null;
 
   const onRetry = async () => {
@@ -647,70 +710,36 @@ function CloudSyncBanner() {
   );
 }
 
-// ── Shared workspaces: offer banner + read-only viewing banner ───────────
-// Module-level cache so the list is fetched once per page load, not on every
-// navigation (AppShell remounts per page).
-let _workspacesPromise = null;
-let _orgsPromise = null;
+// ── Shared workspaces: whose data am I looking at, and switch ─────────
+//
+// This bar answers one question: whose workspace is on screen. It used to
+// also carry the "+ Add a client" button, a "you manage other companies?"
+// advert line and a Manage modal — three unrelated jobs crammed into a single
+// row that is always visible on every page. Creating, exporting, deleting and
+// restoring clients now live on /clients, which has room to show the
+// retention countdown next to each deleted client instead of behind a modal.
+//
+// Everything here reads from useClientWorkspaces, the same hook /clients
+// uses, so the switcher and the page can never disagree about which clients
+// exist.
 
 export function SharedWorkspaceBanner() {
   const { language } = useLang();
   const t = useTranslation(language);
-  const { firebaseUser, isDemo, user } = useAuth();
   const qc = useQueryClient();
-  const [workspaces, setWorkspaces] = useState([]);
-  const [orgs, setOrgs] = useState([]);
-  const [deletedOrgs, setDeletedOrgs] = useState([]);
-  const [managing, setManaging] = useState(false);
-  // Sent by listorgs so the confirmation text cannot claim a different
-  // window than the purge actually honours.
-  const [retentionDays, setRetentionDays] = useState(90);
-  const [busy, setBusy] = useState(false);
-  const shared = getSharedView();
+  const { orgs, workspaces, busy, openWorkspace, openClient, sharedView } = useClientWorkspaces();
 
-  useEffect(() => {
-    if (!firebaseUser || isDemo) return;
-    if (!_workspacesPromise) _workspacesPromise = workspaceMine().catch(() => ({ workspaces: [] }));
-    if (!_orgsPromise) _orgsPromise = workspaceListOrgs().catch(() => ({ orgs: [] }));
-    let alive = true;
-    _workspacesPromise.then(r => { if (alive) setWorkspaces(r.workspaces || []); });
-    _orgsPromise.then(r => {
-      if (!alive) return;
-      setOrgs(r.orgs || []);
-      setDeletedOrgs(r.deleted || []);
-      if (r.retention_days) setRetentionDays(r.retention_days);
-    });
-    return () => { alive = false; };
-  }, [firebaseUser, isDemo]);
-
-  const openWorkspace = async (w) => {
-    if (busy) return;
-    setBusy(true);
-    try {
-      // Trust the role the server returns with the data over the one listed
-      // earlier: `mine` may have been cached before the owner changed it.
-      const { data, role } = await workspaceRead(w.owner_uid);
-      enterSharedView(data, {
-        owner_uid: w.owner_uid, owner_email: w.owner_email, role: role || w.role,
-      });
-      qc.invalidateQueries({ queryKey: ['db'] });
-      toast.success(t('ws_opened'));
-    } catch (err) {
-      toast.error(t('ws_open_failed') + ': ' + (err.message || ''));
-    } finally { setBusy(false); }
-  };
-
-  if (shared) {
+  if (sharedView) {
     // An editor is changing someone else's live data, so the banner has to say
     // so unmistakably — the whole screen otherwise looks like their own
     // workspace, and an edit made in the wrong one is the mistake this bar
     // exists to prevent.
-    const editing = shared.role === 'editor';
+    const editing = sharedView.role === 'editor';
     return (
       <div className={"flex flex-wrap items-center justify-center gap-3 border-b px-4 py-2 text-sm " + (
         editing ? 'bg-rose-500/10 border-rose-500/30' : 'bg-amber-500/10 border-amber-500/30')}>
         <span className={"font-semibold " + (editing ? 'text-rose-300' : 'text-amber-300')}>
-          {editing ? '✎' : '👁'} {t('ws_viewing')} <span className="font-mono">{shared.owner_email || shared.owner_uid}</span>
+          {editing ? '✎' : '👁'} {t('ws_viewing')} <span className="font-mono">{sharedView.owner_email || sharedView.owner_uid}</span>
           {' — '}{editing ? t('ws_editing') : t('ws_readonly')}
         </span>
         <button onClick={() => { exitSharedView(); qc.invalidateQueries({ queryKey: ['db'] }); }}
@@ -722,238 +751,26 @@ export function SharedWorkspaceBanner() {
       </div>
     );
   }
-  const refreshOrgs = async () => {
-    _orgsPromise = null;
-    const r = await workspaceListOrgs().catch(() => null);
-    if (!r) return;
-    setOrgs(r.orgs || []);
-    setDeletedOrgs(r.deleted || []);
-    if (r.retention_days) setRetentionDays(r.retention_days);
-  };
 
-  const addClient = async () => {
-    const name = window.prompt(t('ws_client_prompt'));
-    if (!name || busy) return;
-    setBusy(true);
-    try {
-      const { org } = await workspaceCreateOrg(name);
-      // Count only — a client workspace name is a customer's customer.
-      track('client_workspace_created', { total: orgs.length + 1 });
-      setOrgs(o => [...o, org]);
-      _orgsPromise = null;             // refetch on next mount
-      toast.success(t('ws_client_created'));
-    } catch (err) {
-      toast.error(err.message || t('ws_client_failed'));
-    } finally { setBusy(false); }
-  };
+  // Nothing to switch to — no bar. A paid user with no clients reaches the
+  // feature through the Clients entry in the sidebar, not through an advert
+  // line pinned to the top of every page.
+  if (orgs.length === 0 && workspaces.length === 0) return null;
 
-  // Export runs from the list, without entering the workspace: the point is
-  // to have the file before deleting, and a deleted workspace can still be
-  // read for exactly this reason.
-  const exportClient = async (org) => {
-    if (busy) return;
-    setBusy(true);
-    try {
-      const { data } = await workspaceRead(org.org_id);
-      const payload = downloadWorkspaceExport({ name: org.name, orgId: org.org_id, data });
-      track('client_workspace_exported', { tools: payload.counts.tools, employees: payload.counts.employees });
-      toast.success(t('ws_exported') || 'Export downloaded');
-    } catch (err) {
-      toast.error((t('ws_export_failed') || 'Could not export') + ': ' + (err.message || ''));
-    } finally { setBusy(false); }
-  };
-
-  const deleteClient = async (org) => {
-    if (busy) return;
-    const msg = (t('ws_delete_confirm') ||
-      'Delete "{name}"? Its data is kept for {days} days and can be restored, then permanently erased. Export it first if the client may want it back.')
-      .replace('{name}', org.name).replace('{days}', String(retentionDays));
-    if (!window.confirm(msg)) return;
-    setBusy(true);
-    try {
-      const r = await workspaceDeleteOrg(org.org_id);
-      track('client_workspace_deleted');
-      await refreshOrgs();
-      toast.success((t('ws_deleted_kept') || 'Deleted. Recoverable for {days} days.')
-        .replace('{days}', String(r?.days_left ?? retentionDays)));
-    } catch (err) {
-      toast.error(err.message || t('ws_delete_failed') || 'Could not delete');
-    } finally { setBusy(false); }
-  };
-
-  const restoreClient = async (org) => {
-    if (busy) return;
-    setBusy(true);
-    try {
-      await workspaceRestoreOrg(org.org_id);
-      await refreshOrgs();
-      toast.success(t('ws_restored') || 'Client workspace restored');
-    } catch (err) {
-      toast.error(err.message || t('ws_restore_failed') || 'Could not restore');
-    } finally { setBusy(false); }
-  };
-
-  // Client workspaces this agency manages. They open through the same path —
-  // the server resolves the agency's ownership to an editor role.
-  //
-  // This whole bar — the "+ Add a client" button included — used to render
-  // only `if (orgs.length || workspaces.length)`. So the only way to see the
-  // button that creates your first client workspace was to already have one.
-  // Nobody has one to begin with, which made the feature unreachable for
-  // every user rather than merely hard to find.
-  //
-  // It now shows for anyone the server would actually let create one: the
-  // createorg endpoint refuses a free plan, so offering the button to a free
-  // user would just produce an error toast. resolvePlan applies trial expiry,
-  // so an expired trial correctly stops seeing it.
-  const canManageClients = !isDemo && !!firebaseUser && resolvePlan(user) !== 'free';
-  if (orgs.length || workspaces.length || canManageClients) return (
+  return (
     <div className="flex flex-wrap items-center justify-center gap-3 bg-indigo-500/10 border-b border-indigo-500/30 px-4 py-2 text-sm">
-      {orgs.length === 0 && workspaces.length === 0 && (
-        <span className="text-indigo-300">
-          🏢 {t('ws_no_clients_yet') || 'Managing other companies? Add them as client workspaces.'}
-        </span>
-      )}
       {orgs.length > 0 && (
         <>
           <span className="text-indigo-300">🏢 {t('ws_clients')}</span>
           {orgs.map(o => (
-            <button key={o.org_id} onClick={() => openWorkspace({ owner_uid: o.org_id, owner_email: o.name })} disabled={busy}
+            <button key={o.org_id} onClick={() => openClient(o)} disabled={busy}
               className="px-3 py-1 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-200 text-xs font-bold transition-colors disabled:opacity-50">
               {o.name}
             </button>
           ))}
         </>
       )}
-      {canManageClients && (
-        <button onClick={addClient} disabled={busy}
-          className="px-3 py-1 rounded-lg border border-indigo-400/40 hover:bg-indigo-500/20 text-indigo-200 text-xs font-bold transition-colors disabled:opacity-50">
-          + {t('ws_add_client')}
-        </button>
-      )}
-      {/* Export and delete live behind one button rather than beside every
-          client: the bar is a single row and a paid plan allows fifty. */}
-      {(orgs.length > 0 || deletedOrgs.length > 0) && (
-        <button onClick={() => setManaging(true)} disabled={busy}
-          className="px-3 py-1 rounded-lg border border-indigo-400/30 hover:bg-indigo-500/20 text-indigo-300 text-xs font-semibold transition-colors disabled:opacity-50">
-          {t('ws_manage') || 'Manage'}
-          {deletedOrgs.length > 0 && (
-            <span className="ml-1.5 px-1.5 rounded bg-amber-500/25 text-amber-200">{deletedOrgs.length}</span>
-          )}
-        </button>
-      )}
-      {managing && (
-        <ClientWorkspacePanel
-          orgs={orgs} deletedOrgs={deletedOrgs} retentionDays={retentionDays}
-          busy={busy} t={t}
-          onClose={() => setManaging(false)}
-          onOpen={(o) => { setManaging(false); openWorkspace({ owner_uid: o.org_id, owner_email: o.name }); }}
-          onExport={exportClient} onDelete={deleteClient} onRestore={restoreClient}
-        />
-      )}
       {workspaces.length > 0 && <WorkspaceOffers workspaces={workspaces} openWorkspace={openWorkspace} busy={busy} t={t} />}
-    </div>
-  );
-  return null;
-}
-
-// ── Managing client workspaces ─────────────────────────────────────────────
-//
-// Open, export, delete, and restore what was deleted. Deleting is the one
-// action here that used to be instant and irreversible, so the countdown is
-// shown next to every deleted client rather than explained once and
-// forgotten: "42 days left" is the fact that decides whether an agency still
-// has time to get a customer's records back.
-
-function ClientWorkspacePanel({
-  orgs, deletedOrgs, retentionDays, busy, t, onClose, onOpen, onExport, onDelete, onRestore,
-}) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 p-4 pt-16 overflow-y-auto"
-      onClick={onClose}>
-      <div className="w-full max-w-2xl rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl"
-        onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-start justify-between gap-4 border-b border-slate-800 px-5 py-4">
-          <div>
-            <h2 className="text-base font-semibold text-white">{t('ws_manage_title') || 'Client workspaces'}</h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              {(t('ws_manage_sub') || 'Deleted workspaces are kept for {days} days, then permanently erased.')
-                .replace('{days}', String(retentionDays))}
-            </p>
-          </div>
-          <button onClick={onClose}
-            className="rounded-lg px-2 py-1 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors">
-            ✕
-          </button>
-        </div>
-
-        <div className="px-5 py-4 space-y-5">
-          <section>
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
-              {t('ws_clients') || 'Clients'} ({orgs.length})
-            </h3>
-            {orgs.length === 0 ? (
-              <p className="text-sm text-slate-500">{t('ws_none_live') || 'No client workspaces yet.'}</p>
-            ) : (
-              <ul className="space-y-2">
-                {orgs.map(o => (
-                  <li key={o.org_id}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-800 bg-slate-950/40 px-3 py-2">
-                    <span className="text-sm font-semibold text-white truncate">{o.name}</span>
-                    <span className="flex flex-wrap gap-2">
-                      <button onClick={() => onOpen(o)} disabled={busy}
-                        className="px-2.5 py-1 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-200 text-xs font-semibold transition-colors disabled:opacity-50">
-                        {t('ws_open') || 'Open'}
-                      </button>
-                      <button onClick={() => onExport(o)} disabled={busy}
-                        className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-colors disabled:opacity-50">
-                        {t('ws_export') || 'Export'}
-                      </button>
-                      <button onClick={() => onDelete(o)} disabled={busy}
-                        className="px-2.5 py-1 rounded-lg border border-rose-500/40 hover:bg-rose-500/20 text-rose-300 text-xs font-semibold transition-colors disabled:opacity-50">
-                        {t('ws_delete') || 'Delete'}
-                      </button>
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-
-          {deletedOrgs.length > 0 && (
-            <section>
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-amber-400/80 mb-2">
-                {t('ws_deleted') || 'Deleted'} ({deletedOrgs.length})
-              </h3>
-              <ul className="space-y-2">
-                {deletedOrgs.map(o => (
-                  <li key={o.org_id}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-500/25 bg-amber-500/5 px-3 py-2">
-                    <span className="min-w-0">
-                      <span className="block text-sm font-semibold text-white truncate">{o.name}</span>
-                      <span className="block text-xs text-amber-300/90">
-                        {o.days_left > 0
-                          ? (t('ws_days_left') || '{n} days before permanent deletion').replace('{n}', String(o.days_left))
-                          : (t('ws_purging') || 'Being permanently deleted')}
-                      </span>
-                    </span>
-                    <span className="flex flex-wrap gap-2">
-                      <button onClick={() => onExport(o)} disabled={busy}
-                        className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-colors disabled:opacity-50">
-                        {t('ws_export') || 'Export'}
-                      </button>
-                      <button onClick={() => onRestore(o)} disabled={busy || o.days_left <= 0}
-                        className="px-2.5 py-1 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 text-xs font-semibold transition-colors disabled:opacity-40">
-                        {t('ws_restore') || 'Restore'}
-                      </button>
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
-        </div>
-      </div>
     </div>
   );
 }
@@ -1102,6 +919,8 @@ export function AppShell({ _subtitle, title, right, children }) {
   const { language } = useLang();
   const t = useTranslation(language);
   const { user, logout, isDemo, endDemo, firebaseUser } = useAuth();
+  const { showClients } = useClientWorkspaces();
+  const navCtx = { showClients };
 
   const mobileDisplayName = firebaseUser?.displayName || user?.email?.split('@')[0] || 'You';
   const mobileEmail = user?.email || firebaseUser?.email || '';
@@ -1170,7 +989,7 @@ export function AppShell({ _subtitle, title, right, children }) {
               </div>
             )}
             <div className="grid gap-2">
-              {NAV.filter(n => !n.separator && n.icon).map((n) => (
+              {NAV.filter(n => !n.separator && n.icon && navItemVisible(n, navCtx)).map((n) => (
                 <Link
                   key={n.to}
                   to={n.to}

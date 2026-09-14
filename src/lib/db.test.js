@@ -7,6 +7,7 @@ vi.mock('../firebase-config', () => ({
   loadUserData: vi.fn().mockResolvedValue(null),
   logConsent: vi.fn().mockResolvedValue(undefined),
   workspaceWrite: vi.fn().mockResolvedValue({ ok: true }),
+  workspaceRead: vi.fn().mockResolvedValue({ data: {}, role: 'editor' }),
 }));
 
 import { uid, todayISO, safeParseISO, loadDb, saveDb, seedDbIfEmpty, enterSharedView } from './db';
@@ -386,6 +387,11 @@ describe('browser-local markers stay out of the cloud', () => {
       'document, so it must pass it through stripLocalOnly first or a ' +
       'browser-local marker becomes workspace data on every device.'
     ).toMatch(/stripLocalOnly\(/);
-    expect(body).toMatch(/batch\.set\(doc\(firestoreDb, 'userdata', uid\), meta\)/);
+    // The main document is now written inside a transaction (the revision
+    // check has to read and compare in the same atomic unit as the write), so
+    // the assertion follows the ref rather than the old batch call — still
+    // checking the same thing: the stripped blob is what lands on the doc.
+    expect(body).toMatch(/ownerRef = doc\(firestoreDb, 'userdata', uid\)/);
+    expect(body).toMatch(/tx\.set\(ownerRef, meta\)/);
   });
 });
