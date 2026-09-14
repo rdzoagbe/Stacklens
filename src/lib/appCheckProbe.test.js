@@ -43,7 +43,7 @@ vi.mock('firebase/app-check', () => ({
   getToken: async () => tokenBehaviour(),
 }));
 
-const { probeAppCheck, explain } = await import('./appCheckProbe');
+const { probeAppCheck, explain, backoffSeconds, describeBackoff } = await import('./appCheckProbe');
 
 const config = { apiKey: 'k', projectId: 'p' };
 // The site key is a build-time env var and is not set in a test run, so it is
@@ -183,6 +183,104 @@ describe('the failure is explained in terms of what to go and fix', () => {
 
   it('falls back to the raw message for anything else', () => {
     expect(explain(new Error('network down')).detail).toMatch(/network down/);
+  });
+});
+
+// ── The one real failure this probe has caught ──────────────────────────────
+//
+// Run on stacklens.fr in a clean incognito window, with the reCAPTCHA key set
+// to v3, the domain in its allowed list, and the provider showing Registered:
+//
+//   appCheck/initial-throttle: AppCheck: 400 error.
+//   Attempts allowed again after 00m:01s (appCheck/initial-throttle).
+//
+// The first version of explain() tested for "throttl" before the HTTP status,
+// so it reported this as `throttled` and told its reader to wait out a
+// back-off of up to a day. The back-off was ONE SECOND. The 400 was the
+// finding, and the advice sent them away to wait for nothing.
+//
+// A throttle is only ever a consequence of a rejection. Reporting the
+// consequence hides the cause, so the status has to win.
+describe('a throttle carrying an HTTP status is a rejection, not a wait', () => {
+  const LIVE = Object.assign(
+    new Error('AppCheck: 400 error. Attempts allowed again after 00m:01s '
+      + '(appCheck/initial-throttle).'),
+    { code: 'appCheck/initial-throttle' },
+  );
+
+  it('calls the live failure rejected, not throttled', () => {
+    expect(explain(LIVE).verdict).toBe('rejected');
+  });
+
+  it('sends its reader to the secret key rather than to wait', () => {
+    const d = explain(LIVE).detail;
+    expect(d).toMatch(/SECRET key/);
+    expect(d, 'there is nothing to wait out after a one-second back-off')
+      .not.toMatch(/retry once the throttle has expired/);
+    expect(d).toMatch(/nothing here to wait out/);
+  });
+
+  it('quotes the back-off it actually got, not "up to a day"', () => {
+    // The whole error of the first version in one assertion: a real duration
+    // was available in the message and it asserted a made-up one instead.
+    const d = explain(LIVE).detail;
+    expect(d).toMatch(/1 second/);
+    expect(d).not.toMatch(/up to a day/);
+  });
+
+  it('still calls a status-free throttle a throttle', () => {
+    // appCheck/throttled after repeated failures is the case where waiting is
+    // genuinely the advice. Fixing the 400 must not swallow it.
+    const r = explain({ code: 'appCheck/throttled', message: 'App Check is throttled.' });
+    expect(r.verdict).toBe('throttled');
+    expect(r.detail).toMatch(/throttle has expired/);
+  });
+
+  it('quotes a long back-off in the throttled branch too', () => {
+    const r = explain({
+      code: 'appCheck/throttled',
+      message: 'Attempts allowed again after 01d:00h:00m:00s (appCheck/throttled).',
+    });
+    expect(r.verdict).toBe('throttled');
+    expect(r.detail).toMatch(/24 hours/);
+  });
+
+  it('points at the raw line when no duration is quoted', () => {
+    // Inventing a number would be the same mistake in the other direction.
+    const r = explain({ code: 'appCheck/throttled', message: 'throttled' });
+    expect(r.detail).toMatch(/raw line/);
+    expect(r.detail, 'no duration was quoted, so none may be asserted')
+      .not.toMatch(/Firebase is backing off for/);
+    expect(r.detail).not.toMatch(/\d+\s+(?:second|minute|hour)/);
+  });
+});
+
+describe('the back-off is read out of the message', () => {
+  it('reads the format App Check actually writes', () => {
+    expect(backoffSeconds('Attempts allowed again after 00m:01s.')).toBe(1);
+    expect(backoffSeconds('Attempts allowed again after 30m:00s.')).toBe(1800);
+    expect(backoffSeconds('Attempts allowed again after 01d:00h:00m:00s.')).toBe(86400);
+    expect(backoffSeconds('Attempts allowed again after 02h:30m:00s.')).toBe(9000);
+  });
+
+  it('returns null rather than guessing', () => {
+    for (const bad of [null, undefined, '', 'throttled', 'AppCheck: 400 error.', 42, {}]) {
+      expect(backoffSeconds(bad), String(bad)).toBe(null);
+    }
+  });
+
+  it('survives a duration it does not understand', () => {
+    expect(() => backoffSeconds('allowed again after ::::')).not.toThrow();
+    expect(backoffSeconds('allowed again after ::::')).toBe(null);
+  });
+
+  it('says the duration in words', () => {
+    expect(describeBackoff(1)).toBe('1 second');
+    expect(describeBackoff(45)).toBe('45 seconds');
+    expect(describeBackoff(1800)).toBe('30 minutes');
+    expect(describeBackoff(86400)).toBe('24 hours');
+    expect(describeBackoff(0)).toMatch(/less than a second/);
+    expect(describeBackoff(null)).toMatch(/less than a second/);
   });
 });
 
