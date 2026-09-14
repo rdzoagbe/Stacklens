@@ -81,15 +81,31 @@ export function billedToolCount(db) {
   return billedTools(db).length;
 }
 
+/**
+ * How many people actually hold a live grant on each tool, by tool id.
+ *
+ * Exported because it answers a question other screens need and must not
+ * answer for themselves: "is anybody using this?" is the difference between a
+ * subscription you can cancel and one you cannot. The audit report used to
+ * call every unowned tool recoverable, which counted a tool twenty people use
+ * daily as a saving because nobody had filled in the owner field.
+ *
+ * Only `active` grants count. A revoked one is somebody who used to have
+ * access, which is the opposite of a reason to keep paying.
+ */
+export function activeGrantsByTool(db) {
+  const counts = new Map();
+  for (const a of (db?.access || [])) {
+    if (a?.status !== 'active') continue;
+    counts.set(a.tool_id, (counts.get(a.tool_id) || 0) + 1);
+  }
+  return counts;
+}
+
 /** Active tools with their real active-grant count and unit economics. */
 export function enrichToolCosts(db) {
   const tools = db?.tools || [];
-  const access = db?.access || [];
-  const activeByTool = new Map();
-  for (const a of access) {
-    if (a?.status !== 'active') continue;
-    activeByTool.set(a.tool_id, (activeByTool.get(a.tool_id) || 0) + 1);
-  }
+  const activeByTool = activeGrantsByTool(db);
   return tools
     .filter(t => t?.status === 'active')
     .map(tool => {
