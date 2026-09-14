@@ -6,7 +6,7 @@ import {
   GitMerge, RefreshCw, Sparkles, Upload, UserMinus,
 } from 'lucide-react';
 import { resetDb } from '../lib/db';
-import { computeWaste } from '../lib/waste';
+import { computeWaste, monthlySpend } from '../lib/waste';
 import {
   computeToolDerivedStatus, computeToolDerivedRisk,
   computeAccessDerivedRiskFlag, buildRiskAlerts, riskSeverityCounts,
@@ -212,7 +212,7 @@ export function DashboardPage() {
     }));
     const alerts = buildRiskAlerts({ ...db, tools, access }, t);
     const counts = riskSeverityCounts(alerts);
-    const spend = tools.reduce((sum, tool) => sum + Number(tool.cost_per_month || 0), 0);
+    const spend = monthlySpend({ tools });
     const highRiskTools = tools.filter((tool) => tool.derived_risk === "high").length;
     const formerAccess = access.filter((a) => a.derived_risk_flag === "former_employee").length;
     return { tools, access, alerts, counts, spend, highRiskTools, formerAccess };

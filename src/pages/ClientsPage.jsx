@@ -54,6 +54,13 @@ export function ClientsPage() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <p className="text-slate-400 text-sm max-w-xl">
             {t('ws_manage_sub').replace('{days}', String(retentionDays))}
+            {/* Each client workspace has its own currency and amounts are
+                never converted, so these figures cannot be added together.
+                Saying so is cheaper than someone summing them by hand and
+                trusting the answer. */}
+            {orgs.some(o => o.summary) && (
+              <> {t('ws_own_currency')}</>
+            )}
           </p>
           {canManageClients && (
             <button onClick={addClient} disabled={busy}
@@ -91,13 +98,32 @@ export function ClientsPage() {
             <ul className="divide-y divide-slate-800/70">
               {shown.map(o => (
                 <li key={o.org_id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3">
-                  <span className="min-w-0 w-full sm:w-auto">
+                  <span className="min-w-0 w-full sm:w-auto sm:flex-1">
                     <span className="block text-sm font-semibold text-white truncate">{o.name}</span>
-                    {o.created_at && (
-                      <span className="block text-xs text-slate-500">
-                        {t('ws_created_on')} {fmtDate(o.created_at)}
-                      </span>
-                    )}
+                    {/* What is actually inside this workspace. Without it the
+                        page was a list of names, and the only way to see a
+                        client's spend was to open their workspace — which
+                        swaps the whole app into their data and back. */}
+                    <span className="block text-xs text-slate-500">
+                      {o.summary ? (
+                        <>
+                          <span className="text-slate-300 font-semibold">
+                            {o.summary.currency}{Math.round(o.summary.monthly_spend).toLocaleString()}
+                          </span>
+                          {t('ws_per_month')}
+                          <span className="mx-1.5 text-slate-700">·</span>
+                          {o.summary.tools} {t('ws_tools_tracked')}
+                          {o.summary.updated_at && (
+                            <>
+                              <span className="mx-1.5 text-slate-700">·</span>
+                              {t('ws_updated')} {fmtDate(o.summary.updated_at)}
+                            </>
+                          )}
+                        </>
+                      ) : o.created_at ? (
+                        <>{t('ws_created_on')} {fmtDate(o.created_at)}</>
+                      ) : null}
+                    </span>
                   </span>
                   <span className="flex items-center gap-2">
                     <button onClick={() => openClient(o)} disabled={busy}

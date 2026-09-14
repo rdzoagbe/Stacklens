@@ -12,6 +12,7 @@ import { RoleGate, PlanLimitBanner } from '../components/gates';
 import { AppShell } from '../components/AppShell';
 import { Search, Plus, Pencil, Trash2, ChevronDown, AlertTriangle, Check, X, Boxes, RefreshCw } from 'lucide-react';
 import { loadGIS, requestReportsToken, fetchTokenActivities, aggregateAppUsage, matchAppsToTools } from '../lib/gws-usage';
+import { monthlySpend } from '../lib/waste';
 
 export function ToolForm({ initial, employees, onSubmit, onClose }) {
   const { language } = useLang();
@@ -250,7 +251,7 @@ export function ToolsPage() {
     return Object.entries(m).sort((a,b) => b[1].cost - a[1].cost);
   }, [tools]);
 
-  const totalCost = tools.reduce((s, t) => s + (Number(t.cost_per_month) || 0), 0);
+  const totalCost = monthlySpend({ tools });
   const highRiskCount = tools.filter(t => t.derived_risk === 'high').length;
   const unassignedCount = tools.filter(t => !t.owner_email).length;
   const employees = db?.employees || [];

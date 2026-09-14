@@ -34,6 +34,7 @@ const {
   currencySymbol,
   RETENTION_DAYS, softDeleteFields, restoreFields, isOrgDeleted, daysUntilPurge, isPurgeDue,
   REV_FIELD, revOf, nextRev, isStaleWrite,
+  monthlySpend, billedToolCount, NOT_BILLED_STATUS,
 } = require('./workspace-write.js');
 const { purgeAccount } = require('./purge-account.js');
 
@@ -1261,13 +1262,53 @@ exports.workspace = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, re
         const snap = await db.collection('client_orgs').where('owner_uid', '==', decoded.uid).get();
         const live = [];
         const deleted = [];
+
+        // ── Spend and tool count per client ───────────────────────────────
+        //
+        // A list of client names told an agency nothing: the only way to see
+        // what was inside one was to open it, which swaps the whole app into
+        // that customer's data and back out again.
+        //
+        // One read per client, of the workspace's main document only. `tools`
+        // lives there; only employees, access and audit_log are chunked, so
+        // this does not touch the chunks subcollection and its cost does not
+        // grow with the size of a workspace. Capped by the plan's
+        // client-workspace limit, and this endpoint is rate-limited.
+        //
+        // Each figure carries its own currency. A client workspace has its
+        // own currency setting and amounts are never converted (see
+        // src/lib/currency.js), so the rows must not be totalled — and
+        // nothing here totals them.
+        const summaryOf = async (orgId) => {
+          try {
+            const docSnap = await db.collection('userdata').doc(orgId).get();
+            if (!docSnap.exists) return { tools: 0, monthly_spend: 0, currency: '', updated_at: null };
+            const data = docSnap.data();
+            return {
+              tools: billedToolCount(data),
+              monthly_spend: monthlySpend(data),
+              currency: currencySymbol(data),
+              updated_at: data._updatedAt || null,
+            };
+          } catch (err) {
+            // A summary is decoration; the list is the feature. A failed read
+            // must not take the page down with it, so the row renders without
+            // its numbers rather than not at all.
+            console.error('listorgs summary failed for', orgId, err?.message);
+            return null;
+          }
+        };
+
         for (const d of snap.docs) {
           const o = d.data();
           const row = { org_id: d.id, name: o.name, created_at: o.created_at };
           if (isOrgDeleted(o)) {
             deleted.push({ ...row, deleted_at: o.deleted_at, days_left: daysUntilPurge(o) });
           } else {
-            live.push(row);
+            // Deleted workspaces deliberately get no summary: they are frozen,
+            // the numbers are no longer a fact about anything being paid for,
+            // and it is one read each for data nobody is acting on.
+            live.push({ ...row, summary: await summaryOf(d.id) });
           }
         }
         // `orgs` keeps its old shape and meaning: the workspaces you can work
@@ -2100,8 +2141,12 @@ exports.weeklySummary = onSchedule({
     const access    = data?.access    || [];
 
     // ── Metrics ──────────────────────────────────────────────────────────
-    const activeTools   = tools.filter(t => t.status !== 'decommissioned');
-    const monthlySpend  = activeTools.reduce((s, t) => s + (Number(t.cost_per_month) || 0), 0);
+    const activeTools   = tools.filter(t => t.status !== NOT_BILLED_STATUS);
+    // Was its own reduce over the same filter. Identical result, but it was
+    // the fifth hand-written definition of this figure and the one customers
+    // actually receive by email — so it is the last place that should have
+    // its own.
+    const monthlySpendValue = monthlySpend(data);
     const orphaned      = activeTools.filter(t => !t.owner_email).length;
     const highRisk      = access.filter(a => a.derived_risk_flag === 'high' || a.access_level === 'admin').length;
     const upcoming      = tools.filter(t => t.renewal_date >= todayStr && t.renewal_date <= in30Str);
@@ -2120,7 +2165,7 @@ exports.weeklySummary = onSchedule({
     ).length;
 
     const insight = await weeklyAiInsight(ANTHROPIC_API_KEY.value(), {
-      monthly_spend_eur: monthlySpend,
+      monthly_spend_eur: monthlySpendValue,
       idle_spend_eur_per_month: idleMonthly,
       idle_tool_names: idleTools.slice(0, 5).map(t => t.name),
       ex_employee_access_count: exEmployeeAccess,
@@ -2215,7 +2260,7 @@ exports.weeklySummary = onSchedule({
     <!-- Stat cards -->
     <table style="width:100%;border-collapse:collapse;margin-bottom:4px">
       <tr>
-        ${statCard('Monthly Spend', `${cur}${fmt(monthlySpend)}`, `${cur}${fmt(monthlySpend * 12)}/yr`, '#e2e8f0')}
+        ${statCard('Monthly Spend', `${cur}${fmt(monthlySpendValue)}`, `${cur}${fmt(monthlySpendValue * 12)}/yr`, '#e2e8f0')}
         ${statCard('Health Score', `${healthScore}`, healthLabel, healthColor)}
         ${statCard('Renewals Soon', `${upcoming.length}`, 'next 30 days', upcoming.length > 0 ? '#f59e0b' : '#10b981')}
         ${statCard('High-Risk Access', `${highRisk}`, 'records', highRisk > 0 ? '#ef4444' : '#10b981')}
@@ -2247,8 +2292,8 @@ exports.weeklySummary = onSchedule({
         to: email,
         from: { email: 'hello@stacklens.fr', name: 'Stacklens' },
         subject: idleMonthly > 0
-          ? `\ud83d\udcca Weekly SaaS summary \u2014 ${cur}${fmt(monthlySpend)}/mo \u00b7 ${cur}${fmt(idleMonthly)}/mo recoverable`
-          : `\ud83d\udcca Your weekly SaaS summary \u2014 ${cur}${fmt(monthlySpend)}/mo \u00b7 Score ${healthScore}`,
+          ? `\ud83d\udcca Weekly SaaS summary \u2014 ${cur}${fmt(monthlySpendValue)}/mo \u00b7 ${cur}${fmt(idleMonthly)}/mo recoverable`
+          : `\ud83d\udcca Your weekly SaaS summary \u2014 ${cur}${fmt(monthlySpendValue)}/mo \u00b7 Score ${healthScore}`,
         html,
       });
       sent++;
