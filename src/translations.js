@@ -6,6 +6,14 @@
 export const translations = {
   en: {
     // ── Client workspaces (agency view) ──
+    nav_clients: "Clients",
+    ws_active_clients: "Active",
+    ws_search_clients: "Search clients",
+    ws_created_on: "created",
+    ws_loading: "Loading…",
+    ws_no_match: "No client matches that search.",
+    ws_more_actions: "More actions",
+    ws_close_menu: "Close menu",
     ws_manage: "Manage",
     ws_manage_title: "Client workspaces",
     ws_manage_sub: "Deleted workspaces are kept for {days} days, then permanently erased.",
@@ -406,6 +414,11 @@ export const translations = {
     sync_retrying: "Retrying…",
     sync_retry_ok: "Backed up to the cloud",
     sync_retry_fail: "Still can't reach the cloud. Check your connection and try again.",
+    sync_conflict_title: "Changed somewhere else",
+    sync_conflict_sub: "Someone — or another tab — saved this workspace while you were editing. Nothing has been overwritten. Choose which copy to keep.",
+    sync_conflict_theirs: "Keep their version",
+    sync_conflict_mine: "Keep mine",
+    sync_conflict_failed: "Could not apply that choice. Check your connection and try again.",
     set_del_cloud_error: "Deleted in this browser, but the cloud copy could not be updated — the data may reappear. Check your connection and try again.",
     nav_dashboard: "Dashboard",
     nav_tools: "Tools",
@@ -3172,6 +3185,14 @@ export const translations = {
   },
   fr: {
     // ── Espaces clients (vue agence) ──
+    nav_clients: "Clients",
+    ws_active_clients: "Actifs",
+    ws_search_clients: "Rechercher un client",
+    ws_created_on: "créé le",
+    ws_loading: "Chargement…",
+    ws_no_match: "Aucun client ne correspond à cette recherche.",
+    ws_more_actions: "Plus d'actions",
+    ws_close_menu: "Fermer le menu",
     ws_manage: "Gérer",
     ws_manage_title: "Espaces clients",
     ws_manage_sub: "Les espaces supprimés sont conservés {days} jours, puis effacés définitivement.",
@@ -3572,6 +3593,11 @@ export const translations = {
     sync_retrying: "Nouvelle tentative…",
     sync_retry_ok: "Sauvegardé dans le cloud",
     sync_retry_fail: "Le cloud reste injoignable. Vérifiez votre connexion et réessayez.",
+    sync_conflict_title: "Modifié ailleurs",
+    sync_conflict_sub: "Quelqu'un — ou un autre onglet — a enregistré cet espace pendant votre modification. Rien n'a été écrasé. Choisissez la copie à conserver.",
+    sync_conflict_theirs: "Garder leur version",
+    sync_conflict_mine: "Garder la mienne",
+    sync_conflict_failed: "Impossible d'appliquer ce choix. Vérifiez votre connexion et réessayez.",
     set_del_cloud_error: "Supprimé dans ce navigateur, mais la copie cloud n'a pas pu être mise à jour — les données pourraient réapparaître. Vérifiez votre connexion et réessayez.",
     // ── completed French coverage (public pages) ──
     no_results: "Aucun résultat",

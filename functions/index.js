@@ -33,6 +33,7 @@ const {
   effectivePlan,
   currencySymbol,
   RETENTION_DAYS, softDeleteFields, restoreFields, isOrgDeleted, daysUntilPurge, isPurgeDue,
+  REV_FIELD, revOf, nextRev, isStaleWrite,
 } = require('./workspace-write.js');
 
 // Explicitly allow stacklens.fr and Firebase preview domains
@@ -1401,28 +1402,70 @@ exports.workspace = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, re
         // test in src/lib/chunk-format.test.js.
         const meta = { ...merged, _uid: target, _updatedAt: Date.now() };
         const chunkCounts = {};
-        const batch = db.batch();
         const chunksRef = ownerRef.collection('chunks');
+        const chunkWrites = [];
         for (const key of CHUNKED_KEYS) {
           const slices = sliceCollection(merged[key]);
           delete meta[key];
           chunkCounts[key] = slices.length;
-          slices.forEach((items, i) => batch.set(chunksRef.doc(`${key}_${i}`), { items }));
+          slices.forEach((items, i) => chunkWrites.push([chunksRef.doc(`${key}_${i}`), { items }]));
         }
         meta._chunks = chunkCounts;
-        batch.set(ownerRef, meta);
 
-        // Drop slices left behind by a previous, larger save.
+        // Slices left behind by a previous, larger save.
         const existingChunks = await chunksRef.get();
+        const staleChunks = [];
         existingChunks.forEach(d => {
           const m = d.id.match(/^(.+)_(\d+)$/);
           if (!m || !(m[1] in chunkCounts) || Number(m[2]) >= chunkCounts[m[1]]) {
-            batch.delete(d.ref);
+            staleChunks.push(d.ref);
           }
         });
 
-        await batch.commit();
-        return res.json({ ok: true });
+        // The revision this editor's copy was based on. Before this check the
+        // write was an unconditional overwrite of the owner's whole document:
+        // an owner and an editor working the same afternoon each deleted the
+        // other's work, silently, and neither ever found out.
+        //
+        // Read from the raw payload rather than `merged`, because
+        // buildSafeUpdate strips it — a member must not be able to pin the
+        // counter and defeat the check for everyone.
+        const baseRev = revOf(req.body?.data);
+        let committedRev;
+        try {
+          committedRev = await db.runTransaction(async (tx) => {
+            // Re-read inside the transaction. The earlier read above is what
+            // the merge was built on; if anyone committed between the two, the
+            // revision has moved and this refuses rather than overwrites.
+            const fresh = await tx.get(ownerRef);
+            const storedRev = fresh.exists ? revOf(fresh.data()) : null;
+            if (fresh.exists && isStaleWrite(storedRev, baseRev)) {
+              const stale = new Error('stale');
+              stale.code = 'STALE_WRITE';
+              stale.storedRev = storedRev;
+              throw stale;
+            }
+            const rev = nextRev(storedRev);
+            meta[REV_FIELD] = rev;
+            tx.set(ownerRef, meta);
+            for (const [ref, value] of chunkWrites) tx.set(ref, value);
+            for (const ref of staleChunks) tx.delete(ref);
+            return rev;
+          });
+        } catch (err) {
+          if (err?.code === 'STALE_WRITE') {
+            // 409, and the client must not retry the same payload — that is
+            // the overwrite this check exists to prevent. The client shows the
+            // choice instead: take theirs, or knowingly replace it.
+            return res.status(409).json({
+              error: 'This workspace was changed by someone else while you were editing.',
+              conflict: true,
+              rev: err.storedRev,
+            });
+          }
+          throw err;
+        }
+        return res.json({ ok: true, rev: committedRev });
       }
 
       return res.status(400).json({ error: 'Unknown action' });
