@@ -6,6 +6,14 @@
 export const translations = {
   en: {
     // ── Client workspaces (agency view) ──
+    nav_clients: "Clients",
+    ws_active_clients: "Active",
+    ws_search_clients: "Search clients",
+    ws_created_on: "created",
+    ws_loading: "Loading…",
+    ws_no_match: "No client matches that search.",
+    ws_more_actions: "More actions",
+    ws_close_menu: "Close menu",
     ws_manage: "Manage",
     ws_manage_title: "Client workspaces",
     ws_manage_sub: "Deleted workspaces are kept for {days} days, then permanently erased.",
@@ -3172,6 +3180,14 @@ export const translations = {
   },
   fr: {
     // ── Espaces clients (vue agence) ──
+    nav_clients: "Clients",
+    ws_active_clients: "Actifs",
+    ws_search_clients: "Rechercher un client",
+    ws_created_on: "créé le",
+    ws_loading: "Chargement…",
+    ws_no_match: "Aucun client ne correspond à cette recherche.",
+    ws_more_actions: "Plus d'actions",
+    ws_close_menu: "Fermer le menu",
     ws_manage: "Gérer",
     ws_manage_title: "Espaces clients",
     ws_manage_sub: "Les espaces supprimés sont conservés {days} jours, puis effacés définitivement.",

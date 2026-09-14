@@ -23,6 +23,7 @@ const DashboardPage        = React.lazy(() => import('./pages/DashboardPage').th
 const ToolsPage            = React.lazy(() => import('./pages/ToolsPage').then(m => ({ default: m.ToolsPage })));
 const EmployeesPage        = React.lazy(() => import('./pages/EmployeesPage').then(m => ({ default: m.EmployeesPage })));
 const AccessPage           = React.lazy(() => import('./pages/AccessPage').then(m => ({ default: m.AccessPage })));
+const ClientsPage          = React.lazy(() => import('./pages/ClientsPage').then(m => ({ default: m.ClientsPage })));
 const OffboardingPage      = React.lazy(() => import('./pages/OffboardingPage').then(m => ({ default: m.OffboardingPage })));
 const SecurityCompliancePage = React.lazy(() => import('./pages/SecurityCompliancePage').then(m => ({ default: m.SecurityCompliancePage })));
 const SettingsPage         = React.lazy(() => import('./pages/SettingsPage').then(m => ({ default: m.SettingsPage })));
@@ -234,6 +235,10 @@ export default function App() {
           <Route
             path="/executive"
             element={<RequireAuth><ModuleGate module="finance" feature="Finance Board"><FinanceDashboard /></ModuleGate></RequireAuth>}
+          />
+          <Route
+            path="/clients"
+            element={<RequireAuth><ClientsPage /></RequireAuth>}
           />
           <Route
             path="/tools"
