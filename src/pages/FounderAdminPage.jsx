@@ -3,9 +3,10 @@ import { useNavigate, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
   Users, Clock, Shield, Search,
-  Zap, Crown, RefreshCw, Pencil, Check, X, ArrowLeft, Trash2, Mail,
+  Zap, Crown, RefreshCw, Pencil, Check, X, ArrowLeft, Trash2, Mail, ShieldCheck,
 } from 'lucide-react';
-import { loadAllUsersAdmin, founderExtendTrial, founderSetPlan, founderEnrichProfiles, founderDeleteUser, founderTestEmail, founderSetBankCreds, founderBankCredsStatus, founderListErrors } from '../firebase-config';
+import { loadAllUsersAdmin, founderExtendTrial, founderSetPlan, founderEnrichProfiles, founderDeleteUser, founderTestEmail, founderSetBankCreds, founderBankCredsStatus, founderListErrors, PUBLIC_FIREBASE_CONFIG } from '../firebase-config';
+import { probeAppCheck } from '../lib/appCheckProbe';
 import { getFirestore, doc, updateDoc } from 'firebase/firestore';
 import { useAuth } from '../hooks/useAuth';
 import { isFounderUser } from '../lib/plan';
@@ -251,6 +252,18 @@ export function FounderAdminPage() {
   const [testingEmail, setTestingEmail] = useState(false);
   const [bankCfg, setBankCfg] = useState({ configured: false, id: '', secret: '', saving: false });
   const [errors, setErrors] = useState({ loading: false, open: false, items: null });
+  const [appCheck, setAppCheck] = useState({ running: false, result: null });
+
+  // Attempts the App Check token exchange on a throwaway Firebase app, so the
+  // answer arrives as a line on this page instead of as an outage. See
+  // src/lib/appCheckProbe.js for why that isolation is the whole point.
+  const runAppCheckProbe = async () => {
+    setAppCheck({ running: true, result: null });
+    const result = await probeAppCheck(PUBLIC_FIREBASE_CONFIG);
+    setAppCheck({ running: false, result });
+    if (result.ok) toast.success('App Check minted a token');
+    else toast.error(`App Check: ${result.verdict}`);
+  };
   const enrichedRef = useRef(false);
 
   const loadErrors = async () => {
@@ -502,6 +515,46 @@ export function FounderAdminPage() {
               ))}
             </div>
           )
+        )}
+      </div>
+
+      {/* ── Would App Check work? ──────────────────────────────────────────
+           APP_CHECK_ENABLED has been flipped to true twice and taken sign-in
+           down twice, because once App Check is initialised on the app Auth
+           uses, a failing token corrupts every ID-token refresh and 401s
+           checkout, the AI proxy and Firestore. There is no fail-open. This
+           runs the same exchange on an isolated Firebase app, so the answer
+           costs a click instead of an outage. */}
+      <div className="rounded-xl border border-slate-700/50 bg-slate-900/40 p-4">
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <span className="text-sm font-semibold text-white">🛡 App Check readiness</span>
+            <div className="text-[11px] text-slate-500 mt-0.5">
+              Tries one reCAPTCHA → App Check exchange on an isolated Firebase app.
+              Cannot affect sign-in. Run it on the live domain.
+            </div>
+          </div>
+          <button onClick={runAppCheckProbe} disabled={appCheck.running}
+            className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 rounded-lg text-xs transition-colors disabled:opacity-50 flex-shrink-0">
+            <ShieldCheck size={13} className={appCheck.running ? 'animate-pulse' : ''} />
+            {appCheck.running ? 'Testing…' : 'Test App Check'}
+          </button>
+        </div>
+        {appCheck.result && (
+          <div className={'mt-3 text-xs rounded-lg px-3 py-2 border ' + (appCheck.result.ok
+            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+            : 'bg-rose-500/10 border-rose-500/30 text-rose-300')}>
+            <div className="font-semibold">
+              {appCheck.result.ok ? 'Ready' : `Not ready — ${appCheck.result.verdict}`}
+            </div>
+            <div className="mt-1 text-slate-300/90">{appCheck.result.detail}</div>
+            {appCheck.result.ok && (
+              <div className="mt-2 text-emerald-200/80">
+                Next step is a one-line change: APP_CHECK_ENABLED in
+                src/firebase-config.js.
+              </div>
+            )}
+          </div>
         )}
       </div>
 
