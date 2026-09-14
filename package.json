@@ -36,7 +36,7 @@
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-hot-toast": "^2.4.1",
-    "react-is": "^19.2.8",
+    "react-is": "^19.3.0",
     "react-router-dom": "^7.18.3",
     "recharts": "^3.10.1"
   },
