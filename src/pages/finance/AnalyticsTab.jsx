@@ -10,6 +10,7 @@ import {
 import { useDbQuery } from '../../hooks/useDbQuery';
 import { useLang } from '../../contexts/LangContext';
 import { useTranslation } from '../../translations';
+import { monthlySpend, billedToolCount } from '../../lib/waste';
 
 export function AnalyticsTabContent() {
   const { language } = useLang();
@@ -31,8 +32,12 @@ export function AnalyticsTabContent() {
   const access = useMemo(() => db?.access || [], [db]);
 
   const activeTools = uniqueTools.filter(t => t.status === 'active');
-  const totalSpend = activeTools.reduce((s, t) => s + Number(t.cost_per_month || 0), 0);
-  const avgCostPerTool = activeTools.length > 0 ? totalSpend / activeTools.length : 0;
+  // Spend counts every tool still billing, not just the active ones:
+  // an orphaned or unused subscription is exactly what this product is
+  // for, and leaving it out made this tab disagree with the Dashboard.
+  const billedTools = billedToolCount({ tools: uniqueTools });
+  const totalSpend = monthlySpend({ tools: uniqueTools });
+  const avgCostPerTool = billedTools > 0 ? totalSpend / billedTools : 0;
   const inactiveUsers = employees.filter(e => e.status === 'inactive' || e.status === 'former' || e.status === 'offboarded').length;
   const totalActiveAccess = access.filter(a => a.status === 'active').length;
   const avgAccessPerEmployee = employees.length > 0 ? totalActiveAccess / employees.length : 0;

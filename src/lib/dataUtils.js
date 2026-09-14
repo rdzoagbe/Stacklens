@@ -3,6 +3,7 @@ import toast from 'react-hot-toast';
 import { Boxes, UserMinus, GitMerge, Download } from 'lucide-react';
 import { safeParseISO } from './db';
 import { getCurrency } from './currency';
+import { monthlySpend } from './waste';
 
 // ── Tool/access derived-state computations ─────────────────────────────────
 
@@ -125,7 +126,7 @@ export function buildRiskAlerts(db, t) {
     action: { label: tr('alert_review_action', 'Review Access'), to: '/access', icon: GitMerge },
   });
 
-  const spend = db.tools.reduce((sum, t) => sum + Number(t.cost_per_month || 0), 0);
+  const spend = monthlySpend(db);
   if (spend > 1000) alerts.push({
     id: 'spend_watch', severity: 'medium',
     title: tr('alert_spend_title', 'Monthly spend exceeds threshold'),

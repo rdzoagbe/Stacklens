@@ -97,6 +97,29 @@ function isStaleWrite(stored, base) {
   return s !== b;
 }
 
+// ── What the customer pays per month ───────────────────────────────────────
+//
+// The twin of monthlySpend in src/lib/waste.js. Spend is every tool that has
+// not been decommissioned: a tool nobody owns or nobody opens is still on the
+// card every month, which is the entire premise of the product.
+//
+// listorgs shows this per client workspace, and the client shows the same
+// figure again once you open that workspace. If the two definitions drift,
+// the list and the page it links to disagree about the same customer's bill —
+// so they are held together by src/lib/spend-parity.test.js.
+const NOT_BILLED_STATUS = 'decommissioned';
+
+function monthlySpend(data) {
+  return (data && Array.isArray(data.tools) ? data.tools : [])
+    .filter(t => t && t.status !== NOT_BILLED_STATUS)
+    .reduce((sum, t) => sum + (Number(t && t.cost_per_month) || 0), 0);
+}
+
+function billedToolCount(data) {
+  return (data && Array.isArray(data.tools) ? data.tools : [])
+    .filter(t => t && t.status !== NOT_BILLED_STATUS).length;
+}
+
 /**
  * Slice one collection the way the client does: accumulate items until the
  * next one would exceed the cap, then start a new slice. Always yields at
@@ -389,6 +412,9 @@ function isPurgeDue(org, now = Date.now()) {
 }
 
 module.exports = {
+  NOT_BILLED_STATUS,
+  monthlySpend,
+  billedToolCount,
   REV_FIELD,
   revOf,
   nextRev,

@@ -24,6 +24,63 @@
 
 export const EXPENSIVE_PER_USER = 200;
 
+// ── What the customer pays per month ───────────────────────────────────────
+//
+// "Monthly spend" was computed in five places and three of them disagreed:
+//
+//   DashboardPage        every tool, no status filter
+//   ExecutiveDashboard   every tool, no status filter
+//   Finance → Analytics  status === 'active' only
+//   weeklySummary email  status !== 'decommissioned'
+//   waste.totalSpend     status === 'active' only
+//
+// On the demo workspace the Dashboard and the Analytics tab already show
+// different figures for identical data, because the seed has two `orphaned`
+// and two `unused` tools that cost money and Analytics drops them.
+//
+// The `active`-only readings are the wrong ones, and not by a little: a tool
+// nobody owns or nobody opens is still on the card every month. That is the
+// entire premise of the product. Excluding those from spend understates the
+// bill by exactly the amount Stacklens exists to find.
+//
+// So spend is every tool that has not been decommissioned. Decommissioned is
+// the one status that means the contract is over and the billing has stopped.
+// It matches what the weekly summary email has been telling customers all
+// along, and it leaves the Dashboard's headline unchanged on any workspace
+// with no decommissioned tools — which is all of them today.
+//
+// Separate from computeWaste().totalSpend, deliberately: that one is the
+// denominator of the waste analysis, which is about tools in use, and it is
+// not what the customer pays.
+
+/** The one status that means billing has stopped. */
+export const NOT_BILLED_STATUS = 'decommissioned';
+
+/**
+ * The tools still being billed for.
+ *
+ * Array.isArray rather than `db?.tools || []`: a workspace blob is
+ * client-written and reaches here from localStorage, an import, or another
+ * tenant's export. `tools` arriving as a string makes `.filter` throw, and the
+ * Dashboard computes spend during render — so one malformed blob would be a
+ * blank page rather than a wrong number. The cross-implementation test caught
+ * this in the client version while the server version already guarded it.
+ */
+function billedTools(db) {
+  const tools = db && Array.isArray(db.tools) ? db.tools : [];
+  return tools.filter(t => t && t.status !== NOT_BILLED_STATUS);
+}
+
+/** What this workspace pays per month, across every tool still billing. */
+export function monthlySpend(db) {
+  return billedTools(db).reduce((sum, t) => sum + (Number(t.cost_per_month) || 0), 0);
+}
+
+/** Tools still billing. The count that belongs beside the figure above. */
+export function billedToolCount(db) {
+  return billedTools(db).length;
+}
+
 /** Active tools with their real active-grant count and unit economics. */
 export function enrichToolCosts(db) {
   const tools = db?.tools || [];

@@ -34,7 +34,9 @@ const {
   currencySymbol,
   RETENTION_DAYS, softDeleteFields, restoreFields, isOrgDeleted, daysUntilPurge, isPurgeDue,
   REV_FIELD, revOf, nextRev, isStaleWrite,
+  monthlySpend, billedToolCount, NOT_BILLED_STATUS,
 } = require('./workspace-write.js');
+const { purgeAccount } = require('./purge-account.js');
 
 // Explicitly allow stacklens.fr and Firebase preview domains
 const ALLOWED_ORIGINS = [
@@ -615,19 +617,34 @@ exports.founderops = onRequest({ cors: true, timeoutSeconds: 30, secrets: [SENDG
         await db.collection('users').doc(targetUid).update({ plan });
         return res.json({ ok: true });
       }
-      // Permanently remove a user: Auth account + /users doc + /userdata doc.
+      // Permanently remove a user and everything belonging to them.
+      //
+      // This used to delete the Auth user, /users and /userdata — and leave
+      // /userdata/{uid}/chunks behind, because Firestore does not cascade to
+      // subcollections. That is where employees, access and audit_log live, so
+      // the personal data of the customer's staff survived the deletion
+      // indefinitely. It also left backups, API keys, stored vendor
+      // credentials and memberships. purgeAccount is now the one definition of
+      // the job, shared with the self-service path below.
       if (action === 'deleteUser') {
         if (FOUNDER_UIDS.includes(targetUid) || targetUid === decoded.uid) {
           return res.status(400).json({ error: 'Cannot delete the founder account' });
         }
+        let targetEmail = '';
         try {
-          await getAuth().deleteUser(targetUid);
+          targetEmail = (await getAuth().getUser(targetUid))?.email || '';
         } catch (err) {
           if (err.code !== 'auth/user-not-found') throw err;
         }
-        await db.collection('users').doc(targetUid).delete();
-        await db.collection('userdata').doc(targetUid).delete();
-        return res.json({ ok: true });
+        const counts = await purgeAccount(db, targetUid, {
+          email: targetEmail,
+          deleteAuthUser: async (u) => {
+            try { await getAuth().deleteUser(u); }
+            catch (err) { if (err.code !== 'auth/user-not-found') throw err; }
+          },
+        });
+        console.warn('founderops deleteUser purged', targetUid, JSON.stringify(counts));
+        return res.json({ ok: true, purged: counts });
       }
       return res.status(400).json({ error: 'Unknown action' });
     } catch (err) {
@@ -1245,13 +1262,53 @@ exports.workspace = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, re
         const snap = await db.collection('client_orgs').where('owner_uid', '==', decoded.uid).get();
         const live = [];
         const deleted = [];
+
+        // ── Spend and tool count per client ───────────────────────────────
+        //
+        // A list of client names told an agency nothing: the only way to see
+        // what was inside one was to open it, which swaps the whole app into
+        // that customer's data and back out again.
+        //
+        // One read per client, of the workspace's main document only. `tools`
+        // lives there; only employees, access and audit_log are chunked, so
+        // this does not touch the chunks subcollection and its cost does not
+        // grow with the size of a workspace. Capped by the plan's
+        // client-workspace limit, and this endpoint is rate-limited.
+        //
+        // Each figure carries its own currency. A client workspace has its
+        // own currency setting and amounts are never converted (see
+        // src/lib/currency.js), so the rows must not be totalled — and
+        // nothing here totals them.
+        const summaryOf = async (orgId) => {
+          try {
+            const docSnap = await db.collection('userdata').doc(orgId).get();
+            if (!docSnap.exists) return { tools: 0, monthly_spend: 0, currency: '', updated_at: null };
+            const data = docSnap.data();
+            return {
+              tools: billedToolCount(data),
+              monthly_spend: monthlySpend(data),
+              currency: currencySymbol(data),
+              updated_at: data._updatedAt || null,
+            };
+          } catch (err) {
+            // A summary is decoration; the list is the feature. A failed read
+            // must not take the page down with it, so the row renders without
+            // its numbers rather than not at all.
+            console.error('listorgs summary failed for', orgId, err?.message);
+            return null;
+          }
+        };
+
         for (const d of snap.docs) {
           const o = d.data();
           const row = { org_id: d.id, name: o.name, created_at: o.created_at };
           if (isOrgDeleted(o)) {
             deleted.push({ ...row, deleted_at: o.deleted_at, days_left: daysUntilPurge(o) });
           } else {
-            live.push(row);
+            // Deleted workspaces deliberately get no summary: they are frozen,
+            // the numbers are no longer a fact about anything being paid for,
+            // and it is one read each for data nobody is acting on.
+            live.push({ ...row, summary: await summaryOf(d.id) });
           }
         }
         // `orgs` keeps its old shape and meaning: the workspaces you can work
@@ -1468,6 +1525,51 @@ exports.workspace = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, re
         return res.json({ ok: true, rev: committedRev });
       }
 
+      // ── Delete my own account ────────────────────────────────────────────
+      //
+      // Self-service deletion cannot be done from the browser. The client
+      // version removed the Auth user first, and the Firestore rules are
+      // isOwner(uid) — so its own follow-up deletes were unauthenticated by
+      // the time they ran, and very likely denied. It also could never reach
+      // the chunks subcollection, the backups, the stored vendor credentials
+      // or the memberships: several are server-only by rule, which is correct
+      // and means only a function can clear them.
+      //
+      // It lives on this endpoint rather than in a function of its own because
+      // the deploy pipeline sits exactly at the regional CPU ceiling at twenty
+      // functions; a twenty-first is a failed deploy. This endpoint already
+      // authorises per action and already owns workspace data lifecycle.
+      //
+      // Requires the caller's email to be verified, and requires them to type
+      // it back. A GDPR erasure is irreversible and unauthenticated deletion
+      // of somebody else's account is the worst thing this endpoint could do,
+      // so the confirmation is a second, independent check against a
+      // token that has been replayed or mis-scoped.
+      if (action === 'deleteaccount') {
+        if (FOUNDER_UIDS.includes(decoded.uid)) {
+          return res.status(400).json({ error: 'The founder account cannot be deleted here' });
+        }
+        if (!callerEmail) {
+          return res.status(403).json({
+            error: 'Verify your email address before deleting your account',
+          });
+        }
+        if (String(req.body?.confirmEmail || '').toLowerCase().trim() !== callerEmail) {
+          return res.status(400).json({
+            error: 'Type your email address exactly to confirm deletion',
+          });
+        }
+        const counts = await purgeAccount(db, decoded.uid, {
+          email: callerEmail,
+          deleteAuthUser: async (u) => {
+            try { await getAuth().deleteUser(u); }
+            catch (err) { if (err.code !== 'auth/user-not-found') throw err; }
+          },
+        });
+        console.warn('self-service account deletion purged', decoded.uid, JSON.stringify(counts));
+        return res.json({ ok: true, purged: counts });
+      }
+
       return res.status(400).json({ error: 'Unknown action' });
     } catch (err) {
       console.error('workspace error:', err);
@@ -1642,11 +1744,6 @@ exports.invoiceInbound = onRequest({ cors: false, timeoutSeconds: 120, memory: '
 // ── Daily Alerts (SendGrid) ──────────────────────────────────────────────
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 
-// ── Weekly data backup ───────────────────────────────────────────────────
-// Copies every /userdata doc (+ its chunks subcollection) into /backups so a
-// client-side bug that corrupts or wipes a user's blob can be recovered from a
-// copy no client code can touch (default-deny rules; Admin SDK only). Keeps
-// ~5 weeks, pruning older snapshots.
 // ── /purgeClientOrgs — the end of the retention window ────────────────────
 //
 // deleteorg marks a client workspace and keeps its data for RETENTION_DAYS so
@@ -1687,8 +1784,36 @@ exports.purgeClientOrgs = onSchedule({
   if (purged) console.warn(`purgeClientOrgs: removed ${purged} client workspace(s)`);
 });
 
+// ── Daily data backup ────────────────────────────────────────────────────
+// Copies every /userdata doc (+ its chunks subcollection) into /backups so a
+// client-side bug that corrupts or wipes a user's blob can be recovered from a
+// copy no client code can touch (default-deny rules; Admin SDK only).
+//
+// Was weekly, which meant up to seven days of work could be lost to recover
+// from anything. Daily costs almost nothing at this data volume — a snapshot
+// is a few documents per workspace — and turns "we lost your week" into "we
+// lost your morning".
+//
+// The export is still called weeklyBackup, which is a wart, and deliberate.
+// The deploy pipeline installs functions with `--only functions:<explicit
+// list>`, which never removes a function that disappeared from the source. So
+// renaming the export would create dailyBackup and leave weeklyBackup
+// deployed and still firing — a twenty-first function holding a vCPU against
+// the regional ceiling that has already failed three deploys. A misleading
+// identifier is a wart; a zombie scheduled function is an outage. Renaming it
+// safely means deleting the old one in the Firebase console first, which is a
+// separate deliberate step.
+//
+// BACKUP_RETENTION_DAYS is held to the window the DPA and the privacy page
+// promise, by src/lib/backup-retention.test.js. Snapshots outlive the account
+// they belong to otherwise: the pruner is the only thing that eventually
+// removes a deleted user's data from /backups, so a window longer than the
+// promise makes the promise false.
+
+const BACKUP_RETENTION_DAYS = 30;
+
 exports.weeklyBackup = onSchedule({
-  schedule: 'every sunday 03:00',
+  schedule: 'every day 03:00',
   timeZone: 'Europe/Paris',
   region: 'us-central1',
   timeoutSeconds: 540,
@@ -1696,6 +1821,19 @@ exports.weeklyBackup = onSchedule({
   const db = getFirestore();
   const now = new Date();
   const stamp = now.toISOString().slice(0, 10);
+
+  /** Remove one snapshot and the chunks underneath it. */
+  const dropSnapshot = async (ref) => {
+    const cs = await ref.collection('chunks').get();
+    let batch = db.batch(); let n = 0;
+    for (const c of cs.docs) {
+      batch.delete(c.ref);
+      if (++n % 400 === 0) { await batch.commit(); batch = db.batch(); }
+    }
+    batch.delete(ref);
+    await batch.commit();
+  };
+
   const snap = await db.collection('userdata').get();
   let backed = 0;
   for (const docSnap of snap.docs) {
@@ -1714,19 +1852,53 @@ exports.weeklyBackup = onSchedule({
       console.error('weeklyBackup failed for', docSnap.id, err?.message);
     }
   }
-  const cutoff = new Date(now); cutoff.setDate(cutoff.getDate() - 35);
+  const cutoff = new Date(now);
+  cutoff.setDate(cutoff.getDate() - BACKUP_RETENTION_DAYS);
   const olds = await db.collection('backups').where('created_at', '<', cutoff.toISOString().slice(0, 10)).get();
-  for (const o of olds.docs) {
-    const cs = await o.ref.collection('chunks').get();
-    let batch = db.batch(); let n = 0;
-    for (const c of cs.docs) {
-      batch.delete(c.ref);
-      if (++n % 400 === 0) { await batch.commit(); batch = db.batch(); }
+  for (const o of olds.docs) await dropSnapshot(o.ref);
+
+  // ── Snapshots whose account is gone ──────────────────────────────────────
+  //
+  // Deleting an account removes /users and /userdata. It does not touch
+  // /backups, so without this the full workspace — every employee name and
+  // email in it — sat here until the age cutoff caught it, which is the one
+  // thing the DPA's "deleted within 30 days" cannot afford to be late on.
+  //
+  // Written as a sweep rather than as a step inside the delete paths on
+  // purpose: there are several ways an account can go (self-service, the
+  // founder tool, a client workspace purged by purgeClientOrgs), and a sweep
+  // that asks "does the source still exist?" covers the one somebody forgets
+  // to wire up next year. The delete paths should still do it directly — this
+  // is the net underneath them, not a substitute.
+  //
+  // Conservative by construction: a snapshot is dropped only when the source
+  // read SUCCEEDS and reports the document absent. A transient read failure
+  // keeps the backup, because the cost of keeping one too long is a late
+  // deletion and the cost of getting this wrong is erasing the only copy of a
+  // live customer's data.
+  const sourceExists = new Map();
+  const allBackups = await db.collection('backups').get();
+  let orphans = 0;
+  for (const b of allBackups.docs) {
+    const ownerUid = b.data()?.uid;
+    if (!ownerUid) continue;
+    if (!sourceExists.has(ownerUid)) {
+      try {
+        const src = await db.collection('userdata').doc(ownerUid).get();
+        sourceExists.set(ownerUid, src.exists);
+      } catch (err) {
+        console.error('backup orphan check failed for', ownerUid, err?.message);
+        continue;
+      }
     }
-    batch.delete(o.ref);
-    await batch.commit();
+    if (sourceExists.get(ownerUid) === false) {
+      try { await dropSnapshot(b.ref); orphans++; }
+      catch (err) { console.error('orphan snapshot delete failed', b.id, err?.message); }
+    }
   }
-  console.log('Weekly backup:', backed, 'users backed up;', olds.size, 'old snapshots pruned');
+
+  console.log('Daily backup:', backed, 'workspaces backed up;',
+    olds.size, 'aged out;', orphans, 'orphaned snapshots removed');
 });
 
 // Rollout switch: was true during live validation (founder-only). Flipped to
@@ -1969,8 +2141,12 @@ exports.weeklySummary = onSchedule({
     const access    = data?.access    || [];
 
     // ── Metrics ──────────────────────────────────────────────────────────
-    const activeTools   = tools.filter(t => t.status !== 'decommissioned');
-    const monthlySpend  = activeTools.reduce((s, t) => s + (Number(t.cost_per_month) || 0), 0);
+    const activeTools   = tools.filter(t => t.status !== NOT_BILLED_STATUS);
+    // Was its own reduce over the same filter. Identical result, but it was
+    // the fifth hand-written definition of this figure and the one customers
+    // actually receive by email — so it is the last place that should have
+    // its own.
+    const monthlySpendValue = monthlySpend(data);
     const orphaned      = activeTools.filter(t => !t.owner_email).length;
     const highRisk      = access.filter(a => a.derived_risk_flag === 'high' || a.access_level === 'admin').length;
     const upcoming      = tools.filter(t => t.renewal_date >= todayStr && t.renewal_date <= in30Str);
@@ -1989,7 +2165,7 @@ exports.weeklySummary = onSchedule({
     ).length;
 
     const insight = await weeklyAiInsight(ANTHROPIC_API_KEY.value(), {
-      monthly_spend_eur: monthlySpend,
+      monthly_spend_eur: monthlySpendValue,
       idle_spend_eur_per_month: idleMonthly,
       idle_tool_names: idleTools.slice(0, 5).map(t => t.name),
       ex_employee_access_count: exEmployeeAccess,
@@ -2084,7 +2260,7 @@ exports.weeklySummary = onSchedule({
     <!-- Stat cards -->
     <table style="width:100%;border-collapse:collapse;margin-bottom:4px">
       <tr>
-        ${statCard('Monthly Spend', `${cur}${fmt(monthlySpend)}`, `${cur}${fmt(monthlySpend * 12)}/yr`, '#e2e8f0')}
+        ${statCard('Monthly Spend', `${cur}${fmt(monthlySpendValue)}`, `${cur}${fmt(monthlySpendValue * 12)}/yr`, '#e2e8f0')}
         ${statCard('Health Score', `${healthScore}`, healthLabel, healthColor)}
         ${statCard('Renewals Soon', `${upcoming.length}`, 'next 30 days', upcoming.length > 0 ? '#f59e0b' : '#10b981')}
         ${statCard('High-Risk Access', `${highRisk}`, 'records', highRisk > 0 ? '#ef4444' : '#10b981')}
@@ -2116,8 +2292,8 @@ exports.weeklySummary = onSchedule({
         to: email,
         from: { email: 'hello@stacklens.fr', name: 'Stacklens' },
         subject: idleMonthly > 0
-          ? `\ud83d\udcca Weekly SaaS summary \u2014 ${cur}${fmt(monthlySpend)}/mo \u00b7 ${cur}${fmt(idleMonthly)}/mo recoverable`
-          : `\ud83d\udcca Your weekly SaaS summary \u2014 ${cur}${fmt(monthlySpend)}/mo \u00b7 Score ${healthScore}`,
+          ? `\ud83d\udcca Weekly SaaS summary \u2014 ${cur}${fmt(monthlySpendValue)}/mo \u00b7 ${cur}${fmt(idleMonthly)}/mo recoverable`
+          : `\ud83d\udcca Your weekly SaaS summary \u2014 ${cur}${fmt(monthlySpendValue)}/mo \u00b7 Score ${healthScore}`,
         html,
       });
       sent++;

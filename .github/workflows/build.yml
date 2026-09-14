@@ -77,13 +77,36 @@ jobs:
   # so risky UI changes can be clicked through before touching stacklens.fr.
   # Uses the production backend — it's a hosting preview, not a data sandbox.
   # Non-blocking: a preview failure never gates a merge (build stays the gate).
+  #
+  # Skipped when the run cannot possibly have credentials, rather than left to
+  # fail for want of them. GitHub withholds repository secrets from workflows
+  # triggered by Dependabot and from pull requests opened off a fork, so
+  # FIREBASE_SERVICE_ACCOUNT_ACCESSGUARD_V2 arrives as an empty string and the
+  # deploy ends in
+  #
+  #     Error: Failed to authenticate, have you run firebase login?
+  #
+  # continue-on-error already stopped that from blocking a merge, but the check
+  # still reported `failure`, so every untouched Dependabot pull request wore a
+  # red X for a reason that had nothing to do with its contents. A check that
+  # can only ever be red is worse than no check: it teaches you to skim past
+  # red, which is the state in which a real failure goes unnoticed.
+  #
+  # The condition tests github.actor, the account that triggered the run, not
+  # the pull request's author. Those differ once somebody pushes to or updates
+  # a Dependabot branch — and at that point secrets ARE available, so the
+  # preview works and should run. Checking the author instead would skip a
+  # preview that would have succeeded.
   preview:
     runs-on: ubuntu-latest
     needs: build
     continue-on-error: true
     permissions:
       contents: read
-    if: github.event_name == 'pull_request'
+    if: >-
+      github.event_name == 'pull_request'
+      && github.actor != 'dependabot[bot]'
+      && github.event.pull_request.head.repo.full_name == github.repository
     steps:
       - uses: actions/checkout@v4
         with:

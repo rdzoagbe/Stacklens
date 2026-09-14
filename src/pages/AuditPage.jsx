@@ -3,7 +3,7 @@ import toast from 'react-hot-toast';
 import { Download, FileText, Users } from 'lucide-react';
 import { todayISO } from '../lib/db';
 import { computeToolDerivedStatus, computeToolDerivedRisk, computeAccessDerivedRiskFlag, formatMoney, downloadText, toCsv } from '../lib/dataUtils';
-import { computeWaste } from '../lib/waste';
+import { computeWaste, monthlySpend } from '../lib/waste';
 import { cx } from '../lib/utils';
 import { useDbQuery } from '../hooks/useDbQuery';
 import { useLang } from '../contexts/LangContext';
@@ -261,7 +261,7 @@ export function AuditTabContent() {
     const unusedTools    = tools.filter(t => t.derived_status === "unused" || t.derived_status === "orphaned").length;
     const highRiskCount  = tools.filter(t => t.derived_risk === "high").length;
     const formerEmpAccess = access.filter(a => a.derived_risk_flag === "former_employee").length;
-    const spend          = tools.reduce((s, t) => s + Number(t.cost_per_month || 0), 0);
+    const spend          = monthlySpend({ tools });
     const toolUserCount = {};
     db.access.filter(a => a.status === "active").forEach(a => {
       toolUserCount[a.tool_name] = (toolUserCount[a.tool_name] || 0) + 1;
@@ -525,7 +525,7 @@ export function AuditExportPage() {
     const unusedTools    = tools.filter(t => t.derived_status === "unused" || t.derived_status === "orphaned").length;
     const highRiskCount  = tools.filter(t => t.derived_risk === "high").length;
     const formerEmpAccess = access.filter(a => a.derived_risk_flag === "former_employee").length;
-    const spend          = tools.reduce((s, t) => s + Number(t.cost_per_month || 0), 0);
+    const spend          = monthlySpend({ tools });
 
     // Login / usage stats — tools with recent last_used_date
     const now = new Date();

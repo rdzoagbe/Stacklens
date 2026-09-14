@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Building2, Download, MoreHorizontal, Plus, RotateCcw, Trash2 } from 'lucide-react';
+import { Building2, Download, Plus, RotateCcw, Trash2 } from 'lucide-react';
 import { useClientWorkspaces } from '../hooks/useClientWorkspaces';
 import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
@@ -31,7 +31,6 @@ export function ClientsPage() {
     openClient, addClient, exportClient, deleteClient, restoreClient,
   } = useClientWorkspaces();
   const [query, setQuery] = useState('');
-  const [menuFor, setMenuFor] = useState(null);
 
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -55,6 +54,13 @@ export function ClientsPage() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <p className="text-slate-400 text-sm max-w-xl">
             {t('ws_manage_sub').replace('{days}', String(retentionDays))}
+            {/* Each client workspace has its own currency and amounts are
+                never converted, so these figures cannot be added together.
+                Saying so is cheaper than someone summing them by hand and
+                trusting the answer. */}
+            {orgs.some(o => o.summary) && (
+              <> {t('ws_own_currency')}</>
+            )}
           </p>
           {canManageClients && (
             <button onClick={addClient} disabled={busy}
@@ -92,13 +98,32 @@ export function ClientsPage() {
             <ul className="divide-y divide-slate-800/70">
               {shown.map(o => (
                 <li key={o.org_id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3">
-                  <span className="min-w-0 w-full sm:w-auto">
+                  <span className="min-w-0 w-full sm:w-auto sm:flex-1">
                     <span className="block text-sm font-semibold text-white truncate">{o.name}</span>
-                    {o.created_at && (
-                      <span className="block text-xs text-slate-500">
-                        {t('ws_created_on')} {fmtDate(o.created_at)}
-                      </span>
-                    )}
+                    {/* What is actually inside this workspace. Without it the
+                        page was a list of names, and the only way to see a
+                        client's spend was to open their workspace — which
+                        swaps the whole app into their data and back. */}
+                    <span className="block text-xs text-slate-500">
+                      {o.summary ? (
+                        <>
+                          <span className="text-slate-300 font-semibold">
+                            {o.summary.currency}{Math.round(o.summary.monthly_spend).toLocaleString()}
+                          </span>
+                          {t('ws_per_month')}
+                          <span className="mx-1.5 text-slate-700">·</span>
+                          {o.summary.tools} {t('ws_tools_tracked')}
+                          {o.summary.updated_at && (
+                            <>
+                              <span className="mx-1.5 text-slate-700">·</span>
+                              {t('ws_updated')} {fmtDate(o.summary.updated_at)}
+                            </>
+                          )}
+                        </>
+                      ) : o.created_at ? (
+                        <>{t('ws_created_on')} {fmtDate(o.created_at)}</>
+                      ) : null}
+                    </span>
                   </span>
                   <span className="flex items-center gap-2">
                     <button onClick={() => openClient(o)} disabled={busy}
@@ -109,29 +134,24 @@ export function ClientsPage() {
                       className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-colors disabled:opacity-50 flex items-center gap-1.5">
                       <Download className="h-3.5 w-3.5" /> {t('ws_export')}
                     </button>
-                    {/* Delete sits behind a menu: it is the one action here
-                        with a ninety-day consequence, and it should not carry
-                        the same visual weight as Open. */}
-                    <span className="relative inline-flex">
-                      <button onClick={() => setMenuFor(menuFor === o.org_id ? null : o.org_id)}
-                        aria-label={t('ws_more_actions')} disabled={busy}
-                        className="px-2 py-1.5 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-colors disabled:opacity-50">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </button>
-                      {menuFor === o.org_id && (
-                        <>
-                          <button className="fixed inset-0 z-10 cursor-default"
-                            aria-label={t('ws_close_menu')} onClick={() => setMenuFor(null)} />
-                          <span className="absolute right-0 top-full z-20 mt-1 w-44 rounded-xl border border-slate-700 bg-slate-900 p-1 shadow-xl">
-                            <button
-                              onClick={() => { setMenuFor(null); deleteClient(o); }}
-                              className="w-full text-left px-3 py-2 rounded-lg text-xs font-semibold text-rose-300 hover:bg-rose-500/15 transition-colors flex items-center gap-2">
-                              <Trash2 className="h-3.5 w-3.5" /> {t('ws_delete')}
-                            </button>
-                          </span>
-                        </>
-                      )}
-                    </span>
+                    {/* Delete used to sit behind a ⋯ dropdown, to keep it from
+                        carrying the same visual weight as Open. The dropdown
+                        was absolutely positioned inside a section with
+                        overflow-hidden (it rounds the card's corners), so on
+                        the last row of the list — which with one client is the
+                        only row, the commonest case of all — the menu was
+                        clipped and the Delete button was invisible.
+
+                        It is a quiet text button instead. Lighter than either
+                        filled button beside it, so the weight is still right,
+                        and there is no positioned layer left to be clipped by
+                        anything. The confirmation dialog, which names the
+                        client and the retention window, is what actually
+                        guards the action. */}
+                    <button onClick={() => deleteClient(o)} disabled={busy}
+                      className="px-3 py-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 text-xs font-semibold transition-colors disabled:opacity-50 flex items-center gap-1.5">
+                      <Trash2 className="h-3.5 w-3.5" /> {t('ws_delete')}
+                    </button>
                   </span>
                 </li>
               ))}

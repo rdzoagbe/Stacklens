@@ -3,7 +3,7 @@ import {
   AlertTriangle, ArrowDown, ArrowUp, Boxes, DollarSign, Download, TrendingUp,
 } from 'lucide-react';
 import { formatMoney, getCurrency } from '../../lib/dataUtils';
-import { computeWaste } from '../../lib/waste';
+import { computeWaste, monthlySpend } from '../../lib/waste';
 import { spendTrend } from '../../lib/budget';
 import { useLang } from '../../contexts/LangContext';
 import { useTranslation } from '../../translations';
@@ -15,7 +15,7 @@ import {
 export function ExecutiveDashboard({ data }) {
   const { language } = useLang();
   const t = useTranslation(language);
-  const totalSpend = data?.tools?.reduce((sum, tool) => sum + (tool.cost_per_month || 0), 0) || 0;
+  const totalSpend = monthlySpend(data);
   const annualSpend = totalSpend * 12;
   // Was "unused for 90+ days", a fourth definition of savings that
   // disagreed with the three other screens. One rule now, in lib/waste.

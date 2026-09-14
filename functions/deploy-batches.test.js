@@ -170,3 +170,85 @@ describe('the functions deploy is gated, and fails toward deploying', () => {
     expect(deployFunctionsJob()).toMatch(/deploy functions: \$\{\{ steps\.scope\.outputs\.deploy \}\}/);
   });
 });
+
+// ── A check that can only be red teaches you to skim past red ──────────────
+//
+// The preview job deploys a Firebase Hosting preview channel, which needs the
+// service-account secret. GitHub withholds repository secrets from workflows
+// triggered by Dependabot and from pull requests opened off a fork, so the
+// secret arrives as an empty string and the deploy ends in
+//
+//     Error: Failed to authenticate, have you run firebase login?
+//
+// continue-on-error kept that from blocking a merge, but the check still
+// reported `failure`, so every untouched Dependabot pull request carried a red
+// X for a reason that had nothing to do with its contents. That is worse than
+// no check at all: the habit it builds is skimming past red, and the next red
+// one is a real failure.
+//
+// So the job is skipped in the cases where credentials cannot exist. These
+// checks exist because the condition is easy to "simplify" back into
+// something that looks equivalent and is not.
+describe('the preview job does not run where it cannot possibly authenticate', () => {
+  const workflow = read('.github/workflows/build.yml');
+  const previewBlock = (() => {
+    const start = workflow.indexOf('  preview:');
+    expect(start, 'the preview job was not found').toBeGreaterThan(-1);
+    return workflow.slice(start, workflow.indexOf('\n  deploy:', start));
+  })();
+  const condition = (() => {
+    const m = /if:\s*>-\s*\n([\s\S]*?)\n\s{4}steps:/.exec(previewBlock)
+      || /if:\s*(.+)/.exec(previewBlock);
+    expect(m, 'no if: condition on the preview job').toBeTruthy();
+    return m[1].replace(/\s+/g, ' ').trim();
+  })();
+
+  it('still only runs on pull requests', () => {
+    expect(condition).toMatch(/github\.event_name == 'pull_request'/);
+  });
+
+  it('skips Dependabot-triggered runs', () => {
+    expect(condition, 'Dependabot runs get no secrets, so the preview deploy '
+      + 'can only fail — skip it rather than let it report red')
+      .toMatch(/github\.actor != 'dependabot\[bot\]'/);
+  });
+
+  it('tests the triggering actor, not the pull request author', () => {
+    // These differ the moment somebody pushes to or updates a Dependabot
+    // branch, and at that point secrets ARE available and the preview works.
+    // Keying off the author would skip a preview that would have succeeded —
+    // observed directly: updating #253's branch made its preview pass.
+    expect(condition, 'use github.actor (who triggered the run), not '
+      + 'github.event.pull_request.user.login (who opened it)')
+      .not.toMatch(/pull_request\.user\.login/);
+  });
+
+  it('skips pull requests from a fork', () => {
+    // Same missing secrets, same guaranteed failure, and nobody has opened one
+    // yet — which is exactly why it would be a surprise rather than a known
+    // quirk when it happens.
+    expect(condition, 'a fork pull request gets no secrets either')
+      .toMatch(/github\.event\.pull_request\.head\.repo\.full_name == github\.repository/);
+  });
+
+  it('is still non-blocking for a genuine preview failure', () => {
+    // Skipping the impossible cases is not a reason to start gating merges on
+    // the possible ones: a hosting preview is a convenience, and `build` is
+    // the check that decides whether the code is sound.
+    expect(previewBlock).toMatch(/continue-on-error:\s*true/);
+  });
+
+  it('does not gate the jobs that legitimately need secrets on main', () => {
+    // deploy and deploy-functions run on a push to main, where secrets are
+    // always available. Copying the actor condition onto them would skip a
+    // real deploy.
+    for (const job of ['deploy', 'deploy-functions']) {
+      const start = workflow.indexOf(`  ${job}:`);
+      expect(start, `${job} not found`).toBeGreaterThan(-1);
+      const end = workflow.indexOf('\n  ', workflow.indexOf('steps:', start));
+      const block = workflow.slice(start, end > start ? end : undefined);
+      expect(block, `${job} must not be skipped for Dependabot — it runs on main`)
+        .not.toMatch(/dependabot/);
+    }
+  });
+});
