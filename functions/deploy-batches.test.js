@@ -71,6 +71,6 @@ describe('the batched functions deploy covers everything', () => {
   it('there are the functions we think there are', () => {
     // A sanity anchor: if this number moves, someone added or removed a
     // function and should have thought about which batch it belongs in.
-    expect(exportedFunctions()).toHaveLength(19);
+    expect(exportedFunctions()).toHaveLength(20);
   });
 });

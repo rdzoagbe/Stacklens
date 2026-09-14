@@ -2,7 +2,9 @@
 import React, { useState, useEffect, useSyncExternalStore } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { loadUserData, logConsent, workspaceMine, workspaceRead, workspaceListOrgs, workspaceCreateOrg } from '../firebase-config';
+import { loadUserData, logConsent, workspaceMine, workspaceRead, workspaceListOrgs,
+  workspaceCreateOrg, workspaceDeleteOrg, workspaceRestoreOrg } from '../firebase-config';
+import { downloadWorkspaceExport } from '../lib/workspace-export';
 import { track } from '../lib/analytics';
 import { enterSharedView, exitSharedView, getSharedView } from '../lib/db';
 import { subscribeSync, getSyncSnapshot, retrySync } from '../lib/syncStatus';
@@ -658,6 +660,11 @@ export function SharedWorkspaceBanner() {
   const qc = useQueryClient();
   const [workspaces, setWorkspaces] = useState([]);
   const [orgs, setOrgs] = useState([]);
+  const [deletedOrgs, setDeletedOrgs] = useState([]);
+  const [managing, setManaging] = useState(false);
+  // Sent by listorgs so the confirmation text cannot claim a different
+  // window than the purge actually honours.
+  const [retentionDays, setRetentionDays] = useState(90);
   const [busy, setBusy] = useState(false);
   const shared = getSharedView();
 
@@ -667,7 +674,12 @@ export function SharedWorkspaceBanner() {
     if (!_orgsPromise) _orgsPromise = workspaceListOrgs().catch(() => ({ orgs: [] }));
     let alive = true;
     _workspacesPromise.then(r => { if (alive) setWorkspaces(r.workspaces || []); });
-    _orgsPromise.then(r => { if (alive) setOrgs(r.orgs || []); });
+    _orgsPromise.then(r => {
+      if (!alive) return;
+      setOrgs(r.orgs || []);
+      setDeletedOrgs(r.deleted || []);
+      if (r.retention_days) setRetentionDays(r.retention_days);
+    });
     return () => { alive = false; };
   }, [firebaseUser, isDemo]);
 
@@ -710,6 +722,15 @@ export function SharedWorkspaceBanner() {
       </div>
     );
   }
+  const refreshOrgs = async () => {
+    _orgsPromise = null;
+    const r = await workspaceListOrgs().catch(() => null);
+    if (!r) return;
+    setOrgs(r.orgs || []);
+    setDeletedOrgs(r.deleted || []);
+    if (r.retention_days) setRetentionDays(r.retention_days);
+  };
+
   const addClient = async () => {
     const name = window.prompt(t('ws_client_prompt'));
     if (!name || busy) return;
@@ -723,6 +744,52 @@ export function SharedWorkspaceBanner() {
       toast.success(t('ws_client_created'));
     } catch (err) {
       toast.error(err.message || t('ws_client_failed'));
+    } finally { setBusy(false); }
+  };
+
+  // Export runs from the list, without entering the workspace: the point is
+  // to have the file before deleting, and a deleted workspace can still be
+  // read for exactly this reason.
+  const exportClient = async (org) => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const { data } = await workspaceRead(org.org_id);
+      const payload = downloadWorkspaceExport({ name: org.name, orgId: org.org_id, data });
+      track('client_workspace_exported', { tools: payload.counts.tools, employees: payload.counts.employees });
+      toast.success(t('ws_exported') || 'Export downloaded');
+    } catch (err) {
+      toast.error((t('ws_export_failed') || 'Could not export') + ': ' + (err.message || ''));
+    } finally { setBusy(false); }
+  };
+
+  const deleteClient = async (org) => {
+    if (busy) return;
+    const msg = (t('ws_delete_confirm') ||
+      'Delete "{name}"? Its data is kept for {days} days and can be restored, then permanently erased. Export it first if the client may want it back.')
+      .replace('{name}', org.name).replace('{days}', String(retentionDays));
+    if (!window.confirm(msg)) return;
+    setBusy(true);
+    try {
+      const r = await workspaceDeleteOrg(org.org_id);
+      track('client_workspace_deleted');
+      await refreshOrgs();
+      toast.success((t('ws_deleted_kept') || 'Deleted. Recoverable for {days} days.')
+        .replace('{days}', String(r?.days_left ?? retentionDays)));
+    } catch (err) {
+      toast.error(err.message || t('ws_delete_failed') || 'Could not delete');
+    } finally { setBusy(false); }
+  };
+
+  const restoreClient = async (org) => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await workspaceRestoreOrg(org.org_id);
+      await refreshOrgs();
+      toast.success(t('ws_restored') || 'Client workspace restored');
+    } catch (err) {
+      toast.error(err.message || t('ws_restore_failed') || 'Could not restore');
     } finally { setBusy(false); }
   };
 
@@ -764,10 +831,131 @@ export function SharedWorkspaceBanner() {
           + {t('ws_add_client')}
         </button>
       )}
+      {/* Export and delete live behind one button rather than beside every
+          client: the bar is a single row and a paid plan allows fifty. */}
+      {(orgs.length > 0 || deletedOrgs.length > 0) && (
+        <button onClick={() => setManaging(true)} disabled={busy}
+          className="px-3 py-1 rounded-lg border border-indigo-400/30 hover:bg-indigo-500/20 text-indigo-300 text-xs font-semibold transition-colors disabled:opacity-50">
+          {t('ws_manage') || 'Manage'}
+          {deletedOrgs.length > 0 && (
+            <span className="ml-1.5 px-1.5 rounded bg-amber-500/25 text-amber-200">{deletedOrgs.length}</span>
+          )}
+        </button>
+      )}
+      {managing && (
+        <ClientWorkspacePanel
+          orgs={orgs} deletedOrgs={deletedOrgs} retentionDays={retentionDays}
+          busy={busy} t={t}
+          onClose={() => setManaging(false)}
+          onOpen={(o) => { setManaging(false); openWorkspace({ owner_uid: o.org_id, owner_email: o.name }); }}
+          onExport={exportClient} onDelete={deleteClient} onRestore={restoreClient}
+        />
+      )}
       {workspaces.length > 0 && <WorkspaceOffers workspaces={workspaces} openWorkspace={openWorkspace} busy={busy} t={t} />}
     </div>
   );
   return null;
+}
+
+// ── Managing client workspaces ─────────────────────────────────────────────
+//
+// Open, export, delete, and restore what was deleted. Deleting is the one
+// action here that used to be instant and irreversible, so the countdown is
+// shown next to every deleted client rather than explained once and
+// forgotten: "42 days left" is the fact that decides whether an agency still
+// has time to get a customer's records back.
+
+function ClientWorkspacePanel({
+  orgs, deletedOrgs, retentionDays, busy, t, onClose, onOpen, onExport, onDelete, onRestore,
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 p-4 pt-16 overflow-y-auto"
+      onClick={onClose}>
+      <div className="w-full max-w-2xl rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start justify-between gap-4 border-b border-slate-800 px-5 py-4">
+          <div>
+            <h2 className="text-base font-semibold text-white">{t('ws_manage_title') || 'Client workspaces'}</h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              {(t('ws_manage_sub') || 'Deleted workspaces are kept for {days} days, then permanently erased.')
+                .replace('{days}', String(retentionDays))}
+            </p>
+          </div>
+          <button onClick={onClose}
+            className="rounded-lg px-2 py-1 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors">
+            ✕
+          </button>
+        </div>
+
+        <div className="px-5 py-4 space-y-5">
+          <section>
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
+              {t('ws_clients') || 'Clients'} ({orgs.length})
+            </h3>
+            {orgs.length === 0 ? (
+              <p className="text-sm text-slate-500">{t('ws_none_live') || 'No client workspaces yet.'}</p>
+            ) : (
+              <ul className="space-y-2">
+                {orgs.map(o => (
+                  <li key={o.org_id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-800 bg-slate-950/40 px-3 py-2">
+                    <span className="text-sm font-semibold text-white truncate">{o.name}</span>
+                    <span className="flex flex-wrap gap-2">
+                      <button onClick={() => onOpen(o)} disabled={busy}
+                        className="px-2.5 py-1 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-200 text-xs font-semibold transition-colors disabled:opacity-50">
+                        {t('ws_open') || 'Open'}
+                      </button>
+                      <button onClick={() => onExport(o)} disabled={busy}
+                        className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-colors disabled:opacity-50">
+                        {t('ws_export') || 'Export'}
+                      </button>
+                      <button onClick={() => onDelete(o)} disabled={busy}
+                        className="px-2.5 py-1 rounded-lg border border-rose-500/40 hover:bg-rose-500/20 text-rose-300 text-xs font-semibold transition-colors disabled:opacity-50">
+                        {t('ws_delete') || 'Delete'}
+                      </button>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          {deletedOrgs.length > 0 && (
+            <section>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-amber-400/80 mb-2">
+                {t('ws_deleted') || 'Deleted'} ({deletedOrgs.length})
+              </h3>
+              <ul className="space-y-2">
+                {deletedOrgs.map(o => (
+                  <li key={o.org_id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-500/25 bg-amber-500/5 px-3 py-2">
+                    <span className="min-w-0">
+                      <span className="block text-sm font-semibold text-white truncate">{o.name}</span>
+                      <span className="block text-xs text-amber-300/90">
+                        {o.days_left > 0
+                          ? (t('ws_days_left') || '{n} days before permanent deletion').replace('{n}', String(o.days_left))
+                          : (t('ws_purging') || 'Being permanently deleted')}
+                      </span>
+                    </span>
+                    <span className="flex flex-wrap gap-2">
+                      <button onClick={() => onExport(o)} disabled={busy}
+                        className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-colors disabled:opacity-50">
+                        {t('ws_export') || 'Export'}
+                      </button>
+                      <button onClick={() => onRestore(o)} disabled={busy || o.days_left <= 0}
+                        className="px-2.5 py-1 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 text-xs font-semibold transition-colors disabled:opacity-40">
+                        {t('ws_restore') || 'Restore'}
+                      </button>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function WorkspaceOffers({ workspaces, openWorkspace, busy, t }) {

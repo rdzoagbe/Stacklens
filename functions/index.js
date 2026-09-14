@@ -32,6 +32,7 @@ const {
   isClientOrgId, newClientOrgId, cleanOrgName, resolveWorkspaceAccess, WorkspaceWriteError,
   effectivePlan,
   currencySymbol,
+  RETENTION_DAYS, softDeleteFields, restoreFields, isOrgDeleted, daysUntilPurge, isPurgeDue,
 } = require('./workspace-write.js');
 
 // Explicitly allow stacklens.fr and Firebase preview domains
@@ -1208,9 +1209,13 @@ exports.workspace = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, re
 
         const orgsCol = db.collection('client_orgs');
         const existing = await orgsCol.where('owner_uid', '==', decoded.uid).get();
+        // Only live ones count. A deleted workspace is kept for the retention
+        // window, and holding a slot hostage for ninety days would make a
+        // trial's three effectively one.
+        const liveCount = existing.docs.filter(d => !isOrgDeleted(d.data())).length;
         const cap = privileged ? MAX_CLIENT_ORGS
           : plan === 'trial' ? TRIAL_CLIENT_ORGS : MAX_CLIENT_ORGS;
-        if (existing.size >= cap) {
+        if (liveCount >= cap) {
           return res.status(400).json({
             error: plan === 'trial'
               ? `A trial covers ${TRIAL_CLIENT_ORGS} client workspaces. Subscribe to add more.`
@@ -1237,12 +1242,27 @@ exports.workspace = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, re
 
       if (action === 'listorgs') {
         const snap = await db.collection('client_orgs').where('owner_uid', '==', decoded.uid).get();
-        return res.json({
-          orgs: snap.docs.map(d => ({ org_id: d.id, name: d.data().name, created_at: d.data().created_at })),
-        });
+        const live = [];
+        const deleted = [];
+        for (const d of snap.docs) {
+          const o = d.data();
+          const row = { org_id: d.id, name: o.name, created_at: o.created_at };
+          if (isOrgDeleted(o)) {
+            deleted.push({ ...row, deleted_at: o.deleted_at, days_left: daysUntilPurge(o) });
+          } else {
+            live.push(row);
+          }
+        }
+        // `orgs` keeps its old shape and meaning: the workspaces you can work
+        // in. A deleted one is not one of those, so it must not appear there.
+        return res.json({ orgs: live, deleted, retention_days: RETENTION_DAYS });
       }
 
       if (action === 'deleteorg') {
+        // Marks the record and keeps the data. purgeClientOrgs removes it for
+        // good once the retention window closes. Destroying a client's whole
+        // inventory on one click of a prompt-confirmed name was not a risk
+        // worth carrying for the sake of freeing a Firestore document early.
         const orgId = String(id || '');
         if (!isClientOrgId(orgId)) return res.status(400).json({ error: 'Not a client workspace id' });
         const ref = db.collection('client_orgs').doc(orgId);
@@ -1250,13 +1270,30 @@ exports.workspace = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, re
         if (!snap.exists || snap.data().owner_uid !== decoded.uid) {
           return res.status(404).json({ error: 'Not found' });
         }
-        const dataRef = db.collection('userdata').doc(orgId);
-        const chunks = await dataRef.collection('chunks').get();
-        const batch = db.batch();
-        chunks.forEach(c => batch.delete(c.ref));
-        batch.delete(dataRef);
-        batch.delete(ref);
-        await batch.commit();
+        if (isOrgDeleted(snap.data())) {
+          return res.json({ ok: true, already: true, days_left: daysUntilPurge(snap.data()) });
+        }
+        const fields = softDeleteFields();
+        await ref.update(fields);
+        return res.json({ ok: true, days_left: daysUntilPurge(fields), retention_days: RETENTION_DAYS });
+      }
+
+      if (action === 'restoreorg') {
+        const orgId = String(id || '');
+        if (!isClientOrgId(orgId)) return res.status(400).json({ error: 'Not a client workspace id' });
+        const ref = db.collection('client_orgs').doc(orgId);
+        const snap = await ref.get();
+        if (!snap.exists || snap.data().owner_uid !== decoded.uid) {
+          return res.status(404).json({ error: 'Not found' });
+        }
+        if (!isOrgDeleted(snap.data())) return res.json({ ok: true, already: true });
+        // Past the window the purge may not have run yet, but the promise was
+        // ninety days: restoring on day 95 would be restoring data the
+        // customer was told is gone.
+        if (isPurgeDue(snap.data())) {
+          return res.status(410).json({ error: `The ${RETENTION_DAYS}-day recovery window has passed` });
+        }
+        await ref.update(restoreFields());
         return res.json({ ok: true });
       }
 
@@ -1327,6 +1364,15 @@ exports.workspace = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, re
 
         const orgSnap = isClientOrgId(target)
           ? await db.collection('client_orgs').doc(target).get() : null;
+        // Frozen, not gone: a deleted workspace stays readable for the
+        // retention window so its data can be exported and handed back, but
+        // it must not accept edits — otherwise "deleted" means nothing, and
+        // an edit made in one would vanish at the purge.
+        if (orgSnap?.exists && isOrgDeleted(orgSnap.data())) {
+          return res.status(409).json({
+            error: 'This client workspace is deleted. Restore it before making changes.',
+          });
+        }
         const snap = await col.where('owner_uid', '==', target).get();
         const access = resolveWorkspaceAccess({
           clientOrg: orgSnap?.exists ? orgSnap.data() : null,
@@ -1558,6 +1604,46 @@ const { onSchedule } = require('firebase-functions/v2/scheduler');
 // client-side bug that corrupts or wipes a user's blob can be recovered from a
 // copy no client code can touch (default-deny rules; Admin SDK only). Keeps
 // ~5 weeks, pruning older snapshots.
+// ── /purgeClientOrgs — the end of the retention window ────────────────────
+//
+// deleteorg marks a client workspace and keeps its data for RETENTION_DAYS so
+// it can be restored or exported. This is the half that makes that promise
+// true in both directions: without it, "deleted" would mean hidden forever,
+// the data would sit in Firestore indefinitely, and telling a customer their
+// records were erased after ninety days would be false.
+//
+// Runs daily. A workspace whose window has closed loses its chunks, its
+// userdata document and its org record — the same hard delete deleteorg used
+// to do immediately, now on a schedule the customer was told about.
+exports.purgeClientOrgs = onSchedule({
+  schedule: 'every day 04:00',
+  timeZone: 'Europe/Paris',
+  region: 'us-central1',
+  timeoutSeconds: 540,
+}, async () => {
+  const db = getFirestore();
+  const snap = await db.collection('client_orgs').get();
+  let purged = 0;
+  for (const orgSnap of snap.docs) {
+    if (!isPurgeDue(orgSnap.data())) continue;
+    try {
+      const dataRef = db.collection('userdata').doc(orgSnap.id);
+      const chunks = await dataRef.collection('chunks').get();
+      const batch = db.batch();
+      chunks.forEach(c => batch.delete(c.ref));
+      batch.delete(dataRef);
+      batch.delete(orgSnap.ref);
+      await batch.commit();
+      purged++;
+    } catch (err) {
+      // One unremovable record must not stop the rest: a retention promise
+      // that silently stops running is worse than one that logs and continues.
+      console.error('purgeClientOrgs', orgSnap.id, err?.message);
+    }
+  }
+  if (purged) console.warn(`purgeClientOrgs: removed ${purged} client workspace(s)`);
+});
+
 exports.weeklyBackup = onSchedule({
   schedule: 'every sunday 03:00',
   timeZone: 'Europe/Paris',

@@ -715,7 +715,8 @@ export const workspaceWrite   = (ownerUid, data) => callWorkspace({ action: 'wri
 // uid, so there is no direct Firestore path to one — these are the only way in.
 export const workspaceCreateOrg = (name) => callWorkspace({ action: 'createorg', name });
 export const workspaceListOrgs  = () => callWorkspace({ action: 'listorgs' });
-export const workspaceDeleteOrg = (id) => callWorkspace({ action: 'deleteorg', id });
+export const workspaceDeleteOrg  = (id) => callWorkspace({ action: 'deleteorg', id });
+export const workspaceRestoreOrg = (id) => callWorkspace({ action: 'restoreorg', id });
 
 // Bank feed — GoCardless open-banking connection + recurring-charge sync
 async function callBankfeed(body) {

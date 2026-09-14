@@ -22,7 +22,7 @@ cd functions && npm run serve      # Firebase emulator for functions only
 
 # Quality
 npm run lint         # ESLint — must stay at 0 errors
-npm test             # Vitest — 274 tests (src/lib, src/pages, functions/)
+npm test             # Vitest — 306 tests (src/lib, src/pages, functions/)
 ```
 
 There is a **husky pre-commit hook** that runs ESLint on staged files — commits will be blocked on lint errors.
@@ -163,6 +163,23 @@ Secrets (ANTHROPIC_API_KEY, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, SENDGRID_A
 `/users/{uid}` — owner read/write, but `protectedFieldsSafe()` blocks client writes to billing fields (`plan`, `stripe_*`, `subscription_*`, `is_founder`, `role`). Only exception: self-starting a trial (`plan='trial'` + `trial_started_at`) is allowed once per user (prevented from replay by checking existing doc has no `trial_started_at`).
 
 `/userdata/{uid}` — owner only, no field restrictions.
+
+`/client_orgs/{orgId}` — server only (`allow read, write: if false`); reached
+exclusively through the `workspace` function.
+
+### Client workspace retention
+
+`deleteorg` is a **soft delete**: it sets `deleted_at` and `purge_after` on the
+`client_orgs` record and keeps the data. `purgeClientOrgs` (scheduled daily)
+hard-deletes the chunks, the `userdata` document and the org record once
+`purge_after` passes. `RETENTION_DAYS = 90` lives in
+`functions/workspace-write.js` and is sent to the client by `listorgs`, so the
+confirmation copy cannot claim a different window than the purge honours.
+
+While deleted, a workspace is **frozen, not gone**: `read` still works so its
+data can be exported and handed back, `write` returns 409, it is excluded from
+`listorgs.orgs`, and it does not count against the plan's client-workspace cap.
+`restoreorg` is the exact inverse and refuses once the window has passed.
 
 ### i18n
 

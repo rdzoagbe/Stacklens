@@ -9,6 +9,13 @@ const {
   findMembership,
   assertCanWrite,
   buildSafeUpdate,
+  RETENTION_DAYS,
+  RETENTION_MS,
+  softDeleteFields,
+  restoreFields,
+  isOrgDeleted,
+  daysUntilPurge,
+  isPurgeDue,
 } = require_('./workspace-write.js');
 
 // These cover the part of the tenant boundary that moved out of
@@ -323,6 +330,89 @@ describe('who may reach a workspace', () => {
       expect(resolveWorkspaceAccess({
         clientOrg: bad, memberships: [], callerUid: 'msp1', callerEmail: '',
       }), JSON.stringify(bad)).toBeNull();
+    }
+  });
+});
+
+
+// ── Deleting a client workspace is reversible for ninety days ──────────────
+//
+// deleteorg used to batch-delete the chunks, the userdata document and the org
+// record in one commit, reached from a single window.prompt. An agency
+// removing the wrong client — names that differ by a word — destroyed that
+// company's whole inventory with nothing to restore from.
+//
+// A delete now marks the record; purgeClientOrgs removes it once the window
+// closes. Both halves matter: without the mark the data is gone instantly,
+// and without the purge "deleted" would mean hidden forever while the records
+// sit in Firestore and the customer has been told they were erased.
+
+describe('client workspace retention', () => {
+  const DAY = 24 * 60 * 60 * 1000;
+  const now = Date.UTC(2026, 0, 15);
+
+  it('keeps ninety days, not some other number', () => {
+    // The figure the customer is told. If it changes, it changes on purpose.
+    expect(RETENTION_DAYS).toBe(90);
+    expect(RETENTION_MS).toBe(90 * DAY);
+  });
+
+  it('a live workspace is not deleted and has no countdown', () => {
+    const org = { name: 'Acme', owner_uid: 'u1' };
+    expect(isOrgDeleted(org)).toBe(false);
+    expect(daysUntilPurge(org)).toBeNull();
+    expect(isPurgeDue(org)).toBe(false);
+  });
+
+  it('a fresh delete has the full window and is not due', () => {
+    const org = { ...softDeleteFields(now) };
+    expect(isOrgDeleted(org)).toBe(true);
+    expect(daysUntilPurge(org, now)).toBe(90);
+    expect(isPurgeDue(org, now)).toBe(false);
+  });
+
+  it('counts down and comes due on the ninetieth day, not before', () => {
+    const org = { ...softDeleteFields(now) };
+    expect(daysUntilPurge(org, now + 1 * DAY)).toBe(89);
+    expect(daysUntilPurge(org, now + 89 * DAY)).toBe(1);
+    expect(isPurgeDue(org, now + 89 * DAY)).toBe(false);
+    expect(isPurgeDue(org, now + 90 * DAY)).toBe(true);
+    expect(daysUntilPurge(org, now + 90 * DAY)).toBe(0);
+  });
+
+  it('never reports a negative countdown', () => {
+    const org = { ...softDeleteFields(now) };
+    expect(daysUntilPurge(org, now + 400 * DAY)).toBe(0);
+  });
+
+  it('restoring is the exact inverse of deleting', () => {
+    const org = { name: 'Acme', ...softDeleteFields(now) };
+    const restored = { ...org, ...restoreFields() };
+    expect(isOrgDeleted(restored)).toBe(false);
+    expect(isPurgeDue(restored)).toBe(false);
+    expect(daysUntilPurge(restored)).toBeNull();
+    expect(restored.name).toBe('Acme');
+  });
+
+  it('treats a half-written delete as due rather than unpurgeable', () => {
+    // An older build, or a crash between the two field writes. Data that can
+    // never be purged and never be found is the worse outcome for a promise
+    // about erasure.
+    for (const org of [
+      { deleted_at: now },
+      { deleted_at: now, purge_after: null },
+      { deleted_at: now, purge_after: 0 },
+      { deleted_at: now, purge_after: 'soon' },
+    ]) {
+      expect(isOrgDeleted(org)).toBe(true);
+      expect(isPurgeDue(org, now)).toBe(true);
+    }
+  });
+
+  it('does not mistake a zero or missing timestamp for a deletion', () => {
+    for (const org of [{}, { deleted_at: 0 }, { deleted_at: null }, { deleted_at: '' }]) {
+      expect(isOrgDeleted(org)).toBe(false);
+      expect(isPurgeDue(org)).toBe(false);
     }
   });
 });
