@@ -9,7 +9,6 @@ Disallow: /settings
 Disallow: /finance
 Disallow: /founder-admin
 Disallow: /finishSignUp
-Disallow: /report/
 Allow: /
 
 Sitemap: https://stacklens.fr/sitemap.xml

@@ -11,6 +11,7 @@ import { FloatingChatbotGated } from './components/FloatingChatbot';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useTranslation } from './translations';
 import { setQueryClient } from './lib/db';
+import { applySeo } from './lib/seo';
 import { Toaster } from 'react-hot-toast';
 
 // ── Route-level code splitting ────────────────────────────────────────────────
@@ -189,12 +190,23 @@ setQueryClient(queryClient);
 
 
 
+// ── Head management ────────────────────────────────────────────────────────
+// Inside the router so it runs on every navigation. Without this every route
+// served index.html's hardcoded canonical pointing at the homepage, so each
+// URL in sitemap.xml declared itself a duplicate of / and was dropped.
+function SeoHead() {
+  const { pathname } = useLocation();
+  useEffect(() => { applySeo(pathname); }, [pathname]);
+  return null;
+}
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <Toaster position="top-right" toastOptions={{ style: { background: "#1e293b", color: "#f1f5f9", border: "1px solid #334155" } }} />
         <LanguageProvider><CurrencyProvider>
         <ErrorBoundary><BrowserRouter>
+        <SeoHead />
         <CookieBanner />
           <TourProvider>
           <Suspense fallback={<PageLoader />}>
