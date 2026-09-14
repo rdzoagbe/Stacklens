@@ -141,6 +141,30 @@ describe('the functions deploy is gated, and fails toward deploying', () => {
     expect(job).toMatch(/functions\/ firebase\.json \.github\/workflows\/build\.yml/);
   });
 
+  it('does not redeploy for a change to a test file', () => {
+    // Test files under functions/ are not deployed. The first version of this
+    // gate omitted that, so the merge introducing it redeployed all twenty
+    // functions because it had touched functions/deploy-batches.test.js — and
+    // failed on the quota the gate exists to avoid.
+    expect(deployFunctionsJob(), 'The change detection must exclude ' +
+      'functions/**/*.test.js, or editing a test restarts twenty Cloud Run ' +
+      'services.').toMatch(/grep -v -E '\^functions\/\.\*\\\.test\\\.js\$'/);
+  });
+
+  it('lets each batch drain before starting the next', () => {
+    const job = deployFunctionsJob();
+    // Twenty functions at one vCPU each is exactly the 20 vCPU ceiling, so a
+    // batch whose old revisions are still up leaves no room for the next.
+    // Failures tracked cumulative activity within a run and landed on batch 4
+    // twice, so the pause before batch 4 is the one that matters most.
+    for (const n of [2, 3, 4]) {
+      expect(job, `No drain before batch ${n}.`)
+        .toMatch(new RegExp(`Let batch ${n - 1} drain before batch ${n}`));
+    }
+    const pauses = (job.match(/run: sleep \d+/g) || []).length;
+    expect(pauses, 'Expected one drain before each batch after the first.').toBe(3);
+  });
+
   it('says out loud when it skips', () => {
     // Four greyed-out steps and no explanation is how a skip goes unnoticed.
     expect(deployFunctionsJob()).toMatch(/deploy functions: \$\{\{ steps\.scope\.outputs\.deploy \}\}/);
