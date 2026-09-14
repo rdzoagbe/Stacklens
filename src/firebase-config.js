@@ -18,7 +18,6 @@ import {
   GoogleAuthProvider,
   OAuthProvider,
   signOut,
-  deleteUser,
   onAuthStateChanged,
   sendSignInLinkToEmail,
   isSignInWithEmailLink,
@@ -862,18 +861,43 @@ export async function startTrial(uid) {
   }
 }
 
-export async function deleteAccount() {
+/**
+ * Delete this account and everything belonging to it.
+ *
+ * Runs entirely server-side, and has to.
+ *
+ * The previous version did it from here: delete the Auth user, then delete
+ * /userdata/{uid} and /users/{uid}. Three things were wrong with that.
+ *
+ *   1. It deleted the Auth user FIRST, and the Firestore rules are
+ *      isOwner(uid). By the time those two deleteDoc calls ran there was no
+ *      signed-in user, so the rules denied them — the account went and the
+ *      data very likely stayed.
+ *   2. Deleting /userdata/{uid} does not delete /userdata/{uid}/chunks.
+ *      Firestore has no cascade. That subcollection holds employees, access
+ *      and audit_log, so the names and work email addresses of the customer's
+ *      staff survived every deletion.
+ *   3. It could not have reached most of the rest even with a valid session:
+ *      backups, client_orgs, workspace_members and integration_credentials are
+ *      server-only by rule, deliberately. Only a function can clear them.
+ *
+ * So the browser asks and the server does it, with the Admin SDK, in an order
+ * that leaves the account intact until its data is gone. `confirmEmail` must
+ * match the caller's verified address — an irreversible erasure should not
+ * rest on a single bearer token.
+ *
+ * Never called on success: the Auth user no longer exists, so there is nothing
+ * to sign out of. Local storage is cleared anyway, because a stale blob would
+ * otherwise be hydrated by the next person to sign in on this browser.
+ */
+export async function deleteAccount(confirmEmail) {
   if (!auth) throw new Error('Firebase auth unavailable');
   const user = auth.currentUser;
   if (!user) throw new Error('Not authenticated');
-  const uid = user.uid;
-  // Delete auth account first — if this fails with auth/requires-recent-login,
-  // Firestore data is still intact and the user can re-authenticate and retry.
-  await deleteUser(user);
-  const { deleteDoc } = await import('firebase/firestore');
-  await deleteDoc(doc(firestoreDb, 'userdata', uid));
-  await deleteDoc(doc(firestoreDb, 'users', uid));
+  await callWorkspace({ action: 'deleteaccount', confirmEmail });
   localStorage.removeItem('saasguard_db');
   localStorage.removeItem('accessguard_v1');
+  localStorage.removeItem('sg_auth_uid');
+  localStorage.removeItem('sg_own_workspace_backup');
 }
 

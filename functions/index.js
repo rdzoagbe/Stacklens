@@ -35,6 +35,7 @@ const {
   RETENTION_DAYS, softDeleteFields, restoreFields, isOrgDeleted, daysUntilPurge, isPurgeDue,
   REV_FIELD, revOf, nextRev, isStaleWrite,
 } = require('./workspace-write.js');
+const { purgeAccount } = require('./purge-account.js');
 
 // Explicitly allow stacklens.fr and Firebase preview domains
 const ALLOWED_ORIGINS = [
@@ -615,19 +616,34 @@ exports.founderops = onRequest({ cors: true, timeoutSeconds: 30, secrets: [SENDG
         await db.collection('users').doc(targetUid).update({ plan });
         return res.json({ ok: true });
       }
-      // Permanently remove a user: Auth account + /users doc + /userdata doc.
+      // Permanently remove a user and everything belonging to them.
+      //
+      // This used to delete the Auth user, /users and /userdata — and leave
+      // /userdata/{uid}/chunks behind, because Firestore does not cascade to
+      // subcollections. That is where employees, access and audit_log live, so
+      // the personal data of the customer's staff survived the deletion
+      // indefinitely. It also left backups, API keys, stored vendor
+      // credentials and memberships. purgeAccount is now the one definition of
+      // the job, shared with the self-service path below.
       if (action === 'deleteUser') {
         if (FOUNDER_UIDS.includes(targetUid) || targetUid === decoded.uid) {
           return res.status(400).json({ error: 'Cannot delete the founder account' });
         }
+        let targetEmail = '';
         try {
-          await getAuth().deleteUser(targetUid);
+          targetEmail = (await getAuth().getUser(targetUid))?.email || '';
         } catch (err) {
           if (err.code !== 'auth/user-not-found') throw err;
         }
-        await db.collection('users').doc(targetUid).delete();
-        await db.collection('userdata').doc(targetUid).delete();
-        return res.json({ ok: true });
+        const counts = await purgeAccount(db, targetUid, {
+          email: targetEmail,
+          deleteAuthUser: async (u) => {
+            try { await getAuth().deleteUser(u); }
+            catch (err) { if (err.code !== 'auth/user-not-found') throw err; }
+          },
+        });
+        console.warn('founderops deleteUser purged', targetUid, JSON.stringify(counts));
+        return res.json({ ok: true, purged: counts });
       }
       return res.status(400).json({ error: 'Unknown action' });
     } catch (err) {
@@ -1466,6 +1482,51 @@ exports.workspace = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, re
           throw err;
         }
         return res.json({ ok: true, rev: committedRev });
+      }
+
+      // ── Delete my own account ────────────────────────────────────────────
+      //
+      // Self-service deletion cannot be done from the browser. The client
+      // version removed the Auth user first, and the Firestore rules are
+      // isOwner(uid) — so its own follow-up deletes were unauthenticated by
+      // the time they ran, and very likely denied. It also could never reach
+      // the chunks subcollection, the backups, the stored vendor credentials
+      // or the memberships: several are server-only by rule, which is correct
+      // and means only a function can clear them.
+      //
+      // It lives on this endpoint rather than in a function of its own because
+      // the deploy pipeline sits exactly at the regional CPU ceiling at twenty
+      // functions; a twenty-first is a failed deploy. This endpoint already
+      // authorises per action and already owns workspace data lifecycle.
+      //
+      // Requires the caller's email to be verified, and requires them to type
+      // it back. A GDPR erasure is irreversible and unauthenticated deletion
+      // of somebody else's account is the worst thing this endpoint could do,
+      // so the confirmation is a second, independent check against a
+      // token that has been replayed or mis-scoped.
+      if (action === 'deleteaccount') {
+        if (FOUNDER_UIDS.includes(decoded.uid)) {
+          return res.status(400).json({ error: 'The founder account cannot be deleted here' });
+        }
+        if (!callerEmail) {
+          return res.status(403).json({
+            error: 'Verify your email address before deleting your account',
+          });
+        }
+        if (String(req.body?.confirmEmail || '').toLowerCase().trim() !== callerEmail) {
+          return res.status(400).json({
+            error: 'Type your email address exactly to confirm deletion',
+          });
+        }
+        const counts = await purgeAccount(db, decoded.uid, {
+          email: callerEmail,
+          deleteAuthUser: async (u) => {
+            try { await getAuth().deleteUser(u); }
+            catch (err) { if (err.code !== 'auth/user-not-found') throw err; }
+          },
+        });
+        console.warn('self-service account deletion purged', decoded.uid, JSON.stringify(counts));
+        return res.json({ ok: true, purged: counts });
       }
 
       return res.status(400).json({ error: 'Unknown action' });
