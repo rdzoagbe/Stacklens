@@ -57,26 +57,37 @@ const PROBE_APP_NAME = 'appcheck-probe';
 export function explain(err) {
   const code = err?.code || '';
   const message = err?.message || String(err || 'unknown error');
+  // Always carried through. The first run of this probe on the live site came
+  // back "throttled" and the canned explanation was all it showed — which said
+  // what to do but not what had actually gone wrong, and the throttle then
+  // stops the next attempt from finding out. Firebase error strings carry a
+  // code and an HTTP status, never a credential, so there is no reason to drop
+  // them. `raw` is the line to paste when asking someone what it means.
+  const raw = [code, message].filter(Boolean).join(': ');
 
   if (/throttl/i.test(code) || /throttl/i.test(message)) {
     return {
       verdict: 'throttled',
-      detail: 'App Check is throttling requests, which happens after repeated '
-        + 'failed exchanges. The underlying registration problem is still there, '
-        + 'and the throttle has to expire before a retry means anything.',
+      raw,
+      detail: 'App Check is throttling, which it does after a failed exchange — '
+        + 'so throttling is the symptom and the registration is still the cause. '
+        + 'Firebase backs off for up to a day after a 403. Fix the registration '
+        + 'first, then retry once the throttle has expired; retrying before that '
+        + 'tells you nothing either way.',
     };
   }
-  if (/400/.test(message) || /recaptcha/i.test(message)) {
+  if (/40[03]/.test(message) || /recaptcha/i.test(message)) {
     return {
       verdict: 'rejected',
-      detail: 'The reCAPTCHA v3 exchange was rejected. This is the failure seen '
-        + 'in July: the web app in Firebase Console → App Check → Apps must have '
-        + 'the reCAPTCHA v3 provider registered with the SECRET key that pairs '
-        + 'with this site key, and this domain must be in the reCAPTCHA '
+      raw,
+      detail: 'The reCAPTCHA v3 exchange was rejected. This is the July failure: '
+        + 'the web app in Firebase Console → App Check → Apps must have the '
+        + 'reCAPTCHA v3 provider registered with the SECRET key that pairs with '
+        + 'this site key, and this domain must be in the reCAPTCHA '
         + 'allowed-domains list in Google Cloud Console.',
     };
   }
-  return { verdict: 'failed', detail: message };
+  return { verdict: 'failed', raw, detail: message };
 }
 
 /**
