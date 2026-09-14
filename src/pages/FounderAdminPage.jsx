@@ -548,6 +548,15 @@ export function FounderAdminPage() {
               {appCheck.result.ok ? 'Ready' : `Not ready — ${appCheck.result.verdict}`}
             </div>
             <div className="mt-1 text-slate-300/90">{appCheck.result.detail}</div>
+            {appCheck.result.raw && (
+              /* The Firebase error verbatim. The canned explanation says what to
+                 do; this says what actually happened, and once App Check starts
+                 throttling the next attempt cannot find out. It is an error code
+                 and an HTTP status, never a credential. */
+              <div className="mt-2 font-mono text-[11px] text-slate-400 bg-slate-950/60 border border-slate-800 rounded px-2 py-1.5 break-words">
+                {appCheck.result.raw}
+              </div>
+            )}
             {appCheck.result.ok && (
               <div className="mt-2 text-emerald-200/80">
                 Next step is a one-line change: APP_CHECK_ENABLED in

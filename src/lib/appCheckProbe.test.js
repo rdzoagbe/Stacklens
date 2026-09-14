@@ -104,6 +104,13 @@ describe('the probe is isolated from the app Auth uses', () => {
 });
 
 describe('the probe always reports rather than throwing', () => {
+  it('shows the raw error in the panel so it can be pasted', () => {
+    const page = readFileSync(resolve(process.cwd(), 'src/pages/FounderAdminPage.jsx'), 'utf8');
+    expect(page, 'the panel must render result.raw — the canned explanation '
+      + 'alone left the first real failure undiagnosable')
+      .toMatch(/result\.raw/);
+  });
+
   it('reports success with the token length, never the token', async () => {
     const r = await probeAppCheck(config, opts);
     expect(r.ok).toBe(true);
@@ -135,10 +142,34 @@ describe('the probe always reports rather than throwing', () => {
 });
 
 describe('the failure is explained in terms of what to go and fix', () => {
-  it('names throttling, and that a retry needs the throttle to expire', () => {
+  it('names throttling, and that fixing the registration comes first', () => {
     const r = explain({ code: 'appCheck/throttled', message: 'throttled' });
     expect(r.verdict).toBe('throttled');
-    expect(r.detail).toMatch(/throttle has to expire/);
+    // The first live run reported throttled, and the canned text alone said
+    // what to do without saying what had gone wrong. Throttling is the
+    // symptom; the registration is the cause, and that ordering is the advice.
+    expect(r.detail).toMatch(/registration is still the cause/);
+    expect(r.detail).toMatch(/throttle has expired/);
+  });
+
+  it('carries the raw Firebase error through every verdict', () => {
+    // Dropped on the first version, which is what made the first real failure
+    // undiagnosable: throttling then stops the next attempt from learning
+    // anything. An error code and an HTTP status are not credentials.
+    expect(explain({ code: 'appCheck/throttled', message: 'AppCheck: 403' }).raw)
+      .toBe('appCheck/throttled: AppCheck: 403');
+    expect(explain(new Error('exchangeRecaptchaV3Token returned 400')).raw)
+      .toMatch(/400/);
+    expect(explain(new Error('network down')).raw).toMatch(/network down/);
+  });
+
+  it('recognises a 403 as a rejected exchange, not just a 400', () => {
+    // A provider that is not registered at all answers 403, and the first
+    // version only matched 400 — so the commonest cause fell through to the
+    // generic branch with no guidance attached.
+    const r = explain(new Error('AppCheck exchange failed: 403 Forbidden'));
+    expect(r.verdict).toBe('rejected');
+    expect(r.detail).toMatch(/SECRET key/);
   });
 
   it('points a rejected exchange at the secret key and the domain list', () => {
