@@ -40,6 +40,10 @@ const MEMBER_WRITABLE_KEYS = [
  */
 const INTERNAL_KEYS = [
   '_shared_view', '_uid', '_chunks', '_saved_at', '_updatedAt', '_trimmed',
+  // The member's copy carries the revision it read. It is the input to the
+  // staleness check, read before the merge; the merged output must not carry
+  // it, or a member could pin the counter and defeat the check for everyone.
+  '_rev',
 ];
 
 /** Guard against a runaway or hostile payload. Well above any real workspace. */
@@ -60,6 +64,38 @@ const MAX_ITEMS_PER_COLLECTION = 50000;
  */
 const CHUNKED_KEYS = ['employees', 'access', 'audit_log'];
 const CHUNK_MAX_CHARS = 500000;
+
+// ── Which version of the workspace was this edit based on? ─────────────────
+//
+// The twin of src/lib/revision.js. A write used to replace the owner's whole
+// document unconditionally, so an owner and an editor working the same
+// afternoon each silently deleted the other's work and neither found out.
+//
+// Every accepted write bumps the counter; every write declares the value it
+// was based on. If the stored counter has moved on, the write is refused and
+// nothing is overwritten. Both null — a document written before this existed,
+// edited by a client that never saw one — is a match, which is how the
+// existing production documents migrate on their next save.
+//
+// Kept in step with the client by src/lib/revision-parity.test.js, the same
+// way CHUNKED_KEYS above is.
+const REV_FIELD = '_rev';
+
+function revOf(blob) {
+  const raw = blob && typeof blob === 'object' ? blob[REV_FIELD] : undefined;
+  return Number.isFinite(raw) && raw > 0 ? raw : null;
+}
+
+function nextRev(stored) {
+  const n = Number.isFinite(stored) && stored > 0 ? stored : 0;
+  return n + 1;
+}
+
+function isStaleWrite(stored, base) {
+  const s = Number.isFinite(stored) && stored > 0 ? stored : null;
+  const b = Number.isFinite(base) && base > 0 ? base : null;
+  return s !== b;
+}
 
 /**
  * Slice one collection the way the client does: accumulate items until the
@@ -353,6 +389,10 @@ function isPurgeDue(org, now = Date.now()) {
 }
 
 module.exports = {
+  REV_FIELD,
+  revOf,
+  nextRev,
+  isStaleWrite,
   MEMBER_ROLES,
   MEMBER_WRITABLE_KEYS,
   INTERNAL_KEYS,

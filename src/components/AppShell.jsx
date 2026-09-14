@@ -4,7 +4,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { loadUserData, logConsent } from '../firebase-config';
 import { exitSharedView } from '../lib/db';
-import { subscribeSync, getSyncSnapshot, retrySync } from '../lib/syncStatus';
+import { subscribeSync, getSyncSnapshot, retrySync, resolveConflict } from '../lib/syncStatus';
 import { useQueryClient } from '@tanstack/react-query';
 import { resolvePlan, getTrialState, getPlanLimits, isFounderUser } from '../lib/plan';
 import { cx } from '../lib/utils';
@@ -638,6 +638,50 @@ function CloudSyncBanner() {
   const t = useTranslation(language);
   const sync = useSyncExternalStore(subscribeSync, getSyncSnapshot, getSyncSnapshot);
   const [retrying, setRetrying] = useState(false);
+
+  // ── Somebody else saved first ──────────────────────────────────────────
+  //
+  // Deliberately not the same banner. A failed save offers a retry; a conflict
+  // must not, because retrying re-sends this browser's copy and silently
+  // destroys the other person's work — the thing the revision check exists to
+  // stop. Both ways out are spelled out, and neither happens on its own.
+  if (sync.status === 'conflict') {
+    const resolve = async (which) => {
+      setRetrying(true);
+      const ok = await resolveConflict(which);
+      setRetrying(false);
+      if (!ok) toast.error(t('sync_conflict_failed'));
+    };
+    return (
+      <div className="bg-gradient-to-r from-amber-600 to-orange-600 text-white text-sm px-4 py-2.5 flex flex-wrap items-center gap-x-3 gap-y-2">
+        <div className="flex items-start gap-2 min-w-0 w-full sm:w-auto sm:flex-1">
+          <span className="text-base flex-shrink-0 leading-5">⚠️</span>
+          <span className="min-w-0">
+            <span className="font-semibold">{t('sync_conflict_title')}</span>
+            {/* Shown on phones too, unlike the failure banner above. There
+                "Retry" explains itself; here "Keep mine" does not, and the
+                sentence that says nothing was overwritten yet is the one
+                piece of information the person actually needs. */}
+            <span className="text-amber-100"> — {t('sync_conflict_sub')}</span>
+          </span>
+        </div>
+        <span className="flex items-center justify-end gap-2 flex-shrink-0 w-full sm:w-auto sm:ml-auto">
+          <button
+            onClick={() => resolve('theirs')}
+            disabled={retrying}
+            className="bg-white text-amber-700 hover:bg-amber-50 disabled:opacity-70 px-3 py-1 rounded-lg text-xs font-bold transition-all">
+            {t('sync_conflict_theirs')}
+          </button>
+          <button
+            onClick={() => resolve('mine')}
+            disabled={retrying}
+            className="border border-white/70 hover:bg-white/15 disabled:opacity-70 px-3 py-1 rounded-lg text-xs font-bold transition-all">
+            {t('sync_conflict_mine')}
+          </button>
+        </span>
+      </div>
+    );
+  }
 
   if (sync.status !== 'error') return null;
 
