@@ -70,3 +70,34 @@ describe('the client and the server agree on the revision rule', () => {
     expect(server.INTERNAL_KEYS).toContain(client.REV_FIELD);
   });
 });
+
+// ── The no-op-write check has to know every bookkeeping field ──────────────
+//
+// sameSubstance decides whether a refused write would have changed anything,
+// and it does so by ignoring the fields that carry no user data. If a NEW
+// local-only field is added to LOCAL_ONLY_KEYS and not to BOOKKEEPING_FIELDS,
+// the local copy carries it and the stored copy never can — so the two are
+// permanently "different" and the no-op case stops being recognised. The
+// banner comes back for every second tab, quietly, with every test green.
+//
+// The reverse direction is not checked, because BOOKKEEPING_FIELDS legitimately
+// contains fields saveUserData adds on the way up (_uid, _updatedAt, _chunks)
+// that are not local-only at all.
+describe('the no-op-write check covers every field that is not user data', () => {
+  it('ignores every local-only key', async () => {
+    const { LOCAL_ONLY_KEYS } = await import('./constants');
+    for (const key of LOCAL_ONLY_KEYS) {
+      expect(client.BOOKKEEPING_FIELDS, `${key} is stripped before a cloud write, so the `
+        + 'stored copy can never have it — sameSubstance must ignore it or no write '
+        + 'will ever be recognised as a no-op').toContain(key);
+    }
+  });
+
+  it('proves it by comparing a blob that carries them all', async () => {
+    const { LOCAL_ONLY_KEYS } = await import('./constants');
+    const local = { tools: [{ id: 't1' }] };
+    for (const key of LOCAL_ONLY_KEYS) local[key] = 'set';
+    // What the cloud stores: the same data, none of the local-only fields.
+    expect(client.sameSubstance(local, { tools: [{ id: 't1' }], _rev: 7 })).toBe(true);
+  });
+});

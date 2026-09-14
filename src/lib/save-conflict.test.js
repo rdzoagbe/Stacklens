@@ -29,7 +29,7 @@ vi.mock('../firebase-config', () => ({
 }));
 
 import { saveDb, enterSharedView } from './db';
-import { saveUserData, loadUserData, workspaceWrite } from '../firebase-config';
+import { saveUserData, loadUserData, workspaceWrite, workspaceRead } from '../firebase-config';
 import { getSyncSnapshot, resolveConflict, _resetSyncStatus } from './syncStatus';
 import { StaleWriteError } from './revision';
 
@@ -342,5 +342,141 @@ describe('hydration does not launder a diverged local copy', () => {
 
     expect(localBlob()._rev).toBe(7);
     expect(localBlob().tools[0].id).toBe('cloud');
+  });
+});
+
+// ── The banner Roland saw with nothing touched ──────────────────────────────
+//
+// useAuth calls saveDb on EVERY auth event, so every page load sends a write
+// carrying the same data with a freshly-patched user block. Open the app in a
+// second tab — or wake a phone and a laptop together — and both fire seconds
+// apart. One commits, the other's base revision is now behind, and the person
+// is asked to choose between two copies that are the same copy.
+//
+// That is an alarm firing when nothing is wrong, on a page nobody typed into,
+// and it is how people learn to dismiss the alarm that matters.
+//
+// These tests are about narrowing the banner to real divergence WITHOUT
+// widening the silence: each "no banner" case is paired with the same setup
+// plus one real difference, which must still raise it.
+describe('a conflict where both copies hold the same data', () => {
+  beforeEach(async () => {
+    localStorage.setItem(LS_KEY, JSON.stringify(ownDb({ _rev: 3 })));
+    await signIn({ cloud: { ...ownDb(), _rev: 3, _updatedAt: 1 } });
+  });
+
+  it('does not raise the banner', async () => {
+    saveUserData.mockRejectedValueOnce(new StaleWriteError(4));
+    // What the other tab committed: our data, one revision on.
+    loadUserData.mockResolvedValueOnce({ ...ownDb(), _rev: 4, _updatedAt: 2, _uid: 'u1' });
+    saveDb(ownDb({ _rev: 3 }));
+    await flushSave();
+
+    expect(getSyncSnapshot().status, 'nothing diverged, so there is nothing to ask')
+      .toBe('saved');
+  });
+
+  it('adopts the revision the other tab committed, so the next edit works', async () => {
+    // Without this the local copy keeps declaring 3 and every subsequent save
+    // conflicts too — the banner would be suppressed and the sync silently
+    // stuck, which is worse than the false alarm.
+    saveUserData.mockRejectedValueOnce(new StaleWriteError(4));
+    loadUserData.mockResolvedValueOnce({ ...ownDb(), _rev: 4 });
+    saveDb(ownDb({ _rev: 3 }));
+    await flushSave();
+
+    expect(localBlob()._rev).toBe(4);
+  });
+
+  it('does not write anything', async () => {
+    // The stored copy already holds this data. A write would be a second
+    // pointless round trip and another chance to lose the same race.
+    saveUserData.mockRejectedValueOnce(new StaleWriteError(4));
+    loadUserData.mockResolvedValueOnce({ ...ownDb(), _rev: 4 });
+    saveDb(ownDb({ _rev: 3 }));
+    await flushSave();
+
+    expect(saveUserData.mock.calls.length, 'one refused attempt and no more').toBe(1);
+  });
+
+  it('still raises the banner when the stored copy really differs', async () => {
+    // Same race, one real edit on the other side. This is the case the whole
+    // mechanism exists for and it must survive the fix above.
+    saveUserData.mockRejectedValueOnce(new StaleWriteError(4));
+    loadUserData.mockResolvedValueOnce({
+      ...ownDb({ tools: [{ id: 't1', name: 'Figma' }, { id: 't2', name: 'Slack' }] }),
+      _rev: 4,
+    });
+    saveDb(ownDb({ _rev: 3 }));
+    await flushSave();
+
+    expect(getSyncSnapshot().status).toBe('conflict');
+  });
+
+  it('still raises the banner when the local copy has the unsent edit', async () => {
+    // The direction that actually loses work: this browser edited, somebody
+    // else wrote first. Suppressing here would discard the local edit.
+    saveUserData.mockRejectedValueOnce(new StaleWriteError(4));
+    loadUserData.mockResolvedValueOnce({ ...ownDb(), _rev: 4 });
+    saveDb(ownDb({ _rev: 3, tools: [{ id: 't1', name: 'Figma' }, { id: 'mine' }] }));
+    await flushSave();
+
+    expect(getSyncSnapshot().status).toBe('conflict');
+    expect(localBlob().tools.map(t => t.id)).toContain('mine');
+  });
+
+  it('raises the banner when the stored copy cannot be read', async () => {
+    // Unproven is not the same as identical. A failed read must leave the
+    // conflict standing, never assume it away.
+    saveUserData.mockRejectedValueOnce(new StaleWriteError(4));
+    loadUserData.mockRejectedValueOnce(new Error('offline'));
+    saveDb(ownDb({ _rev: 3 }));
+    await flushSave();
+
+    expect(getSyncSnapshot().status).toBe('conflict');
+  });
+
+  it('raises the banner when the stored copy is missing entirely', async () => {
+    saveUserData.mockRejectedValueOnce(new StaleWriteError(4));
+    loadUserData.mockResolvedValueOnce(null);
+    saveDb(ownDb({ _rev: 3 }));
+    await flushSave();
+
+    expect(getSyncSnapshot().status).toBe('conflict');
+  });
+});
+
+describe('the same no-op race in a shared workspace', () => {
+  const sharedDb = (extra = {}) => ({
+    ...ownDb(),
+    _shared_view: { owner_uid: 'owner1', owner_email: 'o@b.com', role: 'editor' },
+    ...extra,
+  });
+
+  it('does not raise the banner when the owner stored the same data', async () => {
+    // Two people opening one workspace at the same time, neither of them
+    // having typed anything yet.
+    workspaceWrite.mockRejectedValueOnce(
+      Object.assign(new Error('conflict'), { isConflict: true, rev: 6 }),
+    );
+    workspaceRead.mockResolvedValueOnce({ data: { ...ownDb(), _rev: 6 }, role: 'editor' });
+    saveDb(sharedDb({ _rev: 5 }));
+    await flushSave();
+
+    expect(getSyncSnapshot().status).toBe('saved');
+    expect(localBlob()._rev).toBe(6);
+  });
+
+  it('still raises the banner when the owner really changed something', async () => {
+    workspaceWrite.mockRejectedValueOnce(
+      Object.assign(new Error('conflict'), { isConflict: true, rev: 6 }),
+    );
+    workspaceRead.mockResolvedValueOnce({
+      data: { ...ownDb({ tools: [] }), _rev: 6 }, role: 'editor',
+    });
+    saveDb(sharedDb({ _rev: 5 }));
+    await flushSave();
+
+    expect(getSyncSnapshot().status).toBe('conflict');
   });
 });

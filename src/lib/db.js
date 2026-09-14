@@ -1,7 +1,7 @@
 import { LS_KEY } from './constants';
 import { saveUserData, loadUserData, workspaceWrite, workspaceRead } from '../firebase-config';
 import { markSyncSaving, markSyncSaved, markSyncFailed, markSyncConflict } from './syncStatus';
-import { REV_FIELD, revOf, isConflictError } from './revision';
+import { REV_FIELD, revOf, isConflictError, sameSubstance } from './revision';
 import { format, subDays, parseISO, isValid } from 'date-fns';
 
 // ─── ID / date helpers ────────────────────────────────────────────────────────
@@ -180,11 +180,19 @@ export function saveDb(db) {
       markSyncSaving();
       attempt().then(
         (r) => { stampLocalRev(r?.rev); markSyncSaved(); },
-        (err) => {
+        async (err) => {
           // Two people, one workspace: the owner and an editor working the
           // same afternoon used to delete each other's work without either of
           // them ever finding out. The endpoint now answers 409 instead.
           if (!isConflictError(err)) return markSyncFailed(err, attempt);
+          // Nothing to choose between if both copies hold the same data. See
+          // sameSubstance in lib/revision: two tabs of one workspace each fire
+          // a write on load, and one of them always loses the race.
+          const theirs = await workspaceRead(ownerUid).then(r => r?.data, () => null);
+          if (theirs && sameSubstance(db, theirs)) {
+            stampLocalRev(revOf(theirs));
+            return markSyncSaved();
+          }
           markSyncConflict(err, {
             keepTheirs: async () => {
               const { data, role } = await workspaceRead(ownerUid);
@@ -221,11 +229,22 @@ export function saveDb(db) {
       markSyncSaving();
       attempt().then(
         (rev) => { stampLocalRev(rev); markSyncSaved(); },
-        (err) => {
+        async (err) => {
           // A conflict must not reach the ordinary retry: that re-sends this
           // same payload, which is the silent overwrite the revision check
           // exists to prevent. The user is offered the two real choices.
           if (!isConflictError(err)) return markSyncFailed(err, attempt);
+          // Unless there are no choices to offer. useAuth saves on every auth
+          // event, so a second tab or a phone and a laptop waking together
+          // fire two writes carrying identical data; one loses the race and
+          // used to raise a banner over two copies that are the same copy.
+          // See sameSubstance in lib/revision. A read that fails leaves this
+          // a conflict, which is the safe direction.
+          const theirs = await loadUserData(uid).catch(() => null);
+          if (theirs && sameSubstance(db, theirs)) {
+            stampLocalRev(revOf(theirs));
+            return markSyncSaved();
+          }
           markSyncConflict(err, {
             keepTheirs: () => adoptCloudCopy(uid),
             keepMine: async () => {
