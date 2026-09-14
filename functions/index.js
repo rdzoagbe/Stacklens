@@ -37,6 +37,7 @@ const {
   monthlySpend, billedToolCount, NOT_BILLED_STATUS,
 } = require('./workspace-write.js');
 const { purgeAccount } = require('./purge-account.js');
+const { shouldAlert, recordAlert, MAX_PER_HOUR } = require('./crash-alerts.js');
 
 // Explicitly allow stacklens.fr and Firebase preview domains
 const ALLOWED_ORIGINS = [
@@ -661,7 +662,14 @@ exports.founderops = onRequest({ cors: true, timeoutSeconds: 30, secrets: [SENDG
 // ~300 docs). Client access to the collection is blocked by default-deny rules.
 let _errReports = 0;
 setInterval(() => { _errReports = 0; }, 60 * 1000).unref?.();
-exports.clientErrors = onRequest({ cors: true, timeoutSeconds: 10 }, async (req, res) => {
+exports.clientErrors = onRequest({
+  cors: true,
+  timeoutSeconds: 10,
+  // Needed to mail the founder when the live site starts crashing. Without
+  // this the crashes were recorded and nobody was told, which is the same as
+  // not recording them.
+  secrets: [SENDGRID_API_KEY],
+}, async (req, res) => {
   cors(req, res, async () => {
     if (req.method === 'OPTIONS') return res.status(204).send('');
     if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
@@ -679,6 +687,60 @@ exports.clientErrors = onRequest({ cors: true, timeoutSeconds: 10 }, async (req,
       console.error('CLIENT ERROR:', doc.message, '@', doc.url);
       const db = getFirestore();
       await db.collection('client_errors').add(doc);
+
+      // ── Tell somebody ────────────────────────────────────────────────────
+      //
+      // Never let this fail the report. The caller is a browser that has just
+      // crashed; the one thing it must get back is a 200, so the crash is
+      // recorded even if the mail, the secret or the transaction is broken.
+      // A swallowed alert costs a notification. A thrown one costs the record.
+      try {
+        const stateRef = db.collection('crash_alert_state').doc('state');
+        // A transaction, because a bad deploy sends these in parallel: two
+        // concurrent crashes reading the same state would both decide to mail.
+        const decision = await db.runTransaction(async (tx) => {
+          const snap = await tx.get(stateRef);
+          const state = snap.exists ? snap.data() : {};
+          const d = shouldAlert(state, doc.message);
+          if (d.alert) tx.set(stateRef, recordAlert(state, d.fp));
+          return d;
+        });
+
+        if (decision.alert) {
+          const sgMail = require('@sendgrid/mail');
+          sgMail.setApiKey(SENDGRID_API_KEY.value());
+          await sgMail.send({
+            to: FOUNDER_EMAILS[0],
+            from: { email: 'hello@stacklens.fr', name: 'Stacklens' },
+            subject: `Stacklens crash: ${doc.message.slice(0, 80)}`,
+            text: [
+              'A visitor hit an uncaught error on the live site.',
+              '',
+              `Message: ${doc.message}`,
+              `Page:    ${doc.url || '(unknown)'}`,
+              `Browser: ${doc.ua || '(unknown)'}`,
+              `At:      ${doc.at}`,
+              '',
+              doc.stack ? `Stack:\n${doc.stack}` : '(no stack)',
+              '',
+              `The same crash will not be reported again for 24 hours, and at most ${MAX_PER_HOUR}`,
+              'alerts are sent per hour however many distinct crashes appear — so this is',
+              'one email about a problem, not one per affected visitor.',
+              '',
+              'Full history: Firestore /client_errors, newest first. Sentry has the same',
+              'crash with more context if its alerting is configured.',
+            ].join('\n'),
+          });
+          console.warn('crash alert sent:', decision.fp);
+        } else {
+          // Logged deliberately: "why did nobody tell me" has to be answerable,
+          // or the first instinct will be to assume alerting is broken.
+          console.log('crash alert suppressed:', decision.reason, '—', decision.fp);
+        }
+      } catch (err) {
+        console.error('crash alert failed (the crash itself was recorded):', err?.message);
+      }
+
       if (Math.random() < 0.05) {
         const old = await db.collection('client_errors').orderBy('at', 'desc').offset(300).limit(100).get();
         if (!old.empty) {
