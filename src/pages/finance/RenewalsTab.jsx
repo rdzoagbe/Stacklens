@@ -374,7 +374,7 @@ export function RenewalAlerts() {
               {/* Was 15% of the renewing contract value, labelled "potential
                   savings" — an assumption about how a negotiation would go,
                   presented as a figure. The contract value itself is a fact. */}
-              <div className="text-xs text-slate-500 uppercase tracking-wider">{t('ren_up_for_renewal') || 'Up for renewal'}</div>
+              <div className="text-xs text-slate-500 uppercase tracking-wider">{t('ren_up_for_renewal')}</div>
               <div className="text-lg font-black text-white">{getCurrency(language)}{displayAmount(Math.round(totalAtRisk)).toLocaleString()}/yr</div>
             </div>
           </div>

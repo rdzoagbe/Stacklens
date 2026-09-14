@@ -99,7 +99,7 @@ export function LicenseManagement() {
 
   const handleReclaimAll = () => {
     if (unused.length === 0) {
-      toast(t('lic_nothing_to_reclaim') || 'No tools without active users', { icon: '✅' });
+      toast(t('lic_nothing_to_reclaim'), { icon: '✅' });
       return;
     }
     const userName = JSON.parse(localStorage.getItem('accessguard_v1') || '{}')?.user?.displayName || 'IT Admin';
@@ -133,22 +133,22 @@ export function LicenseManagement() {
       {/* ── Row 1: KPI Strip — every figure here is counted, not estimated ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-blue-500">
-          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t('lic_tools_tracked') || 'Tools tracked'}</div>
+          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t('lic_tools_tracked')}</div>
           <div className="text-3xl font-black text-blue-400">{apps.length.toLocaleString()}</div>
-          <div className="text-sm text-slate-500 mt-1">{t('lic_active_tools') || 'active tools'}</div>
+          <div className="text-sm text-slate-500 mt-1">{t('lic_active_tools')}</div>
         </div>
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-emerald-500">
           <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t("lic_active_users")}</div>
           <div className="text-3xl font-black text-emerald-400">{totalGrants.toLocaleString()}</div>
-          <div className="text-sm text-slate-500 mt-1">{t('lic_access_grants') || 'access grants'}</div>
+          <div className="text-sm text-slate-500 mt-1">{t('lic_access_grants')}</div>
         </div>
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-amber-500">
-          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t('lic_no_active_users') || 'No active users'}</div>
+          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t('lic_no_active_users')}</div>
           <div className="text-3xl font-black text-amber-400">{unused.length.toLocaleString()}</div>
-          <div className="text-sm text-slate-500 mt-1">{t('lic_paid_nobody') || 'paid for, nobody has access'}</div>
+          <div className="text-sm text-slate-500 mt-1">{t('lic_paid_nobody')}</div>
         </div>
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-red-500">
-          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t('lic_recoverable') || 'Recoverable'}</div>
+          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t('lic_recoverable')}</div>
           <div className="text-3xl font-black text-red-400">{money(recoverable)}</div>
           <div className="text-sm text-slate-500 mt-1">{money(recoverable * 12)}/year</div>
         </div>
@@ -165,10 +165,10 @@ export function LicenseManagement() {
               </div>
               <div className="flex items-baseline gap-3 mb-2">
                 <span className="text-4xl font-black text-emerald-400">{money(recoverable)}</span>
-                <span className="text-sm text-slate-500">/ {t('lic_per_month_at_stake') || 'month on tools nobody uses'}</span>
+                <span className="text-sm text-slate-500">/ {t('lic_per_month_at_stake')}</span>
               </div>
               <p className="text-sm text-slate-400">
-                {unused.length} {unused.length === 1 ? (t('lic_tool_singular') || 'tool has') : (t('lic_tool_plural') || 'tools have')} {t('lic_no_one_access') || 'no one holding active access.'}
+                {unused.length} {unused.length === 1 ? (t('lic_tool_singular')) : (t('lic_tool_plural'))} {t('lic_no_one_access')}
               </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-2 flex-shrink-0">
@@ -192,7 +192,7 @@ export function LicenseManagement() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-semibold text-white truncate">{opp.name}</div>
-                    <div className="text-xs text-slate-500">{money(opp.cost)}/mo · {t('lic_zero_users') || '0 active users'}</div>
+                    <div className="text-xs text-slate-500">{money(opp.cost)}/mo · {t('lic_zero_users')}</div>
                   </div>
                 </div>
               ))}
@@ -207,14 +207,14 @@ export function LicenseManagement() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-base font-semibold text-white">{t("lic_health_title")}</h2>
-              <p className="text-sm text-slate-500">{t('lic_findings_sub') || 'Based on active access records and monthly cost'}</p>
+              <p className="text-sm text-slate-500">{t('lic_findings_sub')}</p>
             </div>
           </div>
           <div className="space-y-3">
             {[
-              { key: 'ok', label: t('lic_f_ok') || 'In use', color: 'bg-emerald-500', textColor: 'text-emerald-400' },
-              { key: 'no-users', label: t('lic_f_no_users') || 'No active users', color: 'bg-amber-500', textColor: 'text-amber-400' },
-              { key: 'expensive', label: (t('lic_f_expensive') || 'Over') + ' ' + getCurrency(language) + EXPENSIVE_PER_USER + ' ' + (t('lic_per_user') || 'per user'), color: 'bg-blue-500', textColor: 'text-blue-400' },
+              { key: 'ok', label: t('lic_f_ok'), color: 'bg-emerald-500', textColor: 'text-emerald-400' },
+              { key: 'no-users', label: t('lic_f_no_users'), color: 'bg-amber-500', textColor: 'text-amber-400' },
+              { key: 'expensive', label: (t('lic_f_expensive')) + ' ' + getCurrency(language) + EXPENSIVE_PER_USER + ' ' + (t('lic_per_user')), color: 'bg-blue-500', textColor: 'text-blue-400' },
             ].map(({ key, label, color, textColor }) => {
               const count = counts[key];
               const pct = apps.length > 0 ? (count / apps.length) * 100 : 0;
@@ -257,10 +257,10 @@ export function LicenseManagement() {
           </div>
           <div className="flex gap-2 mt-3 flex-wrap">
             {[
-              ['all', t('lic_f_all') || 'All', counts.all],
-              ['ok', t('lic_f_ok') || 'In use', counts.ok],
-              ['no-users', t('lic_f_no_users') || 'No active users', counts['no-users']],
-              ['expensive', t('lic_f_expensive_short') || 'High cost per user', counts.expensive],
+              ['all', t('lic_f_all'), counts.all],
+              ['ok', t('lic_f_ok'), counts.ok],
+              ['no-users', t('lic_f_no_users'), counts['no-users']],
+              ['expensive', t('lic_f_expensive_short'), counts.expensive],
             ].map(([val, label, count]) => (
               <button key={val} onClick={() => setFilter(val)}
                 className={"px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap " + (filter === val ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white')}>
@@ -287,8 +287,8 @@ export function LicenseManagement() {
                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('col_application')}</th>
                     <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('col_active_users') || 'Active users'}</th>
                     <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden lg:table-cell">{t('col_cost_mo')}</th>
-                    <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">{t('col_cost_per_user') || 'Per user'}</th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('col_finding') || 'Finding'}</th>
+                    <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">{t('col_cost_per_user')}</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('col_finding')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -317,11 +317,11 @@ export function LicenseManagement() {
                       </td>
                       <td className="py-3 px-4">
                         {app.wasteReason === 'no-users' ? (
-                          <span className="text-xs font-semibold text-amber-400">{t('lic_f_no_users') || 'No active users'}</span>
+                          <span className="text-xs font-semibold text-amber-400">{t('lic_f_no_users')}</span>
                         ) : app.wasteReason === 'expensive' ? (
-                          <span className="text-xs font-semibold text-blue-400">{t('lic_f_expensive_short') || 'High cost per user'}</span>
+                          <span className="text-xs font-semibold text-blue-400">{t('lic_f_expensive_short')}</span>
                         ) : (
-                          <span className="text-xs text-emerald-400">✓ {t('lic_f_ok') || 'In use'}</span>
+                          <span className="text-xs text-emerald-400">✓ {t('lic_f_ok')}</span>
                         )}
                       </td>
                     </tr>
