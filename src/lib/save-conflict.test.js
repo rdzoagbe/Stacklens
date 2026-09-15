@@ -1,4 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 // ── Does the call site actually use the check? ──────────────────────────────
 //
@@ -478,5 +480,309 @@ describe('the same no-op race in a shared workspace', () => {
     await flushSave();
 
     expect(getSyncSnapshot().status).toBe('conflict');
+  });
+});
+
+// ── A page view should not cost a cloud write ───────────────────────────────
+//
+// useAuth calls saveDb on every onAuthStateChanged event, so every page load
+// sent the whole blob to Firestore — and for a workspace of any size that is
+// several chunk documents per page VIEW, for a save nobody asked for. Every
+// field it patches comes from Firebase Auth or /users and is re-derived on the
+// next load.
+//
+// It cannot just be deleted. It doubles as the only retry a failed save gets:
+// markSyncFailed keeps a retry function, but that lives in module memory and a
+// reload throws it away. So the rule is not "bookkeeping saves never sync", it
+// is "bookkeeping saves may skip the cloud WHEN the cloud is provably current".
+//
+// Which means every test here comes in pairs: the write that should be skipped,
+// and the one that must still happen.
+describe('the save on every page load', () => {
+  /** What useAuth does at mount: patch the user block, save, edit nothing. */
+  const mountSave = (blob) => saveDb(blob, { cloudSync: false });
+
+  it('sends nothing when this browser holds exactly the stored copy', async () => {
+    // The fresh-browser case: nothing local, hydration adopts the cloud copy.
+    // Sending it straight back would be a round trip to store what we just read.
+    await signIn({ cloud: { ...ownDb(), _rev: 3, _updatedAt: 5 } });
+
+    mountSave(ownDb({ _rev: 3 }));
+    await flushSave();
+
+    expect(saveUserData).not.toHaveBeenCalled();
+  });
+
+  it('still writes localStorage when it skips the cloud', async () => {
+    // Skipping the backup must never mean skipping the save. The local copy is
+    // the app's read path — every page derives its numbers from it.
+    await signIn({ cloud: { ...ownDb(), _rev: 3, _updatedAt: 5 } });
+
+    mountSave(ownDb({ _rev: 3, tools: [{ id: 't1', name: 'renamed' }] }));
+    await flushSave();
+
+    expect(localBlob().tools[0].name).toBe('renamed');
+  });
+
+  it('still sends when this browser holds an unsynced edit', async () => {
+    // The safety net, and the reason the mount write cannot simply go. An edit
+    // whose cloud write failed before the last reload only gets up here.
+    localStorage.setItem(LS_KEY, JSON.stringify(ownDb({
+      _rev: 3, _saved_at: 999, tools: [{ id: 't1', name: 'Figma' }, { id: 'unsynced' }],
+    })));
+    await signIn({ cloud: { ...ownDb(), _rev: 3, _updatedAt: 1 } });
+
+    saveUserData.mockResolvedValueOnce(4);
+    mountSave(ownDb({ _rev: 3, tools: [{ id: 't1', name: 'Figma' }, { id: 'unsynced' }] }));
+    await flushSave();
+
+    expect(saveUserData).toHaveBeenCalled();
+    expect(saveUserData.mock.calls.at(-1)[1].tools.map(t => t.id)).toContain('unsynced');
+  });
+
+  it('still sends when the cloud copy could not be read', async () => {
+    // Unproven is not the same as synced. A failed read must cost a write, not
+    // somebody's unsynced afternoon.
+    localStorage.setItem(LS_KEY, JSON.stringify(ownDb({ _rev: 3, _saved_at: 999 })));
+    await signIn({ cloud: null });
+
+    saveUserData.mockResolvedValueOnce(4);
+    mountSave(ownDb({ _rev: 3 }));
+    await flushSave();
+
+    expect(saveUserData).toHaveBeenCalled();
+  });
+
+  it('still sends in a browser that has no mark at all', async () => {
+    // Someone carrying unsynced work from before any of this existed, or a
+    // browser whose storage was partly cleared. Absence means "not proven",
+    // so it syncs once and marks itself afterwards.
+    await signIn({ cloud: { ...ownDb(), _rev: 3, _updatedAt: 5 } });
+    localStorage.removeItem('accessguard_synced_v1');
+
+    saveUserData.mockResolvedValueOnce(4);
+    mountSave(ownDb({ _rev: 3 }));
+    await flushSave();
+
+    expect(saveUserData).toHaveBeenCalled();
+  });
+
+  it('does not skip an ordinary save, however current the cloud is', async () => {
+    // cloudSync is a permission to skip bookkeeping, not a general filter. A
+    // real edit goes up whatever the mark says.
+    await signIn({ cloud: { ...ownDb(), _rev: 3, _updatedAt: 5 } });
+
+    saveUserData.mockResolvedValueOnce(4);
+    saveDb(ownDb({ _rev: 3, tools: [{ id: 't1' }, { id: 't2' }] }));
+    await flushSave();
+
+    expect(saveUserData).toHaveBeenCalled();
+  });
+});
+
+describe('what makes a browser count as behind', () => {
+  it('a failed save does, so the next page load retries it', async () => {
+    await signIn({ cloud: { ...ownDb(), _rev: 3, _updatedAt: 5 } });
+
+    saveUserData.mockRejectedValueOnce(new Error('offline'));
+    saveDb(ownDb({ _rev: 3, tools: [{ id: 't1' }, { id: 'new' }] }));
+    await flushSave();
+    expect(getSyncSnapshot().status).toBe('error');
+
+    // Reload. The in-memory retry is gone; this write is all that is left.
+    saveUserData.mockResolvedValueOnce(4);
+    saveDb(ownDb({ _rev: 3, tools: [{ id: 't1' }, { id: 'new' }] }), { cloudSync: false });
+    await flushSave();
+
+    expect(saveUserData.mock.calls.length, 'the failed edit must still go up').toBe(2);
+  });
+
+  it('a successful save does not, so the next page load is free', async () => {
+    await signIn({ cloud: { ...ownDb(), _rev: 3, _updatedAt: 5 } });
+
+    saveUserData.mockResolvedValueOnce(4);
+    saveDb(ownDb({ _rev: 3, tools: [{ id: 't1' }, { id: 'new' }] }));
+    await flushSave();
+    const after = saveUserData.mock.calls.length;
+
+    saveDb(ownDb({ _rev: 4, tools: [{ id: 't1' }, { id: 'new' }] }), { cloudSync: false });
+    await flushSave();
+
+    expect(saveUserData.mock.calls.length).toBe(after);
+  });
+
+  it('a conflict recognised as a no-op does not either', async () => {
+    // The other tab already stored this data, so there is nothing left to push.
+    await signIn({ cloud: { ...ownDb(), _rev: 3, _updatedAt: 5 } });
+
+    saveUserData.mockRejectedValueOnce(new StaleWriteError(4));
+    loadUserData.mockResolvedValueOnce({ ...ownDb(), _rev: 4 });
+    saveDb(ownDb({ _rev: 3 }));
+    await flushSave();
+    expect(getSyncSnapshot().status).toBe('saved');
+    const after = saveUserData.mock.calls.length;
+
+    saveDb(ownDb({ _rev: 4 }), { cloudSync: false });
+    await flushSave();
+
+    expect(saveUserData.mock.calls.length).toBe(after);
+  });
+
+  it('a real conflict does, until it is resolved', async () => {
+    // Nothing reached the cloud, so the local copy is still ahead and the next
+    // page load must keep trying.
+    await signIn({ cloud: { ...ownDb(), _rev: 3, _updatedAt: 5 } });
+
+    saveUserData.mockRejectedValueOnce(new StaleWriteError(4));
+    loadUserData.mockResolvedValueOnce({ ...ownDb({ tools: [] }), _rev: 4 });
+    saveDb(ownDb({ _rev: 3, tools: [{ id: 't1' }, { id: 'mine' }] }));
+    await flushSave();
+    expect(getSyncSnapshot().status).toBe('conflict');
+
+    saveUserData.mockResolvedValueOnce(5);
+    saveDb(ownDb({ _rev: 3, tools: [{ id: 't1' }, { id: 'mine' }] }), { cloudSync: false });
+    await flushSave();
+
+    expect(saveUserData.mock.calls.length).toBe(2);
+  });
+
+  it('taking the stored copy does not, because local becomes that copy', async () => {
+    await signIn({ cloud: { ...ownDb(), _rev: 3, _updatedAt: 5 } });
+
+    saveUserData.mockRejectedValueOnce(new StaleWriteError(4));
+    loadUserData.mockResolvedValueOnce({ ...ownDb({ tools: [] }), _rev: 4 });
+    saveDb(ownDb({ _rev: 3, tools: [{ id: 't1' }, { id: 'mine' }] }));
+    await flushSave();
+
+    loadUserData.mockResolvedValueOnce({ ...ownDb({ tools: [] }), _rev: 4 });
+    await resolveConflict('theirs');
+    const after = saveUserData.mock.calls.length;
+
+    saveDb(ownDb({ _rev: 4, tools: [] }), { cloudSync: false });
+    await flushSave();
+
+    expect(saveUserData.mock.calls.length).toBe(after);
+  });
+});
+
+// ── The call site has to actually opt in ───────────────────────────────────
+//
+// The whole saving is in one argument at one call site. Checked against the
+// source with comments stripped, because a source check in this codebase was
+// once satisfied by the comment describing the code.
+describe('useAuth marks its mount save as bookkeeping', () => {
+  const body = (() => {
+    const src = readFileSync(resolve(process.cwd(), 'src/hooks/useAuth.js'), 'utf8');
+    return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+  })();
+
+  it('passes cloudSync: false on the auth-event save', () => {
+    expect(body, 'the save that runs on every page load must be able to skip '
+      + 'the cloud write, or the cost is unchanged')
+      .toMatch(/saveDb\(cur,\s*\{\s*cloudSync:\s*false\s*\}\)/);
+  });
+
+  it('does not mark the sign-in and sign-out saves as bookkeeping', () => {
+    // Those happen once per session, carry a real state change, and the
+    // signed-out one must reach the cloud on its own terms.
+    const marked = body.match(/cloudSync:\s*false/g) || [];
+    expect(marked.length, 'exactly one save on the page-load path').toBe(1);
+  });
+});
+
+// ── The branch a real page load actually takes ──────────────────────────────
+//
+// The tests above reach hydration's "no local data" and "cloud is newer"
+// branches. Neither is the ordinary case, and testing only those would have
+// let the whole fix ship doing nothing.
+//
+// On a real second visit the local copy exists AND looks newer, because the
+// timestamp hydration compares is _saved_at — bumped by every localStorage
+// write, including the bookkeeping save on every page load. So local "wins"
+// every time, even when the two copies are identical. That branch is where
+// the mark has to be decided by content, and it is the one that decides
+// whether a returning user's page views are free.
+describe('the ordinary second visit', () => {
+  const identical = () => ownDb();
+
+  it('costs no cloud write when the copies match, despite local looking newer', async () => {
+    // localTs 5000 beats cloudTs 10, so hydration keeps the local copy — and
+    // the two hold the same data, so there is nothing to push.
+    localStorage.setItem(LS_KEY, JSON.stringify({ ...identical(), _rev: 3, _saved_at: 5000 }));
+    await signIn({ cloud: { ...identical(), _rev: 3, _updatedAt: 10 } });
+
+    saveDb({ ...identical(), _rev: 3 }, { cloudSync: false });
+    await flushSave();
+
+    expect(saveUserData, 'this is the case that decides whether page views are free')
+      .not.toHaveBeenCalled();
+  });
+
+  it('is not fooled by a difference in bookkeeping alone', async () => {
+    // The stored copy carries _uid, _updatedAt and a revision of its own; the
+    // local one carries _saved_at. Comparing raw blobs would call every
+    // returning visit dirty.
+    localStorage.setItem(LS_KEY, JSON.stringify({ ...identical(), _rev: 3, _saved_at: 5000 }));
+    await signIn({ cloud: { ...identical(), _rev: 9, _updatedAt: 10, _uid: 'u1', _chunks: { employees: 1 } } });
+
+    saveDb({ ...identical(), _rev: 3 }, { cloudSync: false });
+    await flushSave();
+
+    expect(saveUserData).not.toHaveBeenCalled();
+  });
+
+  it('costs a write when the copies really differ', async () => {
+    localStorage.setItem(LS_KEY, JSON.stringify({
+      ...ownDb({ tools: [{ id: 't1', name: 'Figma' }, { id: 'local-only' }] }),
+      _rev: 3, _saved_at: 5000,
+    }));
+    await signIn({ cloud: { ...identical(), _rev: 3, _updatedAt: 10 } });
+
+    saveUserData.mockResolvedValueOnce(4);
+    saveDb(ownDb({ _rev: 3, tools: [{ id: 't1', name: 'Figma' }, { id: 'local-only' }] }), { cloudSync: false });
+    await flushSave();
+
+    expect(saveUserData).toHaveBeenCalled();
+  });
+
+  it('costs no write when the cloud copy was the newer one', async () => {
+    // hydration replaces the local copy wholesale here, so local is the stored
+    // copy by definition.
+    localStorage.setItem(LS_KEY, JSON.stringify({ ...identical(), _rev: 2, _saved_at: 10 }));
+    await signIn({ cloud: { ...identical(), _rev: 3, _updatedAt: 5000 } });
+
+    saveDb({ ...identical(), _rev: 3 }, { cloudSync: false });
+    await flushSave();
+
+    expect(saveUserData).not.toHaveBeenCalled();
+  });
+});
+
+describe('a shared workspace pays the same page-load cost', () => {
+  const sharedDb = (extra = {}) => ({
+    ...ownDb(),
+    _shared_view: { owner_uid: 'owner1', owner_email: 'o@b.com', role: 'editor' },
+    ...extra,
+  });
+
+  it('sends nothing on a page load when nothing is behind', async () => {
+    localStorage.setItem(LS_KEY, JSON.stringify({ ...ownDb(), _rev: 3, _saved_at: 5000 }));
+    await signIn({ cloud: { ...ownDb(), _rev: 3, _updatedAt: 10 } });
+
+    saveDb(sharedDb({ _rev: 3 }), { cloudSync: false });
+    await flushSave();
+
+    expect(workspaceWrite).not.toHaveBeenCalled();
+  });
+
+  it('still sends an editor real work', async () => {
+    localStorage.setItem(LS_KEY, JSON.stringify({ ...ownDb(), _rev: 3, _saved_at: 5000 }));
+    await signIn({ cloud: { ...ownDb(), _rev: 3, _updatedAt: 10 } });
+
+    workspaceWrite.mockResolvedValueOnce({ rev: 4 });
+    saveDb(sharedDb({ _rev: 3, tools: [{ id: 't1' }, { id: 't2' }] }));
+    await flushSave();
+
+    expect(workspaceWrite).toHaveBeenCalled();
   });
 });

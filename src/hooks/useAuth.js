@@ -126,7 +126,13 @@ export function useAuth() {
           is_founder:         isFounder,
           trial_started_at:   trialStartedAt,
         };
-        saveDb(cur);
+        // Bookkeeping, not an edit: every field patched above came from
+        // Firebase Auth or the /users document, is re-derived on the next load,
+        // and this runs on EVERY auth event — so it used to send the whole
+        // chunked blob to Firestore once per page view. saveDb still writes
+        // localStorage, and still writes to the cloud if anything in this
+        // browser is unsynced. See SYNC_MARK_KEY in lib/db.js.
+        saveDb(cur, { cloudSync: false });
         qc.invalidateQueries({ queryKey: ['db'] });
       } else {
         const cur = seedDbIfEmpty();
