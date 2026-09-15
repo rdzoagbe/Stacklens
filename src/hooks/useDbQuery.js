@@ -3,6 +3,7 @@ import toast from 'react-hot-toast';
 import { uid, loadDb, saveDb, seedDbIfEmpty } from '../lib/db';
 import { getPlanLimits } from '../lib/plan';
 import { track } from '../lib/analytics';
+import { appendAudit, auditActor, changedKeys, describeChange } from '../lib/audit';
 import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
 
@@ -37,9 +38,30 @@ export function useDbMutations() {
     return JSON.parse(JSON.stringify(obj));
   };
 
-  const setDb = (updater) => {
+  // Every mutation in this file goes through here, which is why the audit
+  // trail hangs off it: one funnel, so an action cannot be recorded in one
+  // place and forgotten in another.
+  //
+  // `describe` is a function of (after, before) rather than a fixed object,
+  // because the useful details are only knowable at one end or the other — a
+  // deleted tool's name is in `before`, a created one's is in `after`, and the
+  // access rows a delete cascaded through can only be counted by comparing.
+  //
+  // `before` is the un-cloned original. That is safe and deliberate: the
+  // updater is handed a clone, so `cur` is never touched, and passing it costs
+  // nothing. A second structuredClone of the whole workspace on every keystroke
+  // would not be free at a few thousand access rows.
+  const setDb = (updater, describe) => {
     const cur = seedDbIfEmpty();
     const next = typeof updater === 'function' ? updater(clone(cur)) : updater;
+    if (typeof describe === 'function') {
+      try {
+        const entry = describe(next, cur);
+        if (entry && entry.action) {
+          next.audit_log = appendAudit(next, { ...entry, user: auditActor(next) });
+        }
+      } catch { /* a trail is worth having, never worth losing the edit for */ }
+    }
     saveDb(next);
     return next;
   };
@@ -57,7 +79,7 @@ export function useDbMutations() {
       setDb((db) => {
         db.tools.unshift({ ...tool, id: uid('tool') });
         return db;
-      });
+      }, () => ({ action: 'tool.created', details: tool?.name || '(unnamed)' }));
     },
     onSuccess: () => { invalidate(); track('tool_added'); },
     onError: (err) => {
@@ -77,6 +99,14 @@ export function useDbMutations() {
           a.tool_id === id ? { ...a, tool_name: tool?.name || a.tool_name } : a
         );
         return db;
+      }, (after, before) => {
+        const was = (before.tools || []).find((t) => t.id === id);
+        const keys = changedKeys(was, patch);
+        if (!keys.length) return null;          // a form submitted unchanged
+        return {
+          action: 'tool.updated',
+          details: describeChange(was?.name || id, keys),
+        };
       });
     },
     onSuccess: invalidate,
@@ -89,6 +119,15 @@ export function useDbMutations() {
         db.tools = db.tools.filter((t) => t.id !== id);
         db.access = db.access.filter((a) => a.tool_id !== id);
         return db;
+      }, (after, before) => {
+        // The cascade is the part an auditor follows: deleting a tool silently
+        // removes every access grant to it.
+        const was = (before.tools || []).find((t) => t.id === id);
+        const revoked = (before.access || []).length - (after.access || []).length;
+        return {
+          action: 'tool.deleted',
+          details: `${was?.name || id}${revoked > 0 ? ` — ${revoked} access grant(s) removed` : ''}`,
+        };
       });
     },
     onSuccess: invalidate,
@@ -106,7 +145,10 @@ export function useDbMutations() {
       setDb((db) => {
         db.employees.unshift({ ...emp, id: uid('emp') });
         return db;
-      });
+      }, () => ({
+        action: 'employee.created',
+        details: emp?.full_name || emp?.email || '(unnamed)',
+      }));
     },
     onSuccess: () => { invalidate(); track('employee_added'); },
     onError: (err) => {
@@ -151,6 +193,19 @@ export function useDbMutations() {
         }
 
         return db;
+      }, (after, before) => {
+        const was = (before.employees || []).find((e) => e.id === id);
+        const keys = changedKeys(was, patch);
+        if (!keys.length) return null;
+        const who = was?.full_name || was?.email || id;
+        // Offboarding is a governance event in its own right, not a field edit.
+        if (patch?.status && patch.status !== was?.status) {
+          return {
+            action: `employee.${patch.status === 'offboarding' ? 'offboarding_started' : 'status_changed'}`,
+            details: `${who} → ${patch.status}`,
+          };
+        }
+        return { action: 'employee.updated', details: describeChange(who, keys) };
       });
     },
     onSuccess: (_data, vars) => {
@@ -175,6 +230,21 @@ export function useDbMutations() {
           );
         }
         return db;
+      }, (after, before) => {
+        // Two cascades worth recording: the access removed, and the tools left
+        // without an owner. Both are the kind of thing someone asks about
+        // months later.
+        const was = (before.employees || []).find((e) => e.id === id);
+        const revoked = (before.access || []).length - (after.access || []).length;
+        const orphaned = (after.tools || []).filter((t) => t.status === 'orphaned').length
+                       - (before.tools || []).filter((t) => t.status === 'orphaned').length;
+        const parts = [];
+        if (revoked > 0) parts.push(`${revoked} access grant(s) removed`);
+        if (orphaned > 0) parts.push(`${orphaned} tool(s) orphaned`);
+        return {
+          action: 'employee.deleted',
+          details: `${was?.full_name || was?.email || id}${parts.length ? ` — ${parts.join(', ')}` : ''}`,
+        };
       });
     },
     onSuccess: invalidate,
@@ -186,7 +256,11 @@ export function useDbMutations() {
       setDb((db) => {
         db.access.unshift({ ...row, id: uid('acc') });
         return db;
-      });
+      }, () => ({
+        action: 'access.granted',
+        details: `${row?.employee_name || row?.employee_email || '?'} → ${row?.tool_name || '?'}`
+               + `${row?.access_level ? ` (${row.access_level})` : ''}`,
+      }));
     },
     onSuccess: invalidate,
     onError: () => toast.error(t('err_add_access')),
@@ -197,6 +271,21 @@ export function useDbMutations() {
       setDb((db) => {
         db.access = db.access.map((a) => (a.id === id ? { ...a, ...patch } : a));
         return db;
+      }, (after, before) => {
+        const was = (before.access || []).find((a) => a.id === id);
+        const keys = changedKeys(was, patch);
+        if (!keys.length) return null;
+        const what = `${was?.employee_name || was?.employee_email || '?'} → ${was?.tool_name || '?'}`;
+        // Revocation is THE event an auditor looks for, and the README
+        // promises it by name. It is not "an access row was updated".
+        if (patch?.status && patch.status !== was?.status) {
+          const revoked = patch.status === 'revoked' || patch.status === 'pending_revocation';
+          return {
+            action: revoked ? 'access.revoked' : 'access.status_changed',
+            details: `${what} → ${patch.status}`,
+          };
+        }
+        return { action: 'access.updated', details: describeChange(what, keys) };
       });
     },
     onSuccess: invalidate,
@@ -208,6 +297,12 @@ export function useDbMutations() {
       setDb((db) => {
         db.access = db.access.filter((a) => a.id !== id);
         return db;
+      }, (after, before) => {
+        const was = (before.access || []).find((a) => a.id === id);
+        return {
+          action: 'access.removed',
+          details: `${was?.employee_name || was?.employee_email || '?'} → ${was?.tool_name || '?'}`,
+        };
       });
     },
     onSuccess: invalidate,
@@ -511,6 +606,21 @@ export function useDbMutations() {
         }
 
         return db;
+      }, (after, before) => {
+        // One row for the whole import, with the net effect. A row per record
+        // would bury everything else in the log the first time somebody
+        // uploads a real directory — and the counts are what gets questioned
+        // ("where did these 200 people come from?"), not the individual adds.
+        const delta = (key) => (after[key] || []).length - (before[key] || []).length;
+        const parts = [
+          ['employee', delta('employees')],
+          ['tool', delta('tools')],
+          ['access grant', delta('access')],
+        ].filter(([, n]) => n > 0).map(([label, n]) => `${n} ${label}${n === 1 ? '' : 's'}`);
+        return {
+          action: `import.${kind}`,
+          details: parts.length ? `added ${parts.join(', ')}` : 'no new records',
+        };
       });
     },
     onSuccess: (_data, vars) => { invalidate(); track('csv_import_completed', { kind: vars?.kind }); },

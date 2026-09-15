@@ -146,6 +146,11 @@ rate limits live in `/rate_limits`.
 - **Five of six integration credentials are still in the browser** — Slack,
   GitHub, Okta, Asana tokens and the Salesforce refresh token. Zoom has been
   migrated to `/integration_credentials` and is the pattern to follow.
+- **No account-level MFA, IP restrictions or session timeout.** Settings →
+  Security used to show switches for all three; they wrote a localStorage key
+  nothing read, so they enforced nothing and have been removed. The tab now
+  lists only what is enforced. Enforced MFA needs Firebase Identity Platform
+  (a paid upgrade), which has not been done.
 - **No third-party assessment.** No pen test, no SOC 2, no secrets-in-history
   scan has been commissioned.
 - Cloud Functions run in `us-central1`. Marketing says "EU data storage"; that
