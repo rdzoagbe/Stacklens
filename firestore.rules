@@ -40,13 +40,31 @@ service cloud.firestore {
       // For updates: only permit if the existing doc has no trial_started_at yet
       // and the current plan is 'free', preventing trial replay attacks.
       let isNewDoc = resource == null;
+      // What this write actually CHANGES, which on an update is the only thing
+      // that matters — and getting that wrong broke every trial.
+      //
+      // startTrial() sends setDoc(..., { merge: true }), and on a merge write
+      // `request.resource.data` is the whole document AFTER the merge, not the
+      // delta. The old version checked that merged document for protected
+      // keys, so a /users doc that already carried stripe_customer_id,
+      // subscription_status or role — written by the Stripe webhook or the
+      // syncuser function, never by the client — failed the trial branch
+      // permanently. The user's own stored billing fields locked them out of
+      // their own trial, silently, because startTrial swallows the error.
+      //
+      // On an update, compare the affected keys instead. That fixes the bug
+      // and is also tighter than what it replaces: nothing else can ride along
+      // with a trial start now.
+      let trialTouchesOnlyTrialKeys = isNewDoc
+        ? !request.resource.data.keys().hasAny(
+             ['subscription_plan', 'stripe_customer_id', 'stripe_subscription_id',
+              'subscription_status', 'subscription_current_period_end',
+              'is_admin', 'is_founder', 'role'])
+        : request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['plan', 'trial_started_at']);
       let isTrialStart = request.resource.data.keys().hasAny(['plan', 'trial_started_at'])
                          && request.resource.data.get('plan', '') == 'trial'
-                         && !request.resource.data.keys().hasAny(
-                              ['subscription_plan', 'stripe_customer_id',
-                               'stripe_subscription_id', 'subscription_status',
-                               'subscription_current_period_end', 'is_admin',
-                               'is_founder', 'role'])
+                         && trialTouchesOnlyTrialKeys
                          && (isNewDoc || (
                                !resource.data.keys().hasAny(['trial_started_at'])
                                && resource.data.get('plan', 'free') == 'free'
