@@ -118,7 +118,7 @@ Read this section before changing `firestore.rules` or `functions/index.js`.
 
 **The rules are the entire multi-tenant boundary.** Everything separating one
 customer's employee directory from another's is in that one file. It is covered
-by 40 tests (`npm run test:rules`) which run in CI, and those tests have been
+by 37 tests (`npm run test:rules`) which run in CI, and those tests have been
 verified to fail against deliberately broken rules — they are not decorative.
 
 - `/userdata/{uid}` and its `chunks` subcollection — owner only. Rules do not

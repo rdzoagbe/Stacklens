@@ -86,3 +86,41 @@ describe('structured data (JSON-LD) matches enforced limits', () => {
     }
   });
 });
+
+// ── The README's count of security-rules tests ─────────────────────────────
+//
+// Same failure as the plan numbers above, in the place it costs most. The
+// README says the multi-tenant boundary "is covered by N tests … they are not
+// decorative", and that paragraph is written to be read by somebody deciding
+// whether to trust this product with their staff directory. It said 40 when
+// there were 37 — nobody added a test and decremented a number; the number was
+// hand-copied once and left.
+//
+// Overstating security coverage in the one document a prospect reads is worse
+// than not stating it, so the claim is now checked against the test file. It
+// cannot be checked against a RUN, because the rules suite is excluded from
+// `npm test` (it needs the Firestore emulator — see vite.config.js), so this
+// counts the `it()` blocks in the file that suite executes.
+describe('the README does not overstate the security-rules coverage', () => {
+  const rulesTest = readRepo('src/lib/firestore-rules.test.js');
+  const readme = readRepo('README.md');
+
+  const actual = (rulesTest.match(/^\s+it\(/gm) || []).length;
+
+  it('counts some tests at all, or this guard is vacuous', () => {
+    // Without this, anything that stopped the matcher working would make
+    // `actual` zero, and the assertion below would start passing for the wrong
+    // reason — the tautology failure this repo has hit before.
+    expect(actual).toBeGreaterThan(20);
+  });
+
+  it('states the real number', () => {
+    const m = /covered\s*\n?by (\d+) tests \(`npm run test:rules`\)/.exec(readme);
+    expect(m, 'the README sentence naming the rules-test count was not found — '
+      + 'if it was reworded, update this guard rather than deleting it')
+      .toBeTruthy();
+    expect(Number(m[1]), `README claims ${m?.[1]} rules tests; the suite has `
+      + `${actual}. Overstating this is a security claim, not a typo.`)
+      .toBe(actual);
+  });
+});
