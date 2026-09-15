@@ -148,3 +148,55 @@ describe('the name collected at signup is stored', () => {
     expect(shell).toMatch(/const needsName = /);
   });
 });
+
+// ── Storing the name is not the same as keeping it ─────────────────────────
+//
+// The name fix shipped and the modal still appeared. Storing it was
+// necessary and not sufficient, and the second half is the same shape as the
+// verification-button bug above: a value set in one place never reaching the
+// place that reads it.
+//
+// The sequence:
+//
+//   1. registerWithEmail stores the name (Auth profile + /users doc)
+//   2. TrialPage writes it into the local blob
+//   3. TrialPage does window.location.replace('/dashboard') — a full reload
+//   4. useAuth's onAuthStateChanged runs on that fresh load and rebuilds
+//      cur.user, overwriting displayName from fbUser
+//   5. the Auth user restored from persistence carries no displayName
+//   6. so the blob's name is replaced with undefined, and NameGate — reading
+//      a blob with no name — asks for the name that was just given
+//
+// Step 4 is the bug. The spread brings the existing blob in and the explicit
+// key then clobbers it.
+describe('the stored name survives the next page load', () => {
+  const hook = (() => {
+    const raw = readFileSync(resolve(process.cwd(), 'src/hooks/useAuth.js'), 'utf8');
+    return raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+  })();
+
+  it('does not overwrite a known name with an unknown one', () => {
+    // Asserted on the assignment itself: the fallback to the existing blob
+    // has to be part of THIS expression, since that is what runs on the
+    // reload that was erasing it.
+    const m = /displayName:\s*fbUser\.displayName[\s\S]{0,200}?,\n/.exec(hook);
+    expect(m, 'the displayName assignment was not found').toBeTruthy();
+    expect(m[0], 'must fall back to the name already in the blob')
+      .toMatch(/cur\.user\?\.displayName/);
+  });
+
+  it('still prefers what Firebase Auth reports when it has one', () => {
+    // A Google user who renames their Google account should see that name,
+    // so the fallback must come last, not first.
+    const m = /displayName:\s*fbUser\.displayName[\s\S]{0,200}?,\n/.exec(hook);
+    expect(m[0].indexOf('fbUser.displayName'))
+      .toBeLessThan(m[0].indexOf('cur.user?.displayName'));
+  });
+
+  it('the signup page writes the name into the blob in the first place', () => {
+    // The other half of the chain. If this stops happening there is nothing
+    // for the fallback to preserve.
+    const page = readFileSync(resolve(process.cwd(), 'src/pages/TrialPage.jsx'), 'utf8');
+    expect(page).toMatch(/displayName: authName/);
+  });
+});
