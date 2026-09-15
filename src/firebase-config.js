@@ -615,6 +615,38 @@ export async function resendEmailVerification() {
   }
 }
 
+/**
+ * Ask the server whether this account's email is verified yet.
+ *
+ * The "I've verified — continue" button used to do
+ *
+ *   await firebaseUser.reload();
+ *   if (!firebaseUser.emailVerified) setError(...)
+ *
+ * with a comment saying onAuthStateChanged would then re-render. It does not:
+ * that listener fires on sign-in and sign-out, not on reload(). So for the
+ * person who HAD clicked the link, no error was set, no state changed, and the
+ * wall stayed exactly as it was. The button appeared to do nothing, which is
+ * the one thing it must never do — it is the only way out of that screen.
+ *
+ * reload() is what actually re-reads the flag from the server; the persisted
+ * user restored on a page load can carry a stale one, which is why reloading
+ * the page was not a fix either. The forced ID-token refresh is for the Cloud
+ * Functions, which read the claims: without it the next call still carries a
+ * token minted before verification.
+ */
+export async function refreshEmailVerified() {
+  try {
+    if (!auth?.currentUser) return { verified: false, error: 'Not signed in' };
+    await auth.currentUser.reload();
+    const verified = !!auth.currentUser.emailVerified;
+    if (verified) await getIdToken(auth.currentUser, true);
+    return { verified, error: null };
+  } catch (error) {
+    return { verified: false, error: error.message };
+  }
+}
+
 // Password Reset
 export async function resetPassword(email) {
   try {
