@@ -137,9 +137,12 @@ rate limits live in `/rate_limits`.
 
 ### Known gaps — please keep this list honest
 
-- **App Check is disabled** (`firebase-config.js`, `APP_CHECK_ENABLED = false`)
-  after a broken token exchange. A valid Firebase ID token is currently the
-  only gate on Functions.
+- **App Check enforcement is not on yet.** The client sends App Check tokens
+  as of 2026-09-15 (`APP_CHECK_ENABLED = true`), verified by the probe on
+  `/founder-admin`, but nothing is *rejected* for lacking one until
+  enforcement is turned on per service in Firebase Console → App Check →
+  APIs. Until then a valid Firebase ID token is still the only gate on
+  Functions.
 - **Five of six integration credentials are still in the browser** — Slack,
   GitHub, Okta, Asana tokens and the Salesforce refresh token. Zoom has been
   migrated to `/integration_credentials` and is the pattern to follow.

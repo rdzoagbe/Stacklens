@@ -518,13 +518,15 @@ export function FounderAdminPage() {
         )}
       </div>
 
-      {/* ── Would App Check work? ──────────────────────────────────────────
-           APP_CHECK_ENABLED has been flipped to true twice and taken sign-in
+      {/* ── Does App Check still work? ─────────────────────────────────────
+           APP_CHECK_ENABLED had been flipped to true twice and taken sign-in
            down twice, because once App Check is initialised on the app Auth
            uses, a failing token corrupts every ID-token refresh and 401s
            checkout, the AI proxy and Firestore. There is no fail-open. This
            runs the same exchange on an isolated Firebase app, so the answer
-           costs a click instead of an outage. */}
+           costs a click instead of an outage — which is how it was turned on
+           for real on 2026-09-15, and why it stays here as the pre-flight for
+           any change to the key, the domains or the flag. */}
       <div className="rounded-xl border border-slate-700/50 bg-slate-900/40 p-4">
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
@@ -559,8 +561,9 @@ export function FounderAdminPage() {
             )}
             {appCheck.result.ok && (
               <div className="mt-2 text-emerald-200/80">
-                Next step is a one-line change: APP_CHECK_ENABLED in
-                src/firebase-config.js.
+                App Check is enabled. Re-run this after any change to the
+                reCAPTCHA key or its allowed domains — and before turning on
+                enforcement per service in Firebase Console → App Check → APIs.
               </div>
             )}
           </div>

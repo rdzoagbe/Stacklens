@@ -82,17 +82,40 @@ if (!FIREBASE_CONFIGURED) {
 const app = initializeApp(firebaseConfig);
 
 // ── App Check (anti-bot protection) ──────────────────────────────
-// DISABLED (again). Re-enabling after the reCAPTCHA key re-registration still
-// produced exchangeRecaptchaV3Token 400s + appCheck/throttled in production
-// (2026-07-23), so App Check can't mint a token. With it initialized, the Auth
-// SDK keeps trying to attach a failing App Check token to token refreshes,
-// which corrupts the ID token flow and causes 401s on auth-gated calls
-// (checkout, AI, Firestore). Since App Check currently provides zero
-// protection (broken + monitoring mode), we skip initializing it. Before
-// flipping this back on: in Firebase Console → App Check → Apps, the web app
-// must show the reCAPTCHA v3 provider registered with the SECRET key of site
-// key 6Ldq47Ms…, and a manual token exchange must return 200.
-const APP_CHECK_ENABLED = false;
+//
+// ENABLED 2026-09-15, after the probe in src/lib/appCheckProbe.js minted a
+// real token on stacklens.fr — 950 characters. That makes this the first time
+// it has been turned on against evidence instead of hope: it was flipped twice
+// before and took sign-in down twice (2026-07-23 the second time).
+//
+// THE ROOT CAUSE OF BOTH OUTAGES, found 2026-09-15: the reCAPTCHA SECRET key
+// field in Firebase Console → App Check → Apps was holding the reCAPTCHA SITE
+// key. The two are easy to confuse — same length, both begin `6L`, and the
+// site key is the one sitting in plain sight a few lines below — and Firebase
+// stores the secret write-only, so no console screen can ever show the
+// mistake. Every screen read "Registered" while the exchange returned 400.
+// That is why three rounds of re-checking the console found nothing: the one
+// wrong value was the one value that cannot be displayed.
+//
+// Why getting this wrong is so expensive. Once App Check is initialised on
+// this app, the Auth SDK attaches an App Check token to every ID-token
+// refresh. If minting it fails the refresh is corrupted, and every auth-gated
+// call starts returning 401 — checkout, the AI proxy, Firestore. There is no
+// fail-open: you cannot ask the Auth SDK to carry on without a token it has
+// been told to attach. So the failure mode is not "bot protection is off", it
+// is "nobody can sign in".
+//
+// IF SIGN-IN BREAKS: set this to false and deploy hosting. That is the entire
+// rollback and it needs no other change. Then run "Test App Check" on
+// /founder-admin before turning it back on — the probe attempts the same
+// exchange on a throwaway Firebase app and cannot touch a real session.
+//
+// Enforcement is a SEPARATE switch, per service, under Firebase Console → App
+// Check → APIs. This flag only makes the client SEND tokens; nothing is
+// rejected for lacking one until enforcement is turned on there. Watch the
+// verified/unverified split on that page for a few days first, or enforcement
+// will lock out anything not yet sending tokens.
+const APP_CHECK_ENABLED = true;
 if (APP_CHECK_ENABLED) {
   try {
     const recaptchaKey = import.meta.env.DEV

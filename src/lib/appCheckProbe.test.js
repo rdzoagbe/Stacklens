@@ -296,6 +296,31 @@ describe('the probe tests the key App Check would really use', () => {
       .toContain(m[1]);
   });
 
+  it('uses the same reCAPTCHA provider as the real initialisation', () => {
+    // We nearly went down this road on 2026-09-15. A Firebase panel offering
+    // "reCAPTCHA Enterprise" looked like the answer to a 400, and switching
+    // the app to ReCaptchaEnterpriseProvider without switching the probe —
+    // or the other way round — would leave the probe reporting on an exchange
+    // the app does not make. A green probe would then mean nothing, which is
+    // strictly worse than no probe, because it would be believed.
+    // Both paths are literals: a variable here trips
+    // security/detect-non-literal-fs-filename, and the whole repo is kept at
+    // zero new lint warnings.
+    const providerIn = (src, where) => {
+      const code = src
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/(^|[^:])\/\/.*$/gm, '$1');
+      const m = /new\s+(ReCaptcha\w*Provider)\s*\(/.exec(code);
+      expect(m, `no reCAPTCHA provider found in ${where}`).toBeTruthy();
+      return m[1];
+    };
+    const probeSrc = readFileSync(resolve(process.cwd(), 'src/lib/appCheckProbe.js'), 'utf8');
+    const appSrc = readFileSync(resolve(process.cwd(), 'src/firebase-config.js'), 'utf8');
+    expect(providerIn(probeSrc, 'the probe'),
+      'the probe must attempt the same exchange the app does')
+      .toBe(providerIn(appSrc, 'firebase-config'));
+  });
+
   it('refuses to run with no site key at all', async () => {
     const r = await probeAppCheck(config, { siteKey: '' });
     expect(r.ok).toBe(false);
@@ -304,16 +329,68 @@ describe('the probe tests the key App Check would really use', () => {
   });
 });
 
-describe('App Check is still off, and stays off until the probe passes', () => {
-  it('APP_CHECK_ENABLED is false', () => {
-    // The point of the probe is that flipping this is a verified change, not a
-    // third attempt. If a future commit flips it, this test is the place to
-    // record that the probe returned a token on the live domain first.
+// ── App Check is on, and the way back is written down ──────────────────────
+//
+// This describe block used to assert APP_CHECK_ENABLED was false, and said
+// that if a commit ever flipped it, this was the place to record that the
+// probe had returned a token first. That happened on 2026-09-15: the probe
+// minted a 950-character token on stacklens.fr, and the root cause of both
+// earlier outages turned out to be the reCAPTCHA SECRET field in Firebase
+// holding the SITE key — indistinguishable from the console, because Firebase
+// stores that field write-only.
+//
+// So what is worth guarding now is not the boolean. It is deliberately NOT
+// pinned to true: setting it to false and deploying hosting is the correct
+// emergency response if App Check ever breaks sign-in again, and a test that
+// failed on that would make the emergency lever sticky at exactly the wrong
+// moment.
+//
+// What must not rot is the record — how it was verified, how to undo it, and
+// that enforcement is a separate switch. Delete that and the next person
+// repeats the three-hour console hunt, or turns on enforcement and locks out
+// every client that is not yet sending tokens.
+describe('App Check is on, and the way back is written down', () => {
+  const appCheckBlock = () => {
     const cfg = readFileSync(resolve(process.cwd(), 'src/firebase-config.js'), 'utf8');
-    expect(cfg, 'APP_CHECK_ENABLED was flipped — has the probe been run on the '
-      + 'live domain and returned a token? It broke sign-in the last two times '
-      + 'it was turned on without that.')
-      .toMatch(/const APP_CHECK_ENABLED = false;/);
+    const start = cfg.indexOf('// ── App Check');
+    const end = cfg.indexOf('const APP_CHECK_ENABLED');
+    expect(start, 'the App Check block was not found').toBeGreaterThan(-1);
+    expect(end).toBeGreaterThan(start);
+    return cfg.slice(start, end);
+  };
+
+  it('is a plain boolean literal, so the rollback is a one-word edit', () => {
+    // Not derived from an env var or a remote config: under an outage this has
+    // to be changeable and deployable without reasoning about anything else.
+    const cfg = readFileSync(resolve(process.cwd(), 'src/firebase-config.js'), 'utf8');
+    expect(cfg).toMatch(/const APP_CHECK_ENABLED = (?:true|false);/);
+  });
+
+  it('records when the probe verified it', () => {
+    // Twice it was turned on with no evidence. The date is what makes the
+    // third time different, and what tells the next reader whether the
+    // evidence is stale.
+    expect(appCheckBlock(), 'the block must carry an ISO date').toMatch(/\d{4}-\d{2}-\d{2}/);
+    expect(appCheckBlock()).toMatch(/probe/i);
+  });
+
+  it('names the rollback', () => {
+    expect(appCheckBlock(), 'someone reading this during an outage needs the '
+      + 'undo in the same place as the switch')
+      .toMatch(/set this to false and deploy/i);
+  });
+
+  it('warns that enforcement is a separate switch', () => {
+    // This flag only makes the client SEND tokens. Turning on enforcement in
+    // the console is the step that can reject callers, and doing it on the
+    // same day as the flip would confuse a rollout with an outage.
+    expect(appCheckBlock()).toMatch(/enforcement is a SEPARATE switch/i);
+  });
+
+  it('keeps the root cause, so the console hunt is not repeated', () => {
+    // Matched across line breaks: these are comment lines, so the phrase is
+    // split by "\n// " wherever it happens to wrap.
+    expect(appCheckBlock()).toMatch(/SECRET key[\s\S]*holding the reCAPTCHA SITE/i);
   });
 
   it('the probe is reachable from the founder page', () => {
