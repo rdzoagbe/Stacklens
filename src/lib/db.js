@@ -131,6 +131,62 @@ function stampLocalRev(rev) {
   } catch { /* bookkeeping must never break a save */ }
 }
 
+// ── Has the cloud got everything this browser holds? ───────────────────────
+//
+// useAuth calls saveDb on every onAuthStateChanged event, so every page load
+// used to send a cloud write: the whole blob, and for a workspace of any size
+// that is several chunk documents per page VIEW. Nobody edited anything — the
+// write exists because the user block was patched with what Firebase Auth and
+// /users had just returned, all of it cloud-derived and re-derived on the next
+// load anyway.
+//
+// It cannot simply be deleted, because it doubles as the only retry a failed
+// save ever gets. markSyncFailed keeps a retry function, but that lives in
+// module memory: reload the page and it is gone. If the last save never
+// reached Firestore — offline, quota, rules — the mount write is what pushes
+// it up on the next visit.
+//
+// So the question is not "is this save bookkeeping?" but "is there anything
+// here the cloud has not got?". That is answered honestly by comparing
+// content, which hydration already has both halves of: it reads the cloud copy
+// on the first load of every session.
+//
+//   clean   local holds nothing the stored copy lacks — a bookkeeping save
+//           can skip the cloud entirely
+//   dirty   it might, so a bookkeeping save must still go
+//
+// Absence means dirty. A browser carrying unsynced work from before this
+// existed, a cleared key, a localStorage that throws in private mode: all of
+// them sync once and mark themselves afterwards. Every uncertain case costs
+// one write, never a lost one.
+const SYNC_MARK_KEY = 'accessguard_synced_v1';
+
+function markCloudClean() {
+  try { localStorage.setItem(SYNC_MARK_KEY, 'clean'); } catch { /* never break a save */ }
+}
+
+function markCloudDirty() {
+  try { localStorage.setItem(SYNC_MARK_KEY, 'dirty'); } catch { /* never break a save */ }
+}
+
+/** True unless we can prove the stored copy already has everything. */
+function cloudMayBeBehind() {
+  try { return localStorage.getItem(SYNC_MARK_KEY) !== 'clean'; } catch { return true; }
+}
+
+/**
+ * The local copy is now exactly what the cloud holds.
+ *
+ * Every call site is a point where that is true — an accepted write, or a
+ * conflict recognised as a no-op — so the revision stamp and the clean mark
+ * are the same fact and are recorded together. The mark is set even when there
+ * is no revision to stamp (a document written before revisions existed).
+ */
+function markInSync(rev) {
+  stampLocalRev(rev);
+  markCloudClean();
+}
+
 /**
  * Replace this browser's copy with what is stored in the cloud.
  *
@@ -144,10 +200,22 @@ async function adoptCloudCopy(uid) {
   const cloud = await loadUserData(uid);
   if (!cloud) throw new Error('Could not read the stored copy');
   localStorage.setItem(LS_KEY, JSON.stringify(asCompleteCopy(cloud)));
+  // Local IS the stored copy now, so the next page load has nothing to push.
+  markCloudClean();
   if (typeof window !== 'undefined') window.location.reload();
 }
 
-export function saveDb(db) {
+/**
+ * Write the workspace to localStorage, and back it up to the cloud.
+ *
+ * `cloudSync: false` marks a save as bookkeeping — it carries nothing a person
+ * typed, so it may skip the cloud write when we can prove the stored copy is
+ * already current (see the SYNC_MARK_KEY comment above). It is a permission to
+ * skip, not an instruction: if anything might be unsynced the write still
+ * goes, because that write is the only retry a failed save gets after a
+ * reload.
+ */
+export function saveDb(db, { cloudSync = true } = {}) {
   const serialized = JSON.stringify({ ...db, _saved_at: Date.now() });
   if (serialized.length > LS_SIZE_MAX_BYTES) {
     const trimmed = _trimDbForStorage(db);
@@ -173,13 +241,18 @@ export function saveDb(db) {
       markSyncFailed(new Error('Workspace too large for this browser to sync safely'), null);
       return;
     }
+    if (!cloudSync && !cloudMayBeBehind()) return;
     clearTimeout(_cloudSaveTimer);
     const ownerUid = db._shared_view.owner_uid;
+    // Before the debounce, not after: a tab closed inside those 1.5 seconds
+    // must leave this browser marked dirty, or the write it never made would
+    // look like one that succeeded.
+    markCloudDirty();
     _cloudSaveTimer = setTimeout(() => {
       const attempt = () => workspaceWrite(ownerUid, db);
       markSyncSaving();
       attempt().then(
-        (r) => { stampLocalRev(r?.rev); markSyncSaved(); },
+        (r) => { markInSync(r?.rev); markSyncSaved(); },
         async (err) => {
           // Two people, one workspace: the owner and an editor working the
           // same afternoon used to delete each other's work without either of
@@ -190,7 +263,7 @@ export function saveDb(db) {
           // a write on load, and one of them always loses the race.
           const theirs = await workspaceRead(ownerUid).then(r => r?.data, () => null);
           if (theirs && sameSubstance(db, theirs)) {
-            stampLocalRev(revOf(theirs));
+            markInSync(revOf(theirs));
             return markSyncSaved();
           }
           markSyncConflict(err, {
@@ -207,7 +280,7 @@ export function saveDb(db) {
               // The 409 carries the revision stored now, so re-basing costs no
               // extra read.
               const r = await workspaceWrite(ownerUid, { ...db, [REV_FIELD]: err.rev ?? null });
-              stampLocalRev(r?.rev);
+              markInSync(r?.rev);
             },
           });
         },
@@ -219,8 +292,10 @@ export function saveDb(db) {
     // Debounced: rapid consecutive edits produce one cloud write (the chunked
     // backup is several documents per save; un-debounced bursts previously
     // exhausted the Firestore write queue).
+    if (!cloudSync && !cloudMayBeBehind()) return;
     clearTimeout(_cloudSaveTimer);
     const uid = _firestoreUid;
+    markCloudDirty();
     _cloudSaveTimer = setTimeout(() => {
       // Observe-only: the rejection is still handled here (never rethrown), so
       // behaviour is unchanged — we just record the outcome so a failed cloud
@@ -228,7 +303,7 @@ export function saveDb(db) {
       const attempt = () => saveUserData(uid, db);
       markSyncSaving();
       attempt().then(
-        (rev) => { stampLocalRev(rev); markSyncSaved(); },
+        (rev) => { markInSync(rev); markSyncSaved(); },
         async (err) => {
           // A conflict must not reach the ordinary retry: that re-sends this
           // same payload, which is the silent overwrite the revision check
@@ -242,7 +317,7 @@ export function saveDb(db) {
           // a conflict, which is the safe direction.
           const theirs = await loadUserData(uid).catch(() => null);
           if (theirs && sameSubstance(db, theirs)) {
-            stampLocalRev(revOf(theirs));
+            markInSync(revOf(theirs));
             return markSyncSaved();
           }
           markSyncConflict(err, {
@@ -252,7 +327,7 @@ export function saveDb(db) {
               // deliberate overwrite, chosen by the user, not a blind retry.
               const cloud = await loadUserData(uid);
               const rev = await saveUserData(uid, { ...db, [REV_FIELD]: revOf(cloud) });
-              stampLocalRev(rev);
+              markInSync(rev);
             },
           });
         },
@@ -362,6 +437,10 @@ export async function hydrateFromFirestore(uid) {
       if (cloudData && cloudData.tools !== undefined) {
         const complete = asCompleteCopy(cloudData);
         localStorage.setItem(LS_KEY, JSON.stringify(complete));
+        // This browser now holds exactly the stored copy — the fresh-browser
+        // and cleared-storage case. Without this mark its first page load
+        // would send the whole blob straight back to Firestore.
+        markCloudClean();
         return complete;
       }
       // New user — nothing in cloud either, push local stub up
@@ -371,6 +450,7 @@ export async function hydrateFromFirestore(uid) {
         if (Number.isFinite(rev)) {
           local[REV_FIELD] = rev;
           localStorage.setItem(LS_KEY, JSON.stringify(local));
+          markCloudClean();
         }
       }
       return local;
@@ -380,6 +460,7 @@ export async function hydrateFromFirestore(uid) {
     if (cloudData && cloudData.tools !== undefined && cloudTs > localTs) {
       const complete = asCompleteCopy(cloudData);
       localStorage.setItem(LS_KEY, JSON.stringify(complete));
+      markCloudClean();
       return complete;
     }
 
@@ -407,6 +488,21 @@ export async function hydrateFromFirestore(uid) {
     // Written straight to localStorage rather than through saveDb: the values
     // came from Firestore, so a cloud write here would only send them back.
     if (billingChanged) localStorage.setItem(LS_KEY, JSON.stringify(freshLocal));
+
+    // Does this browser hold anything the cloud has not got?
+    //
+    // Decided by CONTENT, not by the timestamp that picked this branch. That
+    // timestamp is _saved_at, which every localStorage write bumps — including
+    // the bookkeeping save on every page load — so local "wins" here in the
+    // ordinary single-device case where the two copies are in fact identical.
+    // Trusting it would mark a perfectly synced browser dirty on every visit
+    // and the page-load write would never be skipped at all.
+    //
+    // A failed read leaves cloudData null, which reads as dirty: unproven is
+    // not the same as synced, and the cost of being wrong that way is one
+    // write rather than somebody's unsynced afternoon.
+    if (cloudData && sameSubstance(freshLocal, cloudData)) markCloudClean();
+    else markCloudDirty();
     return freshLocal;
   } catch (err) {
     console.warn('Firestore hydration failed, using local cache:', err);
