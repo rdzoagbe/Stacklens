@@ -200,3 +200,94 @@ describe('the stored name survives the next page load', () => {
     expect(page).toMatch(/displayName: authName/);
   });
 });
+
+// ── An exit that is offered has to work ────────────────────────────────────
+//
+// The "What's your name?" gate rendered a ✕ Close button and a clickable
+// backdrop, both wired to `onClose={() => {}}`. So it showed the way out
+// twice and provided it neither time.
+//
+// Same species as the verification button: an affordance that says it does
+// something and does not. The gate is meant to be mandatory, so the honest
+// fix is to stop drawing the exit rather than to make it work.
+describe('a modal only offers a Close button when it closes', () => {
+  const ui = (() => {
+    const raw = readFileSync(resolve(process.cwd(), 'src/components/ui.jsx'), 'utf8');
+    return raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+  })();
+  const shell = (() => {
+    const raw = readFileSync(resolve(process.cwd(), 'src/components/AppShell.jsx'), 'utf8');
+    return raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+  })();
+
+  it('decides from whether onClose is actually a function', () => {
+    // Not from a separate `dismissible` prop a caller could forget to pass:
+    // derived from the handler itself, so the button and the behaviour cannot
+    // disagree.
+    expect(ui).toMatch(/const dismissible = typeof onClose === 'function';/);
+  });
+
+  it('renders no Close button without a handler', () => {
+    // Asserted on the Close render ITSELF, not on a slice of the file. A first
+    // version sliced between two class-name strings whose first occurrences
+    // land elsewhere in the file, so it was matching `dismissible ?` from the
+    // backdrop line and passed with the button made unconditional again.
+    expect(ui, 'the Close button must be inside the dismissible conditional')
+      .toMatch(/dismissible \? \(\s*<Button[\s\S]{0,200}?Close/);
+  });
+
+  it('does not let the backdrop pretend to dismiss either', () => {
+    // The other half. A backdrop that swallows clicks silently is the same
+    // lie with no label on it.
+    expect(ui).toMatch(/onClick=\{dismissible \? onClose : undefined\}/);
+  });
+
+  it('the name gate passes no handler, so it is honestly mandatory', () => {
+    const gate = shell.slice(shell.indexOf('export function NameGate'), shell.indexOf('export function DemoBanner'));
+    expect(gate, 'a no-op onClose is what drew the button that did nothing')
+      .not.toMatch(/onClose=\{\(\) => \{\}\}/);
+    expect(gate).toMatch(/<Modal open title=\{t\('name_gate_title'\)\}/);
+  });
+
+  it('EVERY other modal in the app still has a working handler', () => {
+    // The change must not silently remove Close from modals people rely on.
+    //
+    // Checked per modal, not once per file. A first version asserted that the
+    // file contained an onClose somewhere, which ToolsPage satisfied from its
+    // other two modals while the first one had lost its handler.
+    //
+    // Literal paths: a variable trips security/detect-non-literal-fs-filename.
+    // Bounded to the OPENING TAG, by scanning to the first `>` outside braces.
+    // A fixed-size window does not work: a first version took 400 characters
+    // from each `<Modal`, which on ToolsPage ran into the NEXT modal's tag, so
+    // removing the first modal's handler still passed on its neighbour's.
+    // Brace depth matters because `() => setOpen(false)` contains a `>`.
+    const openingTag = (src, at) => {
+      let depth = 0;
+      for (let i = at; i < src.length; i++) {
+        const c = src[i];
+        if (c === '{') depth++;
+        else if (c === '}') depth--;
+        else if (c === '>' && depth === 0) return src.slice(at, i + 1);
+      }
+      return src.slice(at);
+    };
+    const eachModalHasOnClose = (src, where) => {
+      let from = 0;
+      let seen = 0;
+      for (;;) {
+        const at = src.indexOf('<Modal', from);
+        if (at === -1) break;
+        seen++;
+        expect(openingTag(src, at), `a <Modal in ${where} has no onClose`)
+          .toMatch(/onClose=/);
+        from = at + 6;
+      }
+      expect(seen, `no modal found in ${where}`).toBeGreaterThan(0);
+    };
+    eachModalHasOnClose(
+      readFileSync(resolve(process.cwd(), 'src/pages/ToolsPage.jsx'), 'utf8'), 'ToolsPage');
+    eachModalHasOnClose(
+      readFileSync(resolve(process.cwd(), 'src/pages/EmployeesPage.jsx'), 'utf8'), 'EmployeesPage');
+  });
+});

@@ -823,7 +823,10 @@ export function NameGate() {
   };
 
   return (
-    <Modal open title={t('name_gate_title')} subtitle={t('name_gate_sub')} onClose={() => {}}>
+    // No onClose: this gate is mandatory, so Modal renders no Close button and
+    // the backdrop does not dismiss. It previously passed a no-op, which showed
+    // an exit that did nothing — see the comment on Modal in components/ui.
+    <Modal open title={t('name_gate_title')} subtitle={t('name_gate_sub')}>
       <div className="space-y-4">
         <Input autoFocus value={name} onChange={e => setName(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') submit(); }}

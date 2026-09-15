@@ -163,7 +163,22 @@ export function Pill({ tone = 'slate', icon: Icon, children }) {
   );
 }
 
+// ── Modal ──────────────────────────────────────────────────────────────────
+//
+// A Close button is rendered ONLY when `onClose` is a function, and the
+// backdrop only dismisses when it is too.
+//
+// Before, the ✕ and the backdrop were always wired to whatever `onClose`
+// was. NameGate — the "What's your name?" gate, which is meant to be
+// mandatory — passed `onClose={() => {}}`, so the modal showed a Close
+// button and a clickable backdrop that did precisely nothing. Somebody
+// looking for the way out was offered one twice and given neither.
+//
+// The same species as the "I've verified — continue" button: an affordance
+// that says it does something and doesn't. Omit `onClose` and the modal is
+// honestly non-dismissible; supply it and the exit works.
 export function Modal({ open, title, subtitle, onClose, children, footer }) {
+  const dismissible = typeof onClose === 'function';
   return (
     <AnimatePresence>
       {open ? (
@@ -171,7 +186,8 @@ export function Modal({ open, title, subtitle, onClose, children, footer }) {
           className="fixed inset-0 z-50 flex items-center justify-center"
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
         >
-          <div className="absolute inset-0 bg-slate-950/70 backdrop-blur" onClick={onClose} />
+          <div className="absolute inset-0 bg-slate-950/70 backdrop-blur"
+            onClick={dismissible ? onClose : undefined} />
           <motion.div
             className="relative z-10 w-[92vw] max-w-2xl max-h-[90vh] flex flex-col"
             initial={{ y: 16, opacity: 0, scale: 0.98 }}
@@ -184,9 +200,11 @@ export function Modal({ open, title, subtitle, onClose, children, footer }) {
                   <div className="text-lg font-semibold text-slate-100">{title}</div>
                   {subtitle ? <div className="mt-1 text-sm text-slate-400">{subtitle}</div> : null}
                 </div>
-                <Button variant="ghost" size="sm" onClick={onClose}>
-                  <X className="h-4 w-4" /> Close
-                </Button>
+                {dismissible ? (
+                  <Button variant="ghost" size="sm" onClick={onClose}>
+                    <X className="h-4 w-4" /> Close
+                  </Button>
+                ) : null}
               </div>
               <div className="p-5 overflow-y-auto flex-1 min-h-0">{children}</div>
               {footer ? (
