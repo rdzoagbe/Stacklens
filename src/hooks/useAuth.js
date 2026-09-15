@@ -117,7 +117,23 @@ export function useAuth() {
           is_authenticated:   true,
           is_demo:            false,
           email:              fbUser.email || fbUser.providerData?.[0]?.email,
-          displayName:        fbUser.displayName || fbUser.providerData?.[0]?.displayName,
+          // Falls back to the name already stored, and that last clause is the
+          // whole point rather than belt-and-braces.
+          //
+          // The spread above brings the existing blob in; this key then
+          // overwrites it. Without the fallback it overwrites with `undefined`
+          // whenever the Firebase user carries no name — and the Auth user
+          // restored from persistence on a page load routinely does not, even
+          // when updateProfile has since set one on the server.
+          //
+          // So: signup stores the name (registerWithEmail → saveDisplayName),
+          // TrialPage writes it into the blob, TrialPage navigates to
+          // /dashboard, this runs on that fresh load and erases it — and
+          // NameGate, reading a blob with no name, asks for the name that was
+          // just given. Fixing the storing without fixing this left the modal
+          // exactly where it was.
+          displayName:        fbUser.displayName || fbUser.providerData?.[0]?.displayName
+                              || cur.user?.displayName || '',
           photoURL:           fbUser.photoURL,
           uid:                fbUser.uid,
           plan:               effectivePlan,
