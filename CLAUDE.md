@@ -22,7 +22,10 @@ cd functions && npm run serve      # Firebase emulator for functions only
 
 # Quality
 npm run lint         # ESLint — must stay at 0 errors
-npm test             # Vitest — 306 tests (src/lib, src/pages, functions/)
+npm test             # Vitest — src/lib, src/pages, functions/ (no count here: it
+                     # goes stale on every test added. Firestore rules tests are
+                     # excluded from this run — they need the emulator, so
+                     # `npm run test:rules`, or `npm run test:all` for both.)
 ```
 
 There is a **husky pre-commit hook** that runs ESLint on staged files — commits will be blocked on lint errors.
