@@ -1,9 +1,10 @@
 // ── Would App Check work if we turned it on? ───────────────────────────────
 //
-// APP_CHECK_ENABLED in src/firebase-config.js has been flipped to true twice
+// APP_CHECK_ENABLED in src/firebase-config.js had been flipped to true twice
 // and taken sign-in down twice. The second time, after re-registering the
 // reCAPTCHA key, production still returned exchangeRecaptchaV3Token 400s and
-// appCheck/throttled (2026-07-23).
+// appCheck/throttled (2026-07-23). It is on now — see "What it found" below
+// for why that was a verified change rather than a third attempt.
 //
 // The reason it is so expensive to get wrong is the failure mode. Once App
 // Check is initialised on the app that Auth uses, the Auth SDK attaches an App
@@ -24,20 +25,30 @@
 // result, and then flipping the flag is a verified change rather than a third
 // attempt.
 //
-// It has now been run on stacklens.fr, and the answer is that the exchange is
-// still being rejected today — not that an old throttle is in the way:
+// ── What it found (2026-09-15) ─────────────────────────────────────────────
+//
+// It earned its keep on the first run. In a clean browser, with the reCAPTCHA
+// key set to v3, stacklens.fr in its allowed domains and the provider showing
+// Registered, it returned:
 //
 //   appCheck/initial-throttle: AppCheck: 400 error.
 //   Attempts allowed again after 00m:01s (appCheck/initial-throttle).
 //
-// In a clean browser, with the reCAPTCHA key set to v3, stacklens.fr in its
-// allowed domains, and the provider showing Registered in Firebase Console,
-// that is a fresh 400. `initial-throttle` is the SDK's first-failure back-off
-// — one second — and not the day-long `appCheck/throttled`. The remaining
-// suspect is the one thing no console screen displays: the reCAPTCHA SECRET
-// key stored in App Check pairing with the site key above.
+// A fresh 400 — `initial-throttle` is the SDK's first-failure back-off of one
+// second, not the day-long `appCheck/throttled`. So nothing was stale and
+// nothing was waiting: the exchange was being rejected right then, which
+// pointed at the one value no console screen can display.
 //
-// So APP_CHECK_ENABLED stays false, and it is a finding rather than a mystery.
+// It was the reCAPTCHA SECRET field in Firebase App Check holding the
+// reCAPTCHA SITE key. Same length, both beginning `6L`, and stored write-only
+// — so "Registered" was true and the secret was wrong, and no amount of
+// re-reading the console could have shown it. Three separate console reviews
+// found nothing wrong because the wrong value was the invisible one.
+//
+// With the real secret in place the probe minted a 950-character token, and
+// APP_CHECK_ENABLED was set to true on the strength of that rather than on a
+// third guess. The probe stays here: it is now the pre-flight for any change
+// to the reCAPTCHA key, the allowed domains, or that flag.
 
 import { initializeApp, deleteApp, getApps } from 'firebase/app';
 import {

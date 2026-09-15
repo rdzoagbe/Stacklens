@@ -148,9 +148,15 @@ Three sign-in methods, all in `firebase-config.js`:
 - Magic link (`sendMagicLink` / `completeMagicLinkSignIn`)
 - Email/password (`registerWithEmail` / `signInWithEmail`)
 
-**Firebase App Check (reCAPTCHA v3) is currently DISABLED.** The switch is `APP_CHECK_ENABLED = false` in `src/firebase-config.js`, and the wiring behind it is intact — the site key is in `VITE_RECAPTCHA_SITE_KEY`. Nothing today verifies that a caller is the real app, so auth and the callable endpoints are reachable by any client that has the (public) Firebase config.
+**Firebase App Check (reCAPTCHA v3) is ENABLED** (`APP_CHECK_ENABLED = true` in `src/firebase-config.js`, set 2026-09-15). It had been flipped on twice before and took sign-in down twice: once App Check is initialised on the app Auth uses, the Auth SDK attaches a token to every ID-token refresh, so a failing exchange corrupts the refresh and 401s every auth-gated call. There is no fail-open.
 
-To re-enable, flip the flag to `true`. Do it as its own change: every auth operation then requires a valid App Check token, and if the deployment domain is not in the reCAPTCHA allowed-domains list in Google Cloud Console, sign-in fails with `auth/internal-error` for real users. Verify the allow-list before shipping it.
+The root cause of both outages was the reCAPTCHA **secret** field in Firebase Console → App Check → Apps holding the **site** key. The two look alike (same length, both begin `6L`) and Firebase stores the secret write-only, so every console screen read "Registered" while the exchange returned 400 — the one wrong value was the one value that cannot be displayed.
+
+**Before touching the flag, the reCAPTCHA key, or its allowed domains:** run **Test App Check** on `/founder-admin`. `src/lib/appCheckProbe.js` attempts the same exchange on a second, throwaway Firebase app — no Auth instance, no Firestore, token auto-refresh off, app deleted afterwards — so a failure cannot reach a real session. It reports the raw Firebase error and the token's length, never the token.
+
+**Rollback if sign-in breaks:** set the flag to `false` and `firebase deploy --only hosting`. That is the whole undo.
+
+**Enforcement is a separate switch**, per service, under Firebase Console → App Check → APIs. The flag only makes the client *send* tokens; nothing is rejected for lacking one until enforcement is turned on there. Watch the verified/unverified split first.
 
 ### Cloud Functions
 
