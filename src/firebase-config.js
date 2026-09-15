@@ -582,9 +582,31 @@ export async function createBillingPortal() {
 
 
 // Email/Password Registration
-export async function registerWithEmail(email, password, _displayName) {
+export async function registerWithEmail(email, password, displayName) {
   try {
     const result = await createUserWithEmailAndPassword(auth, email, password);
+
+    // The signup form asks for a full name. This used to take it as
+    // `_displayName` — the repo's convention for a parameter deliberately
+    // unused — and drop it on the floor. So somebody typed their name, pressed
+    // Continue, and the very next screen was a modal asking "What's your
+    // name?". They had just answered that.
+    //
+    // Stored BEFORE the verification email goes out: the name is then already
+    // on the account if the send fails, and Firebase's own template can use it.
+    //
+    // A failure here must not fail the registration — the account exists by
+    // this point, and losing the signup over a name would be a far worse
+    // outcome. NameGate in AppShell still catches an account that ends up
+    // without one, which is what it was written for.
+    if (displayName && String(displayName).trim()) {
+      try {
+        await saveDisplayName(displayName);
+      } catch (e) {
+        console.warn('registerWithEmail: could not store the display name:', e?.message);
+      }
+    }
+
     // Continue URL so the verification link returns the user to the app instead
     // of dead-ending on Firebase's hosted "email verified" page.
     await sendEmailVerification(result.user, { url: window.location.origin + '/dashboard' });
