@@ -283,3 +283,114 @@ describe('default deny — an unlisted collection is closed', () => {
     }
   });
 });
+
+// ── Starting a trial: the path every new signup takes ──────────────────────
+//
+// Reported from production: a brand-new email/password signup logged
+// "startTrial failed (continuing on free): Missing or insufficient
+// permissions" and landed on the free plan. Silently — startTrial swallows
+// the error by design, so nobody finds out except by reading the console.
+//
+// The rules LOOK like they allow it (protectedFieldsSafe has an isTrialStart
+// branch, trialStampImmutable permits the first stamp), which is exactly why
+// this needs executing rather than reading. These cases are the shapes the
+// /users document can actually be in when startTrial runs.
+describe('a new signup can start their trial', () => {
+  // Byte-for-byte what src/firebase-config.js startTrial() sends.
+  const startTrial = (db, uid) => setDoc(
+    doc(db, 'users', uid),
+    { plan: 'trial', trial_started_at: serverTimestamp() },
+    { merge: true },
+  );
+
+  it('with no /users document yet', async () => {
+    await assertSucceeds(startTrial(asAlice(), ALICE));
+  });
+
+  it('with the document exactly as the syncuser function creates it', async () => {
+    // functions/index.js syncuser: set({ uid, email, displayName, photoURL,
+    // plan: 'free', createdAt, updatedAt, last_seen_at })
+    await admin(db => setDoc(doc(db, 'users', ALICE), {
+      uid: ALICE, email: 'a@b.com', displayName: 'Jay tester', photoURL: '',
+      plan: 'free', createdAt: Date.now(), updatedAt: Date.now(),
+      last_seen_at: Date.now(),
+    }));
+    await assertSucceeds(startTrial(asAlice(), ALICE));
+  });
+
+  it('with billing fields present but empty', async () => {
+    // A doc the Stripe webhook has touched and cleared, or one carrying the
+    // nulls syncuser reports back. These keys are in the protected list, and
+    // on a merge write request.resource.data is the MERGED document — so if
+    // their mere presence blocked the trial branch, no such user could ever
+    // start one.
+    await admin(db => setDoc(doc(db, 'users', ALICE), {
+      uid: ALICE, email: 'a@b.com', plan: 'free',
+      stripe_customer_id: null, subscription_status: null,
+    }));
+    await assertSucceeds(startTrial(asAlice(), ALICE));
+  });
+
+  it('with a role field present', async () => {
+    await admin(db => setDoc(doc(db, 'users', ALICE), {
+      uid: ALICE, email: 'a@b.com', plan: 'free', role: 'owner',
+    }));
+    await assertSucceeds(startTrial(asAlice(), ALICE));
+  });
+
+  it('but NOT from a paid plan — no self-upgrade to trial', async () => {
+    // Found by mutation: removing the replay guard from isTrialStart left all
+    // 44 tests green, because trialStampImmutable independently blocks a
+    // SECOND stamp. What the guard uniquely protects is this — `trial` is
+    // tier 4, the same as scale, so a starter or pro subscriber who has never
+    // had a trial could grant themselves full access by writing plan='trial'.
+    // The stamp then freezes, so it is once per account, which is exactly
+    // once too many.
+    await admin(db => setDoc(doc(db, 'users', ALICE), {
+      uid: ALICE, email: 'a@b.com', plan: 'starter',
+    }));
+    await assertFails(startTrial(asAlice(), ALICE));
+  });
+
+  it('but NOT twice — the trial stamp still cannot be replayed', async () => {
+    // The protection this must not weaken.
+    await admin(db => setDoc(doc(db, 'users', ALICE), {
+      uid: ALICE, plan: 'trial', trial_started_at: new Date('2026-01-01'),
+    }));
+    await assertFails(startTrial(asAlice(), ALICE));
+  });
+});
+
+// ── A token with no email claim must not break the rules ───────────────────
+//
+// Found by the emulator while reproducing the trial bug, not by reading:
+//
+//   evaluation error at L93:24 for 'update' … Property email is undefined
+//
+// isFounder() evaluates isFounderEmail() first, and that dereferences
+// request.auth.token.email. In Firestore rules, reading a property that is not
+// there is not "false" — it is an evaluation ERROR, which aborts the whole
+// expression and denies.
+//
+// The sting is that the rules already know this can happen: the comment above
+// isFounderUid() says the allowlist exists BECAUSE the founder's Google
+// sign-in has no email claim. So the one account the UID fallback was written
+// for is the account whose token makes the check before it throw — and an
+// error short-circuits the `||` before the fallback is ever reached.
+describe('rules survive a token with no email claim', () => {
+  const noEmail = () => testEnv.authenticatedContext('uid_no_email').firestore();
+
+  it('the founder UID fallback still works when the token carries no email', async () => {
+    // The founder's own token, as the rules comment describes it: right uid,
+    // no email claim. If isFounderEmail() throws first, the founder is denied
+    // their own admin access.
+    const founderNoEmail = () => testEnv.authenticatedContext(FOUNDER_UID).firestore();
+    await assertSucceeds(getDocs(collection(founderNoEmail(), 'users')));
+  });
+
+  it('an ordinary user with no email claim is denied cleanly, not by an error', async () => {
+    // Same outcome either way here, but an evaluation error means the rule
+    // stopped being evaluated — so nothing after it can be trusted.
+    await assertFails(getDocs(collection(noEmail(), 'users')));
+  });
+});

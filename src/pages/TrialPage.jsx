@@ -12,6 +12,7 @@ import { RDLogo, ScrollToTop } from '../components/ui';
 import { LangSelectorCompact, _openCookieBanner } from '../components/AppShell';
 import { usePlanPricing } from '../contexts/CurrencyContext';
 import { getPlanLimits } from '../lib/plan';
+import { passwordProblem, suggestPassword } from '../lib/password';
 
 // Signup consent copy. Authored in all five languages rather than routed
 // through the translation hook: this is the LCEN/GDPR proof-of-consent control,
@@ -57,6 +58,10 @@ export function TrialPage() {
   const [authName, setAuthName] = useState('');
   const [magicSent, setMagicSent] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  // Separate from showPassword, which belongs to the sign-IN field. Reusing it
+  // would reveal the sign-in password when someone peeked at their new one.
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [suggested, setSuggested] = useState(false);
   const [authError, setAuthError] = useState('');
   const [, setCurrentTestimonial] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -740,19 +745,69 @@ export function TrialPage() {
 
                       {authError && <div className="text-rose-400 text-xs px-1">{authError}</div>}
 
-                      {/* Password field for registration */}
+                      {/* Password field for registration.
+                          Revealable, and it has to be: this is a password
+                          being INVENTED rather than recalled, typed once into
+                          a masked box and once into a second masked box, and
+                          the only feedback on a typo was a mismatch warning
+                          that does not say which of the two was wrong. */}
                       <div>
-                        <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">{t('lp_password_label')}</label>
-                        <input type="password" value={authPassword} onChange={e => setAuthPassword(e.target.value)}
-                          placeholder={t('lp_min_chars')}
-                          className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" />
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wide">{t('lp_password_label')}</label>
+                          {/* Hidden when the browser has no CSPRNG — see
+                              suggestPassword: a weak password behind a "strong"
+                              label is worse than no button at all. */}
+                          {suggestPassword() && (
+                            <button type="button"
+                              onClick={() => {
+                                const pw = suggestPassword();
+                                if (!pw) return;
+                                setAuthPassword(pw);
+                                setAuthConfirm(pw);
+                                setShowNewPassword(true);   // useless if they cannot read it
+                                setSuggested(true);
+                                setAuthError('');
+                              }}
+                              className="text-xs text-blue-400 hover:text-blue-300 transition-colors">
+                              {t('lp_suggest_password')}
+                            </button>
+                          )}
+                        </div>
+                        <div className="relative">
+                          <input type={showNewPassword ? 'text' : 'password'} value={authPassword}
+                            onChange={e => { setAuthPassword(e.target.value); setSuggested(false); }}
+                            placeholder={t('lp_min_chars')}
+                            className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all pr-16" />
+                          <button type="button" onClick={() => setShowNewPassword(v => !v)}
+                            className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 text-xs">
+                            {showNewPassword ? t('lp_hide_password') : t('lp_show_password')}
+                          </button>
+                        </div>
+                        {/* Say what is wrong while they type, not after they
+                            press the button. The key comes from
+                            passwordProblem so the form and the submit handler
+                            can never disagree about what is acceptable. */}
+                        {authPassword && passwordProblem(authPassword, { email: authEmail, name: authName }) && (
+                          <div className="text-amber-400 text-xs px-1 mt-1">
+                            {t(passwordProblem(authPassword, { email: authEmail, name: authName }))}
+                          </div>
+                        )}
+                        {suggested && (
+                          <div className="text-emerald-400 text-xs px-1 mt-1">{t('lp_password_suggested')}</div>
+                        )}
                       </div>
                       {/* Confirm password */}
                       <div>
                         <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">{t('lp_confirm_password_label')}</label>
-                        <input type="password" value={authConfirm} onChange={e => setAuthConfirm(e.target.value)}
-                          placeholder={t('lp_confirm_password_ph')}
-                          className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" />
+                        <div className="relative">
+                          <input type={showNewPassword ? 'text' : 'password'} value={authConfirm} onChange={e => setAuthConfirm(e.target.value)}
+                            placeholder={t('lp_confirm_password_ph')}
+                            className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all pr-16" />
+                          <button type="button" onClick={() => setShowNewPassword(v => !v)}
+                            className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 text-xs">
+                            {showNewPassword ? t('lp_hide_password') : t('lp_show_password')}
+                          </button>
+                        </div>
                         {authConfirm && authPassword !== authConfirm && (
                           <div className="text-rose-400 text-xs px-1 mt-1">{t('lp_password_mismatch')}</div>
                         )}
@@ -772,7 +827,11 @@ export function TrialPage() {
                       <button id="signup-btn" onClick={async () => {
                           if (!authName) { setAuthError(t('lp_enter_name')); return; }
                           if (!authEmail) { setAuthError(t('lp_enter_email')); return; }
-                          if (!authPassword || authPassword.length < 8) { setAuthError(t('lp_password_min')); return; }
+                          // One rule, shared with the live hint above and with
+                          // the disabled state on the button, so the three can
+                          // never disagree about what is acceptable.
+                          const pwProblem = passwordProblem(authPassword, { email: authEmail, name: authName });
+                          if (pwProblem) { setAuthError(t(pwProblem)); return; }
                           if (authPassword !== authConfirm) { setAuthError(t('lp_password_mismatch')); return; }
                           setLoading(true); setAuthError('');
                           const { user, error } = await registerWithEmail(authEmail, authPassword, authName);
