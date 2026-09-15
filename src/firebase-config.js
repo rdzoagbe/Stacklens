@@ -582,9 +582,31 @@ export async function createBillingPortal() {
 
 
 // Email/Password Registration
-export async function registerWithEmail(email, password, _displayName) {
+export async function registerWithEmail(email, password, displayName) {
   try {
     const result = await createUserWithEmailAndPassword(auth, email, password);
+
+    // The signup form asks for a full name. This used to take it as
+    // `_displayName` — the repo's convention for a parameter deliberately
+    // unused — and drop it on the floor. So somebody typed their name, pressed
+    // Continue, and the very next screen was a modal asking "What's your
+    // name?". They had just answered that.
+    //
+    // Stored BEFORE the verification email goes out: the name is then already
+    // on the account if the send fails, and Firebase's own template can use it.
+    //
+    // A failure here must not fail the registration — the account exists by
+    // this point, and losing the signup over a name would be a far worse
+    // outcome. NameGate in AppShell still catches an account that ends up
+    // without one, which is what it was written for.
+    if (displayName && String(displayName).trim()) {
+      try {
+        await saveDisplayName(displayName);
+      } catch (e) {
+        console.warn('registerWithEmail: could not store the display name:', e?.message);
+      }
+    }
+
     // Continue URL so the verification link returns the user to the app instead
     // of dead-ending on Firebase's hosted "email verified" page.
     await sendEmailVerification(result.user, { url: window.location.origin + '/dashboard' });
@@ -612,6 +634,38 @@ export async function resendEmailVerification() {
     return { error: null };
   } catch (error) {
     return { error: error.message };
+  }
+}
+
+/**
+ * Ask the server whether this account's email is verified yet.
+ *
+ * The "I've verified — continue" button used to do
+ *
+ *   await firebaseUser.reload();
+ *   if (!firebaseUser.emailVerified) setError(...)
+ *
+ * with a comment saying onAuthStateChanged would then re-render. It does not:
+ * that listener fires on sign-in and sign-out, not on reload(). So for the
+ * person who HAD clicked the link, no error was set, no state changed, and the
+ * wall stayed exactly as it was. The button appeared to do nothing, which is
+ * the one thing it must never do — it is the only way out of that screen.
+ *
+ * reload() is what actually re-reads the flag from the server; the persisted
+ * user restored on a page load can carry a stale one, which is why reloading
+ * the page was not a fix either. The forced ID-token refresh is for the Cloud
+ * Functions, which read the claims: without it the next call still carries a
+ * token minted before verification.
+ */
+export async function refreshEmailVerified() {
+  try {
+    if (!auth?.currentUser) return { verified: false, error: 'Not signed in' };
+    await auth.currentUser.reload();
+    const verified = !!auth.currentUser.emailVerified;
+    if (verified) await getIdToken(auth.currentUser, true);
+    return { verified, error: null };
+  } catch (error) {
+    return { verified: false, error: error.message };
   }
 }
 

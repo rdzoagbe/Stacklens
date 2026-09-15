@@ -1,6 +1,6 @@
 import React, { useEffect, useState, Suspense } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
-import { resendEmailVerification } from './firebase-config';
+import { resendEmailVerification, refreshEmailVerified } from './firebase-config';
 import { useAuth } from './hooks/useAuth';
 import { TourProvider } from './contexts/TourContext';
 import { LanguageProvider, useLang } from './contexts/LangContext';
@@ -48,10 +48,9 @@ const LazyImportWizard          = React.lazy(() => import('./pages/DashboardPage
 
 
 
-function EmailVerificationWall({ email }) {
+function EmailVerificationWall({ email, onVerified }) {
   const { language } = useLang();
   const t = useTranslation(language);
-  const { firebaseUser } = useAuth();
   const [sent, setSent] = useState(false);
   const [checking, setChecking] = useState(false);
   const [resending, setResending] = useState(false);
@@ -67,12 +66,21 @@ function EmailVerificationWall({ email }) {
     }
   };
 
+  // The old version awaited firebaseUser.reload() and trusted a comment
+  // claiming onAuthStateChanged would re-render. It does not fire on reload,
+  // so for anyone who HAD clicked the link nothing was set, nothing changed,
+  // and the wall stayed put — the button did nothing, which is the one thing
+  // it cannot do, being the only way off this screen.
+  //
+  // Now the answer comes back from the server and is reported upwards, so the
+  // component that owns the gate is the one that re-renders.
   const handleCheck = async () => {
     setChecking(true);
+    setError('');
     try {
-      await firebaseUser.reload();
-      // If verified, the onAuthStateChanged will re-render with updated user
-      if (!firebaseUser.emailVerified) setError(t('email_not_verified_yet') || 'Email not verified yet. Please check your inbox.');
+      const { verified, error: err } = await refreshEmailVerified();
+      if (verified) onVerified();
+      else setError(err || t('email_not_verified_yet') || 'Email not verified yet. Please check your inbox.');
     } catch (e) {
       setError(e.message);
     } finally {
@@ -110,15 +118,30 @@ function RequireAuth({ children }) {
   const t = useTranslation(language);
   const { isAuthed, isDemo, loading, firebaseUser } = useAuth();
   const location = useLocation();
+  const [justVerified, setJustVerified] = useState(false);
 
   if (loading) return <div className="flex items-center justify-center h-screen bg-slate-950"><div className="text-white text-sm">{t('loading')}</div></div>;
 
   if (!isAuthed && !isDemo && !firebaseUser) return <Navigate to="/" replace state={{ from: location }} />;
 
   // Gate email/password users who haven't verified yet (Google/magic-link users are pre-verified)
+  //
+  // `justVerified` is held HERE rather than in the wall, because this is the
+  // component that decides whether to show it. The wall is a child: state it
+  // sets re-renders only the wall, which is why the old button appeared to do
+  // nothing even when the reload had succeeded.
+  //
+  // It is also why this does not simply re-read firebaseUser.emailVerified.
+  // That object is the SDK's instance held in this hook's state; whether a
+  // reload mutates it in place is an implementation detail, and the gate
+  // should not depend on one. The server's answer is what is recorded.
+  //
+  // Not a security boundary and not pretending to be: this gate is UX. The
+  // real enforcement is in the Firestore rules and the Cloud Functions, which
+  // check the token, not this flag.
   const isPasswordProvider = firebaseUser?.providerData?.[0]?.providerId === 'password';
-  if (isPasswordProvider && firebaseUser?.emailVerified === false) {
-    return <EmailVerificationWall email={firebaseUser.email} />;
+  if (isPasswordProvider && firebaseUser?.emailVerified === false && !justVerified) {
+    return <EmailVerificationWall email={firebaseUser.email} onVerified={() => setJustVerified(true)} />;
   }
 
   return children;
