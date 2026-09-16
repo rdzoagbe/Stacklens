@@ -450,3 +450,100 @@ describe('the gate decides correctly when actually run', () => {
     expect(readFileSync(out, 'utf8')).toMatch(/deploy=true/);
   });
 });
+
+
+// ── The allocation has to fit the region's CPU ceiling ─────────────────────
+//
+// Run #663 failed on purgeClientOrgs with
+//
+//   Could not create or update Cloud Run service purgeclientorgs,
+//   Container Healthcheck failed. Quota exceeded for total allowable CPU
+//   per project per region.
+//
+// and the cause was arithmetic, not luck. firebase-functions gives every
+// gen2 function a full vCPU by default ("Defaults to 1 for functions with
+// <= 2GB RAM", v2/options.d.ts), twenty functions therefore hold 20,000
+// milli vCPU, and "Total CPU allocation, in milli vCPU, per project per
+// region" for us-central1 IS 20,000. The deploy sat exactly on the ceiling.
+//
+// GCP will not lift it. The console answers "Based on your service usage
+// history, you are not eligible for a quota increase at this time" with the
+// field capped at the current value, checked 2026-09-16. So the ceiling is a
+// fixed constant and the allocation is the only side that can move.
+//
+// This computes what a deploy actually asks for and fails the build if it no
+// longer fits — because the alternative is finding out from a red deploy,
+// which is how we found out the first three times.
+describe('the functions fit the regional CPU quota', () => {
+  // us-central1, Cloud Run Admin API, screenshotted 2026-09-16: value 20,000,
+  // "Adjustable: Yes" but not for this project.
+  const QUOTA_MILLI = 20000;
+
+  const globalCpu = () => {
+    const src = read('functions/index.js');
+    const m = /setGlobalOptions\(\{([^}]*)\}\)/.exec(src);
+    expect(m, 'setGlobalOptions call not found — cannot check the allocation')
+      .toBeTruthy();
+    const cpu = /cpu:\s*([0-9.]+|'gcf_gen1')/.exec(m[1]);
+    // No cpu set means the library default, which is the bug: a full vCPU each.
+    if (!cpu) return 1;
+    return cpu[1] === "'gcf_gen1'" ? 0.167 : Number(cpu[1]);
+  };
+
+  const largestBatch = () => {
+    const wf = read('.github/workflows/build.yml');
+    return Math.max(...[...wf.matchAll(/--only (functions:[^\s]+)/g)]
+      .map(m => m[1].split(',').length));
+  };
+
+  it('does not set a full vCPU per function', () => {
+    expect(globalCpu(), 'One vCPU x twenty functions is exactly the 20,000 ' +
+      'milli quota, so every deploy races the instances draining behind it. ' +
+      'This is what failed run #663.').toBeLessThan(1);
+  });
+
+  it('the warm allocation fits inside the quota', () => {
+    const warm = exportedFunctions().length * globalCpu() * 1000;
+    expect(warm, `${exportedFunctions().length} functions x ${globalCpu()} ` +
+      `vCPU = ${warm} milli, against a ${QUOTA_MILLI} milli ceiling.`)
+      .toBeLessThan(QUOTA_MILLI);
+  });
+
+  it('and so does a deploy, with the draining revisions on top', () => {
+    // What actually breaks. During a batch each new revision boots a container
+    // while the revision it replaces is still holding instances, so the peak
+    // is the warm allocation plus roughly two revisions per function in the
+    // batch. At cpu 1 this came to 30,000 against 20,000 — #663.
+    const cpu = globalCpu();
+    const warm = exportedFunctions().length * cpu * 1000;
+    const peak = warm + 2 * largestBatch() * cpu * 1000;
+    expect(peak, `Peak during a deploy of the largest batch ` +
+      `(${largestBatch()} functions) is about ${peak} milli vCPU, against a ` +
+      `${QUOTA_MILLI} milli ceiling. Lower cpu, shrink the batches, or ` +
+      `deploy fewer functions.`).toBeLessThan(QUOTA_MILLI);
+  });
+
+  it('no function quietly opts back into a full vCPU', () => {
+    // A per-function override is allowed, but not one that puts a single
+    // service back on a whole core while the global setting says otherwise.
+    const src = read('functions/index.js');
+    const overrides = [...src.matchAll(/cpu:\s*([0-9.]+)/g)]
+      .map(m => Number(m[1]));
+    for (const c of overrides) {
+      expect(c, `A cpu: ${c} override. Keep every function below a full ` +
+        `vCPU or the regional ceiling comes back.`).toBeLessThan(1);
+    }
+  });
+
+  it('records why concurrency is now 1 and not 80', () => {
+    // cpu < 1 forces concurrency to 1 ("Concurrency cannot be set to any
+    // value other than 1 if cpu is less than 1"). That is a real behaviour
+    // change and the next person needs to find it written down next to the
+    // setting, not in a pull request.
+    const src = read('functions/index.js');
+    const at = src.indexOf('setGlobalOptions({');
+    const preamble = src.slice(Math.max(0, at - 3000), at);
+    expect(preamble, 'the concurrency cost of cpu < 1 must be recorded ' +
+      'beside setGlobalOptions').toMatch(/concurrency/i);
+  });
+});

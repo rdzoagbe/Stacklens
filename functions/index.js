@@ -19,7 +19,41 @@ const { setGlobalOptions } = require('firebase-functions/v2');
 // And cost: a runaway loop or a traffic spike against an unbounded function
 // bills for as many instances as it can start. Ten each is far above anything
 // this product's traffic needs and puts a ceiling on the damage.
-setGlobalOptions({ maxInstances: 10 });
+//
+// ── cpu: 0.5 ────────────────────────────────────────────────────────────────
+//
+// maxInstances: 10 was not enough, because the quota counts the CPU that
+// RUNNING instances hold, not the cap. From firebase-functions' own docs:
+//
+//   cpu … "Defaults to 1 for functions with <= 2GB RAM and increases for
+//   larger memory sizes. This is different from the defaults when using the
+//   gcloud utility and is different from the fixed amount assigned in Cloud
+//   Functions (1st gen)."
+//
+// Twenty functions at one full vCPU each is 20,000 milli vCPU, and
+// "Total CPU allocation, in milli vCPU, per project per region" for
+// us-central1 is 20,000. Exactly the ceiling, no headroom at all — which is
+// why a deploy fails whenever a batch's new revisions boot while the previous
+// batch's instances are still warm. Run #663 died that way on
+// purgeClientOrgs, the twentieth and last function in the last batch.
+//
+// GCP will not raise the limit: the console answers "Based on your service
+// usage history, you are not eligible for a quota increase at this time",
+// with the field capped at its current 20,000. So the allocation has to come
+// down instead.
+//
+// At 0.5 the twenty functions hold 10,000 milli — half the ceiling — and a
+// deploy has room for every batch plus the instances draining behind it.
+//
+// The cost, also from those docs: "A value of null restores the default
+// concurrency (80 when CPU >= 1, 1 otherwise). Concurrency cannot be set to
+// any value other than 1 if `cpu` is less than 1." So each instance now
+// serves one request at a time rather than eighty, and ten instances per
+// function means ten concurrent requests per function. That is how 1st gen
+// behaved for years and is far above this product's traffic. If a function
+// ever needs more, raise ITS maxInstances — raising cpu back to 1 puts the
+// deploy back against the ceiling.
+setGlobalOptions({ maxInstances: 10, cpu: 0.5 });
 const { defineSecret } = require('firebase-functions/params');
 // firebase-admin v14 removed the legacy namespaced API (admin.auth(), admin.firestore(), …)
 // — only the modular entry points exist now.
