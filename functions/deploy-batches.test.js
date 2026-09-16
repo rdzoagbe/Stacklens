@@ -1,6 +1,8 @@
-import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { describe, it, expect, afterAll } from 'vitest';
+import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { resolve, join, dirname } from 'node:path';
+import { tmpdir } from 'node:os';
+import { execFileSync } from 'node:child_process';
 
 // ── Every function must be in exactly one deploy batch ──────────────────────
 //
@@ -134,11 +136,23 @@ describe('the functions deploy is gated, and fails toward deploying', () => {
       'that positively established nothing relevant changed.').toBe(1);
   });
 
-  it('counts firebase.json and the workflow itself as function changes', () => {
+  it('counts the workflow itself as a function change', () => {
     const job = deployFunctionsJob();
-    // firebase.json carries function config; this workflow carries the batch
-    // list, so editing either without redeploying leaves them unapplied.
-    expect(job).toMatch(/functions\/ firebase\.json \.github\/workflows\/build\.yml/);
+    // This workflow carries the batch list, so editing it without redeploying
+    // can leave a newly-added function never deployed.
+    expect(job).toMatch(/functions\/ \.github\/workflows\/build\.yml/);
+  });
+
+  it('does not treat all of firebase.json as function config', () => {
+    // The behaviour is asserted by running the gate, further down. This only
+    // pins the shape: the whole file must NOT sit in the pathspec, because
+    // that is what redeployed twenty services for a hosting-headers edit.
+    const job = deployFunctionsJob();
+    expect(job, 'firebase.json back in the pathspec means any hosting or ' +
+      'firestore edit restarts every Cloud Run service again')
+      .not.toMatch(/-- functions\/ firebase\.json/);
+    expect(job, 'it must be compared by its functions key instead')
+      .toMatch(/jq -S -c '\.functions \/\/ null'/);
   });
 
   it('does not redeploy for a change to a test file', () => {
@@ -250,5 +264,189 @@ describe('the preview job does not run where it cannot possibly authenticate', (
       expect(block, `${job} must not be skipped for Dependabot — it runs on main`)
         .not.toMatch(/dependabot/);
     }
+  });
+});
+
+
+// ── The gate is asserted by RUNNING it, not by reading it ──────────────────
+//
+// Every test above this point checks the workflow's TEXT. That is how run
+// #663 happened: the gate said "functions/ firebase.json ...", the text test
+// matched it and passed, and the behaviour was wrong — a commit that changed
+// only the hosting cache headers in firebase.json redeployed all twenty Cloud
+// Run services, and batch 4 then failed on "Quota exceeded for total
+// allowable CPU per project per region".
+//
+// Nothing about that was visible in the source. firebase.json is four configs
+// in one file, and the gate treated the file as indivisible.
+//
+// So these extract the step's shell out of the workflow and execute it
+// against throwaway git repositories. If the decision is wrong, the test is
+// wrong with it — which is the only version of this test worth having.
+describe('the gate decides correctly when actually run', () => {
+  const gateScript = () => {
+    const wf = read('.github/workflows/build.yml');
+    const at = wf.indexOf('- name: Decide whether functions need deploying');
+    expect(at, 'the gate step was renamed — this suite tests nothing')
+      .toBeGreaterThan(-1);
+    const runAt = wf.indexOf('run: |', at);
+    expect(runAt, 'the gate step no longer has a run block').toBeGreaterThan(-1);
+    const lines = wf.slice(runAt).split('\n').slice(1);
+    const indent = lines[0].match(/^\s*/)[0].length;
+    const body = [];
+    for (const line of lines) {
+      if (line.trim() === '') { body.push(''); continue; }
+      if (line.match(/^\s*/)[0].length < indent) break;
+      body.push(line.slice(indent));
+    }
+    const script = body.join('\n');
+    expect(script, 'the extracted script does not look like the gate')
+      .toMatch(/GITHUB_OUTPUT/);
+    return script;
+  };
+
+  const dirs = [];
+  const newRepo = (files) => {
+    const dir = mkdtempSync(join(tmpdir(), 'deploy-gate-'));
+    dirs.push(dir);
+    const git = (...args) => execFileSync('git', args, { cwd: dir, stdio: 'pipe' });
+    git('init', '-q');
+    git('config', 'user.email', 'gate@test');
+    git('config', 'user.name', 'gate');
+    git('config', 'commit.gpgsign', 'false');
+    const write = (rel, body) => {
+      const full = join(dir, rel);
+      mkdirSync(dirname(full), { recursive: true });
+      writeFileSync(full, body);
+    };
+    const commit = (set) => {
+      for (const [rel, body] of Object.entries(set)) write(rel, body);
+      git('add', '-A');
+      git('commit', '-q', '-m', 'x');
+      return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: dir }).toString().trim();
+    };
+    const before = commit(files);
+    return { dir, commit, before };
+  };
+
+  // Enough of the real thing for the gate to have something to compare.
+  const BASE = {
+    'firebase.json': JSON.stringify({
+      hosting: { public: 'dist', headers: [{ source: '**', headers: [] }] },
+      firestore: { rules: 'firestore.rules' },
+      functions: [{ source: 'functions', codebase: 'default' }],
+    }, null, 2) + '\n',
+    'functions/index.js': 'exports.ai = 1;\n',
+    'functions/deploy-batches.test.js': '// a test\n',
+    '.github/workflows/build.yml': 'name: Build\n',
+    'src/App.jsx': 'export default 1;\n',
+  };
+
+  const decide = (repo, after) => {
+    const out = join(repo.dir, 'gh-output');
+    writeFileSync(out, '');
+    const script = join(repo.dir, 'gate.sh');
+    writeFileSync(script, gateScript());
+    execFileSync('bash', [script], {
+      cwd: repo.dir,
+      env: { ...process.env, BEFORE: repo.before, AFTER: after, GITHUB_OUTPUT: out },
+      stdio: 'pipe',
+    });
+    const kv = {};
+    for (const line of readFileSync(out, 'utf8').split('\n')) {
+      const i = line.indexOf('=');
+      if (i > 0) kv[line.slice(0, i)] = line.slice(i + 1);
+    }
+    return kv;
+  };
+
+  afterAll(() => {
+    for (const d of dirs) rmSync(d, { recursive: true, force: true });
+  });
+
+  it('does NOT deploy for a hosting-only change to firebase.json', () => {
+    // This is run #663, reproduced. Before the fix this returned true.
+    const repo = newRepo(BASE);
+    const fb = JSON.parse(BASE['firebase.json']);
+    fb.hosting.headers[0].headers.push({ key: 'Cache-Control', value: 'no-store' });
+    const after = repo.commit({ 'firebase.json': JSON.stringify(fb, null, 2) + '\n' });
+    const d = decide(repo, after);
+    expect(d.deploy, `gate said deploy (${d.reason}) for a hosting header edit`)
+      .toBe('false');
+  });
+
+  it('does NOT deploy for a firestore-only change to firebase.json', () => {
+    const repo = newRepo(BASE);
+    const fb = JSON.parse(BASE['firebase.json']);
+    fb.firestore.indexes = 'firestore.indexes.json';
+    const after = repo.commit({ 'firebase.json': JSON.stringify(fb, null, 2) + '\n' });
+    expect(decide(repo, after).deploy).toBe('false');
+  });
+
+  it('DOES deploy when firebase.json’s functions block changes', () => {
+    // The reason the whole file was in the pathspec. Narrowing it must not
+    // lose this: function config that never deploys is the dangerous
+    // direction.
+    const repo = newRepo(BASE);
+    const fb = JSON.parse(BASE['firebase.json']);
+    fb.functions[0].runtime = 'nodejs22';
+    const after = repo.commit({ 'firebase.json': JSON.stringify(fb, null, 2) + '\n' });
+    const d = decide(repo, after);
+    expect(d.deploy, 'function config would have shipped undeployed').toBe('true');
+    expect(d.reason).toMatch(/firebase\.json:functions/);
+  });
+
+  it('DOES deploy when firebase.json stops being readable JSON', () => {
+    // Fail toward deploying. A file jq cannot parse must never read as
+    // "unchanged".
+    const repo = newRepo(BASE);
+    const after = repo.commit({ 'firebase.json': '{ this is not json\n' });
+    expect(decide(repo, after).deploy).toBe('true');
+  });
+
+  it('DOES deploy for a change to functions source', () => {
+    const repo = newRepo(BASE);
+    const after = repo.commit({ 'functions/index.js': 'exports.ai = 2;\n' });
+    expect(decide(repo, after).deploy).toBe('true');
+  });
+
+  it('DOES deploy for a change to this workflow', () => {
+    const repo = newRepo(BASE);
+    const after = repo.commit({ '.github/workflows/build.yml': 'name: Build2\n' });
+    expect(decide(repo, after).deploy).toBe('true');
+  });
+
+  it('does NOT deploy for a functions test file alone', () => {
+    const repo = newRepo(BASE);
+    const after = repo.commit({ 'functions/deploy-batches.test.js': '// two\n' });
+    expect(decide(repo, after).deploy).toBe('false');
+  });
+
+  it('does NOT deploy for a src-only change', () => {
+    // The common case: nearly every merge. Getting this wrong costs seven
+    // minutes and, twice now, a red deploy.
+    const repo = newRepo(BASE);
+    const after = repo.commit({ 'src/App.jsx': 'export default 2;\n' });
+    expect(decide(repo, after).deploy).toBe('false');
+  });
+
+  it('deploys when there is no previous commit to compare against', () => {
+    const repo = newRepo(BASE);
+    const after = repo.commit({ 'src/App.jsx': 'export default 3;\n' });
+    const out = join(repo.dir, 'gh-output');
+    writeFileSync(out, '');
+    const script = join(repo.dir, 'gate.sh');
+    writeFileSync(script, gateScript());
+    execFileSync('bash', [script], {
+      cwd: repo.dir,
+      env: {
+        ...process.env,
+        BEFORE: '0000000000000000000000000000000000000000',
+        AFTER: after,
+        GITHUB_OUTPUT: out,
+      },
+      stdio: 'pipe',
+    });
+    expect(readFileSync(out, 'utf8')).toMatch(/deploy=true/);
   });
 });
