@@ -14,7 +14,6 @@ import {
   signInWithEmailAndPassword,
   sendEmailVerification,
   sendPasswordResetEmail,
-  getRedirectResult,
   GoogleAuthProvider,
   OAuthProvider,
   signOut,
@@ -450,15 +449,16 @@ export async function signInWithMicrosoft() {
   }
 }
 
-export async function handleRedirectResult() {
-  try {
-    const result = await getRedirectResult(auth);
-    if (result?.user) return { user: result.user, error: null };
-    return { user: null, error: null };
-  } catch (error) {
-    return { user: null, error: error.message };
-  }
-}
+// handleRedirectResult() was here. Removed 2026-09-16: exported, never called,
+// and unreachable by construction — nothing in src/ calls signInWithRedirect,
+// so there was never a redirect for it to report on. The matching reader in
+// useAuth (a sessionStorage key no code ever wrote) went at the same time.
+//
+// Sign-in is popup-only. Wiring redirect up is a real option — signInWithPopup
+// is blocked in iOS in-app browsers, so a visitor arriving from a LinkedIn or
+// Instagram webview taps "Continue with Google" and nothing happens — but it
+// needs the redirect started on the way out as well as handled on the way
+// back. Half of that pair is worse than neither: it reads as handled.
 
 export async function signOutUser() {
   try {
