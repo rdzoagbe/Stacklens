@@ -597,8 +597,9 @@ export async function registerWithEmail(email, password, displayName) {
     //
     // A failure here must not fail the registration — the account exists by
     // this point, and losing the signup over a name would be a far worse
-    // outcome. NameGate in AppShell still catches an account that ends up
-    // without one, which is what it was written for.
+    // outcome. Nothing catches it afterwards any more: the "What's your name?"
+    // gate that used to was removed on 2026-09-16, so this is the only place
+    // an email/password signup's name is recorded.
     if (displayName && String(displayName).trim()) {
       try {
         await saveDisplayName(displayName);

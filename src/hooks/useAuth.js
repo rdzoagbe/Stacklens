@@ -128,10 +128,12 @@ export function useAuth() {
           //
           // So: signup stores the name (registerWithEmail → saveDisplayName),
           // TrialPage writes it into the blob, TrialPage navigates to
-          // /dashboard, this runs on that fresh load and erases it — and
-          // NameGate, reading a blob with no name, asks for the name that was
-          // just given. Fixing the storing without fixing this left the modal
-          // exactly where it was.
+          // /dashboard, and this used to run on that fresh load and erase it.
+          // The "What's your name?" gate then asked for the name that had
+          // just been given. That gate was removed on 2026-09-16, but the
+          // erasure is still a bug on its own: the sidebar and the Founder
+          // view read this blob, so without the fallback the name silently
+          // disappears on the first reload after signup.
           displayName:        fbUser.displayName || fbUser.providerData?.[0]?.displayName
                               || cur.user?.displayName || '',
           photoURL:           fbUser.photoURL,

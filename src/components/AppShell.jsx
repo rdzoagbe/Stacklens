@@ -8,13 +8,12 @@ import { subscribeSync, getSyncSnapshot, retrySync, resolveConflict } from '../l
 import { useQueryClient } from '@tanstack/react-query';
 import { resolvePlan, getTrialState, getPlanLimits, isFounderUser } from '../lib/plan';
 import { cx } from '../lib/utils';
-import { useDbQuery, useDbMutations } from '../hooks/useDbQuery';
+import { useDbQuery } from '../hooks/useDbQuery';
 import { useClientWorkspaces } from '../hooks/useClientWorkspaces';
-import { saveDisplayName } from '../firebase-config';
 import { useAuth } from '../hooks/useAuth';
 import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
-import { RDLogo, Button, Modal, Input } from '../components/ui';
+import { RDLogo, Button, Modal } from '../components/ui';
 import {
   LayoutDashboard, Boxes, Users, GitMerge, UserMinus, Shield, BarChart3, Settings,
   ChevronDown, BadgeX, ExternalLink, Languages, Building2,
@@ -791,62 +790,23 @@ function WorkspaceOffers({ workspaces, openWorkspace, busy, t }) {
   );
 }
 
-// One-field gate: any signed-in (non-demo) user without a full name must
-// enter one before using the app. Covers email/password and magic-link
-// signups (which never carry a name) and OAuth accounts that returned none —
-// so the Founder view always has Full Name + Email. Users who already have a
-// name (typical Google/Microsoft sign-in) never see this.
-export function NameGate() {
-  const { firebaseUser, isDemo, user } = useAuth();
-  const { language } = useLang();
-  const t = useTranslation(language);
-  const muts = useDbMutations();
-  const [name, setName] = useState('');
-  const [saving, setSaving] = useState(false);
-
-  const hasName = !!(firebaseUser?.displayName || user?.displayName);
-  const needsName = !!firebaseUser && !isDemo && !hasName;
-  if (!needsName) return null;
-
-  const submit = async () => {
-    const clean = name.trim();
-    if (clean.length < 2 || saving) return;
-    setSaving(true);
-    try {
-      await saveDisplayName(clean);
-      muts.setAuth.mutate({ displayName: clean });
-    } catch (err) {
-      toast.error(err.message || t('err_name_save'));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    // No onClose: this gate is mandatory, so Modal renders no Close button and
-    // the backdrop does not dismiss. It previously passed a no-op, which showed
-    // an exit that did nothing — see the comment on Modal in components/ui.
-    <Modal open title={t('name_gate_title')} subtitle={t('name_gate_sub')}>
-      <div className="space-y-4">
-        <Input autoFocus value={name} onChange={e => setName(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') submit(); }}
-          placeholder={t('name_gate_placeholder')} />
-        {/* Says WHY Continue is unavailable.
-            Without this the button is disabled until two characters are typed
-            and simply does nothing when pressed — and the placeholder
-            ("Jane Smith") reads like a value already in the field, so the
-            honest conclusion from the outside is that the app is broken.
-            Reported exactly that way. */}
-        {name.trim().length < 2 && (
-          <div className="text-xs text-slate-500">{t('name_gate_hint')}</div>
-        )}
-        <Button onClick={submit} disabled={saving || name.trim().length < 2} className="w-full">
-          {saving ? t('sending') : t('name_gate_cta')}
-        </Button>
-      </div>
-    </Modal>
-  );
-}
+// The "What's your name?" gate was removed on 2026-09-16, deliberately.
+//
+// It blocked the whole app behind a modal for any signed-in account without a
+// display name. That was written so the Founder view always had Full Name +
+// Email, but it was solving a data-completeness problem by stopping the person
+// who had just paid attention to the signup form — and the person creating the
+// account is the admin, who does not need to be told to identify themselves.
+//
+// The name is still captured, at signup, by registerWithEmail →
+// saveDisplayName (Auth profile + /users doc). That path is now the ONLY thing
+// that records a name, which is why the guards in lib/signup-flow.test.js
+// matter more than they did: there is no longer a gate behind them to catch an
+// account that arrives without one.
+//
+// Magic-link and OAuth accounts that return no name will therefore show blank
+// in Founder Admin. That is the accepted cost, and the honest place to fix it
+// is a name field in Settings rather than a wall in front of the product.
 
 export function DemoBanner() {
   const { isDemo } = useAuth();
@@ -941,7 +901,6 @@ export function AppShell({ _subtitle, title, right, children }) {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 overflow-x-hidden">
       <div className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.18),transparent_52%),radial-gradient(circle_at_bottom,rgba(99,102,241,0.10),transparent_55%)]" />
-      <NameGate />
       <CloudSyncBanner />
       <DemoBanner />
       <SharedWorkspaceBanner />

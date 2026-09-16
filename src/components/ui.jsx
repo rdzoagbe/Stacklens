@@ -175,10 +175,12 @@ export function Pill({ tone = 'slate', icon: Icon, children }) {
 // backdrop only dismisses when it is too.
 //
 // Before, the ✕ and the backdrop were always wired to whatever `onClose`
-// was. NameGate — the "What's your name?" gate, which is meant to be
-// mandatory — passed `onClose={() => {}}`, so the modal showed a Close
-// button and a clickable backdrop that did precisely nothing. Somebody
-// looking for the way out was offered one twice and given neither.
+// was. The "What's your name?" gate — mandatory by design, and since
+// removed altogether — passed `onClose={() => {}}`, so the modal showed a
+// Close button and a clickable backdrop that did precisely nothing.
+// Somebody looking for the way out was offered one twice and given neither.
+// The gate is gone; this rule is not, because the next mandatory modal will
+// reach for the same shortcut.
 //
 // The same species as the "I've verified — continue" button: an affordance
 // that says it does something and doesn't. Omit `onClose` and the modal is

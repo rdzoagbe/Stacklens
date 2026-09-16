@@ -1,6 +1,8 @@
-import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { describe, it, expect, afterAll } from 'vitest';
+import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { resolve, join, dirname } from 'node:path';
+import { tmpdir } from 'node:os';
+import { execFileSync } from 'node:child_process';
 
 // ── Every function must be in exactly one deploy batch ──────────────────────
 //
@@ -134,11 +136,23 @@ describe('the functions deploy is gated, and fails toward deploying', () => {
       'that positively established nothing relevant changed.').toBe(1);
   });
 
-  it('counts firebase.json and the workflow itself as function changes', () => {
+  it('counts the workflow itself as a function change', () => {
     const job = deployFunctionsJob();
-    // firebase.json carries function config; this workflow carries the batch
-    // list, so editing either without redeploying leaves them unapplied.
-    expect(job).toMatch(/functions\/ firebase\.json \.github\/workflows\/build\.yml/);
+    // This workflow carries the batch list, so editing it without redeploying
+    // can leave a newly-added function never deployed.
+    expect(job).toMatch(/functions\/ \.github\/workflows\/build\.yml/);
+  });
+
+  it('does not treat all of firebase.json as function config', () => {
+    // The behaviour is asserted by running the gate, further down. This only
+    // pins the shape: the whole file must NOT sit in the pathspec, because
+    // that is what redeployed twenty services for a hosting-headers edit.
+    const job = deployFunctionsJob();
+    expect(job, 'firebase.json back in the pathspec means any hosting or ' +
+      'firestore edit restarts every Cloud Run service again')
+      .not.toMatch(/-- functions\/ firebase\.json/);
+    expect(job, 'it must be compared by its functions key instead')
+      .toMatch(/jq -S -c '\.functions \/\/ null'/);
   });
 
   it('does not redeploy for a change to a test file', () => {
@@ -250,5 +264,286 @@ describe('the preview job does not run where it cannot possibly authenticate', (
       expect(block, `${job} must not be skipped for Dependabot — it runs on main`)
         .not.toMatch(/dependabot/);
     }
+  });
+});
+
+
+// ── The gate is asserted by RUNNING it, not by reading it ──────────────────
+//
+// Every test above this point checks the workflow's TEXT. That is how run
+// #663 happened: the gate said "functions/ firebase.json ...", the text test
+// matched it and passed, and the behaviour was wrong — a commit that changed
+// only the hosting cache headers in firebase.json redeployed all twenty Cloud
+// Run services, and batch 4 then failed on "Quota exceeded for total
+// allowable CPU per project per region".
+//
+// Nothing about that was visible in the source. firebase.json is four configs
+// in one file, and the gate treated the file as indivisible.
+//
+// So these extract the step's shell out of the workflow and execute it
+// against throwaway git repositories. If the decision is wrong, the test is
+// wrong with it — which is the only version of this test worth having.
+describe('the gate decides correctly when actually run', () => {
+  const gateScript = () => {
+    const wf = read('.github/workflows/build.yml');
+    const at = wf.indexOf('- name: Decide whether functions need deploying');
+    expect(at, 'the gate step was renamed — this suite tests nothing')
+      .toBeGreaterThan(-1);
+    const runAt = wf.indexOf('run: |', at);
+    expect(runAt, 'the gate step no longer has a run block').toBeGreaterThan(-1);
+    const lines = wf.slice(runAt).split('\n').slice(1);
+    const indent = lines[0].match(/^\s*/)[0].length;
+    const body = [];
+    for (const line of lines) {
+      if (line.trim() === '') { body.push(''); continue; }
+      if (line.match(/^\s*/)[0].length < indent) break;
+      body.push(line.slice(indent));
+    }
+    const script = body.join('\n');
+    expect(script, 'the extracted script does not look like the gate')
+      .toMatch(/GITHUB_OUTPUT/);
+    return script;
+  };
+
+  const dirs = [];
+  const newRepo = (files) => {
+    const dir = mkdtempSync(join(tmpdir(), 'deploy-gate-'));
+    dirs.push(dir);
+    const git = (...args) => execFileSync('git', args, { cwd: dir, stdio: 'pipe' });
+    git('init', '-q');
+    git('config', 'user.email', 'gate@test');
+    git('config', 'user.name', 'gate');
+    git('config', 'commit.gpgsign', 'false');
+    const write = (rel, body) => {
+      const full = join(dir, rel);
+      mkdirSync(dirname(full), { recursive: true });
+      writeFileSync(full, body);
+    };
+    const commit = (set) => {
+      for (const [rel, body] of Object.entries(set)) write(rel, body);
+      git('add', '-A');
+      git('commit', '-q', '-m', 'x');
+      return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: dir }).toString().trim();
+    };
+    const before = commit(files);
+    return { dir, commit, before };
+  };
+
+  // Enough of the real thing for the gate to have something to compare.
+  const BASE = {
+    'firebase.json': JSON.stringify({
+      hosting: { public: 'dist', headers: [{ source: '**', headers: [] }] },
+      firestore: { rules: 'firestore.rules' },
+      functions: [{ source: 'functions', codebase: 'default' }],
+    }, null, 2) + '\n',
+    'functions/index.js': 'exports.ai = 1;\n',
+    'functions/deploy-batches.test.js': '// a test\n',
+    '.github/workflows/build.yml': 'name: Build\n',
+    'src/App.jsx': 'export default 1;\n',
+  };
+
+  const decide = (repo, after) => {
+    const out = join(repo.dir, 'gh-output');
+    writeFileSync(out, '');
+    const script = join(repo.dir, 'gate.sh');
+    writeFileSync(script, gateScript());
+    execFileSync('bash', [script], {
+      cwd: repo.dir,
+      env: { ...process.env, BEFORE: repo.before, AFTER: after, GITHUB_OUTPUT: out },
+      stdio: 'pipe',
+    });
+    const kv = {};
+    for (const line of readFileSync(out, 'utf8').split('\n')) {
+      const i = line.indexOf('=');
+      if (i > 0) kv[line.slice(0, i)] = line.slice(i + 1);
+    }
+    return kv;
+  };
+
+  afterAll(() => {
+    for (const d of dirs) rmSync(d, { recursive: true, force: true });
+  });
+
+  it('does NOT deploy for a hosting-only change to firebase.json', () => {
+    // This is run #663, reproduced. Before the fix this returned true.
+    const repo = newRepo(BASE);
+    const fb = JSON.parse(BASE['firebase.json']);
+    fb.hosting.headers[0].headers.push({ key: 'Cache-Control', value: 'no-store' });
+    const after = repo.commit({ 'firebase.json': JSON.stringify(fb, null, 2) + '\n' });
+    const d = decide(repo, after);
+    expect(d.deploy, `gate said deploy (${d.reason}) for a hosting header edit`)
+      .toBe('false');
+  });
+
+  it('does NOT deploy for a firestore-only change to firebase.json', () => {
+    const repo = newRepo(BASE);
+    const fb = JSON.parse(BASE['firebase.json']);
+    fb.firestore.indexes = 'firestore.indexes.json';
+    const after = repo.commit({ 'firebase.json': JSON.stringify(fb, null, 2) + '\n' });
+    expect(decide(repo, after).deploy).toBe('false');
+  });
+
+  it('DOES deploy when firebase.json’s functions block changes', () => {
+    // The reason the whole file was in the pathspec. Narrowing it must not
+    // lose this: function config that never deploys is the dangerous
+    // direction.
+    const repo = newRepo(BASE);
+    const fb = JSON.parse(BASE['firebase.json']);
+    fb.functions[0].runtime = 'nodejs22';
+    const after = repo.commit({ 'firebase.json': JSON.stringify(fb, null, 2) + '\n' });
+    const d = decide(repo, after);
+    expect(d.deploy, 'function config would have shipped undeployed').toBe('true');
+    expect(d.reason).toMatch(/firebase\.json:functions/);
+  });
+
+  it('DOES deploy when firebase.json stops being readable JSON', () => {
+    // Fail toward deploying. A file jq cannot parse must never read as
+    // "unchanged".
+    const repo = newRepo(BASE);
+    const after = repo.commit({ 'firebase.json': '{ this is not json\n' });
+    expect(decide(repo, after).deploy).toBe('true');
+  });
+
+  it('DOES deploy for a change to functions source', () => {
+    const repo = newRepo(BASE);
+    const after = repo.commit({ 'functions/index.js': 'exports.ai = 2;\n' });
+    expect(decide(repo, after).deploy).toBe('true');
+  });
+
+  it('DOES deploy for a change to this workflow', () => {
+    const repo = newRepo(BASE);
+    const after = repo.commit({ '.github/workflows/build.yml': 'name: Build2\n' });
+    expect(decide(repo, after).deploy).toBe('true');
+  });
+
+  it('does NOT deploy for a functions test file alone', () => {
+    const repo = newRepo(BASE);
+    const after = repo.commit({ 'functions/deploy-batches.test.js': '// two\n' });
+    expect(decide(repo, after).deploy).toBe('false');
+  });
+
+  it('does NOT deploy for a src-only change', () => {
+    // The common case: nearly every merge. Getting this wrong costs seven
+    // minutes and, twice now, a red deploy.
+    const repo = newRepo(BASE);
+    const after = repo.commit({ 'src/App.jsx': 'export default 2;\n' });
+    expect(decide(repo, after).deploy).toBe('false');
+  });
+
+  it('deploys when there is no previous commit to compare against', () => {
+    const repo = newRepo(BASE);
+    const after = repo.commit({ 'src/App.jsx': 'export default 3;\n' });
+    const out = join(repo.dir, 'gh-output');
+    writeFileSync(out, '');
+    const script = join(repo.dir, 'gate.sh');
+    writeFileSync(script, gateScript());
+    execFileSync('bash', [script], {
+      cwd: repo.dir,
+      env: {
+        ...process.env,
+        BEFORE: '0000000000000000000000000000000000000000',
+        AFTER: after,
+        GITHUB_OUTPUT: out,
+      },
+      stdio: 'pipe',
+    });
+    expect(readFileSync(out, 'utf8')).toMatch(/deploy=true/);
+  });
+});
+
+
+// ── The allocation has to fit the region's CPU ceiling ─────────────────────
+//
+// Run #663 failed on purgeClientOrgs with
+//
+//   Could not create or update Cloud Run service purgeclientorgs,
+//   Container Healthcheck failed. Quota exceeded for total allowable CPU
+//   per project per region.
+//
+// and the cause was arithmetic, not luck. firebase-functions gives every
+// gen2 function a full vCPU by default ("Defaults to 1 for functions with
+// <= 2GB RAM", v2/options.d.ts), twenty functions therefore hold 20,000
+// milli vCPU, and "Total CPU allocation, in milli vCPU, per project per
+// region" for us-central1 IS 20,000. The deploy sat exactly on the ceiling.
+//
+// GCP will not lift it. The console answers "Based on your service usage
+// history, you are not eligible for a quota increase at this time" with the
+// field capped at the current value, checked 2026-09-16. So the ceiling is a
+// fixed constant and the allocation is the only side that can move.
+//
+// This computes what a deploy actually asks for and fails the build if it no
+// longer fits — because the alternative is finding out from a red deploy,
+// which is how we found out the first three times.
+describe('the functions fit the regional CPU quota', () => {
+  // us-central1, Cloud Run Admin API, screenshotted 2026-09-16: value 20,000,
+  // "Adjustable: Yes" but not for this project.
+  const QUOTA_MILLI = 20000;
+
+  const globalCpu = () => {
+    const src = read('functions/index.js');
+    const m = /setGlobalOptions\(\{([^}]*)\}\)/.exec(src);
+    expect(m, 'setGlobalOptions call not found — cannot check the allocation')
+      .toBeTruthy();
+    const cpu = /cpu:\s*([0-9.]+|'gcf_gen1')/.exec(m[1]);
+    // No cpu set means the library default, which is the bug: a full vCPU each.
+    if (!cpu) return 1;
+    return cpu[1] === "'gcf_gen1'" ? 0.167 : Number(cpu[1]);
+  };
+
+  const largestBatch = () => {
+    const wf = read('.github/workflows/build.yml');
+    return Math.max(...[...wf.matchAll(/--only (functions:[^\s]+)/g)]
+      .map(m => m[1].split(',').length));
+  };
+
+  it('does not set a full vCPU per function', () => {
+    expect(globalCpu(), 'One vCPU x twenty functions is exactly the 20,000 ' +
+      'milli quota, so every deploy races the instances draining behind it. ' +
+      'This is what failed run #663.').toBeLessThan(1);
+  });
+
+  it('the warm allocation fits inside the quota', () => {
+    const warm = exportedFunctions().length * globalCpu() * 1000;
+    expect(warm, `${exportedFunctions().length} functions x ${globalCpu()} ` +
+      `vCPU = ${warm} milli, against a ${QUOTA_MILLI} milli ceiling.`)
+      .toBeLessThan(QUOTA_MILLI);
+  });
+
+  it('and so does a deploy, with the draining revisions on top', () => {
+    // What actually breaks. During a batch each new revision boots a container
+    // while the revision it replaces is still holding instances, so the peak
+    // is the warm allocation plus roughly two revisions per function in the
+    // batch. At cpu 1 this came to 30,000 against 20,000 — #663.
+    const cpu = globalCpu();
+    const warm = exportedFunctions().length * cpu * 1000;
+    const peak = warm + 2 * largestBatch() * cpu * 1000;
+    expect(peak, `Peak during a deploy of the largest batch ` +
+      `(${largestBatch()} functions) is about ${peak} milli vCPU, against a ` +
+      `${QUOTA_MILLI} milli ceiling. Lower cpu, shrink the batches, or ` +
+      `deploy fewer functions.`).toBeLessThan(QUOTA_MILLI);
+  });
+
+  it('no function quietly opts back into a full vCPU', () => {
+    // A per-function override is allowed, but not one that puts a single
+    // service back on a whole core while the global setting says otherwise.
+    const src = read('functions/index.js');
+    const overrides = [...src.matchAll(/cpu:\s*([0-9.]+)/g)]
+      .map(m => Number(m[1]));
+    for (const c of overrides) {
+      expect(c, `A cpu: ${c} override. Keep every function below a full ` +
+        `vCPU or the regional ceiling comes back.`).toBeLessThan(1);
+    }
+  });
+
+  it('records why concurrency is now 1 and not 80', () => {
+    // cpu < 1 forces concurrency to 1 ("Concurrency cannot be set to any
+    // value other than 1 if cpu is less than 1"). That is a real behaviour
+    // change and the next person needs to find it written down next to the
+    // setting, not in a pull request.
+    const src = read('functions/index.js');
+    const at = src.indexOf('setGlobalOptions({');
+    const preamble = src.slice(Math.max(0, at - 3000), at);
+    expect(preamble, 'the concurrency cost of cpu < 1 must be recorded ' +
+      'beside setGlobalOptions').toMatch(/concurrency/i);
   });
 });
