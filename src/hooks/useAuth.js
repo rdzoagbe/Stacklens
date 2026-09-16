@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import {
-  signInWithGoogle, signOutUser, onAuthChange, syncUserProfile,
+  signInWithGoogle, signOutUser, onAuthChange,
   getUserPlanFromFirestore, startTrial,
 } from '../firebase-config';
 import { LS_KEY } from '../lib/constants';
@@ -16,37 +16,30 @@ export function useAuth() {
   const [firebaseUser, setFirebaseUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Handle Google redirect result stored in sessionStorage by main.jsx
-  useEffect(() => {
-    const stored = sessionStorage.getItem('sg_redirect_user');
-    if (stored) {
-      try {
-        const redirectUser = JSON.parse(stored);
-        sessionStorage.removeItem('sg_redirect_user');
-        setFirestoreUid(redirectUser.uid);
-        hydrateFromFirestore(redirectUser.uid).then(cloudDb => {
-          const freshDb = cloudDb || {
-            user: {}, tools: [], employees: [], access: [],
-            contracts: [], invoices: [], licenses: [],
-            audit_log: [], settings: {},
-          };
-          freshDb.user = {
-            is_authenticated: true, is_demo: false,
-            email:       redirectUser.email,
-            displayName: redirectUser.displayName,
-            photoURL:    redirectUser.photoURL,
-            uid:         redirectUser.uid,
-          };
-          saveDb(freshDb);
-          syncUserProfile({ uid: redirectUser.uid, email: redirectUser.email, displayName: redirectUser.displayName, photoURL: redirectUser.photoURL }).catch(() => {});
-          qc.invalidateQueries({ queryKey: ['db'] });
-          localStorage.setItem('sg_onboarded_' + redirectUser.uid, 'true');
-          window.location.replace('/dashboard');
-        });
-      } catch { /* ignore parse errors */ }
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // There was a 30-line effect here that read a Google redirect result out of
+  // sessionStorage under the key 'sg_redirect_user'. Removed 2026-09-16: its
+  // body could never run.
+  //
+  // Nothing wrote that key. The comment on it said "stored in sessionStorage
+  // by main.jsx" and main.jsx has never mentioned it. firebase-config's
+  // handleRedirectResult() was exported and never called, and grepping the
+  // whole of src/ for signInWithRedirect returns nothing — so no redirect
+  // sign-in is ever started, and none can come back.
+  //
+  // Sign-in is popup-only: signInWithGoogle uses signInWithPopup.
+  //
+  // If redirect sign-in is ever wired up (the honest reason to: signInWithPopup
+  // is blocked in iOS in-app browsers, so a visitor arriving from a LinkedIn
+  // or Instagram webview can tap Google sign-in and watch nothing happen),
+  // do NOT restore what was here. It did
+  //
+  //   freshDb.user = { is_authenticated: true, ... }
+  //
+  // with no spread of the existing user, so it discarded every stored user
+  // field that Firebase does not re-derive — the same clobber that erased the
+  // signup name below, one level up. Merge onto the stored blob instead.
+  //
+  // signup-flow.test.js fails if the key or the uncalled helper comes back.
 
   useEffect(() => {
     const unsubscribe = onAuthChange(async (fbUser) => {
@@ -131,9 +124,26 @@ export function useAuth() {
           // /dashboard, and this used to run on that fresh load and erase it.
           // The "What's your name?" gate then asked for the name that had
           // just been given. That gate was removed on 2026-09-16, but the
-          // erasure is still a bug on its own: the sidebar and the Founder
-          // view read this blob, so without the fallback the name silently
-          // disappears on the first reload after signup.
+          // erasure is a bug in its own right.
+          //
+          // An earlier version of this comment said the sidebar and the
+          // Founder view read this field. Both are wrong, and the mistake
+          // matters: anyone checking those two places would find the fallback
+          // dead and delete it. SidebarFooter reads userProfile.fullName from
+          // Firestore, then firebaseUser.displayName, and never the blob;
+          // FounderAdminPage reads the /users documents.
+          //
+          // What actually reads db.user.displayName, verified by grep:
+          //
+          //   AppShell TopBar          the greeting on every signed-in page,
+          //                            falling back to the email prefix
+          //   settings/IntegrationsTab userName passed into the integrations UI
+          //   finance/LicensesTab      userName, else the string 'IT Admin'
+          //   lib/audit.js             the audit actor, after email
+          //
+          // So without this fallback the top bar greets a new signup by the
+          // left half of their email address from their second page view on,
+          // and the audit log loses its only non-email actor label.
           displayName:        fbUser.displayName || fbUser.providerData?.[0]?.displayName
                               || cur.user?.displayName || '',
           photoURL:           fbUser.photoURL,

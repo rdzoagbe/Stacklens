@@ -335,3 +335,125 @@ describe('a disabled button is visibly disabled, everywhere', () => {
     expect(ui).toMatch(/disabled:cursor-not-allowed/);
   });
 });
+
+
+// ── A fallback is only worth keeping if something reads it ─────────────────
+//
+// The comment beside the displayName fallback in useAuth used to name the
+// sidebar and the Founder Admin view as its consumers. Both were wrong.
+// SidebarFooter reads userProfile.fullName out of Firestore, then
+// firebaseUser.displayName, and never touches the blob; FounderAdminPage reads
+// the /users documents. Anyone auditing the fallback would have checked those
+// two places, found nothing, and deleted it as dead.
+//
+// It is not dead. These are the real readers, and this pins them so the
+// comment cannot drift away from the code a second time. If one of them stops
+// reading the stored name, this fails and names it — go and fix the comment,
+// not the test.
+describe('the stored displayName has real readers', () => {
+  // Literal paths, one test each: a variable path trips
+  // security/detect-non-literal-fs-filename, and a loop over a table of paths
+  // hid which reader had gone when it failed.
+  const strip = (raw) => raw
+    .replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+  const nag = 'no longer reads db.user.displayName. If that is deliberate, ' +
+    'update the consumer list in the comment beside the fallback in ' +
+    'src/hooks/useAuth.js — do not just delete this test.';
+
+  it('TopBar reads it — the greeting on every signed-in page', () => {
+    const src = strip(readFileSync(resolve(process.cwd(), 'src/components/AppShell.jsx'), 'utf8'));
+    expect(src, `AppShell ${nag}`).toMatch(/_db\?\.user\?\.displayName/);
+  });
+
+  it('IntegrationsTab reads it — userName in the integrations UI', () => {
+    const src = strip(readFileSync(resolve(process.cwd(), 'src/pages/settings/IntegrationsTab.jsx'), 'utf8'));
+    expect(src, `IntegrationsTab ${nag}`).toMatch(/db\?\.user\?\.displayName/);
+  });
+
+  it('LicensesTab reads it — userName, else the string IT Admin', () => {
+    const src = strip(readFileSync(resolve(process.cwd(), 'src/pages/finance/LicensesTab.jsx'), 'utf8'));
+    expect(src, `LicensesTab ${nag}`).toMatch(/\?\.user\?\.displayName/);
+  });
+
+  it('the audit log reads it — the actor, after email', () => {
+    const src = strip(readFileSync(resolve(process.cwd(), 'src/lib/audit.js'), 'utf8'));
+    expect(src, `audit.js ${nag}`).toMatch(/user\.displayName/);
+  });
+
+  it('and useAuth no longer names the wrong two', () => {
+    const hook = readFileSync(resolve(process.cwd(), 'src/hooks/useAuth.js'), 'utf8');
+    expect(hook, 'the corrected note must name what actually reads it')
+      .toMatch(/TopBar/);
+    expect(hook, 'and must keep recording that those two do not')
+      .toMatch(/SidebarFooter reads userProfile\.fullName/);
+  });
+});
+
+// ── Redirect sign-in: both halves, or neither ─────────────────────────────
+//
+// There were two pieces of redirect handling in the tree and no redirect.
+//
+//   useAuth had a 30-line effect reading sessionStorage['sg_redirect_user'].
+//   Nothing ever wrote that key. Its own comment said main.jsx did; main.jsx
+//   has never mentioned it.
+//
+//   firebase-config exported handleRedirectResult(), which nothing called.
+//
+// And src/ calls signInWithRedirect nowhere, so no redirect was ever started
+// and none could come back. Thirty lines that read as "Google redirect sign-in
+// is handled" while being unreachable — the same species as the rest of this
+// file, one layer further back: not an affordance that fails when used, an
+// affordance that cannot be used at all.
+//
+// Worth wiring up one day: signInWithPopup is blocked in iOS in-app browsers,
+// so a visitor arriving from a LinkedIn or Instagram webview taps "Continue
+// with Google" and nothing happens. But it takes both halves. This asserts
+// they arrive together.
+describe('redirect sign-in is all-or-nothing', () => {
+  // strip takes the text, not the path: a path variable trips
+  // security/detect-non-literal-fs-filename, and this file is linted.
+  const strip = (raw) => raw
+    .replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+
+  const hook = () => strip(readFileSync(resolve(process.cwd(), 'src/hooks/useAuth.js'), 'utf8'));
+  const cfg  = () => strip(readFileSync(resolve(process.cwd(), 'src/firebase-config.js'), 'utf8'));
+
+  it('the unreachable sessionStorage reader has not come back', () => {
+    expect(hook(), 'nothing writes sg_redirect_user — a reader for it is dead ' +
+      'code that reads as a handled sign-in path')
+      .not.toMatch(/sg_redirect_user/);
+  });
+
+  it('no handler exists while no redirect is started', () => {
+    const startsRedirect = /signInWithRedirect\s*\(/.test(cfg());
+    const handlesRedirect = /getRedirectResult\s*\(/.test(cfg());
+    expect(handlesRedirect, 'getRedirectResult is called but signInWithRedirect ' +
+      'is not — the handler can never fire, which is exactly the state this ' +
+      'removed')
+      .toBe(startsRedirect);
+  });
+
+  it('if a redirect is ever started, the result is read somewhere', () => {
+    // The other direction, and the more dangerous one: starting a redirect
+    // with nothing reading the result drops the user back on the landing page
+    // signed in but with no local state written.
+    if (!/signInWithRedirect\s*\(/.test(cfg())) return;
+    expect(cfg(), 'signInWithRedirect with no getRedirectResult loses the ' +
+      'sign-in on the way back').toMatch(/getRedirectResult\s*\(/);
+  });
+
+  it('and the merge bug is not reintroduced with it', () => {
+    // What the removed effect did: `freshDb.user = { ... }` with no spread,
+    // discarding every stored user field Firebase does not re-derive.
+    // Narrow on purpose. logout() assigns { is_authenticated: false } with no
+    // spread and that is correct — signing out SHOULD clear the user. A first
+    // version of this matched any spread-less assignment and failed on it,
+    // i.e. it reported working code as the bug.
+    //
+    // The bug shape is a SIGN-IN path building a fresh user object with no
+    // spread of what is already stored.
+    expect(hook(), 'a sign-in path assigning a fresh user object without ' +
+      'spreading the stored one is the clobber that erased the signup name')
+      .not.toMatch(/\w+\.user\s*=\s*\{(?![^}]*\.\.\.)[^}]*is_authenticated:\s*true/);
+  });
+});
