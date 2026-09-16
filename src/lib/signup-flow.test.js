@@ -291,3 +291,56 @@ describe('a modal only offers a Close button when it closes', () => {
       readFileSync(resolve(process.cwd(), 'src/pages/EmployeesPage.jsx'), 'utf8'), 'EmployeesPage');
   });
 });
+
+// ── A disabled button must look and explain itself ─────────────────────────
+//
+// The name gate's Continue button is disabled until two characters are typed.
+// The input's placeholder is "Jane Smith", which reads like a value already
+// in the field, and a disabled button only dimmed to 60% opacity — on this
+// dark theme still a solid blue call to action, with hover still lighting up.
+//
+// So the honest conclusion from outside was that the app was broken: press
+// the button, nothing happens, no message. That cost a real debugging session
+// and three wrong explanations from me before I looked at the screenshot
+// properly and saw the field was empty.
+//
+// Same family as the rest of today: an affordance that appears to work.
+describe('the name gate explains why Continue is unavailable', () => {
+  const shell = (() => {
+    const raw = readFileSync(resolve(process.cwd(), 'src/components/AppShell.jsx'), 'utf8');
+    return raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
+      .replace(/(^|[^:])\/\/.*$/gm, '$1');
+  })();
+  const gate = shell.slice(shell.indexOf('export function NameGate'), shell.indexOf('export function DemoBanner'));
+
+  it('shows a hint while the name is too short', () => {
+    expect(gate).toMatch(/name\.trim\(\)\.length < 2 &&/);
+    expect(gate).toMatch(/name_gate_hint/);
+  });
+
+  it('the hint appears under exactly the condition that disables the button', () => {
+    // If the two drift apart you get a button that is dead with no hint, or a
+    // hint with a working button — both worse than either alone.
+    const hintCond = /\{name\.trim\(\)\.length < 2 && \(/.test(gate);
+    const btnCond = /disabled=\{saving \|\| name\.trim\(\)\.length < 2\}/.test(gate);
+    expect(hintCond, 'hint condition').toBe(true);
+    expect(btnCond, 'button condition').toBe(true);
+  });
+
+  it('the hint string exists in English and French', () => {
+    const tr = readFileSync(resolve(process.cwd(), 'src/translations.js'), 'utf8');
+    expect((tr.match(/name_gate_hint:/g) || []).length,
+      'a missing translation would render the raw key').toBeGreaterThanOrEqual(2);
+  });
+
+  it('a disabled button is visibly disabled', () => {
+    // 60% opacity on a dark background still reads as enabled, and hover
+    // still responded, which is what made pressing it feel like a failure
+    // rather than a blank field.
+    const ui = readFileSync(resolve(process.cwd(), 'src/components/ui.jsx'), 'utf8');
+    expect(ui).toMatch(/disabled:opacity-40/);
+    expect(ui, 'hover must not light up a button that cannot be pressed')
+      .toMatch(/disabled:hover:bg-inherit/);
+    expect(ui).not.toMatch(/disabled:opacity-60/);
+  });
+});

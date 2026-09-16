@@ -831,6 +831,15 @@ export function NameGate() {
         <Input autoFocus value={name} onChange={e => setName(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') submit(); }}
           placeholder={t('name_gate_placeholder')} />
+        {/* Says WHY Continue is unavailable.
+            Without this the button is disabled until two characters are typed
+            and simply does nothing when pressed — and the placeholder
+            ("Jane Smith") reads like a value already in the field, so the
+            honest conclusion from the outside is that the app is broken.
+            Reported exactly that way. */}
+        {name.trim().length < 2 && (
+          <div className="text-xs text-slate-500">{t('name_gate_hint')}</div>
+        )}
         <Button onClick={submit} disabled={saving || name.trim().length < 2} className="w-full">
           {saving ? t('sending') : t('name_gate_cta')}
         </Button>
