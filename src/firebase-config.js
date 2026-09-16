@@ -423,10 +423,27 @@ export function authErrorKey(raw) {
     case 'auth/too-many-requests':        return 'err_auth_too_many';
     case 'auth/network-request-failed':   return 'err_auth_network';
     case 'auth/account-exists-with-different-credential': return 'err_auth_diff_cred';
+    // A BLOCKED popup is not a dismissed one, and grouping them was the bug.
+    //
+    // auth/popup-blocked means the browser refused to open the window. The
+    // person did tap the button; the browser stopped it. Returning '' for that
+    // says nothing at all, which is indistinguishable from the app being
+    // broken — and it is exactly what happens in an iOS in-app browser
+    // (LinkedIn, Instagram, Facebook), where signInWithPopup cannot work. So a
+    // visitor arriving from a social link taps "Continue with Google" and is
+    // told nothing.
+    //
+    // auth/operation-not-supported-in-this-environment is the same situation
+    // reported differently, so it maps here too.
+    //
+    // These stay silent, and should: the person closed the window themselves,
+    // or a second popup superseded the first.
     case 'auth/popup-closed-by-user':
     case 'auth/cancelled-popup-request':
-    case 'auth/popup-blocked':
     case 'auth/user-cancelled':           return '';   // user dismissed — stay silent
+    case 'auth/popup-blocked':
+    case 'auth/operation-not-supported-in-this-environment':
+                                          return 'err_auth_popup_blocked';
     default:                              return 'err_auth_generic';
   }
 }

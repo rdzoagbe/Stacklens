@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import toast from 'react-hot-toast';
 import {
   signInWithGoogle, signOutUser, onAuthChange,
   getUserPlanFromFirestore, startTrial,
@@ -185,9 +184,20 @@ export function useAuth() {
     qc.invalidateQueries({ queryKey: ['db'] });
   };
 
+  // Returns { user, error } and does NOT toast.
+  //
+  // It used to do toast.error('Sign in failed: ' + error), which put a raw
+  // Firebase string in front of the user — "Sign in failed: Firebase: Error
+  // (auth/popup-blocked)." — while the Microsoft button on the same screen
+  // mapped the identical failure to a sentence through authErrorKey. Two
+  // providers, one screen, two different behaviours.
+  //
+  // The message cannot be built here: useAuth has no t(). The one caller
+  // (TrialPage) has it and already maps the Microsoft path, so the error goes
+  // back to it and both providers now run the same three lines.
   const login = async () => {
     const { user: googleUser, error } = await signInWithGoogle();
-    if (error) { toast.error('Sign in failed: ' + error); return null; }
+    if (error) return { user: null, error };
     if (googleUser) {
       const cur = loadDb() || seedDbIfEmpty();
       cur.user = { ...cur.user, is_authenticated: true, is_demo: false, email: googleUser.email, displayName: googleUser.displayName, photoURL: googleUser.photoURL, uid: googleUser.uid };
@@ -214,7 +224,7 @@ export function useAuth() {
       } catch { /* ignore sync errors */ }
       window.location.replace('/dashboard');
     }
-    return googleUser;
+    return { user: googleUser, error: null };
   };
 
   const logout = async () => {

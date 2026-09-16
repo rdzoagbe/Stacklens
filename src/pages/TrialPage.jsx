@@ -84,7 +84,18 @@ export function TrialPage() {
 
     try {
       if (provider.id === 'google') {
-        await login();
+        // setLoading(false) is the other half of the bug. login() catches its
+        // own failure and returns, so nothing threw, the catch below never
+        // ran, and this branch never cleared the flag — the button sat
+        // spinning for ever with no way back but a page reload. The Microsoft
+        // branch below always cleared it. On success login() navigates to
+        // /dashboard, so there is nothing to clear.
+        const { error } = await login();
+        if (error) {
+          const key = authErrorKey(error);
+          if (key) toast.error(t(key)); // '' = user closed the popup → stay silent
+          setLoading(false);
+        }
       } else if (provider.id === 'microsoft') {
         const { error } = await signInWithMicrosoft();
         if (error) {
