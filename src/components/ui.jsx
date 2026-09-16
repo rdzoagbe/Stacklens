@@ -100,7 +100,13 @@ export function Divider() {
 // ── Form controls ──────────────────────────────────────────────────────────
 
 export function Button({ className, variant = 'primary', size = 'md', disabled, onClick, type = 'button', children }) {
-  const base = 'inline-flex items-center justify-center gap-2 rounded-xl font-medium transition focus:outline-none focus:ring-2 focus:ring-blue-500/50 disabled:cursor-not-allowed disabled:opacity-60';
+  // disabled:opacity-40 rather than 60, and no hover once disabled.
+  //
+  // At 60% on this dark theme a disabled primary button still reads as a solid
+  // blue call to action, and hover still lit up — so pressing it and getting
+  // nothing looks like the app failing rather than a field left blank. That
+  // happened on the name gate and cost a real debugging session.
+  const base = 'inline-flex items-center justify-center gap-2 rounded-xl font-medium transition focus:outline-none focus:ring-2 focus:ring-blue-500/50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-inherit';
   const sizes    = { sm: 'h-9 px-3 text-sm', md: 'h-10 px-4 text-sm', lg: 'h-11 px-5 text-sm' };
   const variants = {
     primary:   'bg-blue-600 text-white hover:bg-blue-500',
