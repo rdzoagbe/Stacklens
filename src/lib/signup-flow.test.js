@@ -131,7 +131,8 @@ describe('the name collected at signup is stored', () => {
 
   it('does not fail the registration if the name cannot be stored', () => {
     // The account exists by this point. Losing a signup over a name would be
-    // a far worse outcome than falling back to the gate.
+    // a far worse outcome than an account whose name shows blank in the
+    // Founder view.
     expect(registerFn).toMatch(/try\s*\{\s*await saveDisplayName[\s\S]*?\}\s*catch/);
   });
 
@@ -140,12 +141,26 @@ describe('the name collected at signup is stored', () => {
     expect(page).toMatch(/registerWithEmail\(authEmail, authPassword, authName\)/);
   });
 
-  it('NameGate remains as the fallback for accounts with no name', () => {
-    // Magic-link signups and OAuth accounts that return no name still need
-    // it. The fix narrows who sees it; it does not remove the safety net.
-    const shell = readFileSync(resolve(process.cwd(), 'src/components/AppShell.jsx'), 'utf8');
-    expect(shell).toMatch(/export function NameGate/);
-    expect(shell).toMatch(/const needsName = /);
+  // There is no longer a safety net behind any of the above.
+  //
+  // The "What's your name?" gate was removed on 2026-09-16 at the founder's
+  // explicit instruction: "If I'm creating the account chances are I'm the
+  // admin so I do not need to have this." It was a wall in front of the whole
+  // product, shown to fix a data-completeness problem in the Founder view.
+  //
+  // So the five tests above are not a narrowing of who sees a fallback — they
+  // are now the ONLY thing that records a name for an email/password signup.
+  // If one of them starts failing, the name is simply lost, silently, and
+  // nothing asks for it again.
+  it('and nothing puts the modal that asked for it again back', () => {
+    const shell = readFileSync(resolve(process.cwd(), 'src/components/AppShell.jsx'), 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+    expect(shell, 'the gate was removed deliberately, not by accident')
+      .not.toMatch(/NameGate/);
+    expect(shell, 'and so was the modal it rendered').not.toMatch(/name_gate/);
+    const tr = readFileSync(resolve(process.cwd(), 'src/translations.js'), 'utf8');
+    expect(tr, 'its copy is gone too, so a re-add cannot slip in quietly')
+      .not.toMatch(/name_gate_/);
   });
 });
 
@@ -164,8 +179,12 @@ describe('the name collected at signup is stored', () => {
 //   4. useAuth's onAuthStateChanged runs on that fresh load and rebuilds
 //      cur.user, overwriting displayName from fbUser
 //   5. the Auth user restored from persistence carries no displayName
-//   6. so the blob's name is replaced with undefined, and NameGate — reading
-//      a blob with no name — asks for the name that was just given
+//   6. so the blob's name is replaced with undefined
+//
+// At the time that put the "What's your name?" gate on screen, reading a blob
+// with no name and asking for the name just given. The gate is gone; the
+// erasure is still a bug, because the sidebar and the Founder view read this
+// same blob — it just fails silently now instead of loudly.
 //
 // Step 4 is the bug. The spread brings the existing blob in and the explicit
 // key then clobbers it.
@@ -215,11 +234,6 @@ describe('a modal only offers a Close button when it closes', () => {
     const raw = readFileSync(resolve(process.cwd(), 'src/components/ui.jsx'), 'utf8');
     return raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
   })();
-  const shell = (() => {
-    const raw = readFileSync(resolve(process.cwd(), 'src/components/AppShell.jsx'), 'utf8');
-    return raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
-  })();
-
   it('decides from whether onClose is actually a function', () => {
     // Not from a separate `dismissible` prop a caller could forget to pass:
     // derived from the handler itself, so the button and the behaviour cannot
@@ -240,13 +254,6 @@ describe('a modal only offers a Close button when it closes', () => {
     // The other half. A backdrop that swallows clicks silently is the same
     // lie with no label on it.
     expect(ui).toMatch(/onClick=\{dismissible \? onClose : undefined\}/);
-  });
-
-  it('the name gate passes no handler, so it is honestly mandatory', () => {
-    const gate = shell.slice(shell.indexOf('export function NameGate'), shell.indexOf('export function DemoBanner'));
-    expect(gate, 'a no-op onClose is what drew the button that did nothing')
-      .not.toMatch(/onClose=\{\(\) => \{\}\}/);
-    expect(gate).toMatch(/<Modal open title=\{t\('name_gate_title'\)\}/);
   });
 
   it('EVERY other modal in the app still has a working handler', () => {
@@ -294,53 +301,37 @@ describe('a modal only offers a Close button when it closes', () => {
 
 // ── A disabled button must look and explain itself ─────────────────────────
 //
-// The name gate's Continue button is disabled until two characters are typed.
-// The input's placeholder is "Jane Smith", which reads like a value already
-// in the field, and a disabled button only dimmed to 60% opacity — on this
-// dark theme still a solid blue call to action, with hover still lighting up.
+// Written for the name gate's Continue button, which is disabled until two
+// characters are typed. Its input's placeholder was "Jane Smith", which reads
+// like a value already in the field, and a disabled button only dimmed to 60%
+// opacity — on this dark theme still a solid blue call to action, with hover
+// still lighting up.
 //
-// So the honest conclusion from outside was that the app was broken: press
-// the button, nothing happens, no message. That cost a real debugging session
-// and three wrong explanations from me before I looked at the screenshot
-// properly and saw the field was empty.
+// So the honest conclusion from outside was that the app was broken: press the
+// button, nothing happens, no message. That cost a real debugging session and
+// three wrong explanations from me before I looked at the screenshot properly
+// and saw the field was empty.
 //
-// Same family as the rest of today: an affordance that appears to work.
-describe('the name gate explains why Continue is unavailable', () => {
-  const shell = (() => {
-    const raw = readFileSync(resolve(process.cwd(), 'src/components/AppShell.jsx'), 'utf8');
-    return raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
-      .replace(/(^|[^:])\/\/.*$/gm, '$1');
-  })();
-  const gate = shell.slice(shell.indexOf('export function NameGate'), shell.indexOf('export function DemoBanner'));
+// That gate has since been removed entirely. This stays because the styling it
+// forced is global — every disabled button in the app is drawn by this one
+// component, and the next one to be pressed and appear dead will not be a
+// name field.
+describe('a disabled button is visibly disabled, everywhere', () => {
+  const ui = readFileSync(resolve(process.cwd(), 'src/components/ui.jsx'), 'utf8');
 
-  it('shows a hint while the name is too short', () => {
-    expect(gate).toMatch(/name\.trim\(\)\.length < 2 &&/);
-    expect(gate).toMatch(/name_gate_hint/);
-  });
-
-  it('the hint appears under exactly the condition that disables the button', () => {
-    // If the two drift apart you get a button that is dead with no hint, or a
-    // hint with a working button — both worse than either alone.
-    const hintCond = /\{name\.trim\(\)\.length < 2 && \(/.test(gate);
-    const btnCond = /disabled=\{saving \|\| name\.trim\(\)\.length < 2\}/.test(gate);
-    expect(hintCond, 'hint condition').toBe(true);
-    expect(btnCond, 'button condition').toBe(true);
-  });
-
-  it('the hint string exists in English and French', () => {
-    const tr = readFileSync(resolve(process.cwd(), 'src/translations.js'), 'utf8');
-    expect((tr.match(/name_gate_hint:/g) || []).length,
-      'a missing translation would render the raw key').toBeGreaterThanOrEqual(2);
-  });
-
-  it('a disabled button is visibly disabled', () => {
-    // 60% opacity on a dark background still reads as enabled, and hover
-    // still responded, which is what made pressing it feel like a failure
-    // rather than a blank field.
-    const ui = readFileSync(resolve(process.cwd(), 'src/components/ui.jsx'), 'utf8');
+  it('dims far enough to read as disabled on a dark background', () => {
     expect(ui).toMatch(/disabled:opacity-40/);
-    expect(ui, 'hover must not light up a button that cannot be pressed')
-      .toMatch(/disabled:hover:bg-inherit/);
-    expect(ui).not.toMatch(/disabled:opacity-60/);
+    expect(ui, '60% still reads as enabled on this theme')
+      .not.toMatch(/disabled:opacity-60/);
+  });
+
+  it('does not light up on hover when it cannot be pressed', () => {
+    // Hover responding was half of what made pressing it feel like a failure
+    // rather than an empty field.
+    expect(ui).toMatch(/disabled:hover:bg-inherit/);
+  });
+
+  it('shows the not-allowed cursor', () => {
+    expect(ui).toMatch(/disabled:cursor-not-allowed/);
   });
 });
