@@ -686,13 +686,15 @@ export function PrivacyPage() {
                 </tr></thead>
                 <tbody className="text-slate-300">
                   <tr className="border-b border-slate-800"><td className="py-2 pr-4">Firebase (Google)</td><td className="py-2 pr-4">{t('privacy_s3_firebase_purpose')}</td><td className="py-2">EU (Belgium)</td></tr>
+                  <tr className="border-b border-slate-800"><td className="py-2 pr-4">Google Cloud Platform</td><td className="py-2 pr-4">{t('privacy_s3_gcp_purpose')}</td><td className="py-2">EU / USA</td></tr>
                   <tr className="border-b border-slate-800"><td className="py-2 pr-4">Stripe</td><td className="py-2 pr-4">{t('privacy_s3_stripe_purpose')}</td><td className="py-2">EU (Ireland)</td></tr>
                   <tr className="border-b border-slate-800"><td className="py-2 pr-4">Anthropic (Claude AI)</td><td className="py-2 pr-4">{t('privacy_s3_anthropic_purpose')}</td><td className="py-2">USA</td></tr>
                   <tr className="border-b border-slate-800"><td className="py-2 pr-4">Twilio SendGrid</td><td className="py-2 pr-4">{t('privacy_s3_sendgrid_purpose')}</td><td className="py-2">USA</td></tr>
                   <tr className="border-b border-slate-800"><td className="py-2 pr-4">Bridge (Bridgeapi SAS)</td><td className="py-2 pr-4">{t('privacy_s3_bridge_purpose')}</td><td className="py-2">EU (France)</td></tr>
                   <tr className="border-b border-slate-800"><td className="py-2 pr-4">Google Analytics</td><td className="py-2 pr-4">{t('privacy_s3_ga_purpose')}</td><td className="py-2">EU</td></tr>
                   <tr className="border-b border-slate-800"><td className="py-2 pr-4">OVHcloud</td><td className="py-2 pr-4">{t('privacy_s3_ovh_purpose')}</td><td className="py-2">EU (France)</td></tr>
-                  <tr><td className="py-2 pr-4">Web3Forms</td><td className="py-2 pr-4">{t('privacy_s3_web3forms_purpose')}</td><td className="py-2">USA</td></tr>
+                  <tr className="border-b border-slate-800"><td className="py-2 pr-4">Web3Forms</td><td className="py-2 pr-4">{t('privacy_s3_web3forms_purpose')}</td><td className="py-2">USA</td></tr>
+                  <tr><td className="py-2 pr-4">Sentry (Functional Software, Inc.)</td><td className="py-2 pr-4">{t('privacy_s3_sentry_purpose')}</td><td className="py-2">EU / USA</td></tr>
                 </tbody>
               </table>
             </div>
