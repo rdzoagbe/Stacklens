@@ -48,6 +48,29 @@ const LazyImportWizard          = React.lazy(() => import('./pages/DashboardPage
 
 
 
+// ── The screen people land on when the email is in their spam folder ──────
+//
+// Verification mail from this app goes to Junk. Measured, not assumed: an
+// Outlook mailbox junked it from SendGrid over @stacklens.fr with DMARC
+// passing, and junked it again from Firebase's own sender over Google
+// infrastructure. Two senders, opposite ends of the reputation scale, same
+// folder.
+//
+// This screen used to say "We sent a verification link to <you>. Click the
+// link to activate your account." — describing a happy path that demonstrably
+// is not happening. Somebody signs up, looks in their inbox, finds nothing,
+// and leaves. No error, nothing broken, no way for them to know where to look.
+//
+// So the copy now names the folder, and the resend works more than once.
+//
+// The sender address is deliberately NOT printed here. It is
+// noreply@accessguard-v2.firebaseapp.com today and it changes the moment
+// custom SMTP is switched back on in the Firebase console — a hardcoded
+// address is a line of copy that silently becomes a lie, which is the exact
+// failure this whole screen exists to stop. "Search for Stacklens" is true
+// whatever the sender, because the subject line always carries the name.
+const RESEND_COOLDOWN_SECONDS = 60;
+
 function EmailVerificationWall({ email, onVerified }) {
   const { language } = useLang();
   const t = useTranslation(language);
@@ -55,12 +78,29 @@ function EmailVerificationWall({ email, onVerified }) {
   const [checking, setChecking] = useState(false);
   const [resending, setResending] = useState(false);
   const [error, setError] = useState('');
+  // Seconds left before Resend is available again.
+  //
+  // It used to be `disabled={resending || sent}` with `sent` never reset, so
+  // the button worked exactly once and was then dead for the life of the
+  // screen — and dead at 50% opacity with no explanation, on the screen where
+  // the mail lands in Junk and a second copy is the obvious next thing to
+  // want. A page reload was the only way back. Same family as the Continue
+  // button in #270: an affordance that looks pressable and is not, saying
+  // nothing about why.
+  const [cooldown, setCooldown] = useState(0);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const id = setTimeout(() => setCooldown(c => c - 1), 1000);
+    return () => clearTimeout(id);
+  }, [cooldown]);
 
   const handleResend = async () => {
+    if (resending || cooldown > 0) return;
     setResending(true);
     try {
       const { error: err } = await resendEmailVerification();
-      if (err) { setError(err); } else { setSent(true); setError(''); }
+      if (err) { setError(err); } else { setSent(true); setError(''); setCooldown(RESEND_COOLDOWN_SECONDS); }
     } finally {
       setResending(false);
     }
@@ -88,6 +128,12 @@ function EmailVerificationWall({ email, onVerified }) {
     }
   };
 
+  const resendLabel = resending
+    ? (t('sending') || 'Sending…')
+    : cooldown > 0
+      ? `${t('resend_in') || 'Resend available in'} ${cooldown}s`
+      : (t('resend_verification') || 'Resend verification email');
+
   return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6">
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 max-w-md w-full text-center space-y-5">
@@ -96,16 +142,29 @@ function EmailVerificationWall({ email, onVerified }) {
           <h2 className="text-xl font-bold text-white mb-2">{t('verify_email_title') || 'Verify your email'}</h2>
           <p className="text-slate-400 text-sm">{t('verify_email_sub') || "We sent a verification link to"} <span className="text-white font-medium">{email}</span>. {t('verify_email_sub2') || "Click the link to activate your account."}</p>
         </div>
+
+        {/* The whole point of this change. Not a footnote in grey 10px —
+            the mail really does land in Junk, so this is as important as
+            the sentence above it. */}
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-left">
+          <p className="text-amber-200 text-sm font-medium">
+            {t('verify_check_spam_title') || 'Not in your inbox? Check spam or junk.'}
+          </p>
+          <p className="text-amber-200/70 text-xs mt-1">
+            {t('verify_check_spam_body') || 'Search your mail for "Stacklens". Marking the message as "not spam" also means later emails from us reach your inbox.'}
+          </p>
+        </div>
+
         {error && <p className="text-red-400 text-sm">{error}</p>}
         {sent && <p className="text-green-400 text-sm">{t('verification_resent') || 'Verification email resent!'}</p>}
         <div className="flex flex-col gap-3">
           <button onClick={handleCheck} disabled={checking}
-            className="w-full px-4 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-xl font-semibold text-sm transition-colors">
+            className="w-full px-4 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:hover:bg-blue-600 disabled:cursor-not-allowed text-white rounded-xl font-semibold text-sm transition-colors">
             {checking ? (t('checking') || 'Checking...') : (t('ive_verified') || "I've verified — continue")}
           </button>
-          <button onClick={handleResend} disabled={resending || sent}
-            className="w-full px-4 py-2.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-300 rounded-xl font-semibold text-sm transition-colors">
-            {resending ? (t('checking') || 'Sending…') : (t('resend_verification') || 'Resend verification email')}
+          <button onClick={handleResend} disabled={resending || cooldown > 0}
+            className="w-full px-4 py-2.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:hover:bg-slate-800 disabled:cursor-not-allowed text-slate-300 rounded-xl font-semibold text-sm transition-colors">
+            {resendLabel}
           </button>
         </div>
       </div>

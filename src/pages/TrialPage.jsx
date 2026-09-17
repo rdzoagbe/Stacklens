@@ -728,6 +728,23 @@ export function TrialPage() {
                         <div className="text-blue-400 font-semibold text-sm mt-1">{authEmail}</div>
                       </div>
                       <div className="text-slate-500 text-xs">{t('lp_magic_link_note')}</div>
+
+                      {/* Same warning as the verification wall, same two keys.
+                          This screen matters more than it looks: the
+                          popup-blocked message now tells anyone in an iOS
+                          in-app browser to "use the magic link below", so this
+                          is where that person lands — and the mail goes to
+                          Junk. Sending them here without saying so would have
+                          put a hole straight through the fix. */}
+                      <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-left">
+                        <p className="text-amber-200 text-sm font-medium">
+                          {t('verify_check_spam_title')}
+                        </p>
+                        <p className="text-amber-200/70 text-xs mt-1">
+                          {t('verify_check_spam_body')}
+                        </p>
+                      </div>
+
                       <button onClick={() => setMagicSent(false)} className="text-sm text-slate-400 hover:text-white transition-colors underline underline-offset-2">
                         {t('lp_use_different_email')}
                       </button>
