@@ -11,10 +11,12 @@ import { resolve } from 'node:path';
 // enough" is not a standard that applies.
 //
 // This came out of being asked to remove SendGrid from both. They had already
-// drifted: the privacy table omits Google Cloud Platform and Sentry while its
-// own intro reads "Your data is processed by the following third-party
-// services", which presents itself as complete. Nothing would have caught
-// that, and nothing would have caught editing one list and not the other.
+// drifted: the privacy table omitted Google Cloud Platform and Sentry while
+// its own intro read "Your data is processed by the following third-party
+// services", presenting itself as complete. Both rows were added on
+// 2026-09-17 and both directions are asserted below, so the documents can no
+// longer disagree — in either direction, which is what the original omission
+// needed and did not have.
 //
 // The names are spelled differently across the two ("Google Firebase" vs
 // "Firebase (Google)"), so they are compared on distinctive words with
@@ -69,21 +71,26 @@ describe('the two sub-processor lists agree', () => {
       .toEqual([]);
   });
 
-  it('the gap in the other direction is only the two already reported', () => {
-    // NOT an endorsement. privacy_s3_intro reads "Your data is processed by the
-    // following third-party services", which presents the table as complete,
-    // and it omits these two. Reported to the founder on 2026-09-17, left as
-    // it is because adding rows means writing legal copy in five languages and
-    // that is their call, not mine.
+  it('and nothing on the sub-processors page is missing from the privacy table', () => {
+    // Closed on 2026-09-17. The privacy table used to omit Google Cloud
+    // Platform and Sentry while its own intro read "Your data is processed by
+    // the following third-party services" — presenting itself as complete. It
+    // was not, and nothing checked.
     //
-    // Pinned so the gap cannot quietly grow: add a processor to one list and
-    // forget the other, and this fails and names it.
+    // Both directions are now asserted, so the two documents cannot disagree
+    // at all: adding a processor to either list and forgetting the other fails
+    // here and names it.
     const priv = privacyTableNames();
     const missing = subprocessorNames().filter(s => !priv.some(p => sameCompany(s, p)));
-    expect(missing.sort()).toEqual([
-      'Google Cloud Platform',
-      'Sentry (Functional Software, Inc.)',
-    ]);
+    expect(missing, 'on the sub-processors page but absent from the privacy ' +
+      'table, which claims to list everyone').toEqual([]);
+  });
+
+  it('and the two lists are the same length', () => {
+    // The set comparisons above are name-based, so a duplicated row would slip
+    // past them. This is the cheap arithmetic check that they have not drifted
+    // in size.
+    expect(privacyTableNames().length).toBe(subprocessorNames().length);
   });
 });
 
