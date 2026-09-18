@@ -96,25 +96,31 @@ describe('the two sub-processor lists agree', () => {
 
 // ── Why SendGrid is still listed ──────────────────────────────────────────
 //
-// Asked to remove it on 2026-09-17 — custom SMTP is off, the trial is not
-// being renewed, and Firebase's built-in sender handles auth email. I removed
-// it from both lists and external-services.test.js failed:
-//
-//   "Twilio SendGrid" is registered as a personal-data processor but no
-//   longer appears on the sub-processor page.
-//
-// That guard is right and I was wrong. Five Cloud Functions still call
-// sgMail.send with a recipient address in the body — sendInvite, dailyAlerts,
-// weeklySummary, clientErrors and founderops. The request reaches sendgrid.net
-// whether or not the key still authenticates, so personal data is still
-// transmitted and the page must say so. A dead account does not undo a live
+// Asked to remove it on 2026-09-17. I did, and external-services.test.js
+// failed: "Twilio SendGrid" is registered as a personal-data processor but no
+// longer appears on the sub-processor page. That guard was right. Five Cloud
+// Functions required @sendgrid/mail inline and sent with the secret's value,
+// so the request reached sendgrid.net with a recipient address in the body
+// whether or not the key authenticated. A dead account does not undo a live
 // code path.
 //
-// So the page cannot be corrected until the capability is removed. That means
-// deleting or gating those five call sites, which deletes real features, and
-// that is the founder's call. Recorded rather than worked around: the SERVICES
-// registry in external-services.test.js is the place to change when it
-// happens.
+// Gated on 2026-09-18 (#277). functions/mailer.js is now the only door and it
+// decides before the request: no key means nothing is sent, nothing is
+// contacted, and @sendgrid/mail is not even loaded. So "we are not using it"
+// is now true of the running system rather than only of the billing account.
+//
+// It stays on both pages anyway, re-described as "optional feature: only when
+// an email provider is configured" — following the Bridge precedent already
+// there. The capability is one secret value away from active, and a page that
+// denies a processor the code can still reach on a config change would be the
+// wrong kind of accurate. The wording is true in both states, which is the
+// point: it cannot go stale the way a claim about today's deployment would.
+//
+// Taking it off entirely means deleting the five call sites, which deletes
+// invitations, digests, alerts and crash mail. Still available, still the
+// founder's call. functions/mailer.test.js holds the gate; the SERVICES
+// registry in external-services.test.js is what changes if the capability
+// goes.
 
 describe('every listed processor has copy to render', () => {
   it('each purpose and transfer key exists in English', () => {
