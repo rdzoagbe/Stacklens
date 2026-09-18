@@ -463,6 +463,7 @@ exports.refreshClaims = onRequest({ cors: true }, async (req, res) => {
 
 // ── /sendInvite — email a team invite link via SendGrid ───────────────────
 const SENDGRID_API_KEY = defineSecret('SENDGRID_API_KEY'); // rotated 2026-07-21 — redeploy binds the new version
+const { sendMail, mailConfigured } = require('./mailer');
 
 exports.sendInvite = onRequest({ cors: true, secrets: [SENDGRID_API_KEY] }, async (req, res) => {
   cors(req, res, async () => {
@@ -480,15 +481,12 @@ exports.sendInvite = onRequest({ cors: true, secrets: [SENDGRID_API_KEY] }, asyn
     if (!limited) return;
 
     try {
-      const sgMail = require('@sendgrid/mail');
-      sgMail.setApiKey(SENDGRID_API_KEY.value());
-
       const esc = (s) => String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
       const signupUrl = 'https://stacklens.fr/?signup=true';
       const from = esc(inviterName || decoded.name || 'Your team');
       const org  = esc(orgName || 'Stacklens');
 
-      await sgMail.send({
+      const mail = await sendMail(SENDGRID_API_KEY.value(), {
         to: inviteeEmail,
         from: { email: 'hello@stacklens.fr', name: 'Stacklens' },
         subject: `${from} invited you to join ${org} on Stacklens`,
@@ -507,6 +505,20 @@ exports.sendInvite = onRequest({ cors: true, secrets: [SENDGRID_API_KEY] }, asyn
           </div>
         </div>`,
       });
+      // 503 and a code, not a bare 500. The membership is already recorded by
+      // then, so "could not notify them" and "the invite failed" are different
+      // outcomes and the caller has to be able to tell them apart — TeamTab
+      // shows a different message for each.
+      if (mail.skipped) {
+        return res.status(503).json({
+          code: mail.skipped,
+          error: 'Email sending is not configured, so the invitation email was not sent.',
+        });
+      }
+      if (!mail.sent) {
+        console.error('sendInvite: SendGrid refused:', mail.error);
+        return res.status(502).json({ code: 'email-rejected', error: 'Failed to send invite' });
+      }
       return res.json({ sent: true });
     } catch (err) {
       console.error('sendInvite error:', err);
@@ -556,16 +568,23 @@ exports.founderops = onRequest({ cors: true, timeoutSeconds: 30, secrets: [SENDG
       if (action === 'testEmail') {
         const dest = String(to || FOUNDER_EMAILS[0] || '').trim();
         if (!dest) return res.status(400).json({ error: 'No destination email' });
-        const sgMail = require('@sendgrid/mail');
-        sgMail.setApiKey(SENDGRID_API_KEY.value());
         try {
-          const [resp] = await sgMail.send({
+          const mail = await sendMail(SENDGRID_API_KEY.value(), {
             to: dest,
             from: { email: 'hello@stacklens.fr', name: 'Stacklens' },
             subject: '✅ Stacklens test email',
             html: '<div style="font-family:sans-serif;padding:24px"><h2>It works.</h2><p>This is a Stacklens delivery test. If you received it, alert and digest emails will reach you too.</p></div>',
           });
-          return res.json({ ok: true, sent_to: dest, status: resp?.statusCode || null });
+          // The diagnostic has to distinguish "off" from "broken" — that is
+          // the entire reason a founder presses this button.
+          if (mail.skipped) {
+            return res.json({ ok: false, skipped: mail.skipped, sent_to: dest,
+              error: 'Email sending is not configured — no request was made.' });
+          }
+          if (!mail.sent) {
+            return res.json({ ok: false, sent_to: dest, sendgrid_error: mail.error });
+          }
+          return res.json({ ok: true, sent_to: dest, status: mail.status });
         } catch (mailErr) {
           // SendGrid attaches the useful detail on err.response.body
           const body = mailErr?.response?.body;
@@ -741,9 +760,7 @@ exports.clientErrors = onRequest({
         });
 
         if (decision.alert) {
-          const sgMail = require('@sendgrid/mail');
-          sgMail.setApiKey(SENDGRID_API_KEY.value());
-          await sgMail.send({
+          const mail = await sendMail(SENDGRID_API_KEY.value(), {
             to: FOUNDER_EMAILS[0],
             from: { email: 'hello@stacklens.fr', name: 'Stacklens' },
             subject: `Stacklens crash: ${doc.message.slice(0, 80)}`,
@@ -2053,8 +2070,14 @@ exports.dailyAlerts = onSchedule({
   region: 'us-central1',
   secrets: [SENDGRID_API_KEY],
 }, async () => {
-  const sgMail = require('@sendgrid/mail');
-  sgMail.setApiKey(SENDGRID_API_KEY.value());
+  // Checked once, before the collection scan. Without this the job reads every
+  // userdata document, assembles each one, and then fails per user on a send
+  // that was never going to happen — a daily bill and a daily pile of errors
+  // for nothing.
+  if (!mailConfigured(SENDGRID_API_KEY.value())) {
+    console.log('dailyAlerts: email is not configured — skipping, nothing sent.');
+    return;
+  }
   const db = getFirestore();
   const now = new Date();
   const todayStr = now.toISOString().slice(0, 10);
@@ -2160,12 +2183,18 @@ exports.dailyAlerts = onSchedule({
       : `🔔 ${alerts.renewals[0].name} renews in ${alerts.renewals[0].days} days`;
 
     try {
-      await sgMail.send({
+      const mail = await sendMail(SENDGRID_API_KEY.value(), {
         to: email,
         from: { email: 'hello@stacklens.fr', name: 'Stacklens' },
         subject: total > 1 ? `${worst} (+${total - 1} more)` : worst,
         html,
       });
+      if (!mail.sent) {
+        // Not delivered, so it must NOT be recorded as sent — otherwise the
+        // alert is suppressed for ever on a day nobody was told anything.
+        console.error('dailyAlerts send failed for', email, mail.error || mail.skipped);
+        continue;
+      }
       // Only remember alerts that were actually delivered; prune entries older
       // than 400 days so the doc never grows unbounded.
       const cutoff = new Date(now); cutoff.setDate(cutoff.getDate() - 400);
@@ -2213,8 +2242,11 @@ exports.weeklySummary = onSchedule({
   region: 'us-central1',
   secrets: [SENDGRID_API_KEY, ANTHROPIC_API_KEY],
 }, async () => {
-  const sgMail = require('@sendgrid/mail');
-  sgMail.setApiKey(SENDGRID_API_KEY.value());
+  // Same as dailyAlerts: decide before the scan, not per recipient.
+  if (!mailConfigured(SENDGRID_API_KEY.value())) {
+    console.log('weeklySummary: email is not configured — skipping, nothing sent.');
+    return;
+  }
   const db = getFirestore();
   const today = new Date();
   const in30 = new Date(today); in30.setDate(today.getDate() + 30);
@@ -2225,6 +2257,15 @@ exports.weeklySummary = onSchedule({
   let sent = 0;
 
   for (const docSnap of snapshot.docs) {
+    // `uid` was never declared here. Reading an undeclared variable throws a
+    // ReferenceError even in sloppy mode, so this loop died on its first
+    // document — weeklySummary has never sent anything, every Monday, silently.
+    // dailyAlerts two hundred lines up has the same line and does declare it.
+    //
+    // Nothing caught it because functions/ is excluded from ESLint, so no-undef
+    // never ran over this file. Found by forcing eslint --no-ignore while
+    // checking my own gate had not left an undefined sgMail behind.
+    const uid   = docSnap.id;
     const data  = await assembleUserdata(docSnap);
     const email = await verifiedEmailForUid(uid);
     const cur = currencySymbol(data);
@@ -2384,7 +2425,7 @@ exports.weeklySummary = onSchedule({
 </div>`;
 
     try {
-      await sgMail.send({
+      const mail = await sendMail(SENDGRID_API_KEY.value(), {
         to: email,
         from: { email: 'hello@stacklens.fr', name: 'Stacklens' },
         subject: idleMonthly > 0
@@ -2392,6 +2433,10 @@ exports.weeklySummary = onSchedule({
           : `\ud83d\udcca Your weekly SaaS summary \u2014 ${cur}${fmt(monthlySpendValue)}/mo \u00b7 Score ${healthScore}`,
         html,
       });
+      if (!mail.sent) {
+        console.error('weeklySummary send failed for', email, mail.error || mail.skipped);
+        continue;
+      }
       sent++;
     } catch (err) {
       console.error('weeklySummary send failed for', email, err?.message);

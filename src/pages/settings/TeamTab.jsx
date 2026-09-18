@@ -33,13 +33,27 @@ export function TeamTab({ db, firebaseUser, t }) {
     setBusy(true);
     try {
       await workspaceInvite(email);
-      // Notification email is best-effort — membership is already recorded.
-      sendInviteEmail({
-        inviteeEmail: email,
-        inviterName: owner.name,
-        orgName: (() => { try { return JSON.parse(localStorage.getItem('sg_general') || '{}').orgName || 'Stacklens'; } catch { return 'Stacklens'; } })(),
-      }).catch(() => {});
-      toast.success(t('ws_invite_sent'));
+
+      // The membership is recorded by workspaceInvite above and does not depend
+      // on the email, so a failed send must not fail the invite. But it used to
+      // be `.catch(() => {})` followed unconditionally by "Invitation sent" —
+      // so when the email did not go out, which is now every time until email
+      // is configured, the person was told it had been sent and the invitee
+      // heard nothing. Awaiting it and saying which of the two happened costs
+      // one round trip and is the difference between a working feature and a
+      // lie.
+      let emailed = false;
+      try {
+        await sendInviteEmail({
+          inviteeEmail: email,
+          inviterName: owner.name,
+          orgName: (() => { try { return JSON.parse(localStorage.getItem('sg_general') || '{}').orgName || 'Stacklens'; } catch { return 'Stacklens'; } })(),
+        });
+        emailed = true;
+      } catch { /* reported below, never fails the invite */ }
+
+      if (emailed) toast.success(t('ws_invite_sent'));
+      else toast(t('ws_invite_added_no_email'), { icon: '⚠️', duration: 8000 });
       setInviteEmail('');
       refresh();
     } catch (err) {
