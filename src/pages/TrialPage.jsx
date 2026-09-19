@@ -525,6 +525,8 @@ export function TrialPage() {
               <ul className="space-y-3 text-sm">
                 <li><a href="#pricing" onClick={(e) => { e.preventDefault(); document.getElementById('pricing')?.scrollIntoView({behavior:'smooth'}); }} className="text-slate-300 hover:text-white transition-colors">{t('lp_nav_pricing')}</a></li>
                 <li><a href="#faq" onClick={(e) => { e.preventDefault(); document.getElementById('faq')?.scrollIntoView({behavior:'smooth'}); }} className="text-slate-300 hover:text-white transition-colors">{t('lp_nav_faq')}</a></li>
+                <li><Link to="/experts-comptables" className="text-slate-300 hover:text-white transition-colors">{t('lp_footer_accountants')}</Link></li>
+                <li><Link to="/audit-saas" className="text-slate-300 hover:text-white transition-colors">{t('lp_footer_audit')}</Link></li>
                 <li><button onClick={() => { startDemo(); navigate('/dashboard'); }} className="text-slate-300 hover:text-white transition-colors text-left">{t('lp_live_demo')}</button></li>
                 <li><button onClick={() => setShowAuth(true)} className="text-slate-300 hover:text-white transition-colors text-left">{t('lp_nav_sign_in')}</button></li>
               </ul>

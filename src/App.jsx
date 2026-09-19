@@ -30,6 +30,10 @@ const SettingsPage         = React.lazy(() => import('./pages/SettingsPage').the
 const FinanceDashboard     = React.lazy(() => import('./pages/FinancePage').then(m => ({ default: m.FinanceDashboard })));
 const FounderAdminPage     = React.lazy(() => import('./pages/FounderAdminPage').then(m => ({ default: m.FounderAdminPage })));
 
+// The accountant channel: a landing page and a public, browser-only audit.
+const AccountantsPage = React.lazy(() => import('./pages/AccountantsPage').then(m => ({ default: m.AccountantsPage })));
+const SaasAuditPage   = React.lazy(() => import('./pages/SaasAuditPage').then(m => ({ default: m.SaasAuditPage })));
+
 // Legal pages share one chunk (all resolved from the same dynamic import)
 const NotFound          = React.lazy(() => import('./pages/LegalPages').then(m => ({ default: m.NotFound })));
 const AboutPage         = React.lazy(() => import('./pages/LegalPages').then(m => ({ default: m.AboutPage })));
@@ -296,6 +300,8 @@ export default function App() {
           <PageBoundary>
           <Routes>
           <Route path="/" element={<TrialPage />} />
+          <Route path="/experts-comptables" element={<AccountantsPage />} />
+          <Route path="/audit-saas" element={<SaasAuditPage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/legal" element={<LegalMentionsPage />} />
