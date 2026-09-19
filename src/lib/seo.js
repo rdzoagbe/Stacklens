@@ -57,6 +57,17 @@ export const PAGE_SEO = {
     title: 'Sub-processors',
     description: 'The complete list of sub-processors Stacklens uses, what each one processes, where it is located and the transfer safeguards that apply.',
   },
+  // Commercial pages for the accountant channel. Titles carry the product
+  // name so they read whole in a result; descriptions are French-first
+  // because that is who they are for.
+  '/experts-comptables': {
+    title: 'Stacklens pour les experts-comptables',
+    description: "Un audit SaaS pour chaque client, en cinq minutes. Stacklens donne aux experts-comptables et DAF externalisés une vue des abonnements logiciels, des doublons et des renouvellements de tous leurs clients, depuis un seul compte.",
+  },
+  '/audit-saas': {
+    title: 'Audit SaaS gratuit',
+    description: "Déposez un export bancaire, obtenez la liste des abonnements logiciels récurrents, des doublons, des hausses de prix et des renouvellements à venir. Tout se passe dans votre navigateur : rien n'est envoyé à Stacklens.",
+  },
   '/legal': {
     title: 'Legal Notice',
     description: 'Legal notice and company information for Stacklens, including publisher, hosting provider and contact details.',
