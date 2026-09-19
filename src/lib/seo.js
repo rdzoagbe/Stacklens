@@ -26,8 +26,8 @@ const SUFFIX = ' | Stacklens';
  */
 export const PAGE_SEO = {
   '/': {
-    title: 'Stacklens — SaaS Spend & Access Management',
-    description: 'Stacklens is the clarity layer for your SaaS stack. Cut wasted spend, close security risks, and stay audit-ready — in days, not weeks. GDPR-native, EU data storage, built for SMBs.',
+    title: 'Stacklens — SaaS audits for accountants and the SMBs they run',
+    description: 'Turn the bank exports and invoices you already hold into a SaaS audit per client: duplicates, forgotten subscriptions, price rises, renewals, and who still has access. Free browser-only audit; EU data storage; GDPR-native.',
   },
   '/about': {
     title: 'About Stacklens',

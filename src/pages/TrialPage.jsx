@@ -174,18 +174,50 @@ export function TrialPage() {
             {t('lp_hero_body')}
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-6">
-            <button
-              onClick={() => { track('cta_click', { location: 'hero_primary' }); setShowAuth(true); }}
+            {/* The free audit leads. It costs the visitor nothing — no account,
+                no upload — and it IS the product's core claim, demonstrated.
+                Sign-up and the demo stay, one step behind. */}
+            <Link to="/audit-saas"
+              onClick={() => track('cta_click', { location: 'hero_primary', target: 'audit' })}
               className="px-8 py-4 bg-blue-600 hover:bg-blue-500 rounded-xl text-base font-semibold text-white transition-all hover:scale-[1.02] shadow-lg shadow-blue-900/40">
+              {t('lp_cta_audit')}
+            </Link>
+            <button
+              onClick={() => { track('cta_click', { location: 'hero_start' }); setShowAuth(true); }}
+              className="px-8 py-4 border border-slate-700 hover:border-slate-600 hover:bg-slate-900/60 rounded-xl text-base font-semibold text-slate-300 transition-all">
               {t('lp_cta_start')}
             </button>
             <button
               onClick={() => { track('cta_click', { location: 'hero_demo' }); startDemo(); navigate('/dashboard'); }}
-              className="px-8 py-4 border border-slate-700 hover:border-slate-600 hover:bg-slate-900/60 rounded-xl text-base font-semibold text-slate-300 transition-all">
+              className="px-6 py-4 text-base font-semibold text-slate-400 hover:text-white transition-colors">
               {t('lp_cta_demo')}
             </button>
           </div>
           <p className="text-xs text-slate-500">{t('lp_hero_fine_print')}</p>
+        </div>
+      </section>
+
+      {/* ── WHO IT'S FOR ── two buyers, named. The homepage used to speak only
+          to the second; the first is where one conversation is fifty. */}
+      <section className="relative z-10 px-6 pb-16">
+        <div className="max-w-5xl mx-auto">
+          <p className="text-center text-xs font-semibold uppercase tracking-wider text-slate-500 mb-6">{t('lp_who_title')}</p>
+          <div className="grid md:grid-cols-2 gap-4">
+            <Link to="/experts-comptables" onClick={() => track('cta_click', { location: 'who_accountants' })}
+              className="group rounded-2xl border border-blue-500/30 bg-gradient-to-br from-blue-500/10 to-indigo-500/10 p-6 hover:border-blue-400/50 transition-colors">
+              <div className="text-xs font-semibold uppercase tracking-wider text-blue-400 mb-2">{t('lp_who_acct_eyebrow')}</div>
+              <div className="text-xl font-bold text-white mb-2">{t('lp_who_acct_title')}</div>
+              <p className="text-sm text-slate-400 leading-relaxed mb-4">{t('lp_who_acct_body')}</p>
+              <span className="text-sm font-semibold text-blue-300 group-hover:text-blue-200">{t('lp_who_acct_cta')} →</span>
+            </Link>
+            <button onClick={() => { track('cta_click', { location: 'who_smb' }); setShowAuth(true); }}
+              className="group text-left rounded-2xl border border-slate-800 bg-slate-900/40 p-6 hover:border-slate-700 transition-colors">
+              <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t('lp_who_smb_eyebrow')}</div>
+              <div className="text-xl font-bold text-white mb-2">{t('lp_who_smb_title')}</div>
+              <p className="text-sm text-slate-400 leading-relaxed mb-4">{t('lp_who_smb_body')}</p>
+              <span className="text-sm font-semibold text-slate-300 group-hover:text-white">{t('lp_who_smb_cta')} →</span>
+            </button>
+          </div>
         </div>
       </section>
 
