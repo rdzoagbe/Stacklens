@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { resetDb } from '../lib/db';
 import { computeWaste, monthlySpend } from '../lib/waste';
+import { noteFirstInsight, noteVisit, noteRecommendationActed, noteRecommendationsShown } from '../lib/activation';
 import {
   computeToolDerivedStatus, computeToolDerivedRisk,
   computeAccessDerivedRiskFlag, buildRiskAlerts, riskSeverityCounts,
@@ -180,7 +181,7 @@ function GettingStartedChecklist({ db }) {
 
 export function DashboardPage() {
   const navigate = useNavigate();
-  useAuth();
+  const { firebaseUser } = useAuth();
 
   const { language } = useLang();
   const t = useTranslation(language);
@@ -217,6 +218,18 @@ export function DashboardPage() {
     const formerAccess = access.filter((a) => a.derived_risk_flag === "former_employee").length;
     return { tools, access, alerts, counts, spend, highRiskTools, formerAccess };
   }, [db, t]);
+
+  // Activation evidence: the first time this dashboard has an alert to show
+  // is the workspace's first insight, and any later-day visit after that is a
+  // return. Demo data proves nothing about activation, so it is skipped.
+  useEffect(() => {
+    if (!db?.user || db.user.is_demo) return;
+    const scope = db.user.uid;
+    const signupAt = Date.parse(firebaseUser?.metadata?.creationTime || '') || 0;
+    noteFirstInsight({ alerts: derived.alerts.length, critical: derived.counts.critical }, { scope, signupAt });
+    noteVisit({ scope });
+    noteRecommendationsShown(derived.alerts.map(a => a.id), { scope });
+  }, [db, derived, firebaseUser]);
 
   // ── Derived spend-breakdown rows ──────────────────────────────────────────
   const spendRows = useMemo(() => {
@@ -527,7 +540,7 @@ export function DashboardPage() {
 
         (derived.access || []).filter(a => a.derived_risk_flag === 'former_employee' && a.status === 'active').forEach(a => {
           actions.push({
-            id: 'former-' + a.id, severity: 'critical', icon: '🔴',
+            id: 'former-' + a.id, kind: 'former_access', severity: 'critical', icon: '🔴',
             title: `${a.employee_name || t('dash_ex_employee')} ${t('dash_still_has_access')} ${a.tool_name || t('dash_a_tool')}`,
             reason: t('dash_left_not_revoked'),
             action: t('dash_revoke'),
@@ -537,7 +550,7 @@ export function DashboardPage() {
 
         (derived.tools || []).filter(tool => !tool.owner_email).slice(0, 4).forEach(tool => {
           actions.push({
-            id: 'noowner-' + tool.id, severity: 'high', icon: '🟡',
+            id: 'noowner-' + tool.id, kind: 'no_owner', severity: 'high', icon: '🟡',
             title: `${tool.name} ${t('dash_no_owner')}`,
             reason: `${money(tool.cost_per_month)}${t('per_mo_short')} — ${t('dash_nobody_responsible')}`,
             action: t('dash_assign'),
@@ -547,7 +560,7 @@ export function DashboardPage() {
 
         (derived.tools || []).filter(tool => tool.derived_risk === 'high' && !tool.mfa_required && !tool.mfa_enabled).slice(0, 3).forEach(tool => {
           actions.push({
-            id: 'mfa-' + tool.id, severity: 'high', icon: '🛡️',
+            id: 'mfa-' + tool.id, kind: 'no_mfa', severity: 'high', icon: '🛡️',
             title: `${tool.name} ${t('dash_high_risk_no_mfa')}`,
             reason: `${t('owner')}: ${tool.owner_email || t('lbl_none')} · ${t('col_last_used')}: ${tool.last_used_date ? fmtDate(tool.last_used_date) : t('lbl_unknown')}`,
             action: t('review'), link: '/security',
@@ -559,7 +572,7 @@ export function DashboardPage() {
         if (_budgetCap > 0 && _notifBudget && (derived.spend || 0) > _budgetCap) {
           const pct = Math.round((derived.spend / _budgetCap) * 100);
           actions.push({
-            id: 'budget-exceeded', severity: 'high', icon: '💰',
+            id: 'budget-exceeded', kind: 'budget', severity: 'high', icon: '💰',
             title: `${pct}% ${t('dash_budget_exceeded')}`,
             reason: `${t('lbl_cap')}: ${money(_budgetCap)}${t('per_mo_short')} · ${t('lbl_current')}: ${money(derived.spend)}`,
             action: t('nav_finance'), link: '/finance',
@@ -570,7 +583,7 @@ export function DashboardPage() {
         const sixtyDaysAgo = Date.now() - 60 * 24 * 60 * 60 * 1000;
         (derived.tools || []).filter(tool => tool.cost_per_month > 0 && (!tool.last_used_date || new Date(tool.last_used_date).getTime() < sixtyDaysAgo)).slice(0, 3).forEach(tool => {
           actions.push({
-            id: 'idle-' + tool.id, severity: 'medium', icon: '💸',
+            id: 'idle-' + tool.id, kind: 'idle_spend', severity: 'medium', icon: '💸',
             title: `${tool.name} — ${money(tool.cost_per_month)}${t('per_mo_short')} ${t('dash_possibly_wasted')}`,
             reason: `${t('col_last_used')}: ${tool.last_used_date ? fmtDate(tool.last_used_date) : t('never')}`,
             action: t('review'), link: '/tools',
@@ -611,17 +624,17 @@ export function DashboardPage() {
                   </div>
                   <div className="flex-shrink-0">
                     {item.needsOwner ? (
-                      <button onClick={() => { setAssignToolId(item.toolId); setAssignToolName(item.toolName); setShowAssignOwner(true); }}
+                      <button onClick={() => { noteRecommendationActed(item.kind, item.severity); setAssignToolId(item.toolId); setAssignToolName(item.toolName); setShowAssignOwner(true); }}
                         className="px-2.5 py-1.5 rounded-lg bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 text-xs font-semibold transition-colors">
                         {item.action}
                       </button>
                     ) : item.onAction ? (
-                      <button onClick={item.onAction}
+                      <button onClick={() => { noteRecommendationActed(item.kind, item.severity); item.onAction(); }}
                         className="px-2.5 py-1.5 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 text-xs font-semibold transition-colors">
                         {item.action}
                       </button>
                     ) : (
-                      <Link to={item.link}>
+                      <Link to={item.link} onClick={() => noteRecommendationActed(item.kind, item.severity)}>
                         <span className="px-2.5 py-1.5 rounded-lg bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 text-xs font-semibold transition-colors inline-block">
                           {item.action}
                         </span>
