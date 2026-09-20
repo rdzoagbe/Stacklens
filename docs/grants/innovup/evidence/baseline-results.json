@@ -1,0 +1,238 @@
+{
+  "_about": "Measured by scripts/record-baseline.mjs over src/lib/saasAudit.js. Do not edit by hand.",
+  "recorded_at": "2026-09-20",
+  "commit": "e1bfffe",
+  "engine": "src/lib/saasAudit.js",
+  "summary": {
+    "vendor": {
+      "cases": 72,
+      "tp": 31,
+      "fp": 13,
+      "fn": 7,
+      "tn": 21,
+      "precision": 0.705,
+      "recall": 0.816,
+      "f1": 0.756,
+      "vendor_name_accuracy": 1
+    },
+    "recurrence": {
+      "cases": 15,
+      "correct": 11,
+      "accuracy": 0.733
+    },
+    "findings": {
+      "checks": 15,
+      "correct": 12,
+      "accuracy": 0.8
+    }
+  },
+  "detail": {
+    "vendor": {
+      "cases": 72,
+      "positives": 38,
+      "negatives": 34,
+      "tp": 31,
+      "fp": 13,
+      "fn": 7,
+      "tn": 21,
+      "precision": 0.705,
+      "recall": 0.816,
+      "f1": 0.756,
+      "vendor_name_accuracy": 1,
+      "misses": [
+        {
+          "label": "CB DOCTOLIB PRO",
+          "kind": "false_negative",
+          "expected": "Doctolib",
+          "got": null,
+          "note": "SaaS the engine does not know: false negative expected"
+        },
+        {
+          "label": "CB AIRCALL SAS",
+          "kind": "false_negative",
+          "expected": "Aircall",
+          "got": null,
+          "note": "SaaS the engine does not know"
+        },
+        {
+          "label": "CB DEEPL SE",
+          "kind": "false_negative",
+          "expected": "DeepL",
+          "got": null,
+          "note": "SaaS the engine does not know"
+        },
+        {
+          "label": "PRLV SEPA INDY",
+          "kind": "false_negative",
+          "expected": "Indy",
+          "got": null,
+          "note": "French accounting SaaS the engine does not know"
+        },
+        {
+          "label": "CB GANDI SAS",
+          "kind": "false_negative",
+          "expected": "Gandi",
+          "got": null,
+          "note": "domains/hosting; unknown vendor"
+        },
+        {
+          "label": "CB IONOS SE",
+          "kind": "false_negative",
+          "expected": "IONOS",
+          "got": null,
+          "note": "hosting; unknown vendor"
+        },
+        {
+          "label": "CB O2SWITCH",
+          "kind": "false_negative",
+          "expected": "o2switch",
+          "got": null,
+          "note": "French hosting; unknown vendor"
+        },
+        {
+          "label": "CB QONTO ABONNEMENT",
+          "kind": "false_positive",
+          "expected": null,
+          "got": "Qonto Abonnement (likely)",
+          "note": "bank plan fee; carries the word ABONNEMENT, which is a software hint to the engine"
+        },
+        {
+          "label": "CB LE MONDE ABONNEMENT",
+          "kind": "false_positive",
+          "expected": null,
+          "got": "Le Monde Abonnement (likely)",
+          "note": "newspaper subscription; recurring but not software"
+        },
+        {
+          "label": "PRLV SEPA GOOGLE ADS 1234-5678-9012",
+          "kind": "false_positive",
+          "expected": null,
+          "got": "Google Workspace (known)",
+          "note": "advertising spend, not software; the engine's GOOGLE rule cannot tell them apart"
+        },
+        {
+          "label": "CB LINKEDIN ADS",
+          "kind": "false_positive",
+          "expected": null,
+          "got": "LinkedIn (known)",
+          "note": "advertising spend at a vendor the engine treats as SaaS"
+        },
+        {
+          "label": "CB MICROSOFT ADVERTISING",
+          "kind": "false_positive",
+          "expected": null,
+          "got": "Microsoft 365 (known)",
+          "note": "advertising spend at a vendor the engine treats as SaaS"
+        },
+        {
+          "label": "CB MAKE UP FOR EVER PARIS",
+          "kind": "false_positive",
+          "expected": null,
+          "got": "Make (known)",
+          "note": "cosmetics shop; the token MAKE collides with the automation vendor"
+        },
+        {
+          "label": "CB MONDAY CAFE PARIS 11",
+          "kind": "false_positive",
+          "expected": null,
+          "got": "monday.com (known)",
+          "note": "a cafe; the token MONDAY collides with monday.com"
+        },
+        {
+          "label": "CB LA BOX DU FROMAGER",
+          "kind": "false_positive",
+          "expected": null,
+          "got": "Box (known)",
+          "note": "food gift box; the token BOX collides with Box storage"
+        },
+        {
+          "label": "CB CLOUD NINE COFFEE",
+          "kind": "false_positive",
+          "expected": null,
+          "got": "Cloud Nine Coffee (likely)",
+          "note": "coffee shop; the token CLOUD is a software hint"
+        },
+        {
+          "label": "CB PREMIUM CARBURANT TOTAL",
+          "kind": "false_positive",
+          "expected": null,
+          "got": "Premium Carburant Total (likely)",
+          "note": "fuel; the token PREMIUM is a software hint"
+        },
+        {
+          "label": "CB APPLE STORE OPERA",
+          "kind": "false_positive",
+          "expected": null,
+          "got": "Apple (known)",
+          "note": "hardware purchase at a vendor the engine treats as a subscription"
+        },
+        {
+          "label": "CB GOOGLE *PLAY STORE",
+          "kind": "false_positive",
+          "expected": null,
+          "got": "Google Workspace (known)",
+          "note": "app purchase at a vendor the engine treats as Google Workspace"
+        },
+        {
+          "label": "CB API RESTAURANT",
+          "kind": "false_positive",
+          "expected": null,
+          "got": "Api Restaurant (likely)",
+          "note": "the token API is a software hint"
+        }
+      ]
+    },
+    "recurrence": {
+      "cases": 15,
+      "correct": 11,
+      "accuracy": 0.733,
+      "misses": [
+        {
+          "name": "two seats on one card, 5th and 21st",
+          "expected": "monthly",
+          "got": "irregular"
+        },
+        {
+          "name": "annual, with a mid-year seat top-up",
+          "expected": "annual",
+          "got": "irregular"
+        },
+        {
+          "name": "every two months",
+          "expected": "bimonthly",
+          "got": "irregular"
+        },
+        {
+          "name": "every six months",
+          "expected": "semiannual",
+          "got": "irregular"
+        }
+      ]
+    },
+    "findings": {
+      "checks": 15,
+      "correct": 12,
+      "accuracy": 0.8,
+      "misses": [
+        {
+          "name": "Google Ads next to Google Workspace is not a duplicate subscription",
+          "family": "duplicates",
+          "expected": 0,
+          "got": 1
+        },
+        {
+          "name": "Google Ads next to Google Workspace is not a duplicate subscription",
+          "family": "priceIncreases",
+          "expected": 0,
+          "got": 1
+        },
+        {
+          "name": "usage-based cloud bill is not a price increase",
+          "family": "priceIncreases",
+          "expected": 0,
+          "got": 1
+        }
+      ]
+    }
+  }
+}

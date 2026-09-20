@@ -26,6 +26,10 @@ npm test             # Vitest — src/lib, src/pages, functions/ (no count here:
                      # goes stale on every test added. Firestore rules tests are
                      # excluded from this run — they need the emulator, so
                      # `npm run test:rules`, or `npm run test:all` for both.)
+
+# Grant evidence
+node tools/record-baseline.mjs   # re-measure the inference engine against the
+                                   # labelled sets and rewrite the dossier's table
 ```
 
 There is a **husky pre-commit hook** that runs ESLint on staged files — commits will be blocked on lint errors.
@@ -189,6 +193,29 @@ While deleted, a workspace is **frozen, not gone**: `read` still works so its
 data can be exported and handed back, `write` returns 409, it is excluded from
 `listorgs.orgs`, and it does not count against the plan's client-workspace cap.
 `restoreorg` is the exact inverse and refuses once the window has passed.
+
+### Innov'up grant dossier and the inference baseline
+
+`docs/grants/innovup/` is the application dossier for the Innov'up
+Île-de-France grant. Its technical claims are generated, not written:
+`src/lib/baseline.js` scores `src/lib/saasAudit.js` against the labelled sets
+in `test-data/innovup-baseline/`, `tools/record-baseline.mjs` writes the
+result to `docs/grants/innovup/evidence/baseline-results.json` and into the
+marker block of `02-technical-baseline.md`, and `src/lib/baseline.test.js`
+fails whenever either stops matching the code.
+
+**The inference engine is frozen until the application is filed.** The
+vendor list, cadence rules and findings thresholds in `saasAudit.js` are the
+measured starting point of the funded project; improving them before filing
+is starting the project early, which the grant does not fund. If a change is
+unavoidable, re-run the script, commit the new results with the change, and
+keep the previous results file rather than overwriting it once filed.
+
+`src/lib/activation.js` records the activation KPIs the dossier quotes
+(`first_insight`, `return_after_insight`, `recommendations_shown`,
+`recommendation_acted`). They carry counts, minutes and kind labels only;
+`analytics-privacy.test.js` checks every call site, and `activation.test.js`
+pins that first insight fires once, never on an empty inbox, never in demo.
 
 ### i18n
 

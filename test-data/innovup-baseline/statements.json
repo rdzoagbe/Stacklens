@@ -1,0 +1,61 @@
+{
+  "_about": [
+    "Small labelled statements for the findings baseline: what auditSaas()",
+    "should flag, and what it should leave alone. Each row is [date, label,",
+    "amount]. `expected` counts the findings a bookkeeper would agree with.",
+    "Scored by src/lib/baseline.js."
+  ],
+  "cases": [
+    { "name": "Google Ads next to Google Workspace is not a duplicate subscription",
+      "rows": [
+        ["2026-01-03", "PRLV GOOGLE GSUITE_STACKLENS", 345.6],
+        ["2026-02-03", "PRLV GOOGLE GSUITE_STACKLENS", 345.6],
+        ["2026-03-03", "PRLV GOOGLE GSUITE_STACKLENS", 345.6],
+        ["2026-01-20", "PRLV SEPA GOOGLE ADS 1234-5678-9012", 410],
+        ["2026-02-20", "PRLV SEPA GOOGLE ADS 1234-5678-9012", 388.5],
+        ["2026-03-20", "PRLV SEPA GOOGLE ADS 1234-5678-9012", 502.1]
+      ],
+      "expected": { "duplicates": 0, "priceIncreases": 0, "multiPerMonth": 0 } },
+
+    { "name": "usage-based cloud bill is not a price increase",
+      "rows": [
+        ["2026-01-03", "CB AMAZON WEB SERVICES EMEA", 120.4],
+        ["2026-02-03", "CB AMAZON WEB SERVICES EMEA", 131.9],
+        ["2026-03-03", "CB AMAZON WEB SERVICES EMEA", 118.2],
+        ["2026-04-03", "CB AMAZON WEB SERVICES EMEA", 164],
+        ["2026-05-03", "CB AMAZON WEB SERVICES EMEA", 175.5],
+        ["2026-06-03", "CB AMAZON WEB SERVICES EMEA", 190.1]
+      ],
+      "expected": { "duplicates": 0, "priceIncreases": 0, "multiPerMonth": 0 } },
+
+    { "name": "a real price rise on a fixed plan",
+      "rows": [
+        ["2026-01-05", "PRLV SEPA NOTION LABS INC", 96],
+        ["2026-02-05", "PRLV SEPA NOTION LABS INC", 96],
+        ["2026-03-05", "PRLV SEPA NOTION LABS INC", 96],
+        ["2026-04-05", "PRLV SEPA NOTION LABS INC", 112],
+        ["2026-05-05", "PRLV SEPA NOTION LABS INC", 112],
+        ["2026-06-05", "PRLV SEPA NOTION LABS INC", 112]
+      ],
+      "expected": { "duplicates": 0, "priceIncreases": 1, "multiPerMonth": 0 } },
+
+    { "name": "the same vendor on two cards is a duplicate worth a look",
+      "rows": [
+        ["2026-01-07", "CB FIGMA INC", 45],
+        ["2026-02-07", "CB FIGMA INC", 45],
+        ["2026-03-07", "CB FIGMA INC", 45],
+        ["2026-01-12", "CB FIGMA MONTHLY RENEWAL", 15],
+        ["2026-02-12", "CB FIGMA MONTHLY RENEWAL", 15],
+        ["2026-03-12", "CB FIGMA MONTHLY RENEWAL", 15]
+      ],
+      "expected": { "duplicates": 1, "priceIncreases": 0, "multiPerMonth": 0 } },
+
+    { "name": "two seats on one card, charged twice a month",
+      "rows": [
+        ["2026-01-05", "CB FIGMA INC", 45], ["2026-01-21", "CB FIGMA INC", 45],
+        ["2026-02-05", "CB FIGMA INC", 45], ["2026-02-21", "CB FIGMA INC", 45],
+        ["2026-03-05", "CB FIGMA INC", 45], ["2026-03-21", "CB FIGMA INC", 45]
+      ],
+      "expected": { "duplicates": 0, "priceIncreases": 0, "multiPerMonth": 1 } }
+  ]
+}

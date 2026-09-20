@@ -3,9 +3,17 @@ import toast from 'react-hot-toast';
 import { uid, loadDb, saveDb, seedDbIfEmpty } from '../lib/db';
 import { getPlanLimits } from '../lib/plan';
 import { track } from '../lib/analytics';
+import { noteDataArrived } from '../lib/activation';
 import { appendAudit, auditActor, changedKeys, describeChange } from '../lib/audit';
 import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
+
+// The first time real data enters a workspace is when time-to-first-insight
+// starts. Demo data is not an arrival: nobody imported it.
+function stampArrival() {
+  const u = loadDb()?.user;
+  if (u && !u.is_demo) noteDataArrived({ scope: u.uid });
+}
 
 // A plan limit is the clearest upgrade signal this product produces: it marks
 // the exact moment someone wanted to do more and the plan said no. The throw
@@ -81,7 +89,7 @@ export function useDbMutations() {
         return db;
       }, () => ({ action: 'tool.created', details: tool?.name || '(unnamed)' }));
     },
-    onSuccess: () => { invalidate(); track('tool_added'); },
+    onSuccess: () => { invalidate(); stampArrival(); track('tool_added'); },
     onError: (err) => {
       if (err.message?.startsWith('PLAN_LIMIT:')) {
         track('plan_limit_hit', { limit: err.limitKind, plan: err.limitPlan, cap: err.limitCap });
@@ -150,7 +158,7 @@ export function useDbMutations() {
         details: emp?.full_name || emp?.email || '(unnamed)',
       }));
     },
-    onSuccess: () => { invalidate(); track('employee_added'); },
+    onSuccess: () => { invalidate(); stampArrival(); track('employee_added'); },
     onError: (err) => {
       if (err.message?.startsWith('PLAN_LIMIT:')) {
         track('plan_limit_hit', { limit: err.limitKind, plan: err.limitPlan, cap: err.limitCap });
@@ -623,7 +631,11 @@ export function useDbMutations() {
         };
       });
     },
-    onSuccess: (_data, vars) => { invalidate(); track('csv_import_completed', { kind: vars?.kind }); },
+    onSuccess: (_data, vars) => {
+      invalidate();
+      stampArrival();
+      track('csv_import_completed', { kind: vars?.kind, records: Array.isArray(vars?.records) ? vars.records.length : undefined });
+    },
   });
 
   return {

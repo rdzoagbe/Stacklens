@@ -7,6 +7,7 @@ import { useDbQuery, useDbMutations } from '../../hooks/useDbQuery';
 import { AppShell } from '../../components/AppShell';
 import { submitContactForm } from '../../lib/contact';
 import { track } from '../../lib/analytics';
+import { noteDataArrived } from '../../lib/activation';
 import { integrationCall } from '../../firebase-config';
 import { purgeLegacyCredentials } from '../../lib/legacyCredentials';
 
@@ -1210,6 +1211,7 @@ export function IntegrationConnectors() {
         updated: toUpdate.length,
         skipped,
       });
+      if (toAdd.length && !db?.user?.is_demo) noteDataArrived({ scope: db?.user?.uid });
       track('integration_sync_completed', { source: 'google-workspace', added: toAdd.length });
     } catch (err) {
       if (err.message === 'popup_closed' || err.message === 'popup_closed_by_user' || err.message === 'access_denied') {
@@ -1221,7 +1223,7 @@ export function IntegrationConnectors() {
     } finally {
       setConnecting(null);
     }
-  }, [db?.employees, connectedIntegrations, muts, integrations]);
+  }, [db?.employees, db?.user?.is_demo, db?.user?.uid, connectedIntegrations, muts, integrations]);
 
    
   // ── Directory sync ────────────────────────────────────────────────────────
