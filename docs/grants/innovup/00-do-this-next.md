@@ -50,14 +50,24 @@ puts the eight pre-filing questions from the guide's section 23.
 ## Step 2 — Book the interviews. **This is now the live task.**
 
 Fifteen to twenty conversations cannot be compressed. They need calendar
-time, so they start now and run in parallel with everything else. This does
-not depend on the Région's answer.
+time, so every day of the wait spent not booking them is a day lost. This
+does not depend on the Région's answer.
 
-Everything you need is in `09-interview-guide.md`: the opening script, the
-fourteen questions in order, the note sheet, and the tally sheet that turns
-the notes into the numbers the application quotes.
+Everything you need is in `09-interview-guide.md`: the four recruitment
+messages in French, the channel plan with the posting rule for each place,
+the opening script, the fourteen questions in order, the note sheet, and the
+tally sheet that turns the notes into the numbers the application quotes.
 
-Where to find people, easiest first:
+**Where to send them, in order.** LinkedIn first, because that is where
+French experts-comptables are. Then Compta Online, the French accounting
+profession's own forum. Then the regional Ordre and the Seine-Saint-Denis
+networks, which double as Île-de-France impact evidence. Reddit last and
+narrow: r/smallbusiness and r/accounting both forbid exactly what you would
+want to post, and only r/sysadmin and r/msp are open to it, with disclosure.
+Reddit is also anglophone, so it cannot serve the regional-impact case. The
+channel table in `09` gives the rule for each place.
+
+Who to approach, easiest first:
 
 | Source | How |
 |---|---|

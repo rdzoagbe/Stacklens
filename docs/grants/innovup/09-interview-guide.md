@@ -162,6 +162,100 @@ introduction does the credibility work you cannot do yourself.
 | Tracking | One row per person: name, segment, date sent, date followed up, outcome. Keep it outside the repository, since it holds personal data |
 | Target | Fifteen to twenty completed. Expect to contact three to four times that number |
 
+## Where to post, and the rule in each place
+
+Checked 21 September 2026. **Reddit is largely closed to this and the part
+that is open is not where your buyers are.** That is worth knowing before
+spending a week on it.
+
+| Channel | Fit | The rule you have to respect |
+|---|---|---|
+| **LinkedIn** | **Best.** Where French *experts-comptables* actually are | Connection note capped near 300 characters, so use the short form below. No link |
+| **Compta Online** (compta-online.com) | **Best French forum.** A digital community for the accounting professions: experts-comptables, accountants, auditors, DCG/DSCG/DEC students, with discussion boards per subject | Peer forum. Post a question, answer others' questions, never advertise |
+| **CROEC Paris Île-de-France** (the regional Ordre) and its events | Strong, and doubles as grant evidence: the Région wants Île-de-France activity | Professional body. Turn up, do not pitch |
+| **Local: CCI Seine-Saint-Denis, BGE, Réseau Entreprendre, Bondy networks** | Good, and the best regional-impact evidence you can get | In person. Bring the question, not the product |
+| **Reddit, r/sysadmin and r/msp** | Narrow. Real practitioners for the IT and security half of your split, but anglophone | Disclose that you build in the space, in the post. r/msp actively hunts undisclosed vendors and keeps lists of suspected accounts |
+| **Reddit, r/smallbusiness** | **Closed.** Market-research posts are removed outright, including pain-point hunting. Only pre-approved academic surveys are allowed | Do not post. Mods have said this explicitly |
+| **Reddit, r/accounting** | **Closed.** Rules bar self-promotion and solicitation | Do not post |
+| **Reddit, French subs** | **Weak.** No experts-comptables subreddit exists. r/france is general news, r/vosfinances is personal finance at roughly 33,000 members, r/entrepreneurFR is small. None is where a cabinet partner spends a working day | Not worth the effort for this |
+
+A 2026 survey of 49 subreddits that founders commonly pitch in found that
+61% ban self-promotion. Reddit's own convention is the 90/10 rule, nine parts
+participation to at most one part your own thing, and individual moderators
+are free to be stricter. Most are.
+
+**Two practical blockers on Reddit, before the rules even apply.** A new
+account with no history gets caught by the spam filter in most large
+subreddits, so a first post from a fresh account usually never appears. And
+several subs have minimum account-age or karma gates. If you have no Reddit
+history, answer other people's questions for a week or two first, or accept
+that the post will not survive.
+
+### The grant caveat, which matters more than the channel choice
+
+Reddit interviews are anglophone and global. They are perfectly good evidence
+for the **technical** uncertainties, questions 10 to 12 on trust, rejection
+and what must never be automated, which is what WP3 and WP4 turn on. They are
+**not** evidence for the regional economic impact the Région asks for in
+section 10. So Reddit can never substitute for the French channel. Do the
+French channel first and treat Reddit as an addition.
+
+### LinkedIn — the connection note (under 300 characters)
+
+> Bonjour [Prénom], je mène une étude sur la façon dont les cabinets suivent
+> les abonnements logiciels de leurs clients. Ce n'est pas une démarche
+> commerciale. Auriez-vous 20 minutes ? Roland, Bondy.
+
+Once they accept, send message A from the section above.
+
+### Compta Online — post a question, do not advertise
+
+The forum rewards a real professional question. Ask it, then answer two or
+three other people's questions in the same week so you are a participant
+rather than a visitor.
+
+> **Titre : Comment suivez-vous les abonnements logiciels de vos clients ?**
+>
+> Bonjour,
+>
+> Je m'interroge sur une tâche qui revient souvent chez mes contacts en
+> cabinet : le suivi des abonnements logiciels des clients. Repérer un
+> prélèvement récurrent devenu inutile, savoir qui détient la liste, gérer
+> les accès quand un salarié part.
+>
+> Comment procédez-vous concrètement ? Un tableur ? Rien de formalisé ?
+> Est-ce même votre rôle, ou celui du client ?
+>
+> Je mène une étude sur le sujet et je serais heureux d'échanger 20 minutes
+> avec ceux que ça intéresse. Je partagerai la synthèse.
+>
+> Merci d'avance.
+
+### Reddit — r/sysadmin or r/msp, a genuine question with disclosure
+
+The offboarding question is on-topic there and gets real answers. The
+disclosure line is not optional and it helps: these communities punish
+concealment and reward transparency.
+
+> **Title: How do you actually verify a leaver has lost every SaaS they had access to?**
+>
+> Not the identity-provider apps, those are easy. The ones bought on a card
+> by a department, never in SSO, that nobody wrote down.
+>
+> What I'm trying to understand is the real process, not the ideal one. Is it
+> a spreadsheet? A card statement? Do you find out months later when an
+> invoice arrives? Do you accept that some access just stays live?
+>
+> Full disclosure: I build software in this space, I'm not linking it and
+> I'm not selling anything here. I'm trying to find out how much of this is
+> actually detectable versus how much depends on somebody remembering.
+>
+> Happy to talk for 20 minutes if anyone would rather do that than type.
+
+Answer every reply. A thread where the poster argues with the answers is
+worth more than ten unanswered ones, and the comments themselves are
+research: note them against the tally sheet below.
+
 ## Opening (read as written)
 
 > "I'm researching how companies manage their software tools, licences and
