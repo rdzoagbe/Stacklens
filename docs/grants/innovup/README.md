@@ -27,7 +27,7 @@ and were produced by the shipped code, not written by hand.
 | `06-budget-scenarios.md` | €30k / €50k / €75k, subvention-only, every line mapped to a work package, with the evidence each line needs | Illustrative; founder to price |
 | `07-competitor-matrix.md` | The state-of-the-art matrix with the Stacklens column filled from the code and the competitor columns left for verified, dated entries | Stacklens column done |
 | `08-risk-register.md` | The guide's risks, re-scored against what this repository now contains | Drafted |
-| `09-interview-guide.md` | The 15–20 interview plan: opening script, questions, note sheet, anonymisation rule, tally sheet | Ready to run |
+| `09-interview-guide.md` | The 15–20 interview plan: the four recruitment messages in French, opening script, questions, note sheet, anonymisation rule, tally sheet | Ready to run |
 | `10-application-fields.md` | Company identification, team, IP and open-source inventory (generated from `package.json`), development history evidence | Prefilled; founder to confirm |
 | `evidence/baseline-results.json` | The measured baseline, with every miss listed. Do not edit by hand | Generated |
 
@@ -47,7 +47,7 @@ and were produced by the shipped code, not written by hand.
 
 | Week | The guide asks for | Status |
 |---|---|---|
-| 1 | Eligibility check; freeze project scope; define technical uncertainties; start interviews | Note drafted (`01`); uncertainties defined and measured (`02`); interview kit ready (`09`). **Founder: send the note, book the first interviews.** |
+| 1 | Eligibility check; freeze project scope; define technical uncertainties; start interviews | **Note sent 2026-09-21**; chase date 2026-10-06 (`00`). Uncertainties defined and measured (`02`); recruitment messages and interview kit ready (`09`). **Founder: send the recruitment messages, book the first interviews.** |
 | 2 | Complete interviews; competitor matrix; baseline technical metrics; architecture / data flow | Baseline recorded (`02`); data flow written (`04`); Stacklens column of the matrix done (`07`). **Founder: interviews; verify competitor cells with dated sources.** |
 | 3 | WPs, milestones, KPIs; supplier quotes; €30k/€50k/€75k budgets | WPs and KPIs drafted (`03`, `05`); budget structure drafted (`06`). **Founder: quotes, hours.** |
 | 4 | Financial forecast; narrative; evidence pack; final eligibility review; submission gate | Narrative inputs in `01`, `03`; gate below. **Founder: forecast, SIRENE extract, CV.** |
@@ -57,10 +57,10 @@ and were produced by the shipped code, not written by hand.
 | Gate | Now | What closes it |
 |---|---|---|
 | One paragraph on why this is an eligible advanced-digital / security / AI RDI project | YES | `01-note-eligibilite.md`, first paragraph |
-| The "logiciel métier" exclusion specifically addressed | YES, argued; **NOT confirmed** | The Région's written answer to the note |
+| The "logiciel métier" exclusion specifically addressed | YES, argued; **asked 2026-09-21, awaiting reply** | The Région's written answer to the note |
 | Technical uncertainties genuine and measurable | YES | `02` — measured, with misses listed |
 | State-of-the-art / competitor analysis | PARTIAL | Competitor cells need dated sources (`07`) |
-| 15–20 interviews or equivalent | NO | Run `09` |
+| 15–20 interviews or equivalent | NO | Send the recruitment messages in `09`, then run them |
 | Pilot / experimentation plan | YES (design) | WP6 in `03`; pilot letters of interest still to collect |
 | Every KPI has a measurement method | YES | `05` |
 | Budget maps every euro to a WP | STRUCTURE ONLY | Founder's hours and supplier quotes (`06`) |

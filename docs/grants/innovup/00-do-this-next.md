@@ -11,36 +11,43 @@ and nothing in the six work packages may begin until the application is in.
 
 ---
 
-## Step 1 — Send the eligibility email. Today. 20 minutes.
+## Step 1 — Send the eligibility email. **DONE, Monday 21 September 2026.**
 
-Everything else is shaped by the answer, so this goes first even though it
-feels like the smallest task.
+Sent to the Région, and to Bpifrance if you used both channels. Everything
+else is shaped by the answer, which is why this went first.
 
-1. Open `01-note-eligibilite.md`. Use the section headed **Version
-   française**. The English version below it is for you, do not send it.
-2. Replace nothing except the phone number on the signature line if you want
-   it there. The company details, the measured figures and the eight
-   questions are already correct.
-3. Send to **aides.economiques@iledefrance.fr**.
-   Subject line is the first line of that section.
-4. Send the same text a second time through Bpifrance at
-   **contact.bpifrance.fr**, choosing "Je suis porteur de projet innovant".
-   Two channels, because either may answer first.
-5. Save the sent email as a PDF into `evidence/`, named
-   `2026-09-20-note-eligibilite-envoyee.pdf`. The date you asked matters
-   later.
+**Two things to finish closing it out:**
 
-**What you are asking them:** whether a project about inferring a company's
-software estate from bank and directory data counts as advanced digital / AI
-and business security, rather than as business software, which is excluded.
+1. Save the sent message as a PDF into `evidence/`, named
+   `2026-09-21-note-eligibilite-envoyee.pdf`. The Région asks for the
+   pre-filing correspondence and the date you asked is part of the argument
+   that the project had not started.
+2. If you only sent it to **aides.economiques@iledefrance.fr**, send the same
+   text through **contact.bpifrance.fr** as well, choosing "Je suis porteur
+   de projet innovant". Two channels, because either may answer first and
+   neither is obliged to.
 
-**If no answer in ten working days:** send once more, then telephone
-Bpifrance. Record both attempts. Do not start writing the long form while
-this is open.
+**Chase date: Tuesday 6 October 2026.** That is one working day after ten
+have passed. If there is no reply by Monday 5 October, resend the same text,
+then telephone Bpifrance. Record both attempts in `evidence/`.
+
+**While it is open, do not write the long form.** Steps 2 to 4 below do not
+depend on the answer and are the right use of the wait.
+
+<details>
+<summary>What was sent, for the record</summary>
+
+The text is in `01-note-eligibilite.md`, section **Version française**. It
+asks whether a project about inferring a company's software estate from bank
+and directory data falls under the advanced digital / AI and business
+security priorities, rather than being excluded as a *logiciel métier*, and
+puts the eight pre-filing questions from the guide's section 23.
+
+</details>
 
 ---
 
-## Step 2 — Start booking interviews. This week. The long lead item.
+## Step 2 — Book the interviews. **This is now the live task.**
 
 Fifteen to twenty conversations cannot be compressed. They need calendar
 time, so they start now and run in parallel with everything else. This does
