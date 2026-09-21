@@ -171,7 +171,7 @@ spending a week on it.
 | Channel | Fit | The rule you have to respect |
 |---|---|---|
 | **LinkedIn** | **Best.** Where French *experts-comptables* actually are | Connection note capped near 300 characters, so use the short form below. No link |
-| **Compta Online** (compta-online.com) | **Best French forum.** A digital community for the accounting professions: experts-comptables, accountants, auditors, DCG/DSCG/DEC students, with discussion boards per subject | Peer forum. Post a question, answer others' questions, never advertise |
+| **Compta Online** (compta-online.com) | **Best French forum.** A digital community for the accounting professions: experts-comptables, accountants, auditors, DCG/DSCG/DEC students, with discussion boards per subject | Strict and enforced by silent deletion. No adverts, no commercial links, one forum only, no bumping, and naming a company to judge it is an immediate ban. Search first, answer others first, and keep the interview ask to private messages |
 | **CROEC Paris Île-de-France** (the regional Ordre) and its events | Strong, and doubles as grant evidence: the Région wants Île-de-France activity | Professional body. Turn up, do not pitch |
 | **Local: CCI Seine-Saint-Denis, BGE, Réseau Entreprendre, Bondy networks** | Good, and the best regional-impact evidence you can get | In person. Bring the question, not the product |
 | **Reddit, r/sysadmin and r/msp** | Narrow. Real practitioners for the IT and security half of your split, but anglophone | Disclose that you build in the space, in the post. r/msp actively hunts undisclosed vendors and keeps lists of suspected accounts |
@@ -271,28 +271,125 @@ if you are not yet connected.
 
 Once they accept, send message A from the section above.
 
-### Compta Online — post a question, do not advertise
+### Compta Online — the rules are strict and enforced silently
 
-The forum rewards a real professional question. Ask it, then answer two or
-three other people's questions in the same week so you are a participant
-rather than a visitor.
+**Read from the site's own "Publier un nouveau message" page, 21 September
+2026.** These are not general guidance, they are the rules the moderators
+apply, and clause 5 says how: *"Tous les messages ne respectant pas ces
+règles de base seront SYSTEMATIQUEMENT supprimés SANS PREAVIS par notre
+équipe et sans en prévenir l'auteur"*, deletions are not reinstated, and a
+member who keeps breaking them has their profile erased and cannot
+re-register.
 
-> **Titre : Comment suivez-vous les abonnements logiciels de vos clients ?**
+So this channel is worth getting right first time. The rules that bear on you:
+
+| Rule | What it means here |
+|---|---|
+| **1.1** The forum addresses itself principally to accounting students, practitioners and experts-comptables, for exchanging information and experience | You are none of those. Say so in the first line rather than let someone work it out. Your question is still an exchange of professional experience, which is what the forum is for |
+| **1.2, 1.3** Search before posting; make an effort to find the answer yourself | **Do this first.** Search `compta-online.com/recherche` for *abonnements logiciels*, *prélèvements récurrents*, *accès salarié sortant*. If the question already exists, reply in that thread instead of opening a new one. That is a better outcome anyway |
+| **3.1** No posting the same message in several forums | One forum. Pick it and stay there |
+| **3.2, 3.3** Right forum, explicit title; moderators may rewrite a title | The title below names the subject. Nothing generic |
+| **3.4** No second message if nobody answers quickly | Post once. If it stays quiet, it stays quiet |
+| **4.1, 4.2** No advertising your site, services or commercial products. **All links to commercial sites will be deleted** | No link anywhere, and none in a signature. Not stacklens.fr, not anything |
+| **4.3** Naming a company, website or person to pass judgement on them means an **immediate ban** | **This is the one that will catch you.** If a reply mentions a competitor or a tool, do not evaluate it, do not compare, do not say a vendor is bad or expensive. Answer about practice, never about named products |
+| **4.6** Everything you post is public and findable in search engines, and you licence it to the site | Your name will be attached to this permanently and indexed. Which is fine, because the post is honest |
+| **2.1–2.8** Start with "Bonjour", thank people, no capitals, no SMS style, correct French, air out the paragraphs, punctuate | The text below complies. Do not trim it into something terser |
+| **2.9, 4.10** Nothing is "urgent"; thank anyone who helps you | Reply with thanks to every answer |
+
+**Realistic expectation.** Rule 1.1 means a non-practitioner asking about
+practice is at the edge of what the forum is for, and clause 5 means that if
+a moderator disagrees, the post disappears with no notice and no appeal. The
+mitigation is the order of operations below: by the time you ask, you will
+have given something first, and a deleted post will have cost you nothing.
+
+#### How to post, in order
+
+1. **Register** at `compta-online.com/inscription`. Username, password, a
+   valid email that other members never see. Use your real name. On a
+   professional forum a pseudonym asking about cabinet practice reads badly.
+2. **Search first**, as rules 1.2 and 1.3 require. If the question exists,
+   answer in that thread. You get the same information faster and you arrive
+   as a participant.
+3. **Answer other people's questions for about a week.** Entraide is the
+   forum's stated purpose and this is what earns standing. You are not an
+   accountant, so do not touch accounting questions. The **Informatique**
+   section is where your knowledge is real: software choices, imports, file
+   formats, exports, spreadsheets, access management. Answer three to five
+   there, properly, with no mention of yourself and no link.
+4. **Then post the question, in Informatique, once.** The sections are
+   Experts-comptables, Comptabilité, Fiscalité, Droit social, Informatique,
+   Finance, IFRS and Patrimoine; the full list is at
+   `compta-online.com/listeForums`. Informatique, because the subject is
+   software and because you will already have been useful there. Rule 3.1
+   means you do not also post it elsewhere.
+5. **Thank every reply, and never name a product in judgement.** Rule 4.3 is
+   an immediate ban, not a warning.
+
+#### The post
+
+Title:
+
+> **Comment suivez-vous les abonnements logiciels de vos clients ?**
+
+Body:
+
+```
+Bonjour,
+
+Je ne suis pas expert-comptable. Je suis éditeur de logiciel et je cherche à
+comprendre une pratique que je connais mal : le suivi des abonnements
+logiciels dans les petites entreprises.
+
+Concrètement, lorsqu'un prélèvement récurrent devient inutile parce que plus
+personne n'utilise l'outil :
+
+- est-ce que cela remonte, et par quel chemin ?
+- est-ce le cabinet qui le repère sur les relevés, ou le client ?
+- si c'est le cabinet, le signalez-vous, ou considérez-vous que cela sort de
+la mission ?
+
+Même question pour les accès. Lorsqu'un salarié quitte l'entreprise, est-ce
+que quelqu'un vérifie que ses comptes logiciels ont bien été fermés, ou
+cela sort-il du périmètre ?
+
+Je pose la question parce que j'obtiens des réponses très différentes selon
+les interlocuteurs, et je préfère comprendre ce qui se fait réellement
+plutôt que ce qui devrait se faire.
+
+Merci d'avance pour vos retours.
+```
+
+**Why it is built this way.** It opens by saying what you are, because rule
+1.1 makes that relevant and because the alternative is letting a practitioner
+discover it and feel handled. "Éditeur de logiciel" is a factual profession,
+not an advert: no name, no link, no offer, so nothing in 4.1 or 4.2 applies.
+The three bullets are answerable in one line each, which is what gets replies.
+*Hors mission* and *périmètre* are the profession's own words for the real
+question, which is whether any of this is their job. It closes on current
+practice rather than best practice, the same discipline as the interview
+questions. And it complies with 2.1 through 2.8: opens with Bonjour, ends
+with a thank you, no capitals, no abbreviations, paragraphs aired out.
+
+#### Then, in private messages
+
+The interview ask does not go in the post. Rule 4.1 and the forum's
+description of itself as a discussion and mutual-aid space rather than a
+commercial zone put an unsolicited recruitment announcement outside what is
+allowed. So when somebody answers, reply publicly to what they actually said,
+with thanks, as rule 4.10 asks. Then send them this privately:
+
+> Bonjour [Prénom], merci pour votre réponse, elle m'a beaucoup appris.
 >
-> Bonjour,
+> Je mène une petite étude sur ce sujet, une quinzaine d'entretiens de 20
+> minutes avec des experts-comptables et des dirigeants. Accepteriez-vous un
+> échange ? Ce n'est pas une démarche commerciale et je ne vous présenterai
+> rien. Je partagerai la synthèse anonymisée.
 >
-> Je m'interroge sur une tâche qui revient souvent chez mes contacts en
-> cabinet : le suivi des abonnements logiciels des clients. Repérer un
-> prélèvement récurrent devenu inutile, savoir qui détient la liste, gérer
-> les accès quand un salarié part.
->
-> Comment procédez-vous concrètement ? Un tableur ? Rien de formalisé ?
-> Est-ce même votre rôle, ou celui du client ?
->
-> Je mène une étude sur le sujet et je serais heureux d'échanger 20 minutes
-> avec ceux que ça intéresse. Je partagerai la synthèse.
->
-> Merci d'avance.
+> Bien cordialement,
+> Roland Dzoagbe
+
+A private message to somebody who chose to engage with you is a different
+thing from an unsolicited announcement to the forum.
 
 ### Reddit — r/sysadmin or r/msp, a genuine question with disclosure
 
