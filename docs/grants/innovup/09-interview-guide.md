@@ -200,6 +200,69 @@ and what must never be automated, which is what WP3 and WP4 turn on. They are
 section 10. So Reddit can never substitute for the French channel. Do the
 French channel first and treat Reddit as an addition.
 
+### LinkedIn — the public post
+
+A post reaches people you are not connected to, so it does the recruiting the
+direct messages cannot. Post this once, then work the comments. Do not post it
+again next week: a repeated ask reads as a campaign.
+
+Copy from the block below. Nothing in it needs editing except the signature.
+
+```
+Quand une PME paie un logiciel dont plus personne ne se sert, qui s'en aperçoit ?
+
+Et au bout de combien de temps ?
+
+Je pose la question sérieusement, parce que je n'ai pas la réponse.
+
+Je mène une étude sur la gestion des abonnements logiciels et des accès dans les petites structures : qui détient la liste, comment on repère un prélèvement devenu inutile, ce qui se passe quand un salarié part et que ses accès restent ouverts.
+
+Je cherche 15 à 20 personnes pour un échange de 20 minutes :
+
+— dirigeants de PME de 5 à 50 salariés
+— responsables informatique ou sécurité, en interne ou prestataires
+— experts-comptables, RAF, responsables administratifs
+
+Ce que je veux comprendre, c'est ce que vous faites aujourd'hui. Pas ce qu'il faudrait faire.
+
+Transparence : je développe un logiciel dans ce domaine. Je le précise pour que ce soit clair, mais ce n'est pas l'objet. Je ne vous présenterai rien et je ne vous vendrai rien — si je le faisais, l'étude ne vaudrait rien.
+
+Je partagerai la synthèse anonymisée avec les participants.
+
+Un commentaire ou un message privé suffit.
+
+Roland — Bondy (93)
+```
+
+**Why it is built this way.**
+
+| Choice | Reason |
+|---|---|
+| The question is the first line | LinkedIn truncates at roughly three lines. The question has to land before "voir plus" or nobody opens it |
+| "parce que je n'ai pas la réponse" | A founder asking a question he already has an answer to is recognisably doing marketing. This one is true, and the baseline in `02` is the proof |
+| The disclosure paragraph | Anyone curious clicks your profile and sees Stacklens within two seconds. Saying it first costs nothing and buys the rest of the post. Concealing it and being found out costs the channel |
+| No link anywhere | LinkedIn suppresses reach on posts carrying an external link, and a link turns a research request back into an advert. Your profile is the link |
+| Three named profiles | People self-select. It also quietly signals that you know the problem has three different shapes |
+| "Pas ce qu'il faudrait faire" | Pre-empts the advice you do not want. You are after current practice, not opinions on best practice |
+| No statistic | You do not yet have a defensible number about other companies. Inventing one would be the fastest way to lose an accountant who deals in real figures |
+
+**Working the post, which matters more than the post.**
+
+| When | Do |
+|---|---|
+| Tuesday to Thursday, 08:00–10:00 Paris | Post. Not Monday, not Friday, not the evening |
+| First hour | Reply to every comment. Early engagement decides how far it travels. Do not edit the post in that hour |
+| Every comment saying "intéressé" | Reply publicly with thanks **and** send the private message. A public reply is not a booking |
+| Anyone who answers the question instead of volunteering | Answer them properly and note what they said against the tally sheet below. That is data, whether or not they ever take a call |
+| Nobody engages after a day | Do not repost. Go back to the direct messages, which are the reliable channel. The post was the cheap shot |
+
+**Reply to a comment, to turn it into a booking:**
+
+> Merci [Prénom]. Je vous envoie un message pour trouver 20 minutes.
+
+Then send message A from the section above, or the short connection note below
+if you are not yet connected.
+
 ### LinkedIn — the connection note (under 300 characters)
 
 > Bonjour [Prénom], je mène une étude sur la façon dont les cabinets suivent
