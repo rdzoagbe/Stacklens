@@ -58,8 +58,15 @@ messages in French, the channel plan with the posting rule for each place,
 the opening script, the fourteen questions in order, the note sheet, and the
 tally sheet that turns the notes into the numbers the application quotes.
 
-**Where to send them, in order.** LinkedIn first, because that is where
-French experts-comptables are. Then Compta Online, the French accounting
+**Tomorrow morning: the LinkedIn post.** Tuesday to Thursday, 08:00 to
+10:00 Paris time. The ready text is in `09-interview-guide.md` under
+"LinkedIn — the public post", with the reasoning for each choice and the
+rules for working the comments, which matter more than the post itself.
+Reply to every comment in the first hour, and turn each "intéressé" into a
+private message the same day: a public reply is not a booking.
+
+**Then the direct messages, in this order.** LinkedIn first, because that is
+where French experts-comptables are. Then Compta Online, the French accounting
 profession's own forum. Then the regional Ordre and the Seine-Saint-Denis
 networks, which double as Île-de-France impact evidence. Reddit last and
 narrow: r/smallbusiness and r/accounting both forbid exactly what you would
