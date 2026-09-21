@@ -22,6 +22,146 @@ Where to find them: the accountant page's inbound, the free audit's users
 and one message to each person who did not answer the earlier outreach —
 "20 minutes of research, not a sales call" gets a different answer.
 
+## The messages that book the interview
+
+Copy-paste text. French, because the people you are writing to are French
+professionals. The earlier outreach to SMB operations people returned nothing,
+and the most likely reason is that it offered a product from an unknown
+sender. These offer nothing and ask for twenty minutes, which is a different
+transaction and converts differently.
+
+Four rules they all follow, and it matters that they do:
+
+- **Say it is not a sales call, in the first three lines.** It is the only
+  sentence that changes how the rest is read.
+- **No link to stacklens.fr, no product name in the body.** One link turns a
+  research request back into a sales email. The signature is enough.
+- **Ask for twenty minutes, not "a chat".** A bounded ask is easy to accept.
+- **Short.** If it does not fit on a phone screen it will not be read.
+
+### A. Accountants, bookkeepers, fractional CFOs (cold)
+
+Your priority group. Each one sees twenty to fifty companies, so three of
+them are worth ten single-company interviews for the state-of-the-art
+picture.
+
+> **Objet : 20 minutes pour une étude sur les abonnements logiciels de vos clients**
+>
+> Bonjour [Prénom],
+>
+> Je mène une étude sur la façon dont les cabinets suivent les abonnements
+> logiciels de leurs clients : qui détient la liste, comment on repère un
+> abonnement devenu inutile, ce qui se passe quand un salarié part.
+>
+> Ce n'est pas un appel commercial et je ne vous présenterai aucun produit.
+> Je cherche à comprendre ce que vous faites aujourd'hui, ce qui vous prend
+> du temps et ce qui casse.
+>
+> Vingt minutes, en visio, au créneau qui vous arrange. Je partagerai la
+> synthèse anonymisée de l'étude avec les participants.
+>
+> Auriez-vous un créneau cette semaine ou la suivante ?
+>
+> Bien cordialement,
+> Roland Dzoagbe — Bondy (93)
+
+### B. People who already ran the free audit
+
+The warmest list you have. They arrived with the problem and spent effort on
+it, which is more qualification than any cold list gives you.
+
+> **Objet : Votre audit d'abonnements — quelques questions ?**
+>
+> Bonjour,
+>
+> Vous avez utilisé l'audit gratuit d'abonnements logiciels. Merci d'avoir
+> pris le temps.
+>
+> Je mène une étude sur ce sujet et j'aimerais vous poser quelques questions :
+> ce que vous cherchiez, ce que vous avez trouvé, et surtout comment vous
+> procédez d'habitude sans outil.
+>
+> Vingt minutes, aucune démonstration, aucune vente. Vos réponses orientent
+> directement la suite.
+>
+> Un créneau cette semaine ?
+>
+> Bien cordialement,
+> Roland Dzoagbe
+
+### C. Existing Stacklens users
+
+Interview these separately from prospects, and add the six extra questions at
+the end of this guide.
+
+> **Objet : 20 minutes pour me dire ce qui ne va pas**
+>
+> Bonjour [Prénom],
+>
+> Vous utilisez Stacklens, et j'aimerais vous entendre sur ce qui vous a été
+> utile, ce qui vous a fait perdre du temps et ce qui manque.
+>
+> Vingt minutes, et je préfère les critiques : ce sont les seules qui font
+> avancer le produit. Rien à préparer.
+>
+> Un créneau cette semaine ou la suivante ?
+>
+> Bien cordialement,
+> Roland Dzoagbe
+
+### D. The people who never replied to the earlier outreach
+
+Do not resend the old message. Change the ask, name the fact that they
+ignored you, and give them an easy exit. This one also asks for a referral,
+which is often the real return on the list.
+
+> **Objet : Je change d'approche (et ce n'est pas une vente)**
+>
+> Bonjour [Prénom],
+>
+> Je vous avais écrit il y a quelques semaines au sujet de la gestion des
+> logiciels et des accès. Vous n'avez pas répondu, et c'est assez logique :
+> je vous proposais un produit.
+>
+> Je change d'approche. Je mène une étude et je cherche seulement à
+> comprendre comment vous procédez aujourd'hui. Vingt minutes, et je ne vous
+> montrerai aucun écran.
+>
+> Si le sujet ne vous concerne pas, dites-le-moi et je n'insisterai plus. Si
+> quelqu'un d'autre chez vous s'en occupe, son nom me suffit.
+>
+> Bien cordialement,
+> Roland Dzoagbe
+
+### The follow-up, four working days later, once only
+
+One line, on the same thread. Never a second paragraph, never a third message.
+
+> Bonjour [Prénom], je remonte ce message au cas où il serait passé
+> inaperçu. Si ce n'est pas le bon moment, aucun souci — un simple "non"
+> me suffit pour ne plus vous relancer.
+
+### When someone says no
+
+Ask once, then stop:
+
+> Merci de m'avoir répondu. Si vous connaissez une personne pour qui ce sujet
+> compte, son nom me serait très utile.
+
+A referral from a no is worth more than a yes from a cold list, because the
+introduction does the credibility work you cannot do yourself.
+
+### Practical notes
+
+| Thing | Do this |
+|---|---|
+| When to send | Tuesday to Thursday, mid-morning. Not Monday morning, not Friday afternoon |
+| How many at once | Ten to fifteen per batch. More than that and you cannot follow up properly |
+| Booking | Put a scheduling link in your signature, not in the body. Or offer two specific slots, which converts better than "when suits you" |
+| Recording | Ask permission on the call, in the opening script below. Without a yes, take notes only |
+| Tracking | One row per person: name, segment, date sent, date followed up, outcome. Keep it outside the repository, since it holds personal data |
+| Target | Fifteen to twenty completed. Expect to contact three to four times that number |
+
 ## Opening (read as written)
 
 > "I'm researching how companies manage their software tools, licences and
