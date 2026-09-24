@@ -202,8 +202,8 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
   };
 
   // ── Color helpers ────────────────────────────────────────────
-  const diffColor = { minor: 'text-emerald-400 bg-emerald-500/10', moderate: 'text-amber-400 bg-amber-500/10', significant: 'text-rose-400 bg-rose-500/10', missing: 'text-slate-400 bg-slate-500/10' };
-  const severityColor = { critical: 'border-rose-500 bg-rose-500/10 text-rose-300', high: 'border-amber-500 bg-amber-500/10 text-amber-300', medium: 'border-blue-500 bg-blue-500/10 text-blue-300' };
+  const diffColor = { minor: 'text-emerald-400 bg-emerald-500/10', moderate: 'text-amber-400 bg-amber-500/10', significant: 'text-red-400 bg-red-500/10', missing: 'text-slate-400 bg-slate-500/10' };
+  const severityColor = { critical: 'border-red-500 bg-red-500/10 text-red-300', high: 'border-amber-500 bg-amber-500/10 text-amber-300', medium: 'border-blue-500 bg-blue-500/10 text-blue-300' };
   const marketColor = { above: 'text-emerald-400', at: 'text-blue-400', below: 'text-amber-400' };
 
   // ── UPLOAD VIEW ─────────────────────────────────────────────
@@ -328,7 +328,7 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
         <button
           onClick={runAnalysis}
           disabled={!canAnalyze}
-          className={"px-6 py-2.5 rounded-xl font-semibold text-sm transition-all flex items-center gap-2 whitespace-nowrap " + (canAnalyze ? 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'bg-slate-800 text-slate-600 cursor-not-allowed')}>
+          className={"px-6 py-2.5 rounded-xl font-semibold text-sm transition-all flex items-center gap-2 whitespace-nowrap " + (canAnalyze ? 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'bg-slate-800 text-slate-500 cursor-not-allowed')}>
           <Sparkles className="h-4 w-4" />
           {t("cc_analyze_btn")}
         </button>
@@ -400,12 +400,12 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-blue-500">
           <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t('cc_risk_a')}</div>
-          <div className={"text-3xl font-black " + ((analysis.riskScore?.a || 0) > 6 ? 'text-rose-400' : 'text-amber-400')}>{analysis.riskScore?.a || 0}<span className="text-base text-slate-500">/10</span></div>
+          <div className={"text-3xl font-black " + ((analysis.riskScore?.a || 0) > 6 ? 'text-red-400' : 'text-amber-400')}>{analysis.riskScore?.a || 0}<span className="text-base text-slate-500">/10</span></div>
           <div className="text-sm text-slate-500 mt-1 truncate">{contractA.name || 'Contract A'}</div>
         </div>
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-emerald-500">
           <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t('cc_risk_b')}</div>
-          <div className={"text-3xl font-black " + ((analysis.riskScore?.b || 0) > 6 ? 'text-rose-400' : 'text-amber-400')}>{analysis.riskScore?.b || 0}<span className="text-base text-slate-500">/10</span></div>
+          <div className={"text-3xl font-black " + ((analysis.riskScore?.b || 0) > 6 ? 'text-red-400' : 'text-amber-400')}>{analysis.riskScore?.b || 0}<span className="text-base text-slate-500">/10</span></div>
           <div className="text-sm text-slate-500 mt-1 truncate">{contractB.name || 'Contract B'}</div>
         </div>
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-indigo-500">
@@ -413,9 +413,9 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
           <div className="text-3xl font-black text-indigo-400">{provisions.length}</div>
           <div className="text-sm text-slate-500 mt-1">analyzed</div>
         </div>
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-rose-500">
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-red-500">
           <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t('cc_deal_breakers')}</div>
-          <div className="text-3xl font-black text-rose-400">{dealBreakers.length}</div>
+          <div className="text-3xl font-black text-red-400">{dealBreakers.length}</div>
           <div className="text-sm text-slate-500 mt-1">flagged</div>
         </div>
       </div>
@@ -484,10 +484,10 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
             <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4 text-rose-400" />
+                  <AlertTriangle className="h-4 w-4 text-red-400" />
                   <h3 className="text-base font-semibold text-white">{t('cc_deal_breakers')}</h3>
                 </div>
-                <span className="text-xs px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-400 font-semibold">{dealBreakers.length} found</span>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 font-semibold">{dealBreakers.length} found</span>
               </div>
               {dealBreakers.length === 0 ? (
                 <div className="py-6 text-center">
@@ -524,7 +524,7 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
                     <div key={i} className="p-3 rounded-xl bg-slate-800/40 border border-slate-800">
                       <div className="font-semibold text-blue-300 text-sm mb-1">{fa.area}</div>
                       <p className="text-xs text-slate-400 leading-relaxed">{fa.description}</p>
-                      <span className="text-[10px] text-slate-600 mt-1.5 inline-block">Contract {fa.contract}</span>
+                      <span className="text-[10px] text-slate-500 mt-1.5 inline-block">Contract {fa.contract}</span>
                     </div>
                   ))}
                 </div>
@@ -606,14 +606,14 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
                     <div className="w-2 h-2 rounded-full bg-blue-500" />
                     <span className="text-blue-400 text-[10px] font-bold uppercase tracking-wider truncate">{contractA.name || 'Contract A'}</span>
                   </div>
-                  <p className="text-xs text-slate-300 leading-relaxed">{p.contractA || <span className="text-slate-600 italic">{t('cc_not_present')}</span>}</p>
+                  <p className="text-xs text-slate-300 leading-relaxed">{p.contractA || <span className="text-slate-500 italic">{t('cc_not_present')}</span>}</p>
                 </div>
                 <div className="p-4">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="w-2 h-2 rounded-full bg-emerald-500" />
                     <span className="text-emerald-400 text-[10px] font-bold uppercase tracking-wider truncate">{contractB.name || 'Contract B'}</span>
                   </div>
-                  <p className="text-xs text-slate-300 leading-relaxed">{p.contractB || <span className="text-slate-600 italic">{t('cc_not_present')}</span>}</p>
+                  <p className="text-xs text-slate-300 leading-relaxed">{p.contractB || <span className="text-slate-500 italic">{t('cc_not_present')}</span>}</p>
                 </div>
               </div>
 
@@ -690,7 +690,7 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
               <button
                 onClick={() => rewriteTarget && rewriteProvision(rewriteTarget)}
                 disabled={!rewriteTarget || rewriteLoading}
-                className={"w-full mt-4 py-2.5 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2 " + (rewriteTarget && !rewriteLoading ? 'bg-indigo-600 hover:bg-indigo-500 text-white' : 'bg-slate-800 text-slate-600 cursor-not-allowed')}>
+                className={"w-full mt-4 py-2.5 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2 " + (rewriteTarget && !rewriteLoading ? 'bg-indigo-600 hover:bg-indigo-500 text-white' : 'bg-slate-800 text-slate-500 cursor-not-allowed')}>
                 <Sparkles className="h-4 w-4" />
                 {rewriteLoading ? 'Rewriting...' : 'Generate Rewrite'}
               </button>
@@ -792,7 +792,7 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
               className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-white text-sm placeholder-slate-500 outline-none focus:border-blue-500 transition-colors"
             />
             <button onClick={sendChat} disabled={!chatInput.trim() || chatLoading}
-              className={"px-4 py-2 rounded-xl font-semibold text-sm transition-all " + (!chatInput.trim() || chatLoading ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500 text-white')}>
+              className={"px-4 py-2 rounded-xl font-semibold text-sm transition-all " + (!chatInput.trim() || chatLoading ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500 text-white')}>
               {t('cc_send')}
             </button>
           </div>

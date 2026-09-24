@@ -324,7 +324,7 @@ export function BudgetTabContent() {
           </button>
         </div>
       </div>
-      <p className="text-xs text-slate-600">{t('budget_csv_hint')} · {t('budget_estimate_note')}</p>
+      <p className="text-xs text-slate-500">{t('budget_csv_hint')} · {t('budget_estimate_note')}</p>
 
       {inboxAddress && (
         <p className="text-xs text-slate-500">
@@ -400,7 +400,7 @@ export function BudgetTabContent() {
                           saveBudget(r.dept, e.target.value);
                           setDrafts(d => { const n = { ...d }; delete n[r.dept]; return n; });
                         }}
-                        className="w-28 bg-slate-800/70 border border-slate-700 rounded-lg px-2 py-1.5 text-white text-sm placeholder:text-slate-600"
+                        className="w-28 bg-slate-800/70 border border-slate-700 rounded-lg px-2 py-1.5 text-white text-sm placeholder:text-slate-500"
                         inputMode="numeric" />
                     </td>
                     <td className="px-4 py-3 text-slate-300">{cur(r.monthly)}</td>
@@ -418,7 +418,7 @@ export function BudgetTabContent() {
                           {S && <div className={"flex items-center gap-1 mt-1 text-xs font-semibold " + S.cls}><S.icon size={12} /> {S.label} · {Math.round((r.spentYtd / r.budget) * 100)}%</div>}
                         </div>
                       ) : (
-                        <span className="text-xs text-slate-600">{t('budget_no_budget')}</span>
+                        <span className="text-xs text-slate-500">{t('budget_no_budget')}</span>
                       )}
                     </td>
                   </tr>
@@ -448,7 +448,7 @@ export function BudgetTabContent() {
       )}
 
       {importState && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur p-4">
           <div className="w-full max-w-2xl rounded-2xl bg-slate-900 border border-slate-700 p-6 shadow-2xl max-h-[85vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-white">{t('budget_import_invoices')}</h3>
@@ -486,7 +486,7 @@ export function BudgetTabContent() {
                             <input type="checkbox" checked={r.include} className="accent-emerald-500"
                               onChange={e => setImportState(s => ({ ...s, rows: s.rows.map((x, j) => j === i ? { ...x, include: e.target.checked } : x) }))} />
                           </td>
-                          <td className="px-2 py-2 text-white font-semibold">{r.vendor}<div className="text-xs text-slate-600 font-normal">{r.file}{r.invoice_date ? ` · ${r.invoice_date}` : ''}</div></td>
+                          <td className="px-2 py-2 text-white font-semibold">{r.vendor}<div className="text-xs text-slate-500 font-normal">{r.file}{r.invoice_date ? ` · ${r.invoice_date}` : ''}</div></td>
                           <td className="px-2 py-2 text-slate-300">{r.amount.toLocaleString()} {r.currency}</td>
                           <td className="px-2 py-2 text-slate-400">{r.billing_cycle}</td>
                           <td className="px-2 py-2 text-slate-300">{r.monthly > 0 ? cur(r.monthly) + '/mo' : '—'}</td>

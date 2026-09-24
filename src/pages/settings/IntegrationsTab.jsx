@@ -206,7 +206,7 @@ function AsanaTokenModal({ onSubmit, onClose, loading }) {
   const [showToken, setShowToken] = useState(false);
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-6">
+    <div className="fixed inset-0 bg-slate-950/70 backdrop-blur flex items-center justify-center z-50 p-6">
       <div className="bg-slate-900 rounded-3xl border border-slate-700 p-8 max-w-lg w-full">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
@@ -285,7 +285,7 @@ function ZoomCredentialsModal({ onSubmit, onClose, loading }) {
   const [showSecret,   setShowSecret]   = useState(false);
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-6">
+    <div className="fixed inset-0 bg-slate-950/70 backdrop-blur flex items-center justify-center z-50 p-6">
       <div className="bg-slate-900 rounded-3xl border border-slate-700 p-8 max-w-lg w-full">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
@@ -370,7 +370,7 @@ function OktaTokenModal({ onSubmit, onClose, loading }) {
   const [showToken, setShowToken] = useState(false);
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-6">
+    <div className="fixed inset-0 bg-slate-950/70 backdrop-blur flex items-center justify-center z-50 p-6">
       <div className="bg-slate-900 rounded-3xl border border-slate-700 p-8 max-w-lg w-full">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
@@ -456,7 +456,7 @@ function GitHubTokenModal({ onSubmit, onClose, loading }) {
   const [showToken, setShowToken] = useState(false);
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-6">
+    <div className="fixed inset-0 bg-slate-950/70 backdrop-blur flex items-center justify-center z-50 p-6">
       <div className="bg-slate-900 rounded-3xl border border-slate-700 p-8 max-w-lg w-full">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
@@ -539,7 +539,7 @@ function SlackTokenModal({ onSubmit, onClose, loading }) {
   const [showToken, setShowToken] = useState(false);
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-6">
+    <div className="fixed inset-0 bg-slate-950/70 backdrop-blur flex items-center justify-center z-50 p-6">
       <div className="bg-slate-900 rounded-3xl border border-slate-700 p-8 max-w-lg w-full">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
@@ -643,7 +643,7 @@ function SetupModal({ integration, onClose }) {
   const items = steps[integration?.id] || [];
   const note  = notes[integration?.id] || null;
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-6">
+    <div className="fixed inset-0 bg-slate-950/70 backdrop-blur flex items-center justify-center z-50 p-6">
       <div className="bg-slate-900 rounded-3xl border border-slate-700 p-8 max-w-lg w-full">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
@@ -680,13 +680,13 @@ function SyncResult({ result, onDismiss }) {
   const t = useTranslation(language);
   if (!result) return null;
   return (
-    <div className={`flex items-start gap-3 rounded-xl border px-4 py-3 ${result.error ? 'border-rose-500/30 bg-rose-500/10' : 'border-emerald-500/30 bg-emerald-500/10'}`}>
+    <div className={`flex items-start gap-3 rounded-xl border px-4 py-3 ${result.error ? 'border-red-500/30 bg-red-500/10' : 'border-emerald-500/30 bg-emerald-500/10'}`}>
       {result.error
-        ? <X className="h-4 w-4 text-rose-400 flex-shrink-0 mt-0.5" />
+        ? <X className="h-4 w-4 text-red-400 flex-shrink-0 mt-0.5" />
         : <CheckCircle className="h-4 w-4 text-emerald-400 flex-shrink-0 mt-0.5" />}
       <div className="flex-1 min-w-0">
         {result.error
-          ? <p className="text-sm font-semibold text-rose-400">{t('int_sync_failed')}: {result.error}</p>
+          ? <p className="text-sm font-semibold text-red-400">{t('int_sync_failed')}: {result.error}</p>
           : (
             <>
               <p className="text-sm font-semibold text-emerald-400">
@@ -715,7 +715,7 @@ function SyncCancelledModal({ source, onRetry, onDismiss }) {
   const t = useTranslation(language);
   const name = SOURCE_NAMES[source] || source;
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={onDismiss}>
+    <div className="fixed inset-0 bg-slate-950/70 backdrop-blur flex items-center justify-center z-50 p-4" onClick={onDismiss}>
       <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-md w-full shadow-2xl" onClick={e => e.stopPropagation()}>
         <div className="flex items-center gap-3 mb-4">
           <div className="w-10 h-10 rounded-xl bg-amber-500/15 flex items-center justify-center flex-shrink-0">
@@ -832,7 +832,7 @@ function SalesforceModal({ onSubmit, onClose, loading }) {
   const [loginUrl,  setLoginUrl]  = useState(localStorage.getItem(SF_LOGIN_URL_KEY)  || 'https://login.salesforce.com');
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-6">
+    <div className="fixed inset-0 bg-slate-950/70 backdrop-blur flex items-center justify-center z-50 p-6">
       <div className="bg-slate-900 rounded-3xl border border-slate-700 p-8 max-w-lg w-full max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
@@ -922,7 +922,7 @@ function ContactFormModal({ type, userName, userEmail, onClose, t }) {
 
   if (sent) {
     return (
-      <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-6">
+      <div className="fixed inset-0 bg-slate-950/70 backdrop-blur flex items-center justify-center z-50 p-6">
         <div className="bg-slate-900 rounded-3xl border border-slate-700 p-8 max-w-lg w-full text-center">
           <div className="text-5xl mb-4">✉️</div>
           <h3 className="text-xl font-bold text-white mb-2">{t('contact_sent_title') || 'Message sent!'}</h3>
@@ -937,7 +937,7 @@ function ContactFormModal({ type, userName, userEmail, onClose, t }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-6">
+    <div className="fixed inset-0 bg-slate-950/70 backdrop-blur flex items-center justify-center z-50 p-6">
       <div className="bg-slate-900 rounded-3xl border border-slate-700 p-8 max-w-lg w-full">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">

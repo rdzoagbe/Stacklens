@@ -312,7 +312,7 @@ export function LicenseManagement() {
                             {money(app.costPerUser)}
                           </span>
                         ) : (
-                          <span className="text-xs text-slate-600">—</span>
+                          <span className="text-xs text-slate-500">—</span>
                         )}
                       </td>
                       <td className="py-3 px-4">

@@ -17,7 +17,7 @@ const PLAN_COLORS = {
   starter: 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30',
   hr_finance: 'bg-violet-600/20 text-violet-400 border border-violet-500/30',
   pro: 'bg-amber-600/20 text-amber-400 border border-amber-500/30',
-  enterprise: 'bg-rose-600/20 text-rose-400 border border-rose-500/30',
+  enterprise: 'bg-red-600/20 text-red-400 border border-red-500/30',
   scale: 'bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-300 border border-amber-500/30',
 };
 
@@ -138,7 +138,7 @@ function UserTableRow({ u, onAction }) {
   } else if (subEnd) {
     expiryCell = <span className="text-slate-300">{subEnd.toLocaleDateString()}</span>;
   } else {
-    expiryCell = <span className="text-slate-600">—</span>;
+    expiryCell = <span className="text-slate-500">—</span>;
   }
 
   return (
@@ -182,7 +182,7 @@ function UserTableRow({ u, onAction }) {
             <button
               onClick={() => setEditing(true)}
               title="Edit name/email"
-              className="p-1 hover:bg-slate-700/50 rounded text-slate-600 hover:text-slate-300 transition-colors shrink-0"
+              className="p-1 hover:bg-slate-700/50 rounded text-slate-500 hover:text-slate-300 transition-colors shrink-0"
             >
               <Pencil size={12} />
             </button>
@@ -210,7 +210,7 @@ function UserTableRow({ u, onAction }) {
       <td className="px-4 py-3 text-sm whitespace-nowrap align-middle">
         {u.last_seen_at
           ? <span className="text-slate-300">{timeAgo(u.last_seen_at)}</span>
-          : <span className="text-xs text-slate-600">—</span>}
+          : <span className="text-xs text-slate-500">—</span>}
       </td>
       <td className="px-4 py-3 text-sm whitespace-nowrap align-middle">
         <div className="flex items-center gap-2">
@@ -230,7 +230,7 @@ function UserTableRow({ u, onAction }) {
               onClick={handleDelete}
               disabled={busy}
               title="Delete user permanently"
-              className="p-1 text-slate-600 hover:text-red-400 hover:bg-red-500/10 rounded-md transition-colors disabled:opacity-40"
+              className="p-1 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-md transition-colors disabled:opacity-40"
             >
               <Trash2 size={14} />
             </button>
@@ -509,8 +509,8 @@ export function FounderAdminPage() {
             <div className="mt-3 space-y-1.5 max-h-72 overflow-y-auto">
               {errors.items.map((e, i) => (
                 <div key={i} className="text-xs bg-slate-950/50 border border-slate-800 rounded-lg px-3 py-2">
-                  <div className="text-rose-300 font-mono break-words">{e.message}</div>
-                  <div className="text-slate-600 mt-0.5">{e.url || '—'} · {e.at ? new Date(e.at).toLocaleString() : ''}</div>
+                  <div className="text-red-300 font-mono break-words">{e.message}</div>
+                  <div className="text-slate-500 mt-0.5">{e.url || '—'} · {e.at ? new Date(e.at).toLocaleString() : ''}</div>
                 </div>
               ))}
             </div>
@@ -545,7 +545,7 @@ export function FounderAdminPage() {
         {appCheck.result && (
           <div className={'mt-3 text-xs rounded-lg px-3 py-2 border ' + (appCheck.result.ok
             ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-            : 'bg-rose-500/10 border-rose-500/30 text-rose-300')}>
+            : 'bg-red-500/10 border-red-500/30 text-red-300')}>
             <div className="font-semibold">
               {appCheck.result.ok ? 'Ready' : `Not ready — ${appCheck.result.verdict}`}
             </div>

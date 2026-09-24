@@ -154,7 +154,7 @@ export function BillingPage({ noShell = false }) {
                   <h3 className="text-xl font-black text-white">{t('trial_banner_title')}</h3>
                   <div className="flex items-center gap-2 mt-0.5">
                     <span className="text-sm font-bold text-amber-400">{t('trial_day_of').replace('{n}', trialDaysUsed).replace('{total}', TRIAL_DAYS)}</span>
-                    <span className="text-slate-600">·</span>
+                    <span className="text-slate-500">·</span>
                     <span className="text-sm text-slate-400">{trialDaysLeft} {t('trial_days_left')}</span>
                   </div>
                 </div>
@@ -261,7 +261,7 @@ export function BillingPage({ noShell = false }) {
       </p>
 
       {consentPlan && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={() => setConsentPlan(null)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur p-4" onClick={() => setConsentPlan(null)}>
           <div className="w-full max-w-md rounded-2xl bg-slate-900 border border-slate-700 p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
             <h3 className="text-lg font-bold text-white mb-2">{t('consent_title')}</h3>
             <p className="text-sm text-slate-400 mb-4">{t('consent_intro')}</p>
@@ -321,7 +321,7 @@ export function BillingPage({ noShell = false }) {
                     <span className={"font-bold " + (pct > 80 ? 'text-amber-400' : 'text-white')}>{used} / {max}</span>
                   </div>
                   <div className="w-full bg-slate-800 rounded-full h-2">
-                    <div className={"h-2 rounded-full transition-all " + (pct > 90 ? 'bg-rose-500' : pct > 70 ? 'bg-amber-500' : 'bg-emerald-500')} style={{width: pct + '%'}} />
+                    <div className={"h-2 rounded-full transition-all " + (pct > 90 ? 'bg-red-500' : pct > 70 ? 'bg-amber-500' : 'bg-emerald-500')} style={{width: pct + '%'}} />
                   </div>
                 </div>
               );

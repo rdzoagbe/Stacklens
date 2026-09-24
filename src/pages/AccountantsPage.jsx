@@ -3,8 +3,7 @@ import { Link } from 'react-router-dom';
 import { Briefcase, Users, FileCheck, Upload, Search, Send, ShieldCheck, ArrowRight, Globe2, Lock } from 'lucide-react';
 import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
-import { RDLogo } from '../components/ui';
-import { LangSelectorCompact } from '../components/AppShell';
+import { PublicNav } from '../components/PublicNav';
 import { track } from '../lib/analytics';
 
 // ── /experts-comptables ─────────────────────────────────────────────────────
@@ -55,18 +54,7 @@ export function AccountantsPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white">
-      <nav className="border-b border-white/5 bg-slate-950/50 backdrop-blur-2xl sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 py-6 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-4 cursor-pointer">
-            <RDLogo size="md" />
-            <div className="text-2xl font-black bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">Stacklens</div>
-          </Link>
-          <div className="flex items-center gap-4">
-            <LangSelectorCompact />
-            <Link to="/audit-saas" className="hidden sm:inline text-slate-300 hover:text-white transition-colors">{t('acct_nav_audit')}</Link>
-          </div>
-        </div>
-      </nav>
+      <PublicNav t={t} right={<Link to="/audit-saas" className="hidden sm:inline text-slate-300 hover:text-white transition-colors">{t('acct_nav_audit')}</Link>} />
 
       <div className="max-w-5xl mx-auto px-6 py-20">
         {/* Hero */}

@@ -150,7 +150,7 @@ export function ImportWizard({ defaultKind = null, onDone = null }) {
                 }>
                   {done ? '✓' : i + 1}
                 </div>
-                <div className={"text-[10px] mt-1.5 font-semibold whitespace-nowrap transition-colors " + (active ? 'text-white' : done ? 'text-emerald-400' : 'text-slate-600')}>{label}</div>
+                <div className={"text-[10px] mt-1.5 font-semibold whitespace-nowrap transition-colors " + (active ? 'text-white' : done ? 'text-emerald-400' : 'text-slate-500')}>{label}</div>
               </div>
               {i < STEP_LABELS.length - 1 && (
                 <div className={"flex-1 h-0.5 mx-3 mb-5 transition-all duration-500 " + (step > i ? 'bg-emerald-500' : 'bg-slate-800')} />
@@ -183,9 +183,9 @@ export function ImportWizard({ defaultKind = null, onDone = null }) {
                   <div className="flex-1 min-w-0">
                     <div className="font-bold text-white text-lg">{meta.label}</div>
                     <div className="text-sm text-slate-400">{meta.desc}</div>
-                    <div className="text-xs text-slate-600 mt-0.5">e.g. {meta.example}</div>
+                    <div className="text-xs text-slate-500 mt-0.5">e.g. {meta.example}</div>
                   </div>
-                  <ChevronRight className="h-5 w-5 text-slate-600 flex-shrink-0" />
+                  <ChevronRight className="h-5 w-5 text-slate-500 flex-shrink-0" />
                 </button>
               ))}
             </div>
@@ -214,7 +214,7 @@ export function ImportWizard({ defaultKind = null, onDone = null }) {
                 </span>
               ))}
             </div>
-            <div className="text-xs text-slate-600">{t('import_required_note')}</div>
+            <div className="text-xs text-slate-500">{t('import_required_note')}</div>
           </Card>
 
           <Card className="p-0 overflow-hidden">
@@ -290,7 +290,7 @@ export function ImportWizard({ defaultKind = null, onDone = null }) {
                 {dragOver ? t('import_drag_release') : t('import_drag_drop')}
               </div>
               <div className="text-sm text-slate-500 mt-1">{t('import_click_browse')}</div>
-              <div className="mt-4 flex items-center gap-2 text-xs text-slate-700">
+              <div className="mt-4 flex items-center gap-2 text-xs text-slate-500">
                 <span className="px-2 py-0.5 bg-slate-800 rounded font-mono">CSV</span>
                 <span className="px-2 py-0.5 bg-slate-800 rounded font-mono">TXT</span>
               </div>
@@ -298,7 +298,7 @@ export function ImportWizard({ defaultKind = null, onDone = null }) {
 
             <div className="relative">
               <div className="absolute inset-x-0 -top-2.5 flex justify-center">
-                <span className="text-xs text-slate-600 bg-slate-950 px-3">{t('import_paste_or_csv')}</span>
+                <span className="text-xs text-slate-500 bg-slate-950 px-3">{t('import_paste_or_csv')}</span>
               </div>
               <textarea rows={4}
                 className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 font-mono text-xs text-slate-300 outline-none focus:border-emerald-500 transition-colors resize-none"
@@ -310,7 +310,7 @@ export function ImportWizard({ defaultKind = null, onDone = null }) {
               <div className="flex items-center gap-3 mt-3 text-sm flex-wrap">
                 <span className="text-slate-500">{liveRows.length} {t('rows_detected')}</span>
                 {validCount > 0 && <span className="text-emerald-400 font-semibold">✓ {validCount} {t('valid')}</span>}
-                {invalidCount > 0 && <span className="text-rose-400 font-semibold">✗ {invalidCount} {t('import_errors_label')}</span>}
+                {invalidCount > 0 && <span className="text-red-400 font-semibold">✗ {invalidCount} {t('import_errors_label')}</span>}
               </div>
             )}
           </Card>
@@ -334,17 +334,17 @@ export function ImportWizard({ defaultKind = null, onDone = null }) {
                       {liveRows.slice(0, 10).map((row, i) => {
                         const valid = isRowValid(row);
                         return (
-                          <tr key={i} className={"border-b border-slate-800/60 " + (valid ? '' : 'bg-rose-500/5')}>
+                          <tr key={i} className={"border-b border-slate-800/60 " + (valid ? '' : 'bg-red-500/5')}>
                             <td className="px-3 py-2 text-slate-500">{i+1}</td>
                             {cols.map(c => (
-                              <td key={c} className={"px-3 py-2 " + (!row[c]?.trim() && REQUIRED[kind].includes(c) ? 'text-rose-400' : 'text-slate-300')}>
-                                {row[c] || <span className="text-slate-700 italic">—</span>}
+                              <td key={c} className={"px-3 py-2 " + (!row[c]?.trim() && REQUIRED[kind].includes(c) ? 'text-red-400' : 'text-slate-300')}>
+                                {row[c] || <span className="text-slate-500 italic">—</span>}
                               </td>
                             ))}
                             <td className="px-3 py-2">
                               {valid
                                 ? <span className="text-emerald-400 flex items-center gap-1"><Check className="h-3 w-3" /> OK</span>
-                                : <span className="text-rose-400 flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> Missing</span>
+                                : <span className="text-red-400 flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> Missing</span>
                               }
                             </td>
                           </tr>
@@ -353,7 +353,7 @@ export function ImportWizard({ defaultKind = null, onDone = null }) {
                     </tbody>
                   </table>
                 </div>
-                  {liveRows.length > 10 && <div className="text-center text-xs text-slate-600 py-2">{t('import_showing_of')} {liveRows.length} {t('rows')}</div>}
+                  {liveRows.length > 10 && <div className="text-center text-xs text-slate-500 py-2">{t('import_showing_of')} {liveRows.length} {t('rows')}</div>}
                 </div>
                 <div className="flex items-center justify-between mt-4">
                   <div className="text-xs text-slate-500">{t('import_not_duplicated')}</div>
@@ -379,7 +379,7 @@ export function ImportWizard({ defaultKind = null, onDone = null }) {
           <p className="text-slate-400 mb-2">
             <span className="text-emerald-400 font-bold">{imported.count} {KINDS[imported.kind]?.label}</span> {t('import_records_added')}
           </p>
-          <p className="text-sm text-slate-600 mb-8">{t('import_risk_insights')}</p>
+          <p className="text-sm text-slate-500 mb-8">{t('import_risk_insights')}</p>
           <div className="grid sm:grid-cols-2 gap-3 max-w-sm mx-auto">
             <button onClick={reset} className="py-3 bg-slate-800 hover:bg-slate-700 rounded-xl font-semibold text-sm transition-all">
               {t('import_more')}

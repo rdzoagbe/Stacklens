@@ -2,6 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import * as Sentry from '@sentry/react'
 import App from './App.jsx'
+import '@fontsource-variable/inter'
 import './index.css'
 import { purgeLegacyCredentials } from './lib/legacyCredentials'
 

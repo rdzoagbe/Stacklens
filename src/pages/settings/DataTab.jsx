@@ -71,7 +71,7 @@ function DeleteAccountModal({ open, onClose, email, t }) {
             autoComplete="off" spellCheck={false} placeholder={email} aria-label={t('del_acct_type')} />
         </div>
         {error && (
-          <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-rose-200">
+          <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-red-200">
             {error}
             {needsCancel && (
               <div className="mt-2">
@@ -159,7 +159,7 @@ export function DataTab({ db, firebaseUser, isDemo, qc, t }) {
           </div>
         </CardBody>
       </Card>
-      <Card className="border-rose-500/20 bg-rose-500/5">
+      <Card className="border-red-500/20 bg-red-500/5">
         <CardHeader title={t('danger_zone')} subtitle={t('danger_zone_sub')} />
         <CardBody>
           <div className="space-y-3">
@@ -214,13 +214,13 @@ export function DataTab({ db, firebaseUser, isDemo, qc, t }) {
                 },
               },
             ].map(item => (
-              <div key={item.label} className="flex items-center justify-between py-3 border-b border-rose-500/10 last:border-0">
+              <div key={item.label} className="flex items-center justify-between py-3 border-b border-red-500/10 last:border-0">
                 <div>
                   <div className="font-medium text-slate-200 text-sm">{item.label}</div>
                   <div className="text-xs text-slate-500">{item.desc}</div>
                 </div>
                 <button onClick={item.onClick}
-                  className={"text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors " + (item.danger ? 'border-rose-500/40 text-rose-400 hover:bg-rose-500/10' : 'border-slate-700 text-slate-400 hover:text-white hover:border-slate-600')}>
+                  className={"text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors " + (item.danger ? 'border-red-500/40 text-red-400 hover:bg-red-500/10' : 'border-slate-700 text-slate-400 hover:text-white hover:border-slate-600')}>
                   {item.btn}
                 </button>
               </div>

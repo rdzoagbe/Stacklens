@@ -174,7 +174,7 @@ export function AuditTabContent() {
             className="w-full flex items-center justify-center gap-2 py-3 bg-slate-800 hover:bg-slate-700 rounded-xl font-semibold text-sm transition-colors mb-3">
             <Download className="h-4 w-4" /> {t("audit_download_full")}
           </button>
-          <div className="text-xs text-slate-600 text-center">{t("audit_three_files")}</div>
+          <div className="text-xs text-slate-500 text-center">{t("audit_three_files")}</div>
         </div>
       </div>
 
@@ -215,7 +215,7 @@ export function AuditTabContent() {
 
             {/* Mini preview table */}
             <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-3 mb-4">
-              <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-600 mb-2">{t('aud_preview')}</div>
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-2">{t('aud_preview')}</div>
               <div className="space-y-1.5">
                 {item.preview.map((row, idx) => (
                   <div key={idx} className="flex items-center justify-between text-xs">
@@ -228,7 +228,7 @@ export function AuditTabContent() {
                   </div>
                 ))}
               </div>
-              {item.count > 3 && <div className="text-[10px] text-slate-600 mt-1.5">+ {item.count - 3} {t('aud_more')}</div>}
+              {item.count > 3 && <div className="text-[10px] text-slate-500 mt-1.5">+ {item.count - 3} {t('aud_more')}</div>}
             </div>
 
             <button onClick={item.fn}
@@ -347,7 +347,7 @@ export function AuditExportPage() {
   const exportAll = () => { exportTools(); exportEmployees(); exportAccess(); };
 
   const healthColor = (score) =>
-    score >= 80 ? "text-emerald-400" : score >= 60 ? "text-amber-400" : "text-rose-400";
+    score >= 80 ? "text-emerald-400" : score >= 60 ? "text-amber-400" : "text-red-400";
   const healthLabel = (score) =>
     score >= 80 ? t('aud_healthy') : score >= 60 ? t('aud_needs_attn') : t('aud_at_risk');
 
@@ -390,7 +390,7 @@ export function AuditExportPage() {
                     </div>
                     <div className="mt-3 w-full bg-slate-800 rounded-full h-2">
                       <div
-                        className={cx("h-2 rounded-full transition-all", derived.healthScore >= 80 ? "bg-emerald-500" : derived.healthScore >= 60 ? "bg-amber-500" : "bg-rose-500")}
+                        className={cx("h-2 rounded-full transition-all", derived.healthScore >= 80 ? "bg-emerald-500" : derived.healthScore >= 60 ? "bg-amber-500" : "bg-red-500")}
                         style={{ width: `${derived.healthScore}%` }}
                       />
                     </div>
@@ -406,7 +406,7 @@ export function AuditExportPage() {
                 <div className="flex justify-between"><span className="text-slate-400">{t('total_tools')}</span><span className="font-bold text-white">{derived?.tools.length ?? "—"}</span></div>
                 <div className="flex justify-between"><span className="text-slate-400">{t('active')}</span><span className="font-bold text-emerald-400">{derived?.activeTools ?? "—"}</span></div>
                 <div className="flex justify-between"><span className="text-slate-400">{t('orphaned')}</span><span className="font-bold text-amber-400">{derived?.unusedTools ?? "—"}</span></div>
-                <div className="flex justify-between"><span className="text-slate-400">{t('high_risk')}</span><span className="font-bold text-rose-400">{derived?.highRiskCount ?? "—"}</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">{t('high_risk')}</span><span className="font-bold text-red-400">{derived?.highRiskCount ?? "—"}</span></div>
                 <div className="flex justify-between"><span className="text-slate-400">{t('active')}</span><span className="font-bold text-blue-400">{derived?.toolsWithLogins ?? "—"}</span></div>
               </div>
             </CardBody>
@@ -417,7 +417,7 @@ export function AuditExportPage() {
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between"><span className="text-slate-400">{t('total_access_records')}</span><span className="font-bold text-white">{derived?.access.length ?? "—"}</span></div>
                 <div className="flex justify-between"><span className="text-slate-400">{t('active')}</span><span className="font-bold text-emerald-400">{derived?.access.filter(a => a.status === "active").length ?? "—"}</span></div>
-                <div className="flex justify-between"><span className="text-slate-400">{t("hc_former_employee_access")}</span><span className="font-bold text-rose-400">{derived?.formerEmpAccess ?? "—"}</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">{t("hc_former_employee_access")}</span><span className="font-bold text-red-400">{derived?.formerEmpAccess ?? "—"}</span></div>
                 <div className="flex justify-between"><span className="text-slate-400">{t('aud_employees')}</span><span className="font-bold text-slate-300">{derived?.employees.length ?? "—"}</span></div>
               </div>
             </CardBody>
@@ -449,7 +449,7 @@ export function AuditExportPage() {
                       <div key={toolName}>
                         <div className="flex items-center justify-between mb-1 text-sm">
                           <span className="text-slate-300 font-medium">{toolName}</span>
-                          <span className="text-slate-400">{count} {count !== 1 ? t('aud_users') : t('aud_user')} <span className="text-slate-600">({pct}%)</span></span>
+                          <span className="text-slate-400">{count} {count !== 1 ? t('aud_users') : t('aud_user')} <span className="text-slate-500">({pct}%)</span></span>
                         </div>
                         <div className="h-2 w-full rounded-full bg-slate-800">
                           <div className="h-2 rounded-full bg-blue-500 transition-all" style={{ width: `${Math.min(pct, 100)}%` }} />
@@ -476,7 +476,7 @@ export function AuditExportPage() {
                     <div>
                       <div className="text-sm font-semibold text-white">{label}</div>
                       <div className="text-xs text-slate-500 mt-0.5">{sub}</div>
-                      {count !== undefined && <div className="text-xs text-slate-600 mt-0.5">{count} {t('aud_records')}</div>}
+                      {count !== undefined && <div className="text-xs text-slate-500 mt-0.5">{count} {t('aud_records')}</div>}
                     </div>
                     <Button size="sm" variant="secondary" onClick={fn}>
                       <Download className="h-4 w-4" /> {t('aud_export')}
@@ -513,7 +513,7 @@ export function AuditExportPage() {
                 ].filter(Boolean).map((item) => (
                   <div key={item.title} className={cx(
                     "rounded-xl border p-4 text-sm",
-                    item.ok ? "border-emerald-800/40 bg-emerald-950/20" : "border-rose-800/40 bg-rose-950/20"
+                    item.ok ? "border-emerald-800/40 bg-emerald-950/20" : "border-red-800/40 bg-red-950/20"
                   )}>
                     <div className="flex items-center gap-2 font-semibold text-white mb-1">
                       <span>{item.icon}</span>{item.title}

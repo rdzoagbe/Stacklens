@@ -162,7 +162,7 @@ export function AnalyticsTabContent() {
             <div className="space-y-3">
               {categorySpend.map((cat, i) => {
                 const pct = totalSpend > 0 ? (cat.spend / totalSpend * 100) : 0;
-                const colors = ['bg-emerald-500', 'bg-teal-500', 'bg-blue-500', 'bg-violet-500', 'bg-amber-500', 'bg-rose-500'];
+                const colors = ['bg-emerald-500', 'bg-teal-500', 'bg-blue-500', 'bg-violet-500', 'bg-amber-500', 'bg-red-500'];
                 return (
                   <div key={cat.name}>
                     <div className="flex items-center justify-between mb-1.5">
@@ -176,7 +176,7 @@ export function AnalyticsTabContent() {
                       <div className={"h-full rounded-full transition-all duration-700 " + colors[i % colors.length]} style={{width: pct + '%'}} />
                     </div>
                     <div className="flex justify-end mt-0.5">
-                      <span className="text-[10px] text-slate-600">{pct.toFixed(1)}%</span>
+                      <span className="text-[10px] text-slate-500">{pct.toFixed(1)}%</span>
                     </div>
                   </div>
                 );
@@ -249,7 +249,7 @@ export function AnalyticsTabContent() {
                     <div className="h-full bg-emerald-500 rounded-full transition-all" style={{width: activePct + '%'}} />
                   </div>
                   <div className="flex justify-end mt-1">
-                    <span className="text-[10px] text-slate-600">{activePct.toFixed(0)}% active</span>
+                    <span className="text-[10px] text-slate-500">{activePct.toFixed(0)}% active</span>
                   </div>
                 </div>
               );

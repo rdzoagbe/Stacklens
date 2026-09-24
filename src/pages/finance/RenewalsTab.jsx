@@ -817,7 +817,7 @@ function InvoiceManager() {
 
         {/* Invoice Detail Modal */}
         {showInvoiceDetail && selectedInvoice && (
-          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-6">
+          <div className="fixed inset-0 bg-slate-950/70 backdrop-blur flex items-center justify-center z-50 p-6">
             <div className="bg-slate-900 rounded-3xl border border-white/10 p-8 max-w-lg w-full">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-2xl font-bold">Invoice {selectedInvoice.id}</h3>

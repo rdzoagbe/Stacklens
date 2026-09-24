@@ -6,8 +6,7 @@ import {
 } from 'lucide-react';
 import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
-import { RDLogo } from '../components/ui';
-import { LangSelectorCompact } from '../components/AppShell';
+import { PublicNav } from '../components/PublicNav';
 import { track } from '../lib/analytics';
 import { decodeBankFile, parseBankExport, auditSaas, reportToCsv, sampleBankExport } from '../lib/saasAudit';
 
@@ -96,18 +95,7 @@ export function SaasAuditPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white">
-      <nav className="border-b border-white/5 bg-slate-950/50 backdrop-blur-2xl sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 py-6 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-4 cursor-pointer">
-            <RDLogo size="md" />
-            <div className="text-2xl font-black bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">Stacklens</div>
-          </Link>
-          <div className="flex items-center gap-4">
-            <LangSelectorCompact />
-            <Link to="/experts-comptables" className="hidden sm:inline text-slate-300 hover:text-white transition-colors">{t('audit_nav_accountants')}</Link>
-          </div>
-        </div>
-      </nav>
+      <PublicNav t={t} right={<Link to="/experts-comptables" className="hidden sm:inline text-slate-300 hover:text-white transition-colors">{t('audit_nav_accountants')}</Link>} />
 
       <div className="max-w-4xl mx-auto px-6 py-16">
         <div className="mb-10">
@@ -175,7 +163,7 @@ export function SaasAuditPage() {
 // react-hooks/static-components.
 function Kpi({ label, value, accent }) {
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+    <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
       <div className="text-xs uppercase tracking-wider text-slate-500 mb-1">{label}</div>
       <div className={`text-2xl font-bold ${accent || 'text-white'}`}>{value}</div>
     </div>
@@ -185,7 +173,7 @@ function Kpi({ label, value, accent }) {
 function Finding({ icon: Icon, title, sub, items, render }) {
   if (!items.length) return null;
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
+    <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
       <div className="flex items-start gap-3 mb-3">
         <Icon className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
         <div>
@@ -295,7 +283,7 @@ function Report({ report, symbol, t, onReset, language, skipped, dateOrder, onFl
             </button>
           </div>
         </div>
-        <div className="overflow-x-auto rounded-xl border border-slate-800">
+        <div className="overflow-x-auto rounded-2xl border border-slate-800">
           <table className="w-full text-sm">
             <thead className="bg-slate-900/80 text-slate-400 text-xs uppercase tracking-wider">
               <tr>
@@ -330,7 +318,7 @@ function Report({ report, symbol, t, onReset, language, skipped, dateOrder, onFl
               {showOther ? '▾' : '▸'} {fill(t('audit_other_title'), { n: report.otherRecurring.length })}
             </button>
             {showOther && (
-              <div className="mt-2 rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+              <div className="mt-2 rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
                 <p className="text-xs text-slate-500 mb-3">{t('audit_other_sub')}</p>
                 <ul className="text-sm space-y-1">
                   {report.otherRecurring.map((o) => (

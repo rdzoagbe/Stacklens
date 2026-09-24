@@ -381,7 +381,7 @@ export function ToolsPage() {
           <div className="p-4 border-b border-slate-800 flex flex-col sm:flex-row gap-3 items-center">
             <div className="relative flex-1 w-full">
               <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
-              <input className="w-full pl-9 pr-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-600 outline-none focus:border-blue-500 transition-colors"
+              <input className="w-full pl-9 pr-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 outline-none focus:border-blue-500 transition-colors"
                 placeholder={t("search_placeholder_tools")} value={q} onChange={(e) => setQ(e.target.value)} />
             </div>
             <select value={status} onChange={(e) => setStatus(e.target.value)}

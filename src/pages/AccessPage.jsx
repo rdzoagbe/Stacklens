@@ -280,7 +280,7 @@ export function AccessPage() {
           </div>
           <div className="flex-1 min-w-0">
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t("search_placeholder_access")}
-              className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 text-sm text-white placeholder-slate-600 outline-none focus:border-blue-500 transition-colors" />
+              className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 text-sm text-white placeholder-slate-500 outline-none focus:border-blue-500 transition-colors" />
           </div>
           <select value={filterRisk} onChange={e => setFilterRisk(e.target.value)}
             className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-300 outline-none">
@@ -316,7 +316,7 @@ export function AccessPage() {
                 <div className="flex items-end gap-0 mb-1 pl-36">
                   {derived.allTools.slice(0, 12).map(tool => (
                     <div key={tool} className="w-10 flex-shrink-0 text-center">
-                      <div className="text-[9px] text-slate-600 truncate transform -rotate-45 origin-bottom-left w-16">{tool}</div>
+                      <div className="text-[9px] text-slate-500 truncate transform -rotate-45 origin-bottom-left w-16">{tool}</div>
                     </div>
                   ))}
                 </div>
@@ -336,7 +336,7 @@ export function AccessPage() {
                           </div>
                           <div className="min-w-0">
                             <div className="text-xs font-medium text-slate-300 truncate">{empName}</div>
-                            <div className="text-[10px] text-slate-600 truncate">{employee?.department || ''}</div>
+                            <div className="text-[10px] text-slate-500 truncate">{employee?.department || ''}</div>
                           </div>
                         </div>
                         <div className="flex gap-0">
@@ -525,7 +525,7 @@ export function AccessPage() {
                         </div>
                       );
                     })}
-                    {employees.length > 5 && <div className="text-[10px] text-slate-600">+ {employees.length - 5} more</div>}
+                    {employees.length > 5 && <div className="text-[10px] text-slate-500">+ {employees.length - 5} more</div>}
                   </div>
                 </div>
               );
@@ -572,7 +572,7 @@ export function AccessPage() {
                     <td className="py-3 px-4">
                       {a.risk !== 'none' ? (
                         <span className={"px-2 py-0.5 rounded-full text-[10px] font-semibold " + (a.risk === 'former_employee' || a.risk === 'excessive_admin' ? 'bg-red-500/20 text-red-400' : 'bg-amber-500/20 text-amber-400')}>{enumLabel(a.risk)}</span>
-                      ) : <span className="text-[10px] text-slate-600">—</span>}
+                      ) : <span className="text-[10px] text-slate-500">—</span>}
                     </td>
                     <td className="py-3 px-4 text-right">
                       <div className="flex gap-1 justify-end">

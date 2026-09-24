@@ -88,11 +88,11 @@ export function ApiKeysTab({ t }) {
                     <div className="font-semibold text-white text-sm">{k.name}</div>
                     <div className="font-mono text-xs text-slate-500">{k.prefix}</div>
                   </div>
-                  <div className="text-right text-xs text-slate-600">
+                  <div className="text-right text-xs text-slate-500">
                     <div>{t('set_created')} {fmtDate(k.created_at)}</div>
                     <div>{t('set_last_used')} {fmtDate(k.last_used_at)}</div>
                   </div>
-                  <button onClick={() => revokeKey(k)} disabled={busy} className="text-xs text-rose-500 hover:text-rose-400 transition-colors flex-shrink-0 disabled:opacity-40">{t('revoke')}</button>
+                  <button onClick={() => revokeKey(k)} disabled={busy} className="text-xs text-red-500 hover:text-red-400 transition-colors flex-shrink-0 disabled:opacity-40">{t('revoke')}</button>
                 </div>
               ))}
             </div>
