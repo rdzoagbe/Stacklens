@@ -11,7 +11,7 @@ import { useTranslation } from '../translations';
 import { RDLogo, ScrollToTop } from '../components/ui';
 import { LangSelectorCompact, _openCookieBanner } from '../components/AppShell';
 import { usePlanPricing } from '../contexts/CurrencyContext';
-import { getPlanLimits } from '../lib/plan';
+import { PLAN_CARDS, planFeatures, planText } from '../lib/planCards';
 import { passwordProblem, suggestPassword } from '../lib/password';
 
 // Signup consent copy. Authored in all five languages rather than routed
@@ -31,8 +31,6 @@ export function TrialPage() {
   const t = useTranslation(language);
   const pricing = usePlanPricing();
   const CONSENT_COPY = SIGNUP_CONSENT[language] || SIGNUP_CONSENT.en;
-  const L = { free: getPlanLimits('free'), starter: getPlanLimits('starter'),
-    hr_finance: getPlanLimits('hr_finance'), pro: getPlanLimits('pro') };
 
   const { login, startDemo, isAuthed, firebaseUser } = useAuth();
 
@@ -408,16 +406,16 @@ export function TrialPage() {
             <p className="text-slate-500">{t('public_pricing')}</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-            {[
-              // Capacity numbers come from PLAN_LIMITS — the same table the app
-              // enforces — so a marketing card can never promise more than the
-              // product allows. (See plan-claims.test.js.)
-              { name: 'Free', eur: 0, sub: 'Forever', features: [`${L.free.tools} tools`, `${L.free.employees} employees`, 'Shadow IT discovery', 'Basic alerts'], cta: 'Start free', highlight: false },
-              { name: 'Starter', eur: 29, sub: '/month', features: [`${L.starter.tools} tools`, `${L.starter.employees} employees`, 'Renewal alerts', 'CSV import', `${L.starter.teamMembers} team seats`], cta: 'Start trial', highlight: false },
-              { name: 'HR & Finance', eur: 49, sub: '/month', features: ['Finance Board', 'People & HR Board', 'Access tracking', 'Offboarding queue', `${L.hr_finance.teamMembers} team seats`], cta: 'Start trial', highlight: false, badge: 'NEW' },
-              { name: 'Pro', eur: 79, sub: '/month', features: [`${L.pro.tools} tools`, `${L.pro.employees.toLocaleString('en-US')} employees`, 'AI recommendations', 'Full security suite', `${L.pro.teamMembers} team seats`], cta: 'Start trial', highlight: true },
-              { name: 'Enterprise', eur: 299, sub: '/month', features: ['Unlimited everything', 'API access', 'Priority email support', 'Personal onboarding'], cta: 'Contact sales', highlight: false },
-            ].map((p, i) => (
+            {PLAN_CARDS.map((c) => ({
+              // Words, prices and every number come from src/lib/planCards.js,
+              // shared with Settings → Billing, and each number from the limits
+              // the app and server enforce. (See plan-claims.test.js.)
+              id: c.id, name: planText(language, 'plan_' + c.id), eur: c.monthly,
+              sub: c.monthly === 0 ? t('forever') : t('per_month'),
+              features: planFeatures(c.id, language),
+              cta: c.id === 'free' ? t('start_free') : c.id === 'enterprise' ? t('contact_sales') : t('start_trial'),
+              highlight: c.id === 'pro', badge: c.id === 'hr_finance' ? 'NEW' : null,
+            })).map((p, i) => (
               <div
                 key={i}
                 className={"rounded-2xl border p-6 transition-all relative " + (
@@ -426,12 +424,12 @@ export function TrialPage() {
                     : 'border-slate-800 bg-slate-900/40 hover:border-slate-700'
                 )}>
                 {p.highlight && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-blue-500 text-[10px] font-bold text-white uppercase tracking-wider">
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap px-3 py-0.5 rounded-full bg-blue-500 text-[10px] font-bold text-white uppercase tracking-wider">
                     {t('lp_pricing_badge_popular')}
                   </div>
                 )}
                 {p.badge && !p.highlight && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-teal-500 text-[10px] font-bold text-white uppercase tracking-wider">
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap px-3 py-0.5 rounded-full bg-teal-500 text-[10px] font-bold text-white uppercase tracking-wider">
                     {p.badge}
                   </div>
                 )}
@@ -459,8 +457,8 @@ export function TrialPage() {
                 </ul>
                 <button
                   onClick={() => {
-                    track('cta_click', { location: 'pricing_' + p.name.toLowerCase() });
-                    if (p.name === 'Enterprise') {
+                    track('cta_click', { location: 'pricing_' + p.id });
+                    if (p.id === 'enterprise') {
                       window.location.href = '/contact?subject=enterprise';
                     } else {
                       setShowAuth(true);

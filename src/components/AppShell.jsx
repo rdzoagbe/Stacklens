@@ -318,7 +318,9 @@ export function SidebarFooter({ collapsed }) {
           </Button>
           <Button variant="ghost" className="w-full" onClick={() => { navigate('/settings'); setTimeout(() => { const el = document.querySelector('[data-tab="billing"]'); if(el) el.click(); }, 100); }}>
               <ExternalLink className="h-4 w-4" />
-              {(() => { const _p = JSON.parse(localStorage.getItem('accessguard_v1') || '{}')?.user?.plan || 'free'; return _p === 'free' || _p === 'trial' ? 'Trial' : (getPlanLimits(_p).label || (_p.charAt(0).toUpperCase() + _p.slice(1))); })()}
+              {/* resolvePlan, not the stored field: an expired trial is free, and a
+                  free account that never trialled is not "Trial". */}
+              {(() => { const _p = resolvePlan(user); return _p === 'trial' ? 'Trial' : (getPlanLimits(_p).label || (_p.charAt(0).toUpperCase() + _p.slice(1))); })()}
           </Button>
         </div>
       ) : null}

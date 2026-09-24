@@ -23,21 +23,34 @@ export const PLAN_TIERS = {
   growth: 3, scale: 4, unlimited: 4, professional: 4, startup: 0,
 };
 
+// How many people an owner can share the workspace with. Enforced by the
+// workspace function (MAX_WORKSPACE_MEMBERS), which refuses any invite on free
+// and trial and caps every paid plan at the same number. There are no
+// per-plan seat tiers: the cards used to sell 5, 10 and 15 "team seats" that
+// the server never counted. plan-parity.test.js keeps the two numbers equal.
+export const TEAM_INVITE_LIMIT = 10;
+
+// Client workspaces (the accountant model). Free has none, a trial gets a
+// taste, every paid plan the same cap. Server copies: MAX_CLIENT_ORGS and
+// TRIAL_CLIENT_ORGS in functions/index.js, held equal by plan-parity.test.js.
+export const CLIENT_WORKSPACE_LIMIT = 50;
+export const TRIAL_CLIENT_WORKSPACES = 3;
+
 // Hard limits enforced on data creation
 export const PLAN_LIMITS = {
-  free:       { tools: 10,    employees: 25,    teamMembers: 1,   label: 'Free' },
-  trial:      { tools: 9999,  employees: 9999,  teamMembers: 5,   label: 'Trial (7 days)' },
-  demo:       { tools: 9999,  employees: 9999,  teamMembers: 5,   label: 'Demo' },
-  starter:    { tools: 100,   employees: 250,   teamMembers: 5,   label: 'Starter' },
-  hr_finance: { tools: 100,   employees: 250,   teamMembers: 5,   label: 'HR & Finance' },
-  pro:        { tools: 500,   employees: 1500,  teamMembers: 15,  label: 'Pro' },
-  enterprise: { tools: 99999, employees: 99999, teamMembers: 999, label: 'Enterprise' },
+  free:       { tools: 10,    employees: 25,    teamInvites: 0,   label: 'Free' },
+  trial:      { tools: 9999,  employees: 9999,  teamInvites: 0,   label: 'Trial (7 days)' },
+  demo:       { tools: 9999,  employees: 9999,  teamInvites: 0,   label: 'Demo' },
+  starter:    { tools: 100,   employees: 250,   teamInvites: TEAM_INVITE_LIMIT,   label: 'Starter' },
+  hr_finance: { tools: 100,   employees: 250,   teamInvites: TEAM_INVITE_LIMIT,   label: 'HR & Finance' },
+  pro:        { tools: 500,   employees: 1500,  teamInvites: TEAM_INVITE_LIMIT,  label: 'Pro' },
+  enterprise: { tools: 99999, employees: 99999, teamInvites: TEAM_INVITE_LIMIT, label: 'Enterprise' },
   // legacy
-  growth:       { tools: 500,   employees: 1500,  teamMembers: 15,  label: 'Pro' },
-  scale:        { tools: 99999, employees: 99999, teamMembers: 999, label: 'Enterprise' },
-  unlimited:    { tools: 99999, employees: 99999, teamMembers: 999, label: 'Enterprise' },
-  professional: { tools: 99999, employees: 99999, teamMembers: 999, label: 'Enterprise' },
-  startup:      { tools: 10,    employees: 25,    teamMembers: 1,   label: 'Free' },
+  growth:       { tools: 500,   employees: 1500,  teamInvites: TEAM_INVITE_LIMIT,  label: 'Pro' },
+  scale:        { tools: 99999, employees: 99999, teamInvites: TEAM_INVITE_LIMIT, label: 'Enterprise' },
+  unlimited:    { tools: 99999, employees: 99999, teamInvites: TEAM_INVITE_LIMIT, label: 'Enterprise' },
+  professional: { tools: 99999, employees: 99999, teamInvites: TEAM_INVITE_LIMIT, label: 'Enterprise' },
+  startup:      { tools: 10,    employees: 25,    teamInvites: 0,   label: 'Free' },
 };
 
 export const TRIAL_DAYS = 7;

@@ -9,7 +9,9 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { PLAN_LIMITS, TRIAL_DAYS } from './plan';
+import { PLAN_LIMITS, TRIAL_DAYS, TEAM_INVITE_LIMIT, CLIENT_WORKSPACE_LIMIT } from './plan';
+import { PLAN_CARDS, planFeatures, formatCount } from './planCards';
+import { cheapestPlanFor } from '../components/gates';
 
 // Read from disk relative to the repo root: these files are the shipped
 // artefacts (static strings, JSON-LD) that cannot import PLAN_LIMITS.
@@ -24,22 +26,69 @@ function enValue(key) {
   return m ? m[1] : null;
 }
 // "Up to 1,500 employees" → 1500
-const numberIn = (s) => (s ? Number((s.match(/[\d][\d,\s.]*/)?.[0] || '').replace(/[,\s.]/g, '')) : NaN);
+const numberIn = (s) => (s ? Number((s.match(/[\d][\d,\s.\u00a0]*/)?.[0] || '').replace(/[,\s.\u00a0]/g, '')) : NaN);
 
 describe('plan claims match enforced limits', () => {
-  const cases = [
-    ['f_free_1', PLAN_LIMITS.free.tools],
-    ['f_free_2', PLAN_LIMITS.free.employees],
-    ['f_starter_1', PLAN_LIMITS.starter.tools],
-    ['f_starter_2', PLAN_LIMITS.starter.employees],
-    ['f_pro_1', PLAN_LIMITS.pro.tools],
-    ['f_pro_2', PLAN_LIMITS.pro.employees],
-  ];
+  // The cards on the landing page and in Settings → Billing are rendered from
+  // planFeatures(). This guard used to read f_free_1… out of translations.js,
+  // strings the billing page had stopped displaying, so it checked copy nobody
+  // saw while the real cards sold 5, 10 and 15 "team seats" the server never
+  // counted. It now checks what the cards actually render, in every language.
+  const LANGS = ['en', 'fr', 'de', 'es', 'pt'];
 
-  it.each(cases)('%s advertises exactly what PLAN_LIMITS enforces', (key, expected) => {
-    const value = enValue(key);
-    expect(value, `translation key ${key} is missing`).toBeTruthy();
-    expect(numberIn(value), `"${value}" does not match the enforced limit`).toBe(expected);
+  it.each(LANGS)('%s: each capped plan states exactly its enforced tool and employee limits', (lang) => {
+    for (const id of ['free', 'starter', 'hr_finance', 'pro']) {
+      const lines = planFeatures(id, lang);
+      const numbers = lines.map(numberIn).filter((n) => !Number.isNaN(n) && n > 0);
+      expect(numbers, `${id}/${lang}: ${lines.join(' | ')}`).toContain(PLAN_LIMITS[id].tools);
+      expect(numbers, `${id}/${lang}: ${lines.join(' | ')}`).toContain(PLAN_LIMITS[id].employees);
+    }
+  });
+
+  it.each(LANGS)('%s: team sharing and client workspaces are sold only where the server allows them', (lang) => {
+    const team = formatCount(TEAM_INVITE_LIMIT, lang);
+    const clients = formatCount(CLIENT_WORKSPACE_LIMIT, lang);
+    for (const card of PLAN_CARDS) {
+      const text = planFeatures(card.id, lang).join(' | ');
+      const paid = card.monthly > 0;
+      // The server refuses every invite and every client workspace on free.
+      if (paid) {
+        expect(text, `${card.id}/${lang} must state the real invite cap`).toContain(team);
+        expect(text, `${card.id}/${lang} must state the real client cap`).toContain(clients);
+      } else {
+        expect(text, `${card.id}/${lang} sells sharing the server refuses`).not.toMatch(/share|partage|teilen|comparte|partilhe/i);
+        expect(text).not.toContain(clients);
+      }
+    }
+  });
+
+  it('no card promises a feature that does not exist', () => {
+    const banned = /seat|\bSLA\b|24\/7|account manager|\bSSO\b|\bSAML\b|\bSCIM\b|unlimited everything|custom integration/i;
+    for (const lang of LANGS) {
+      for (const card of PLAN_CARDS) {
+        for (const line of planFeatures(card.id, lang)) {
+          expect(line, `${card.id}/${lang}`).not.toMatch(banned);
+        }
+      }
+    }
+  });
+
+  it('only Enterprise, whose limits are effectively unlimited, says "unlimited"', () => {
+    for (const card of PLAN_CARDS) {
+      const says = planFeatures(card.id, 'en').some((l) => /unlimited/i.test(l));
+      expect(says, card.id).toBe(card.id === 'enterprise');
+    }
+    expect(PLAN_LIMITS.enterprise.tools).toBeGreaterThanOrEqual(99999);
+  });
+
+  it('both pages render the shared cards rather than their own copy', () => {
+    const billing = readRepo('src/pages/settings/BillingTab.jsx');
+    const landing = readRepo('src/pages/TrialPage.jsx');
+    expect(billing).toMatch(/planFeatures\(c\.id, language\)/);
+    expect(landing).toMatch(/planFeatures\(c\.id, language\)/);
+    // The hand-written lists these replaced.
+    expect(billing).not.toMatch(/featureText/);
+    expect(landing).not.toMatch(/team seats|Unlimited everything/);
   });
 
   it('the free-plan fine print on the landing page matches the free limits', () => {
@@ -47,6 +96,30 @@ describe('plan claims match enforced limits', () => {
     expect(fine).toBeTruthy();
     expect(fine).toContain(String(PLAN_LIMITS.free.tools));
     expect(fine).toContain(String(PLAN_LIMITS.free.employees));
+  });
+
+  it('a locked module names the cheapest plan that really unlocks it', () => {
+    // Before, every non-finance module said "Pro", including the API, which
+    // only Enterprise unlocks.
+    expect(cheapestPlanFor('people').id).toBe('starter');
+    expect(cheapestPlanFor('finance').id).toBe('hr_finance');
+    expect(cheapestPlanFor('security').id).toBe('pro');
+    expect(cheapestPlanFor('api').id).toBe('enterprise');
+  });
+});
+
+describe('the billing page states the trial the product runs', () => {
+  it('no day number is typed into the billing page', () => {
+    // "Day 14" sat in a translation string that never mentioned the word
+    // trial, so the trial-length check below could not see it.
+    const billing = readRepo('src/pages/settings/BillingTab.jsx');
+    expect(billing).not.toMatch(/['"]Day \d+/);
+    expect(enValue('after_trial_d1_day')).toBe('Day {n}');
+  });
+
+  it('a free account that never trialled is not shown a trial', () => {
+    const billing = readRepo('src/pages/settings/BillingTab.jsx');
+    expect(billing).toMatch(/const isTrial = plan === 'trial';/);
   });
 });
 
@@ -122,5 +195,24 @@ describe('the README does not overstate the security-rules coverage', () => {
     expect(Number(m[1]), `README claims ${m?.[1]} rules tests; the suite has `
       + `${actual}. Overstating this is a security claim, not a typo.`)
       .toBe(actual);
+  });
+});
+
+// ── Limits are enforced on the plan the user actually has ──────────────────
+//
+// The tool and employee caps read user.plan directly. Nothing rewrites 'trial'
+// to 'free' when the seven days end, so an expired trial kept the trial's
+// 9,999 caps for ever, and the sidebar called every free account "Trial".
+// resolvePlan() applies expiry; nothing that decides a limit or a label may
+// read the stored field instead.
+describe('plan is always resolved, never read raw', () => {
+  it.each([
+    'src/hooks/useDbQuery.js',
+    'src/components/AppShell.jsx',
+  ])('%s derives the plan with resolvePlan()', (file) => {
+    const src = readRepo(file);
+    expect(src, `${file} reads the stored plan field to decide a limit or a label`)
+      .not.toMatch(/user\?\.plan \|\||\.user\?\.plan \|\| 'free'|getItem\('accessguard_v1'\)[^\n]*\.plan/);
+    expect(src).toMatch(/resolvePlan\(/);
   });
 });
