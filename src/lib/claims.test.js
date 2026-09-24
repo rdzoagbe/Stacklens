@@ -220,3 +220,213 @@ describe('the token hint says what the code does with the token', () => {
     expect(disconnect.slice(0, 200)).toMatch(/FieldValue\.delete\(\)/);
   });
 });
+
+// ── Shared helpers for the claims below ────────────────────────────────────
+
+/** The value of `key` in one locale block of translations.js, or undefined. */
+function copy(lang, key) {
+  // Literal patterns only, filtered by name: a pattern built from its input
+  // is the shape that turns into an injection once someone parameterises it.
+  const heads = [...translations.matchAll(/^ {2}([a-z]{2}): \{$/gm)];
+  const i = heads.findIndex((h) => h[1] === lang);
+  if (i < 0) return undefined;
+  const block = translations.slice(heads[i].index, heads[i + 1]?.index);
+  const hit = [...block.matchAll(/\b([a-zA-Z0-9_]+):\s*"((?:[^"\\]|\\.)*)"/g)].find((m) => m[1] === key);
+  return hit ? hit[2] : undefined;
+}
+const functionsSrc = read('functions/index.js');
+
+// ── 3. What cancelling and deleting actually do ────────────────────────────
+//
+// The site gave four different answers — deleted on cancel, deleted 30 days
+// after cancel, kept while the account is active — and the code did a fifth:
+// cancelling deletes nothing, and the "Delete account" button emailed the
+// founder through a US form service and deleted nothing either.
+
+describe('cancelling and deleting are described as the code does them', () => {
+  it('the Stripe cancellation handler deletes nothing', () => {
+    const at = functionsSrc.indexOf("case 'customer.subscription.deleted'");
+    const handler = functionsSrc.slice(at, functionsSrc.indexOf('break;', at));
+    expect(handler).toMatch(/plan: 'free'/);
+    expect(handler, 'cancellation now deletes data: rewrite the cancel copy to say so')
+      .not.toMatch(/purgeAccount|\.delete\(|recursiveDelete/);
+  });
+
+  it('so no page says cancelling deletes your data', () => {
+    const cancelDeletes = /(when you cancel|on cancel|lors de la résiliation|quand vous résiliez).{0,40}(delet|supprim|effac)|30 days, then is deleted|30 jours, puis/i;
+    for (const key of ['sec_card_delete_body', 'lp_faq_a6', 'lp_faq7_a', 'privacy_s5_body']) {
+      for (const lang of ['en', 'fr']) {
+        const text = copy(lang, key);
+        expect(text, `${lang}.${key} missing`).toBeTruthy();
+        expect(text, `${lang}.${key}`).not.toMatch(cancelDeletes);
+      }
+    }
+    expect(copy('en', 'sec_card_delete_body')).toMatch(/free plan and keeps your data/);
+  });
+
+  it('the Delete account button calls the real erasure, not a contact form', () => {
+    const tab = read('src/pages/settings/DataTab.jsx');
+    expect(tab).toMatch(/await deleteAccount\(/);
+    expect(tab, 'deletion is back to emailing a request').not.toMatch(/submitContactForm/);
+  });
+});
+
+// ── 4. What stays in the browser ───────────────────────────────────────────
+//
+// "Never stored in plaintext" sat above an architecture whose primary read
+// path is a plain-JSON copy of the workspace in localStorage — which signing
+// out did not even remove. The page now says the local copy exists and that
+// signing out removes it; both halves are pinned here.
+
+describe('the browser copy is described truthfully', () => {
+  it('no page says data is never stored in plaintext', () => {
+    expect(translations).not.toMatch(/never stored in plaintext|jamais stockées en clair/i);
+  });
+
+  it('says a local copy exists and that signing out removes it', () => {
+    expect(copy('en', 'sec_card_enc_body')).toMatch(/local storage[^.]*not encrypted/);
+    expect(copy('en', 'sec_card_enc_body')).toMatch(/Signing out removes it/);
+  });
+
+  it('and signing out does remove it', () => {
+    const auth = read('src/hooks/useAuth.js');
+    const logout = auth.slice(auth.indexOf('const logout = async'));
+    expect(logout.slice(0, 600)).toMatch(/clearLocalWorkspace\(\)/);
+    expect(logout.slice(0, 600), 'sign-out must flush unsynced work before clearing')
+      .toMatch(/flushBeforeSignOut\(\)/);
+  });
+});
+
+// ── 5. Export means everything ─────────────────────────────────────────────
+
+describe('"export everything" covers everything', () => {
+  it('the Data tab offers the whole-workspace JSON export', () => {
+    expect(read('src/pages/settings/DataTab.jsx')).toMatch(/downloadWorkspaceExport\(/);
+  });
+
+  it('the export takes every customer array, including ones added later', async () => {
+    const { buildWorkspaceExport } = await import('./workspace-export');
+    const out = buildWorkspaceExport({
+      name: 'x', data: {
+        tools: [{ id: 1 }], budgets: [{ year: 2026 }], uploaded_invoices: [{ id: 'i' }],
+        some_future_list: [{ a: 1 }], _chunks: [1, 2], user: { email: 'x@y.fr' },
+      },
+    });
+    expect(out.budgets).toEqual([{ year: 2026 }]);
+    expect(out.uploaded_invoices).toEqual([{ id: 'i' }]);
+    expect(out.some_future_list, 'a new workspace array fell out of the export').toEqual([{ a: 1 }]);
+    expect(out._chunks, 'internal bookkeeping must not be exported').toBeUndefined();
+  });
+
+  it('no invoice is kept outside the workspace any more', () => {
+    const tab = read('src/pages/finance/RenewalsTab.jsx');
+    expect(tab, 'uploaded invoices are being written outside the workspace again')
+      .not.toMatch(/setItem\(['"]ag_uploaded_invoices['"]/);
+  });
+});
+
+// ── 6. Which endpoints take no sign-in ─────────────────────────────────────
+//
+// The security page said "every server API requires an authenticated token".
+// Four HTTP endpoints do not, by design, each checking something else. The
+// page now names all four; this fails the day a fifth appears unannounced.
+
+describe('the security page names every endpoint that takes no sign-in', () => {
+  const exportsList = [...functionsSrc.matchAll(/^exports\.(\w+)\s*=\s*onRequest/gm)].map((m, i, all) => {
+    const end = all[i + 1] ? all[i + 1].index : functionsSrc.length;
+    return { name: m[1], body: functionsSrc.slice(m.index, end) };
+  });
+  const noSignIn = exportsList.filter((e) => !/verifyAuth\(/.test(e.body)).map((e) => e.name).sort();
+
+  it('finds the endpoints it means to check', () => {
+    expect(exportsList.length).toBeGreaterThan(10);
+  });
+
+  it('is exactly the four the page describes', () => {
+    expect(noSignIn, 'an endpoint without sign-in was added or removed: update sec_card_abuse_body')
+      .toEqual(['api', 'clientErrors', 'invoiceInbound', 'stripeWebhook']);
+  });
+
+  it('and the page names each one with what it checks instead', () => {
+    const text = copy('en', 'sec_card_abuse_body');
+    for (const phrase of ['public API (your API key)', "Stripe's signature", 'invoice inbox', 'crash reports']) {
+      expect(text).toContain(phrase);
+    }
+    expect(text).not.toMatch(/every server API/i);
+  });
+});
+
+// ── 7. Everything that goes to Anthropic is disclosed ──────────────────────
+//
+// The DPA and privacy policy disclosed contract comparison only. Invoices,
+// including ones arriving by email with no one clicking anything, the support
+// chat and the weekly email summary went to Anthropic too. Each sender is now
+// named; a new one fails here until it is.
+
+describe('every feature that sends data to Anthropic is disclosed', () => {
+  const src = 'src';
+  const callers = ['src/components/FloatingChatbot.jsx', 'src/pages/ContractComparisonPage.jsx',
+    'src/pages/finance/BudgetTab.jsx', 'src/translations.js'];
+
+  it('the client callers are exactly the known ones', async () => {
+    const { readdirSync, statSync } = await import('node:fs');
+    const { join, relative } = await import('node:path');
+    const walk = (d) => readdirSync(d).flatMap((f) => {
+      const p = join(d, f);
+      if (statSync(p).isDirectory()) return walk(p);
+      return /\.jsx?$/.test(f) && !/\.test\./.test(f) ? [p] : [];
+    });
+    const found = walk(resolve(root, src))
+      .filter((p) => /\bcallAI\(/.test(readFileSync(p, 'utf8')))
+      .map((p) => relative(root, p))
+      .filter((p) => p !== 'src/firebase-config.js')
+      .sort();
+    expect(found, 'a new AI caller: disclose it in privacy_s4_body, subproc_anthropic_purpose and dpa_s8_body')
+      .toEqual([...callers].sort());
+  });
+
+  it('the server senders are exactly the known ones', () => {
+    const hits = [...functionsSrc.matchAll(/api\.anthropic\.com/g)].length;
+    expect(hits, 'a new server-side Anthropic call: disclose it').toBe(3);
+    expect(functionsSrc).toMatch(/async function extractInvoicesWithAI/);
+    expect(functionsSrc).toMatch(/async function weeklyAiInsight/);
+  });
+
+  it('the privacy policy names each one', () => {
+    const text = copy('en', 'privacy_s4_body');
+    for (const feature of ['comparing contracts', 'invoice inbox', 'support assistant', 'weekly email', 'Interface text']) {
+      expect(text).toContain(feature);
+    }
+    expect(copy('en', 'subproc_anthropic_purpose')).not.toMatch(/only when feature is explicitly used/);
+  });
+});
+
+// ── 8. Small claims that were simply stale ─────────────────────────────────
+
+describe('small claims', () => {
+  it('no page carries a hardcoded "last updated" month', () => {
+    expect(read('src/pages/LegalPages.jsx')).not.toMatch(/: July 2026|Last updated: \w+ 20\d\d/);
+  });
+
+  it('the footer GDPR link goes to the privacy policy, not About', () => {
+    expect(read('src/pages/TrialPage.jsx')).not.toMatch(/to="\/about"[^>]*>GDPR</);
+  });
+
+  it('nothing offers to "download" a whitepaper that does not exist', () => {
+    expect(copy('en', 'hc_download_security_whitepaper')).not.toMatch(/download/i);
+  });
+
+  it('no locale makes the blanket "GDPR compliant" claim', () => {
+    expect(translations).not.toMatch(/"Conforme RGPD"|"GDPR-compliant"|"GDPR compliant"/);
+  });
+
+  it('Web3Forms is described as receiving name and email, which it does', () => {
+    expect(read('src/lib/contact.js')).toMatch(/from_name:\s*name/);
+    expect(copy('en', 'subproc_web3forms_transfer')).toMatch(/name, email address and message/);
+  });
+
+  it('Sentry is described as performance monitoring too, since tracing is on', () => {
+    expect(read('src/main.jsx')).toMatch(/tracesSampleRate/);
+    expect(copy('en', 'subproc_sentry_purpose')).toMatch(/performance/);
+  });
+});

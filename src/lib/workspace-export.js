@@ -13,10 +13,31 @@
 
 import { downloadText, toCsv } from './dataUtils';
 
-/** Collections worth exporting, in the order a reader would want them. */
+/**
+ * Collections worth exporting, in the order a reader would want them. Every
+ * customer-owned array in the workspace: the Data tab's "Everything (JSON)"
+ * uses the same list for the owner's own workspace, and the security page
+ * promises that export covers everything, so budgets and the monthly spend
+ * history are in it too.
+ */
 const COLLECTIONS = [
-  'tools', 'employees', 'access', 'contracts', 'invoices', 'licenses', 'audit_log',
+  'tools', 'employees', 'access', 'contracts', 'invoices', 'invoice_records',
+  'uploaded_invoices', 'licenses', 'budgets', 'spend_history', 'audit_log',
 ];
+
+/**
+ * The named collections, then any other top-level array the workspace holds.
+ * A named list alone is how budgets, spend history and the invoice records
+ * were left out of "export everything": each was added to the workspace
+ * without anyone remembering this list. Keys starting with `_` are the
+ * persistence layer's own bookkeeping, not the customer's data.
+ */
+function collectionsOf(data) {
+  const extra = Object.keys(data || {})
+    .filter((k) => !k.startsWith('_') && !COLLECTIONS.includes(k) && Array.isArray(data[k]))
+    .sort();
+  return [...COLLECTIONS, ...extra];
+}
 
 /** A safe-ish filename fragment from a client name. */
 export function exportSlug(name) {
@@ -34,8 +55,9 @@ export function exportSlug(name) {
  * send them for a client workspace and they are not the client's data.
  */
 export function buildWorkspaceExport({ name, orgId, data, exportedAt = new Date() }) {
+  const keys = collectionsOf(data);
   const counts = {};
-  for (const key of COLLECTIONS) {
+  for (const key of keys) {
     counts[key] = Array.isArray(data?.[key]) ? data[key].length : 0;
   }
   const payload = {
@@ -45,7 +67,7 @@ export function buildWorkspaceExport({ name, orgId, data, exportedAt = new Date(
     exported_at: exportedAt.toISOString(),
     counts,
   };
-  for (const key of COLLECTIONS) {
+  for (const key of keys) {
     payload[key] = Array.isArray(data?.[key]) ? data[key] : [];
   }
   return payload;

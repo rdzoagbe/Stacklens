@@ -70,7 +70,7 @@ const {
   REV_FIELD, revOf, nextRev, isStaleWrite,
   monthlySpend, billedToolCount, NOT_BILLED_STATUS,
 } = require('./workspace-write.js');
-const { purgeAccount } = require('./purge-account.js');
+const { purgeAccount, subscriptionBlocksDeletion } = require('./purge-account.js');
 const { shouldAlert, recordAlert, MAX_PER_HOUR } = require('./crash-alerts.js');
 
 // Explicitly allow stacklens.fr and Firebase preview domains
@@ -369,7 +369,10 @@ exports.stripeWebhook = onRequest({ secrets: [STRIPE_SECRET_KEY, STRIPE_WEBHOOK_
         }
         if (uid) {
           const plan = getPlanFromSubscription(sub);
-          await db.collection('users').doc(uid).set({ plan, subscription_status: sub.status, plan_updated_at: Date.now() }, { merge: true });
+          // cancel_at_period_end is recorded so an account whose subscription
+          // is already cancelled can be deleted before the period runs out;
+          // see subscriptionBlocksDeletion in purge-account.js.
+          await db.collection('users').doc(uid).set({ plan, subscription_status: sub.status, cancel_at_period_end: !!sub.cancel_at_period_end, plan_updated_at: Date.now() }, { merge: true });
           await getAuth().setCustomUserClaims(uid, { plan });
         }
         break;
@@ -689,6 +692,16 @@ exports.founderops = onRequest({ cors: true, timeoutSeconds: 30, secrets: [SENDG
           targetEmail = (await getAuth().getUser(targetUid))?.email || '';
         } catch (err) {
           if (err.code !== 'auth/user-not-found') throw err;
+        }
+        // Same rule as the self-service path: a subscription Stripe can still
+        // bill must be cancelled first, or the customer keeps being charged
+        // with no account left to trace the charge to.
+        const targetBilling = await db.collection('users').doc(targetUid).get();
+        if (subscriptionBlocksDeletion(targetBilling.exists ? targetBilling.data() : null)) {
+          return res.status(409).json({
+            error: 'This account still has a subscription Stripe can bill. Cancel it in Stripe first.',
+            code: 'subscription_active',
+          });
         }
         const counts = await purgeAccount(db, targetUid, {
           email: targetEmail,
@@ -1670,6 +1683,15 @@ exports.workspace = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, re
         if (String(req.body?.confirmEmail || '').toLowerCase().trim() !== callerEmail) {
           return res.status(400).json({
             error: 'Type your email address exactly to confirm deletion',
+          });
+        }
+        // Never delete an account Stripe can still bill: purging /users
+        // removes the only link from a Stripe customer back to this account.
+        const billingSnap = await db.collection('users').doc(decoded.uid).get();
+        if (subscriptionBlocksDeletion(billingSnap.exists ? billingSnap.data() : null)) {
+          return res.status(409).json({
+            error: 'Cancel your subscription before deleting your account, so you are not charged again.',
+            code: 'subscription_active',
           });
         }
         const counts = await purgeAccount(db, decoded.uid, {

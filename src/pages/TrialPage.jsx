@@ -584,7 +584,7 @@ export function TrialPage() {
                 <li><Link to="/dpa" className="text-slate-300 hover:text-white transition-colors">{t('lp_dpa_link')}</Link></li>
                 <li><Link to="/sub-processors" className="text-slate-300 hover:text-white transition-colors">{t('lp_sub_processors_link')}</Link></li>
                 <li><Link to="/security-info" className="text-slate-300 hover:text-white transition-colors">{t('lp_footer_security')}</Link></li>
-                <li><Link to="/about" className="text-slate-300 hover:text-white transition-colors">GDPR</Link></li>
+                <li><Link to="/privacy" className="text-slate-300 hover:text-white transition-colors">GDPR</Link></li>
                 <li>
                   <button
                     type="button"

@@ -48,6 +48,16 @@ export const NAV = [
  * and the mobile menu — must use it, or the entry shows in one place and not
  * the other.
  */
+
+// Sign out, and if this browser holds changes the cloud may not have yet, ask
+// before discarding them: signing out now removes the local copy.
+async function signOutSafely(logout, t) {
+  const result = await logout();
+  if (result?.needsConfirm && window.confirm(t('signout_unsaved_confirm'))) {
+    await logout({ force: true });
+  }
+}
+
 export function navItemVisible(item, ctx) {
   if (!item.when) return true;
   return !!ctx?.[item.when];
@@ -300,7 +310,7 @@ export function SidebarFooter({ collapsed }) {
             className="w-full"
             onClick={() => {
               if (isDemo) endDemo();
-              logout();
+              signOutSafely(logout, t);
             }}
           >
             <BadgeX className="h-4 w-4" />
@@ -951,7 +961,7 @@ export function AppShell({ _subtitle, title, right, children }) {
                   onClick={() => {
                     setMobileOpen(false);
                     if (isDemo) endDemo();
-                    logout();
+                    signOutSafely(logout, t);
                   }}
                   className="px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700 text-xs flex-shrink-0"
                 >

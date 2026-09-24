@@ -1429,16 +1429,25 @@ export function IntegrationConnectors() {
     zoom: ZOOM_SYNC_KEY, asana: ASANA_SYNC_KEY, salesforce: SF_SYNC_KEY,
   };
 
-  const handleDisconnect = (integrationId) => {
+  const handleDisconnect = async (integrationId) => {
+    // For a server-held vendor, "disconnected" means the stored token is gone,
+    // and the hint under every token field now promises exactly that. So the
+    // server delete is awaited first. It used to be fire-and-forget with the
+    // error swallowed, which could show "disconnected" while the token was
+    // still stored and still usable to sync — the one state the promise rules
+    // out. On failure the integration stays shown as connected, because it is.
+    if (SERVER_HELD.includes(integrationId)) {
+      try {
+        await integrationCall(integrationId, 'disconnect');
+      } catch {
+        toast.error(t('int_disconnect_failed'), { duration: 8000 });
+        return;
+      }
+    }
     const next = connectedIntegrations.filter(id => id !== integrationId);
     setConnectedIntegrations(next);
     localStorage.setItem('sg_connected_integrations', JSON.stringify(next));
 
-    if (SERVER_HELD.includes(integrationId)) {
-      // Fire and forget: the local state is already cleared, and a failed
-      // server delete must not leave the UI showing a connected integration.
-      integrationCall(integrationId, 'disconnect').catch(() => {});
-    }
     if (integrationId === 'microsoft-365') {
       // eslint-disable-next-line react-hooks/globals
       _msalApp = null; // module-level MSAL singleton, intentionally reset on disconnect

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import {
   AlertTriangle, BadgeCheck, Calendar,
@@ -10,7 +10,7 @@ import {
   displayAmount,
   getCurrency,
 } from '../../lib/dataUtils';
-import { useDbQuery } from '../../hooks/useDbQuery';
+import { useDbQuery, useDbMutations } from '../../hooks/useDbQuery';
 import { useLang } from '../../contexts/LangContext';
 import { useTranslation } from '../../translations';
 import { submitContactForm } from '../../lib/contact';
@@ -581,6 +581,19 @@ export function RenewalAlerts() {
 
 // eslint-disable-next-line no-unused-vars
 function InvoiceManager() {
+  const { addUploadedInvoices } = useDbMutations();
+  // One-time move of invoices this browser stored under the old standalone
+  // key into the workspace, where they sync, export and delete like the rest.
+  // The key is removed only after they are handed to the workspace.
+  useEffect(() => {
+    let legacy;
+    try { legacy = JSON.parse(localStorage.getItem('ag_uploaded_invoices') || '[]'); } catch { legacy = []; }
+    if (!Array.isArray(legacy) || !legacy.length) return;
+    addUploadedInvoices.mutate(legacy, {
+      onSuccess: () => { try { localStorage.removeItem('ag_uploaded_invoices'); } catch { /* retried next load */ } },
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const { language } = useLang();
   const t = useTranslation(language);
 
@@ -595,8 +608,7 @@ function InvoiceManager() {
 
   const handleUploadSubmit = (e) => {
     e.preventDefault();
-    const existing = JSON.parse(localStorage.getItem('ag_uploaded_invoices') || '[]');
-    existing.push({
+    addUploadedInvoices.mutate({
       id: 'INV-' + Date.now(),
       vendor: uploadForm.vendor,
       amount: parseFloat(uploadForm.amount) || 0,
@@ -606,7 +618,6 @@ function InvoiceManager() {
       status: 'pending_approval',
       uploadedAt: new Date().toISOString(),
     });
-    localStorage.setItem('ag_uploaded_invoices', JSON.stringify(existing));
     setUploadSuccess(true);
     setTimeout(() => {
       setShowUploadModal(false);
@@ -618,7 +629,7 @@ function InvoiceManager() {
 
   const { data: _idb } = useDbQuery();
   const _iReal = _idb?.user?.is_authenticated && !_idb?.user?.is_demo;
-  const uploaded = JSON.parse(localStorage.getItem('ag_uploaded_invoices') || '[]');
+  const uploaded = Array.isArray(_idb?.uploaded_invoices) ? _idb.uploaded_invoices : [];
   const invoices = _iReal ? uploaded : [
     { id: 'INV-2401', vendor: 'Salesforce', amount: 12400, date: '2026-02-01', dueDate: '2026-03-01', status: 'pending_approval', category: 'CRM', submittedBy: '—' },
     { id: 'INV-2402', vendor: 'Slack', amount: 2850, date: '2026-02-05', dueDate: '2026-03-05', status: 'approved', category: 'Communication', submittedBy: '—' },

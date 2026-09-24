@@ -1,12 +1,23 @@
 import React, { useState } from 'react';
 import { Link, Navigate, useNavigate, useLocation } from 'react-router-dom';
-import { Shield, Lock, Download } from 'lucide-react';
+import { Shield, Lock, Mail } from 'lucide-react';
 import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
 import { submitContactForm, mailtoFallback } from '../lib/contact';
 import { RDLogo } from '../components/ui';
 import { LangSelectorCompact } from '../components/AppShell';
 import { LEGAL_ENTITY } from '../lib/constants';
+
+// When the security and sub-processor pages last changed in substance. Both
+// used to print "July 2026" as a literal: stale once the sub-processor list
+// changed in September, and English inside the French page. Change this when
+// either page's content changes.
+export const LEGAL_UPDATED = '2026-09-24';
+const LOCALE_OF = { en: 'en-GB', fr: 'fr-FR', de: 'de-DE', es: 'es-ES', pt: 'pt-PT' };
+function legalDate(language) {
+  return new Date(LEGAL_UPDATED + 'T12:00:00Z').toLocaleDateString(LOCALE_OF[language] || 'en-GB',
+    { day: 'numeric', month: 'long', year: 'numeric' });
+}
 
 export function NotFound() {
   return <Navigate to="/" replace />;
@@ -375,7 +386,7 @@ export function SubProcessorsPage() {
           <LangSelectorCompact />
         </div>
         <h1 className="text-3xl font-bold mb-2">{t('subproc_title')}</h1>
-        <p className="text-slate-400 text-sm mb-2">{t('subproc_last_updated')}: July 2026</p>
+        <p className="text-slate-400 text-sm mb-2">{t('subproc_last_updated')}{language === 'fr' ? ' : ' : ': '}{legalDate(language)}</p>
         <p className="text-slate-400 text-sm mb-10">{t('subproc_intro')}</p>
 
         <div className="space-y-4">
@@ -964,13 +975,13 @@ export function SecurityPage() {
             to="/contact?subject=enterprise"
             className="inline-flex items-center gap-2 px-6 py-3 border border-white/20 hover:border-white/40 rounded-xl font-semibold text-white transition-colors"
           >
-            <Download className="w-4 h-4" />
-            {t('request_security_docs') || 'Request Security Documentation'}
+            <Mail className="w-4 h-4" />
+            {t('request_security_docs')}
           </Link>
         </div>
 
         <div className="mt-10 text-center text-xs text-slate-600">
-          Last updated: July 2026 · Questions? <Link to="/contact" className="text-blue-400 hover:underline">hello@stacklens.fr</Link>
+          {t('subproc_last_updated')}{language === 'fr' ? ' : ' : ': '}{legalDate(language)} · {t('subproc_questions')} <Link to="/contact" className="text-blue-400 hover:underline">hello@stacklens.fr</Link>
         </div>
       </div>
     </div>

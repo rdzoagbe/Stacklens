@@ -3,6 +3,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import {
   PURGED, RETAINED, RATE_LIMIT_PREFIXES, purgeAccount, purgeWorkspace,
+  BILLING_STATUSES, subscriptionBlocksDeletion,
 } from './purge-account.js';
 
 // ── Deleting an account has to actually delete it ───────────────────────────
@@ -372,5 +373,60 @@ describe('the client delegates account deletion to the server', () => {
     expect(body, 'deleteAccount must not call deleteUser — the server removes '
       + 'the Auth account last, after the data is gone')
       .not.toMatch(/\bdeleteUser\s*\(/);
+  });
+});
+
+
+// ── Deleting an account must not leave a subscription charging it ──────────
+//
+// purgeAccount erases /users/{uid}, the only record linking a Stripe customer
+// to this account, and never touches Stripe. Deleting while a subscription
+// can still bill would have charged a deleted account every month with
+// nothing left to trace it to. Both deletion paths refuse in that case.
+
+describe('subscriptionBlocksDeletion', () => {
+  const live = { stripe_subscription_id: 'sub_1', subscription_status: 'active' };
+
+  it('blocks every status under which Stripe can still raise an invoice', () => {
+    for (const status of BILLING_STATUSES) {
+      expect(subscriptionBlocksDeletion({ ...live, subscription_status: status }), status).toBe(true);
+    }
+  });
+
+  it('allows a subscription that is already over', () => {
+    expect(subscriptionBlocksDeletion({ ...live, subscription_status: 'canceled' })).toBe(false);
+    expect(subscriptionBlocksDeletion({ ...live, subscription_status: 'cancelled' })).toBe(false);
+    expect(subscriptionBlocksDeletion({ ...live, subscription_status: 'incomplete_expired' })).toBe(false);
+  });
+
+  it('allows one cancelled at period end, which will raise no further invoice', () => {
+    expect(subscriptionBlocksDeletion({ ...live, cancel_at_period_end: true })).toBe(false);
+  });
+
+  it('allows an account that never subscribed, or whose record is gone', () => {
+    expect(subscriptionBlocksDeletion({ plan: 'free' })).toBe(false);
+    expect(subscriptionBlocksDeletion({ subscription_status: 'active' })).toBe(false);
+    expect(subscriptionBlocksDeletion(null)).toBe(false);
+    expect(subscriptionBlocksDeletion(undefined)).toBe(false);
+  });
+});
+
+describe('both deletion paths apply the guard before purging', () => {
+  const src = readFileSync(resolve(process.cwd(), 'functions/index.js'), 'utf8');
+
+  it('checks billing before purgeAccount on the self-service and founder paths', () => {
+    const calls = [...src.matchAll(/await purgeAccount\(db,/g)].map((m) => m.index);
+    expect(calls.length, 'expected exactly the two known deletion paths').toBe(2);
+    for (const at of calls) {
+      const before = src.slice(Math.max(0, at - 700), at);
+      expect(before, 'a deletion path purges without checking the subscription')
+        .toMatch(/subscriptionBlocksDeletion\(/);
+      expect(before).toMatch(/status\(409\)/);
+    }
+  });
+
+  it('the webhook records cancel_at_period_end, which the guard depends on', () => {
+    const updated = src.slice(src.indexOf("case 'customer.subscription.updated'"));
+    expect(updated.slice(0, 1200)).toMatch(/cancel_at_period_end:\s*!!sub\.cancel_at_period_end/);
   });
 });

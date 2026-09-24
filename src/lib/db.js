@@ -344,6 +344,65 @@ let _cloudSaveTimer = null;
 // copy, and hydration restores the viewer's own workspace on reload.
 const OWN_BACKUP_KEY = 'sg_own_workspace_backup';
 
+// ── Signing out leaves nothing behind ────────────────────────────────────────
+//
+// localStorage is this app's primary read path, so a signed-in browser holds a
+// full copy of the workspace: every employee's name and work email, every
+// access grant. Signing out used to keep all of it and only mark the user as
+// signed out, so on a shared machine — an accounting practice, a front desk —
+// the next person could read the last client's staff list out of the browser.
+// The security page now says the local copy is removed on sign-out; these two
+// functions are what make that true.
+//
+// Clearing must never lose work, hence the flush: anything the cloud may not
+// have yet is written now rather than after the 1.5 s debounce, and if that
+// cannot be confirmed the caller asks before discarding. Only an explicit
+// sign-out clears. An expired session does not, because it is not a decision
+// the user made and it may be holding unsaved work.
+
+/** Keys that hold one account's data or secrets, removed on sign-out. */
+export const SIGN_OUT_KEYS = [
+  'accessguard_v1',              // LS_KEY: the workspace itself
+  OWN_BACKUP_KEY,                // the owner's copy while viewing a client
+  SYNC_MARK_KEY,
+  'saasguard_db',                // pre-rename copy of the workspace
+  'ag_uploaded_invoices',        // pre-migration invoice uploads
+  'slack_webhook',               // a secret: anyone holding it can post
+  'sg_connected_integrations',   // which vendors this account connected
+];
+
+/**
+ * Write this browser's copy to the cloud now if the cloud may be behind.
+ * Resolves true when nothing would be lost by clearing the browser, false when
+ * that cannot be confirmed (offline, a conflict, or another workspace's data).
+ * Never overwrites through a conflict: that stays the user's choice.
+ */
+export async function flushBeforeSignOut() {
+  clearTimeout(_cloudSaveTimer);
+  if (!cloudMayBeBehind()) return true;
+  const db = loadDb();
+  if (!db || db?.user?.is_demo || !db?.user?.is_authenticated) return true;
+  if (db._shared_view || !_firestoreUid) return false;
+  try {
+    markSyncSaving();
+    const rev = await saveUserData(_firestoreUid, db);
+    markInSync(rev);
+    markSyncSaved();
+    return true;
+  } catch (err) {
+    markSyncFailed(err, null);
+    return false;
+  }
+}
+
+/** Remove this account's data and secrets from the browser. */
+export function clearLocalWorkspace() {
+  clearTimeout(_cloudSaveTimer);
+  for (const key of SIGN_OUT_KEYS) {
+    try { localStorage.removeItem(key); } catch { /* storage unavailable: nothing to clear */ }
+  }
+}
+
 export function enterSharedView(sharedDb, meta) {
   const current = localStorage.getItem(LS_KEY);
   try {
