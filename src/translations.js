@@ -1384,7 +1384,7 @@ export const translations = {
     hc_days_left: "Days Left",
     hc_deal_breaker_issues: "Deal Breaker Issues",
     hc_deal_favorability_preference: "Deal Favorability Preference",
-    hc_download_security_whitepaper: "Download Security Whitepaper",
+    hc_download_security_whitepaper: "Doing a security review?",
     hc_due_date: "Due Date",
     hc_end_date: "End date",
     hc_export_your_data_in_a_portable_form: "Export your data in a portable format",
@@ -1953,7 +1953,7 @@ export const translations = {
     about_principle1_title: "Transparent pricing",
     about_principle1_body: "Public plans, no \"contact sales\" tier. You see the price before you sign up — including at enterprise level.",
     about_principle2_title: "European by design",
-    about_principle2_body: "EU data storage, GDPR-native from day one. Built for the regulatory and linguistic context of European SMBs.",
+    about_principle2_body: "Data stored in the EU, and the GDPR tools a processor owes its customers built in: a DPA, a published sub-processor list, full export and self-service deletion. Built for the regulatory and linguistic context of European SMBs.",
     about_principle3_title: "Focused scope",
     about_principle3_body: "We deliver the 80% of SaaS management that matters most. We do not try to be an HR suite, an IT ticketing system, or a SCIM/PAM platform.",
     about_principle4_title: "Accessible support",
@@ -1974,29 +1974,29 @@ export const translations = {
     magic_link_sent: "Magic link sent! Check your email and click the link to sign in.",
     paris_france: "Paris, France",
     redirecting_dashboard: "Redirecting to dashboard...",
-    security_full_docs: "Full technical documentation for your compliance and security teams.",
+    security_full_docs: "We will send our data-flow description, sub-processor list and DPA, and answer your security questionnaire.",
     security_trust_centre: "Security & Trust Centre",
     report_vulnerability: "Report a Vulnerability",
-    request_security_docs: "Request Security Documentation",
-    sec_intro_sub: "Enterprise-grade security and compliance — built in from day one, not bolted on later.",
-    sec_badge_gdpr: "GDPR-native", sec_badge_gdpr_sub: "Built for EU privacy law",
+    request_security_docs: "Ask for our security package",
+    sec_intro_sub: "What we actually do to protect your data, stated precisely — including what we do not do yet.",
+    sec_badge_gdpr: "GDPR tooling", sec_badge_gdpr_sub: "DPA, export and self-service deletion",
     sec_badge_enc: "Encrypted", sec_badge_enc_sub: "In transit & at rest",
     sec_badge_stripe: "Stripe payments", sec_badge_stripe_sub: "PCI-DSS via Stripe",
     sec_badge_iso: "Data isolation", sec_badge_iso_sub: "Per-customer, walled off",
     sec_card_enc_title: "Encryption in Transit & at Rest",
-    sec_card_enc_body: "All traffic is served over HTTPS/TLS, and your data is encrypted at rest by our cloud provider (Google Cloud, AES-256). Your SaaS inventory, employee records, and access data are never stored in plaintext.",
+    sec_card_enc_body: "All traffic is served over HTTPS/TLS, and the copy of your workspace in our cloud database is encrypted at rest by Google Cloud (AES-256). For speed, the app also keeps a working copy in your browser's local storage, which is not encrypted there. Signing out removes it from the browser.",
     sec_card_infra_title: "Infrastructure & Hosting",
-    sec_card_infra_body: "Stacklens runs on Google Cloud Platform (Firebase/GCP) with per-customer isolated data — no data is ever co-mingled between customers. Your database records are stored in the EU; some processing (AI features, billing) currently runs on Google/Stripe infrastructure in the US.",
+    sec_card_infra_body: "Stacklens runs on Google Cloud (Firebase). Your workspace is stored in the EU. Server-side processing — the functions that sync integrations, run AI features, handle billing and send alerts — currently runs in Google's us-central1 region in the United States, under Standard Contractual Clauses. Customers share one database, and each customer's data sits in its own records with access checked on every read and write.",
     sec_card_access_title: "Data Access Controls",
-    sec_card_access_body: "Only you and the users you explicitly invite can access your workspace. Your data lives in a database record scoped to your account; other customers cannot read it. We never sell or share your data with third parties.",
+    sec_card_access_body: "Only you and the people you invite can open your workspace; for a client workspace, so can the practice that manages it. Other customers cannot reach it. We never sell your data, and we share it only with the sub-processors listed on our sub-processors page.",
     sec_card_auth_title: "Authentication",
     sec_card_auth_body: "Sign in with Google OAuth 2.0, a passwordless Magic Link, or email and password — all handled by Google Firebase Authentication. Two-factor authentication is available through your Google account. (SAML/SSO is on our roadmap for enterprise plans.)",
     sec_card_abuse_title: "Abuse & Bot Protection",
-    sec_card_abuse_body: "Every server API requires an authenticated, verified token and enforces per-user rate limits. Payment data is handled entirely by Stripe — card details never touch our servers.",
+    sec_card_abuse_body: "Endpoints you call from the app require a verified sign-in token, and the AI and billing ones are also rate-limited per account. Four take no sign-in by design, and each checks something else instead: the public API (your API key), the payment webhook (Stripe's signature), the invoice inbox (a private address issued to you) and anonymous crash reports. Payment data is handled entirely by Stripe — card details never touch our servers.",
     sec_card_log_title: "Activity Logging",
     sec_card_log_body: "Stacklens keeps an in-app audit trail of key actions — access grants, revocations, and changes — so you can review what happened in your workspace and when. You can export it at any time.",
     sec_card_delete_title: "Data Portability & Deletion",
-    sec_card_delete_body: "You own your data. Export everything in CSV or JSON at any time from Settings. When you cancel, your data is permanently deleted. We do not sell or share your data with any third party.",
+    sec_card_delete_body: "You own your data. Export your whole workspace as JSON, or individual lists as CSV, at any time from Settings → Data. Cancelling a subscription moves you to the free plan and keeps your data, so you can come back. Deleting your account from Settings → Data erases your workspace, its backups and your sign-in immediately. We never sell your data.",
     sec_card_vuln_title: "Vulnerability Disclosure",
     sec_card_vuln_body: "We take every security report seriously. If you discover a vulnerability, email hello@stacklens.fr with details. We aim to respond within 48 hours and acknowledge responsible disclosure.",
     sec_disclosure_body: "We take every security report seriously. We aim to respond within 48 hours. Responsible disclosure is always acknowledged.",
@@ -2015,7 +2015,7 @@ export const translations = {
     what_stacklens_finds: "What Stacklens finds",
     lp_nav_pricing: "Pricing",
     lp_nav_faq: "FAQ",
-    lp_eu_badge: "🇪🇺 EU data storage · GDPR-native · Built for European SMBs",
+    lp_eu_badge: "🇪🇺 EU data storage · GDPR tooling built in · For European SMBs",
     lp_hero_title_1: "Stop SaaS drift",
     lp_hero_title_2: "before it costs you.",
     lp_hero_subtitle: "You're the one person chasing invoices, renewals, and zombie accounts across 80+ tools. Stacklens gives you the visibility to find what's wasted, who still has access, and what's about to auto-renew — in 5 minutes, not 5 days.",
@@ -2105,7 +2105,7 @@ export const translations = {
     lp_faq_q5: "How long does setup take?",
     lp_faq_a5: "About 5 minutes. Sign up, upload a CSV (or add a few tools manually), invite your team. Most customers see their first savings opportunity within 10 minutes.",
     lp_faq_q6: "What if I want to cancel?",
-    lp_faq_a6: "Click \"Cancel subscription\" in Settings. No retention emails. No \"are you sure?\" dialogs. Your data stays accessible for 30 days, then is deleted.",
+    lp_faq_a6: "Manage your subscription from Settings → Billing and cancel in the Stripe portal. You keep your data and move to the free plan, so nothing is lost if you come back. To erase everything, delete your account from Settings → Data.",
     lp_final_subtitle: "Free forever for up to 10 tools. No credit card. No demo call. Just sign up and start.",
     lp_final_cta: "Create my free account",
     lp_final_note: "7-day trial of Pro features included. Downgrade anytime.",
@@ -2780,7 +2780,7 @@ export const translations = {
     lp_who_title: "Built for two people",
     lp_cta_audit: "Run a free audit",
     lp_trust_heading: "Built to be trusted with your data",
-    lp_trust_1: "GDPR-native", lp_trust_1_sub: "Built for EU privacy law",
+    lp_trust_1: "GDPR tooling", lp_trust_1_sub: "DPA, export, deletion",
     lp_trust_2: "Encrypted & isolated", lp_trust_2_sub: "Your data, walled off per customer",
     lp_trust_3: "Stripe-secured", lp_trust_3_sub: "PCI-DSS payments, cards never touch us",
     lp_trust_4: "Cancel anytime", lp_trust_4_sub: "No lock-in · we never sell your data",
@@ -2829,7 +2829,7 @@ export const translations = {
     lp_faq6_q: "How long does setup take?",
     lp_faq6_a: "About 5 minutes. Sign up, upload a CSV (or add a few tools manually), invite your team. Most customers see their first savings opportunity within 10 minutes.",
     lp_faq7_q: "What if I want to cancel?",
-    lp_faq7_a: "Click \"Cancel subscription\" in Settings. No retention emails. No \"are you sure?\" dialogs. Your data stays accessible for 30 days, then is deleted.",
+    lp_faq7_a: "Manage your subscription from Settings → Billing and cancel in the Stripe portal. You keep your data and move to the free plan, so nothing is lost if you come back. To erase everything, delete your account from Settings → Data.",
     lp_faq8_q: "Who's behind Stacklens?",
     lp_faq8_a: "Stacklens is an independent European software company. We're small and product-focused — which means you deal directly with the people who build the product, not a call centre. Payments are handled by Stripe, hosting by Google Cloud, and your data is yours to export or delete at any time. Full company and contact details are on our Legal page.",
     lp_final_cta_body: "Free forever for up to 10 tools. No credit card. No demo call. Just sign up and start.",
@@ -2873,11 +2873,11 @@ export const translations = {
     lp_password_common: "That looks like a common password — pick something less guessable.",
     sec_real_title: "What protects your account",
     sec_real_sub: "Only controls that are actually enforced are listed here.",
-    sec_real_isolation: "Your workspace can be read and written only by your own signed-in account. That boundary is enforced by database security rules and covered by automated tests on every release.",
+    sec_real_isolation: "Your own workspace can be read and written only by your signed-in account; that boundary is enforced by database security rules and covered by automated tests on every release. People you invite, and the practice managing a client workspace, reach it through our server, which checks their access on every read and write.",
     sec_real_appcheck: "Requests carry a Firebase App Check token, so the app's public configuration alone cannot be used to call the backend.",
     sec_real_ratelimit: "The AI assistant and the billing endpoints are rate-limited per account.",
-    sec_real_audit: "Every change to tools, people and access is recorded in the audit log, which you can export from the Data tab.",
-    sec_real_creds: "Stored integration secrets are write-only: the server can use them, and nobody can read them back — not even you.",
+    sec_real_audit: "Every change to tools, people and access made in the app is recorded in the audit log, which keeps the latest 2,000 entries and can be exported from the Data tab.",
+    sec_real_creds: "Stored integration secrets are write-only: the server can use them, and nobody can read them back — not even you. The one exception is the Slack notifications webhook, which is kept in this browser and removed when you sign out.",
     sec_roadmap_title: "Not available yet",
     sec_roadmap_body: "Enforced multi-factor authentication, IP restrictions and session timeouts are on the roadmap and are not available today. Your Google or Microsoft account's own two-factor setting still applies when you sign in that way.",
     lp_password_repetitive: "That is one thing repeated, so it is only as strong as the part that repeats.",
@@ -2917,18 +2917,18 @@ export const translations = {
     subproc_bridge_purpose: "Bank account connectivity (optional — only if you connect a bank feed)",
     subproc_bridge_transfer: "EU — ACPR-regulated, no transfer outside EU",
     subproc_web3forms_purpose: "Contact form delivery",
-    subproc_web3forms_transfer: "Transfer to USA — message content only",
+    subproc_web3forms_transfer: "Transfer to USA — the name, email address and message you enter in the contact form",
     privacy_s3_sendgrid_purpose: "Email delivery (optional feature, only when configured)",
     privacy_s3_bridge_purpose: "Bank feed (optional feature)",
     subproc_stripe_purpose: "Payment processing, subscription management, customer billing portal",
     subproc_stripe_transfer: "Transfer possible to USA — SCCs in place",
-    subproc_anthropic_purpose: "AI-assisted contract analysis — only when feature is explicitly used. Submitted texts are not retained by Anthropic for training.",
+    subproc_anthropic_purpose: "AI features: contract comparison, invoice extraction (uploads and the invoice inbox), the support assistant and the weekly email summary. Data sent through Anthropic's API is not used to train its models.",
     subproc_anthropic_transfer: "Transfer to USA — SCCs + data non-retention policy",
     subproc_ovh_purpose: "Domain registrar for stacklens.fr, hello@stacklens.fr email",
     subproc_ovh_transfer: "EU — no transfer outside EU",
     subproc_ga_purpose: "Anonymised audience measurement — only with explicit consent via CNIL cookie banner",
     subproc_ga_transfer: "Anonymised data only, EU storage",
-    subproc_sentry_purpose: "Application error monitoring — stack traces and the page URL where an error occurred, so faults are found and fixed",
+    subproc_sentry_purpose: "Application error and performance monitoring — stack traces, the page URL where an error occurred, and page-load timings for 10% of sessions, so faults and slowness are found and fixed",
     subproc_sentry_transfer: "Standard Contractual Clauses; no customer records are sent, only diagnostic data",
     subproc_privacy_policy_link: "Privacy policy →",
     subproc_change_notif_title: "Change notification",
@@ -2998,24 +2998,24 @@ export const translations = {
     dpa_s6_item2: "Ensure confidentiality of authorised persons processing the data",
     dpa_s6_item3: "Implement appropriate technical and organisational security measures (see Security page)",
     dpa_s6_item4: "Assist the Controller in complying with data subject rights",
-    dpa_s6_item5: "Notify any data breach within 72 hours to hello@stacklens.fr",
+    dpa_s6_item5: "Notify the Controller of any personal data breach affecting its data without undue delay, and in any case within 72 hours of becoming aware of it, by email to the account owner's address, with what is known at the time and updates as the investigation proceeds",
     dpa_s6_item6: "Delete or return all data at the end of the contract",
     dpa_s6_item7: "Make available all information necessary to demonstrate compliance",
     dpa_s7_title: "7. Sub-processors",
     dpa_s7_body: "Stacklens uses the sub-processors listed on our Sub-processors page (/sub-processors). The Controller authorises use of these sub-processors. Stacklens will inform the Controller of any change in sub-processors with 30 days notice.",
     dpa_s7_link: "See full sub-processor list →",
     dpa_s8_title: "8. International transfers",
-    dpa_s8_body: "Some sub-processors (notably Anthropic for AI analysis) are based in the United States. These transfers are governed by Standard Contractual Clauses (SCCs) approved by the European Commission. AI processing is optional and activated only on explicit user request.",
+    dpa_s8_body: "Some sub-processors are based in the United States: Anthropic for AI features, Google for server-side processing, and the others listed on the sub-processors page. These transfers are governed by Standard Contractual Clauses (SCCs) approved by the European Commission. AI processing happens only within features the Controller uses: contract comparison, invoice extraction (including the invoice inbox, once set up), the support assistant and the weekly summary email.",
     dpa_s9_title: "9. Data security",
     dpa_s9_body: "Stacklens implements the following security measures: TLS encryption in transit, at-rest encryption via Firebase (AES-256), strong authentication (Google SSO + magic links), Firebase App Check anti-bot, restrictive Firestore security rules, API keys restricted to authorised domains.",
     dpa_s10_title: "10. Data subject rights",
-    dpa_s10_body: "The Controller remains responsible for responding to data subject rights requests (access, rectification, deletion, portability) from its employees. Stacklens provides export and deletion tools to respond within legal deadlines. For any request: hello@stacklens.fr.",
+    dpa_s10_body: "The Controller remains responsible for responding to data subject rights requests (access, rectification, deletion, portability) from its employees. Stacklens provides the tools to do so: records can be edited or removed in the app, the whole workspace can be exported as JSON from Settings → Data, and the account can be deleted there. For any request: hello@stacklens.fr.",
     dpa_s11_title: "11. Retention and deletion",
     dpa_s11_item1: "Active data: retained for the duration of the subscription",
     dpa_s11_item2: "After termination: deleted within 30 days",
     dpa_s11_item3: "Cookie consent logs: 3 years (CNIL obligation)",
     dpa_s11_item4: "Payment data (Stripe): per Stripe retention policy",
-    dpa_s11_item5: "Contract texts analysed by AI: not retained after analysis",
+    dpa_s11_item5: "Contract texts and raw invoice text sent for AI processing: not stored by Stacklens; only the extracted invoice details are kept",
     dpa_s12_title: "12. Liability and limitation",
     dpa_s12_body: "Stacklens liability under this agreement is limited to the amount paid by the Controller in the 12 months preceding the incident. This limitation does not apply in cases of intentional misconduct or gross negligence.",
     dpa_s13_title: "13. Governing law",
@@ -3064,7 +3064,7 @@ export const translations = {
     privacy_s2_account_body: "Name, email, password (hashed), company name, team size.",
     privacy_s2_account_legal: "Legal basis: Contract performance (Art. 6.1.b GDPR)",
     privacy_s2_saas_title: "Imported SaaS data",
-    privacy_s2_saas_body: "Tool names, costs, owners, employee names, emails, departments, access records — only data you import via CSV/Excel.",
+    privacy_s2_saas_body: "Tool names, costs, owners, employee names, work emails, departments and access records — the data you import (CSV or Excel), add by hand, or sync from a directory or tool you connect (Google Workspace, Microsoft 365, Okta, Slack, GitHub, Zoom, Asana, Salesforce). If you use them: invoices you upload or forward to your invoice inbox, and bank transactions from the optional bank feed.",
     privacy_s2_saas_legal: "Legal basis: Contract performance (Art. 6.1.b GDPR)",
     privacy_s2_payment_title: "Payment data",
     privacy_s2_payment_body: "Processed by Stripe. We never store card numbers. We only retain the Stripe customer ID and subscription status.",
@@ -3079,16 +3079,16 @@ export const translations = {
     privacy_s3_col_location: "Location",
     privacy_s3_firebase_purpose: "Hosting, authentication, database",
     privacy_s3_gcp_purpose: "Cloud Functions (serverless processing)",
-    privacy_s3_sentry_purpose: "Error monitoring (stack traces, page URL)",
+    privacy_s3_sentry_purpose: "Error and performance monitoring (stack traces, page URL, page-load timings for a sample of sessions)",
     privacy_s3_stripe_purpose: "Payment processing",
     privacy_s3_anthropic_purpose: "AI contract analysis",
     privacy_s3_ga_purpose: "Analytics (with consent)",
     privacy_s3_ovh_purpose: "Domain and email",
     privacy_s3_web3forms_purpose: "Contact form",
     privacy_s4_title: "4. AI Usage Disclosure",
-    privacy_s4_body: "Stacklens uses Claude AI (Anthropic) for contract analysis. When you use the contract comparison feature, the text you provide is sent to Anthropic's API for analysis. Anthropic does not retain your data for model training. AI results are informational and do not constitute legal advice.",
+    privacy_s4_body: "Stacklens uses Claude (Anthropic) for: comparing contracts, extracting invoice details from files you upload or forward to your invoice inbox, the support assistant, and the short summary in the weekly email. The text involved is sent to Anthropic's API when you use one of these features, or when an invoice reaches your inbox once you have set it up. Stacklens does not store contract texts or the raw text of invoices — only the invoice details extracted from them. Interface text in some languages is also translated with Claude; it contains no customer data. Under Anthropic's commercial terms, data sent through its API is not used to train its models. AI results are informational and are not legal advice.",
     privacy_s5_title: "5. Data Retention",
-    privacy_s5_body: "Your data is retained as long as your account is active. After account deletion, all your data is erased within 30 days. Billing data is retained for 10 years as required by French tax law.",
+    privacy_s5_body: "Your data is kept while your account exists. Cancelling a subscription does not delete it: your account moves to the free plan and your data stays, so you can return. Deleting your account from Settings → Data erases your workspace, its backups, any client workspaces you own, your invoice inbox and your sign-in immediately, and signing out removes the copy kept in your browser. Daily backups are kept for 30 days, so a record you delete inside your workspace can remain in a backup for up to 30 days before it is gone for good. Billing records are kept for 10 years, as French tax law requires.",
     privacy_s6_title: "6. Your Rights",
     privacy_s6_intro: "Depending on where you live, you have the following rights over your personal data — under the EU GDPR and UK GDPR, and equivalent rights under the California Consumer Privacy Act (CCPA/CPRA):",
     privacy_s6_right1: "Right to access your personal data",
@@ -3270,6 +3270,20 @@ export const translations = {
     set_del_account: "Delete account",
     set_del_account_desc: "Permanently deletes your Stacklens account and all data",
     set_del_account_btn: "Delete Account",
+    set_export_all: "Everything (JSON)",
+    set_export_all_desc: "Your whole workspace in one file: tools, people, access, contracts, invoices, licences, budgets, spend history and the audit log.",
+    set_export_all_done: "Workspace exported",
+    del_acct_title: "Delete your account",
+    del_acct_body: "This erases, immediately and permanently: your workspace and its backups, any client workspaces you own, your invoice inbox, stored integration tokens, your team invitations, and your sign-in. It cannot be undone.",
+    del_acct_export_first: "If you want to keep anything, export your workspace first from the tiles above.",
+    del_acct_type: "Type your email address to confirm:",
+    del_acct_confirm_btn: "Delete my account permanently",
+    del_acct_working: "Deleting…",
+    del_acct_done: "Your account has been deleted.",
+    del_acct_failed: "The account could not be deleted. Nothing was removed.",
+    del_acct_manage_sub: "Manage subscription",
+    int_disconnect_failed: "Could not disconnect: the stored token was not deleted, so the integration is still connected. Please try again.",
+    signout_unsaved_confirm: "Some of your latest changes have not reached the cloud yet. Signing out now removes them from this browser. Sign out anyway?",
     set_api_new_msg: "New API key generated — copy it now, it won't be shown again",
     set_gen_new_key: "Generate New Key",
     set_gen_key_sub: "Name it so you remember what it's for",
@@ -3896,7 +3910,7 @@ export const translations = {
     subproc_sendgrid_transfer: "Transfert vers USA — CCT en place",
     subproc_bridge_transfer: "UE — agréé ACPR, aucun transfert hors UE",
     subproc_web3forms_purpose: "Acheminement du formulaire de contact",
-    subproc_web3forms_transfer: "Transfert vers USA — contenu du message uniquement",
+    subproc_web3forms_transfer: "Transfert vers les États-Unis — le nom, l'adresse e-mail et le message saisis dans le formulaire de contact",
     privacy_s3_sendgrid_purpose: "Envoi d'e-mails (fonction optionnelle, uniquement si configuré)",
     privacy_s3_bridge_purpose: "Flux bancaire (fonctionnalité optionnelle)",
     subproc_stripe_transfer: "Transfert possible vers les USA — CCT en place",
@@ -3943,7 +3957,7 @@ export const translations = {
     dpa_s8_title: "8. Transferts internationaux",
     dpa_s11_item3: "Journaux de consentement cookies : 3 ans (obligation CNIL)",
     dpa_s11_item4: "Données de paiement (Stripe) : selon la politique de conservation de Stripe",
-    dpa_s11_item5: "Textes de contrats analysés par IA : non conservés après analyse",
+    dpa_s11_item5: "Textes de contrats et texte brut des factures envoyés à l'IA : non conservés par Stacklens ; seules les informations extraites des factures sont gardées",
     dpa_s13_title: "13. Droit applicable",
     dpa_ccpa_title: "Annexe 1 — Avenant California Consumer Privacy Act (CCPA/CPRA)",
     dpa_ccpa_scope: "Cette annexe s'applique uniquement lorsque, et dans la mesure où, Stacklens traite pour le compte du Responsable de traitement des Informations personnelles relevant du California Consumer Privacy Act tel que modifié par le California Privacy Rights Act (ensemble, le CCPA). En cas de contradiction avec le reste du présent accord, cette annexe prévaut, pour les seules Informations personnelles régies par le CCPA.",
@@ -3996,7 +4010,7 @@ export const translations = {
     privacy_s3_col_location: "Localisation",
     privacy_s3_firebase_purpose: "Hébergement, authentification, base de données",
     privacy_s3_gcp_purpose: "Cloud Functions (traitement serverless)",
-    privacy_s3_sentry_purpose: "Surveillance des erreurs (traces, URL de la page)",
+    privacy_s3_sentry_purpose: "Suivi des erreurs et des performances (traces d'erreur, URL de la page, temps de chargement pour un échantillon de sessions)",
     privacy_s3_anthropic_purpose: "Analyse de contrats par IA",
     privacy_s3_web3forms_purpose: "Formulaire de contact",
     privacy_s4_title: "4. Information sur l'usage de l'IA",
@@ -4090,7 +4104,7 @@ export const translations = {
     lp_who_title: "Conçu pour deux personnes",
     lp_cta_audit: "Lancer un audit gratuit",
     lp_trust_heading: "Conçu pour mériter votre confiance",
-    lp_trust_1: "Conforme RGPD", lp_trust_1_sub: "Pensé pour le droit européen",
+    lp_trust_1: "Outils RGPD", lp_trust_1_sub: "DPA, export, suppression",
     lp_trust_2: "Chiffré et isolé", lp_trust_2_sub: "Vos données, cloisonnées par client",
     lp_trust_4: "Résiliable à tout moment", lp_trust_4_sub: "Sans engagement · vos données ne sont jamais vendues",
     lp_problems_title: "Les problèmes cachés dans",
@@ -4120,7 +4134,7 @@ export const translations = {
     lp_faq6_q: "Combien de temps dure la configuration ?",
     lp_faq6_a: "Environ 5 minutes. Inscrivez-vous, importez un CSV (ou ajoutez quelques outils manuellement), invitez votre équipe. La plupart des clients voient leur première opportunité d'économie en 10 minutes.",
     lp_faq7_q: "Et si je veux annuler ?",
-    lp_faq7_a: "Cliquez sur \"Annuler l'abonnement\" dans les Paramètres. Pas d'emails de rétention. Pas de dialogues \"êtes-vous sûr ?\". Vos données restent accessibles 30 jours, puis sont supprimées.",
+    lp_faq7_a: "Gérez votre abonnement depuis Paramètres → Facturation et résiliez dans le portail Stripe. Vous gardez vos données et passez au plan gratuit, rien n'est perdu si vous revenez. Pour tout effacer, supprimez votre compte depuis Paramètres → Données.",
     lp_faq8_a: "Stacklens est une société de logiciels européenne indépendante. Nous sommes une petite équipe centrée sur le produit — vous échangez donc directement avec les personnes qui le construisent, pas un centre d'appels. Les paiements sont gérés par Stripe, l'hébergement par Google Cloud, et vos données vous appartiennent : exportez-les ou supprimez-les à tout moment. Les mentions légales complètes figurent sur notre page Légal.",
     lp_final_cta_body: "Gratuit pour toujours jusqu'à 10 outils. Sans CB. Sans appel de démonstration. Inscrivez-vous et commencez.",
     lp_final_cta_note: "7 jours d'essai des fonctionnalités Pro inclus. Rétrogradez à tout moment.",
@@ -4150,11 +4164,11 @@ export const translations = {
     lp_password_common: "Ce mot de passe est trop courant — choisissez-en un moins devinable.",
     sec_real_title: "Ce qui protège votre compte",
     sec_real_sub: "Seules les protections réellement appliquées sont listées ici.",
-    sec_real_isolation: "Votre espace de travail n'est lisible et modifiable que par votre propre compte connecté. Cette frontière est appliquée par les règles de sécurité de la base et couverte par des tests automatisés à chaque version.",
+    sec_real_isolation: "Votre propre espace ne peut être lu et modifié que par votre compte connecté ; cette limite est imposée par les règles de sécurité de la base de données et couverte par des tests automatiques à chaque version. Les personnes que vous invitez, et le cabinet qui gère un espace client, y accèdent via notre serveur, qui vérifie leurs droits à chaque lecture et écriture.",
     sec_real_appcheck: "Les requêtes portent un jeton Firebase App Check : la configuration publique de l'application ne suffit pas à appeler le backend.",
     sec_real_ratelimit: "L'assistant IA et les points de facturation sont limités en débit par compte.",
-    sec_real_audit: "Chaque modification des outils, des personnes et des accès est enregistrée dans le journal d'audit, exportable depuis l'onglet Données.",
-    sec_real_creds: "Les secrets d'intégration stockés sont en écriture seule : le serveur peut les utiliser, personne ne peut les relire — pas même vous.",
+    sec_real_audit: "Chaque modification des outils, des personnes et des accès faite dans l'application est inscrite au journal d'audit, qui conserve les 2 000 dernières entrées et s'exporte depuis l'onglet Données.",
+    sec_real_creds: "Les secrets d'intégration stockés sont en écriture seule : le serveur peut les utiliser, personne ne peut les relire — pas même vous. Seule exception : le webhook des notifications Slack, conservé dans ce navigateur et supprimé à la déconnexion.",
     sec_roadmap_title: "Pas encore disponible",
     sec_roadmap_body: "L'authentification multifacteur imposée, les restrictions par IP et l'expiration de session sont prévues mais ne sont pas disponibles aujourd'hui. Le second facteur de votre compte Google ou Microsoft continue de s'appliquer si vous vous connectez ainsi.",
     lp_password_repetitive: "C'est une suite répétée : il ne vaut que ce que vaut le motif répété.",
@@ -4171,10 +4185,10 @@ export const translations = {
     subproc_intro: "Conformément au RGPD et à notre DPA, nous publions la liste complète des sous-traitants qui traitent des données pour notre compte. Nous vous informerons de tout changement avec un préavis de 30 jours.",
     subproc_bridge_purpose: "Connexion bancaire (optionnelle — uniquement si vous connectez un flux bancaire)",
     subproc_stripe_purpose: "Traitement des paiements, gestion des abonnements, portail client de facturation",
-    subproc_anthropic_purpose: "Analyse de contrats assistée par IA — uniquement lorsque la fonctionnalité est utilisée explicitement. Les textes soumis ne sont pas conservés par Anthropic pour l'entraînement.",
+    subproc_anthropic_purpose: "Fonctions d'IA : comparaison de contrats, extraction des factures (dépôts et boîte de réception), assistant d'aide et résumé du rapport hebdomadaire. Les données envoyées via l'API d'Anthropic ne servent pas à entraîner ses modèles.",
     subproc_anthropic_transfer: "Transfert vers USA — SCCs + politique de non-conservation des données",
     subproc_ga_purpose: "Mesure d'audience anonymisée — uniquement avec consentement explicite via le bandeau CNIL",
-    subproc_sentry_purpose: "Surveillance des erreurs applicatives — traces d'exécution et URL de la page concernée, afin d'identifier et corriger les anomalies",
+    subproc_sentry_purpose: "Suivi des erreurs et des performances de l'application — traces d'erreur, URL de la page concernée et temps de chargement pour 10 % des sessions, pour détecter et corriger pannes et lenteurs",
     subproc_change_notif_title: "Notification des changements",
     subproc_change_notif_body: "Si nous ajoutons ou remplaçons un sous-traitant, nous vous informerons par email à l'adresse associée à votre compte avec un préavis de 30 jours. Vous aurez la possibilité de vous opposer à ce changement. Si aucune opposition n'est reçue dans ce délai, le changement sera considéré comme accepté.",
     legal_publication_director_title: "Directeur de la publication",
@@ -4208,16 +4222,16 @@ export const translations = {
     dpa_s6_item2: "Garantir la confidentialité des personnes autorisées à traiter les données",
     dpa_s6_item3: "Mettre en œuvre des mesures de sécurité techniques et organisationnelles appropriées (voir page Sécurité)",
     dpa_s6_item4: "Assister le Responsable du traitement dans le respect des droits des personnes concernées",
-    dpa_s6_item5: "Notifier toute violation de données dans les 72 heures à hello@stacklens.fr",
+    dpa_s6_item5: "Notifier au Responsable du traitement toute violation de données personnelles concernant ses données dans les meilleurs délais, et au plus tard 72 heures après en avoir pris connaissance, par email à l'adresse du titulaire du compte, avec les informations disponibles à ce moment puis leurs mises à jour au fil de l'enquête",
     dpa_s6_item6: "Supprimer ou restituer toutes les données à la fin du contrat",
     dpa_s6_item7: "Tenir à disposition toutes les informations nécessaires pour démontrer la conformité",
     dpa_s7_body: "Stacklens fait appel aux sous-traitants listés sur notre page Sous-traitants (/sub-processors). Le Responsable du traitement autorise le recours à ces sous-traitants. Stacklens informera le Responsable du traitement de tout changement de sous-traitant avec un préavis de 30 jours.",
     dpa_s7_link: "Voir la liste complète des sous-traitants →",
-    dpa_s8_body: "Certains sous-traitants (notamment Anthropic pour l'analyse IA) sont établis aux États-Unis. Ces transferts sont encadrés par les Clauses contractuelles types (CCT) approuvées par la Commission européenne. Le traitement IA est optionnel et activé uniquement sur demande explicite de l'utilisateur.",
+    dpa_s8_body: "Certains sous-traitants sont établis aux États-Unis : Anthropic pour les fonctions d'IA, Google pour les traitements côté serveur, et les autres listés sur la page des sous-traitants. Ces transferts sont encadrés par des clauses contractuelles types (CCT) approuvées par la Commission européenne. Les traitements par IA n'ont lieu que dans les fonctions utilisées par le Responsable : comparaison de contrats, extraction de factures (y compris la boîte de réception, une fois configurée), l'assistant d'aide et le rapport hebdomadaire.",
     dpa_s9_title: "9. Sécurité des données",
     dpa_s9_body: "Stacklens met en œuvre les mesures de sécurité suivantes : chiffrement TLS en transit, chiffrement au repos via Firebase (AES-256), authentification forte (Google SSO + magic links), App Check Firebase anti-bot, règles de sécurité Firestore restrictives, clés API restreintes aux domaines autorisés.",
     dpa_s10_title: "10. Droits des personnes concernées",
-    dpa_s10_body: "Le Responsable du traitement reste responsable de répondre aux demandes d'exercice de droits (accès, rectification, suppression, portabilité) de ses employés. Stacklens fournit les outils d'export et de suppression pour y répondre dans les délais légaux. Pour toute demande : hello@stacklens.fr.",
+    dpa_s10_body: "Le Responsable reste chargé de répondre aux demandes d'exercice des droits (accès, rectification, effacement, portabilité) de ses salariés. Stacklens en fournit les outils : les enregistrements se modifient ou se suppriment dans l'application, tout l'espace s'exporte en JSON depuis Paramètres → Données, et le compte s'y supprime. Pour toute demande : hello@stacklens.fr.",
     dpa_s11_title: "11. Conservation et suppression",
     dpa_s11_item1: "Données actives : conservées pendant toute la durée de l'abonnement",
     dpa_s11_item2: "Après résiliation : suppression dans les 30 jours",
@@ -4228,16 +4242,16 @@ export const translations = {
     dpa_contact_body: "Pour toute question relative à ce DPA ou à vos données :",
     privacy_s1_body: "Le responsable du traitement de vos données personnelles est :",
     privacy_s2_intro: "Nous collectons les données suivantes :",
-    privacy_s2_saas_body: "Noms d'outils, coûts, propriétaires, noms d'employés, emails, départements, enregistrements d'accès — uniquement les données que vous importez via CSV/Excel.",
+    privacy_s2_saas_body: "Noms des outils, coûts, responsables, noms des salariés, e-mails professionnels, services et accès — les données que vous importez (CSV ou Excel), saisissez, ou synchronisez depuis un annuaire ou un outil que vous connectez (Google Workspace, Microsoft 365, Okta, Slack, GitHub, Zoom, Asana, Salesforce). Si vous les utilisez : les factures que vous déposez ou transférez à votre boîte de réception de factures, et les transactions bancaires du flux bancaire optionnel.",
     privacy_s2_payment_body: "Traitées par Stripe. Nous ne stockons jamais les numéros de carte. Nous conservons uniquement l'ID client Stripe et le statut de l'abonnement.",
     privacy_s2_analytics_body: "Google Analytics (uniquement avec votre consentement via notre bandeau cookies). Données anonymisées : pages visitées, durée de session, type d'appareil.",
     privacy_s3_intro: "Vos données sont traitées par les services tiers suivants :",
     privacy_s3_stripe_purpose: "Traitement des paiements",
     privacy_s3_ga_purpose: "Analytiques (avec consentement)",
     privacy_s3_ovh_purpose: "Domaine et emails",
-    privacy_s4_body: "Stacklens utilise Claude AI (Anthropic) pour l'analyse de contrats. Lorsque vous utilisez la fonctionnalité de comparaison de contrats, le texte que vous fournissez est envoyé à l'API d'Anthropic pour analyse. Anthropic ne conserve pas vos données pour l'entraînement de ses modèles. Les résultats de l'IA sont indicatifs et ne constituent pas un avis juridique.",
+    privacy_s4_body: "Stacklens utilise Claude (Anthropic) pour : comparer des contrats, extraire les informations des factures que vous déposez ou transférez à votre boîte de réception, l'assistant d'aide, et le court résumé du rapport hebdomadaire. Le texte concerné est envoyé à l'API d'Anthropic lorsque vous utilisez l'une de ces fonctions, ou lorsqu'une facture arrive dans votre boîte une fois celle-ci configurée. Stacklens ne conserve ni le texte des contrats ni le texte brut des factures — seulement les informations extraites des factures. Dans certaines langues, le texte de l'interface est aussi traduit avec Claude ; il ne contient aucune donnée client. Selon les conditions commerciales d'Anthropic, les données envoyées via son API ne servent pas à entraîner ses modèles. Les résultats de l'IA sont informatifs et ne constituent pas un avis juridique.",
     privacy_s5_title: "5. Conservation des données",
-    privacy_s5_body: "Vos données sont conservées tant que votre compte est actif. Après suppression de votre compte, toutes vos données sont effacées dans un délai de 30 jours. Les données de facturation sont conservées 10 ans conformément à la législation fiscale française.",
+    privacy_s5_body: "Vos données sont conservées tant que votre compte existe. Résilier un abonnement ne les supprime pas : votre compte passe au plan gratuit et vos données restent, pour que vous puissiez revenir. Supprimer votre compte depuis Paramètres → Données efface immédiatement votre espace, ses sauvegardes, les espaces clients dont vous êtes propriétaire, votre boîte de réception de factures et votre accès, et la déconnexion supprime la copie gardée dans votre navigateur. Les sauvegardes quotidiennes sont conservées 30 jours : un élément supprimé dans votre espace peut donc subsister dans une sauvegarde jusqu'à 30 jours avant de disparaître définitivement. Les données de facturation sont conservées 10 ans, comme l'exige le droit fiscal français.",
     privacy_s6_title: "6. Vos droits (RGPD)",
     privacy_s6_intro: "Conformément au RGPD, vous disposez des droits suivants :",
     privacy_s6_right1: "Droit d'accès à vos données personnelles",
@@ -5241,7 +5255,7 @@ export const translations = {
     hc_days_left: "Jours restants",
     hc_deal_breaker_issues: "Problèmes bloquants",
     hc_deal_favorability_preference: "Préférence de favorabilité",
-    hc_download_security_whitepaper: "Télécharger le livre blanc sécurité",
+    hc_download_security_whitepaper: "Vous menez une revue de sécurité ?",
     hc_due_date: "Date d'échéance",
     hc_end_date: "Date de fin",
     hc_export_your_data_in_a_portable_form: "Exporter vos données dans un format portable",
@@ -5707,7 +5721,7 @@ export const translations = {
     about_principle1_title: "Tarification transparente",
     about_principle1_body: "Des forfaits publics, sans palier « contacter les ventes ». Vous voyez le prix avant de vous inscrire — y compris au niveau entreprise.",
     about_principle2_title: "Européen par conception",
-    about_principle2_body: "Données stockées en Europe, conçu pour le RGPD dès le premier jour. Pensé pour le contexte réglementaire et linguistique des PME européennes.",
+    about_principle2_body: "Données stockées dans l'UE, et les outils RGPD qu'un sous-traitant doit à ses clients intégrés : un DPA, une liste publique des sous-traitants, l'export complet et la suppression en libre-service. Pensé pour le contexte réglementaire et linguistique des PME européennes.",
     about_principle3_title: "Périmètre ciblé",
     about_principle3_body: "Nous proposons les 80 % de la gestion SaaS qui comptent le plus. Nous ne cherchons pas à être une suite RH, un système de tickets IT ou une plateforme SCIM/PAM.",
     about_principle4_title: "Support accessible",
@@ -5728,29 +5742,29 @@ export const translations = {
     magic_link_sent: "Lien magique envoyé ! Vérifiez votre email et cliquez sur le lien pour vous connecter.",
     paris_france: "Paris, France",
     redirecting_dashboard: "Redirection vers le tableau de bord...",
-    security_full_docs: "Documentation technique complète pour vos équipes de conformité et de sécurité.",
+    security_full_docs: "Nous vous enverrons la description de nos flux de données, la liste des sous-traitants et le DPA, et répondrons à votre questionnaire de sécurité.",
     security_trust_centre: "Centre de sécurité et de confiance",
     report_vulnerability: "Signaler une vulnérabilité",
-    request_security_docs: "Demander la documentation sécurité",
-    sec_intro_sub: "Sécurité et conformité de niveau entreprise — intégrées dès le premier jour, pas ajoutées après coup.",
-    sec_badge_gdpr: "RGPD natif", sec_badge_gdpr_sub: "Conçu pour le droit européen",
+    request_security_docs: "Demander notre dossier sécurité",
+    sec_intro_sub: "Ce que nous faisons réellement pour protéger vos données, dit précisément — y compris ce que nous ne faisons pas encore.",
+    sec_badge_gdpr: "Outils RGPD", sec_badge_gdpr_sub: "DPA, export et suppression en libre-service",
     sec_badge_enc: "Chiffré", sec_badge_enc_sub: "En transit et au repos",
     sec_badge_stripe: "Paiements Stripe", sec_badge_stripe_sub: "PCI-DSS via Stripe",
     sec_badge_iso: "Isolation des données", sec_badge_iso_sub: "Cloisonnées par client",
     sec_card_enc_title: "Chiffrement en transit et au repos",
-    sec_card_enc_body: "Tout le trafic passe en HTTPS/TLS et vos données sont chiffrées au repos par notre hébergeur cloud (Google Cloud, AES-256). Votre inventaire SaaS, vos fiches salariés et vos données d’accès ne sont jamais stockés en clair.",
+    sec_card_enc_body: "Tout le trafic passe en HTTPS/TLS, et la copie de votre espace dans notre base de données cloud est chiffrée au repos par Google Cloud (AES-256). Pour la rapidité, l'application garde aussi une copie de travail dans le stockage local de votre navigateur, qui n'y est pas chiffrée. La déconnexion la supprime du navigateur.",
     sec_card_infra_title: "Infrastructure et hébergement",
-    sec_card_infra_body: "Stacklens fonctionne sur Google Cloud Platform (Firebase/GCP) avec des données isolées par client — aucune donnée n’est jamais mélangée entre clients. Vos enregistrements sont stockés dans l’UE ; certains traitements (fonctions IA, facturation) s’exécutent actuellement sur des infrastructures Google/Stripe aux États-Unis.",
+    sec_card_infra_body: "Stacklens fonctionne sur Google Cloud (Firebase). Votre espace est stocké dans l'UE. Les traitements côté serveur — les fonctions qui synchronisent les intégrations, exécutent les fonctions d'IA, gèrent la facturation et envoient les alertes — tournent actuellement dans la région us-central1 de Google, aux États-Unis, sous clauses contractuelles types. Les clients partagent une même base de données ; les données de chaque client sont dans leurs propres enregistrements, et l'accès est vérifié à chaque lecture et écriture.",
     sec_card_access_title: "Contrôle des accès aux données",
-    sec_card_access_body: "Seuls vous et les utilisateurs que vous invitez explicitement peuvent accéder à votre espace. Vos données vivent dans un enregistrement rattaché à votre compte ; aucun autre client ne peut les lire. Nous ne vendons ni ne partageons jamais vos données.",
+    sec_card_access_body: "Seuls vous et les personnes que vous invitez pouvez ouvrir votre espace ; pour un espace client, le cabinet qui le gère aussi. Les autres clients ne peuvent pas y accéder. Nous ne vendons jamais vos données et ne les partageons qu'avec les sous-traitants listés sur notre page dédiée.",
     sec_card_auth_title: "Authentification",
     sec_card_auth_body: "Connexion via Google OAuth 2.0, lien magique sans mot de passe, ou e-mail et mot de passe — le tout géré par Google Firebase Authentication. La double authentification est disponible via votre compte Google. (SAML/SSO est sur notre feuille de route pour les offres entreprise.)",
     sec_card_abuse_title: "Protection anti-abus et anti-bots",
-    sec_card_abuse_body: "Chaque API serveur exige un jeton authentifié et vérifié et applique des limites de débit par utilisateur. Les données de paiement sont entièrement gérées par Stripe — les données carte ne touchent jamais nos serveurs.",
+    sec_card_abuse_body: "Les points d'accès appelés depuis l'application exigent un jeton de connexion vérifié, et ceux de l'IA et de la facturation sont en plus limités par compte. Quatre ne demandent pas de connexion, par conception, et vérifient autre chose à la place : l'API publique (votre clé d'API), le webhook de paiement (la signature de Stripe), la boîte de réception des factures (une adresse privée qui vous est attribuée) et les rapports de plantage anonymes. Les données de paiement sont entièrement gérées par Stripe — les coordonnées bancaires ne passent jamais par nos serveurs.",
     sec_card_log_title: "Journal d’activité",
     sec_card_log_body: "Stacklens conserve un journal d’audit des actions clés — attributions d’accès, révocations, modifications — pour retracer ce qui s’est passé dans votre espace et quand. Exportable à tout moment.",
     sec_card_delete_title: "Portabilité et suppression des données",
-    sec_card_delete_body: "Vos données vous appartiennent. Exportez tout en CSV ou JSON à tout moment depuis les Réglages. En cas de résiliation, vos données sont définitivement supprimées. Nous ne vendons ni ne partageons jamais vos données.",
+    sec_card_delete_body: "Vos données vous appartiennent. Exportez tout votre espace en JSON, ou chaque liste en CSV, à tout moment depuis Paramètres → Données. Résilier un abonnement vous fait passer au plan gratuit et conserve vos données, pour que vous puissiez revenir. Supprimer votre compte depuis Paramètres → Données efface immédiatement votre espace, ses sauvegardes et votre accès. Nous ne vendons jamais vos données.",
     sec_card_vuln_title: "Signalement de vulnérabilités",
     sec_card_vuln_body: "Chaque signalement de sécurité est pris au sérieux. Si vous découvrez une vulnérabilité, écrivez à hello@stacklens.fr. Nous visons une réponse sous 48 heures et créditons toute divulgation responsable.",
     sec_disclosure_body: "Chaque signalement de sécurité est pris au sérieux. Nous visons une réponse sous 48 heures. La divulgation responsable est toujours créditée.",
@@ -5769,7 +5783,7 @@ export const translations = {
     what_stacklens_finds: "Ce que Stacklens détecte",
     lp_nav_pricing: "Tarifs",
     lp_nav_faq: "FAQ",
-    lp_eu_badge: "🇪🇺 Données en UE · RGPD natif · Conçu pour les PME européennes",
+    lp_eu_badge: "🇪🇺 Données en UE · Outils RGPD intégrés · Pour les PME européennes",
     lp_hero_title_1: "Stoppez la dérive SaaS",
     lp_hero_title_2: "avant qu'elle ne vous coûte cher.",
     lp_hero_subtitle: "Vous êtes la seule personne à courir après les factures, les renouvellements et les comptes zombies répartis sur plus de 80 outils. Stacklens vous donne la visibilité pour repérer ce qui est gaspillé, qui a encore accès et ce qui va se renouveler automatiquement — en 5 minutes, pas en 5 jours.",
@@ -5859,7 +5873,7 @@ export const translations = {
     lp_faq_q5: "Combien de temps prend la configuration ?",
     lp_faq_a5: "Environ 5 minutes. Inscrivez-vous, téléversez un CSV (ou ajoutez quelques outils manuellement), invitez votre équipe. La plupart des clients voient leur première opportunité d'économies en moins de 10 minutes.",
     lp_faq_q6: "Et si je veux annuler ?",
-    lp_faq_a6: "Cliquez sur « Annuler l'abonnement » dans les Paramètres. Aucun e-mail de rétention. Aucune boîte de dialogue « êtes-vous sûr ? ». Vos données restent accessibles pendant 30 jours, puis sont supprimées.",
+    lp_faq_a6: "Gérez votre abonnement depuis Paramètres → Facturation et résiliez dans le portail Stripe. Vous gardez vos données et passez au plan gratuit, rien n'est perdu si vous revenez. Pour tout effacer, supprimez votre compte depuis Paramètres → Données.",
     lp_final_subtitle: "Gratuit pour toujours jusqu'à 10 outils. Sans carte bancaire. Sans appel de démo. Inscrivez-vous et commencez.",
     lp_final_cta: "Créer mon compte gratuit",
     lp_final_note: "Essai de 7 jours des fonctionnalités Pro inclus. Rétrogradez à tout moment.",
@@ -6709,6 +6723,20 @@ export const translations = {
     set_del_account: "Supprimer le compte",
     set_del_account_desc: "Supprime définitivement votre compte Stacklens et toutes les données",
     set_del_account_btn: "Supprimer le compte",
+    set_export_all: "Tout (JSON)",
+    set_export_all_desc: "Tout votre espace dans un seul fichier : outils, personnes, accès, contrats, factures, licences, budgets, historique des dépenses et journal d'audit.",
+    set_export_all_done: "Espace exporté",
+    del_acct_title: "Supprimer votre compte",
+    del_acct_body: "Cela efface, immédiatement et définitivement : votre espace et ses sauvegardes, les espaces clients dont vous êtes propriétaire, votre boîte de réception de factures, les jetons d'intégration stockés, vos invitations d'équipe et votre accès. C'est irréversible.",
+    del_acct_export_first: "Si vous voulez garder quelque chose, exportez d'abord votre espace avec les boutons ci-dessus.",
+    del_acct_type: "Saisissez votre adresse e-mail pour confirmer :",
+    del_acct_confirm_btn: "Supprimer définitivement mon compte",
+    del_acct_working: "Suppression…",
+    del_acct_done: "Votre compte a été supprimé.",
+    del_acct_failed: "Le compte n'a pas pu être supprimé. Rien n'a été effacé.",
+    del_acct_manage_sub: "Gérer l'abonnement",
+    int_disconnect_failed: "Déconnexion impossible : le jeton stocké n'a pas été supprimé, l'intégration reste donc connectée. Veuillez réessayer.",
+    signout_unsaved_confirm: "Certaines de vos dernières modifications ne sont pas encore dans le cloud. Vous déconnecter maintenant les supprime de ce navigateur. Se déconnecter quand même ?",
     set_api_new_msg: "Nouvelle clé API générée — copiez-la maintenant, elle ne sera plus affichée",
     set_gen_new_key: "Générer une nouvelle clé",
     set_gen_key_sub: "Nommez-la pour vous souvenir de son utilisation",
@@ -11433,7 +11461,7 @@ export const translations = {
     subproc_sendgrid_purpose: "E-mails transacionais — convites, alertas, relatórios (funcionalidade opcional: apenas se um fornecedor de e-mail estiver configurado)",
     subproc_sendgrid_transfer: "Transfert vers USA — clauses contractuelles types (CCT)",
     subproc_web3forms_purpose: "Acheminement du formulaire de contact",
-    subproc_web3forms_transfer: "Transfert vers USA — contenu du message uniquement",
+    subproc_web3forms_transfer: "Transferência para os EUA — o nome, o email e a mensagem introduzidos no formulário de contacto",
     privacy_s3_sendgrid_purpose: "Envio de e-mails (funcionalidade opcional, apenas se configurado)",
     privacy_s3_bridge_purpose: "Flux bancaire (fonctionnalité optionnelle)",
     subproc_stripe_transfer: "Transfert possible vers USA — SCCs en place",
@@ -11467,7 +11495,7 @@ export const translations = {
     dpa_s5_title: "5. Catégories de personnes concernées",
     dpa_s6_intro: "Stacklens s'engage à :",
     dpa_s11_item3: "Logs de consentement cookies : 3 ans (obligation CNIL)",
-    dpa_s11_item5: "Textes de contrats analysés par IA : non conservés après analyse",
+    dpa_s11_item5: "Textos de contratos e texto bruto das faturas enviados para a IA: não guardados pela Stacklens; só os dados extraídos das faturas são mantidos",
     dpa_s13_title: "13. Droit applicable",
     dpa_ccpa_title: "Anexo 1 — Adenda California Consumer Privacy Act (CCPA/CPRA)",
     dpa_ccpa_scope: "Este anexo aplica-se apenas quando, e na medida em que, o Stacklens trate em nome do Responsável Informações Pessoais sujeitas ao California Consumer Privacy Act, conforme alterado pelo California Privacy Rights Act (em conjunto, o CCPA). Em caso de conflito com o restante deste acordo, este anexo prevalece, apenas quanto às Informações Pessoais reguladas pelo CCPA.",
@@ -11761,6 +11789,33 @@ export const translations = {
 // ============================================================================
 
 const TRANS_CACHE_KEY = 'ag_live_translations';
+
+// ── A cached translation is only valid for the English it came from ─────────
+//
+// Entries used to be stored as cache[lang][key] = text, with nothing recording
+// which English sentence had been translated. So correcting an English string
+// never reached anyone who had already seen the old one in German, Spanish or
+// Portuguese: their browser went on showing the machine translation of the
+// old text, forever. That mattered most for exactly the strings most likely
+// to be corrected — the privacy policy, the DPA, the security page.
+//
+// Each entry now carries a fingerprint of its English source, and a lookup
+// only accepts it while the English is unchanged. Entries in the old format
+// carry no fingerprint and are simply translated again.
+
+/** djb2 over the English source, as a short base-36 string. */
+export function sourceFingerprint(text) {
+  let h = 5381;
+  const str = String(text ?? '');
+  for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36);
+}
+
+/** The cached translation for this English source, or undefined if stale or absent. */
+export function readCachedTranslation(entry, enValue) {
+  if (!entry || typeof entry !== 'object' || typeof entry.t !== 'string') return undefined;
+  return entry.s === sourceFingerprint(enValue) ? entry.t : undefined;
+}
 const TRANS_QUEUE_DELAY = 2000; // Wait 2s to batch multiple missing keys
 // How long a failed language is left alone before being retried. In memory
 // only and deliberately not persisted: a page load should retry.
@@ -11818,7 +11873,11 @@ async function flushTranslationQueue() {
     try {
       // Call the AI proxy directly via the imported function
       const result = await callAI({
-        system: `You are a professional translator. Translate the following UI labels from English to ${langName}. Return ONLY a valid JSON object with the same keys and translated values. Keep translations concise — these are button labels, menu items, and short phrases for a SaaS management app. Do not add explanations.`,
+        // Faithful, not concise. This used to say "keep translations concise —
+        // these are button labels", but the queue also carries whole
+        // paragraphs of the privacy policy, the DPA and the security page, and
+        // an instruction to be brief invites a legal sentence to lose a clause.
+        system: `You are a professional translator for a business software product. Translate each value from English to ${langName}. Translate faithfully and completely: some values are short interface labels, others are full sentences from legal, privacy and security pages, and those must keep their exact meaning — never shorten, summarise, soften or omit anything, and never change a negation. Keep product and company names, URLs, email addresses and placeholders in {curly braces} unchanged. Return ONLY a valid JSON object with the same keys and translated values. Do not add explanations.`,
         messages: [{ role: 'user', content: JSON.stringify(toTranslate) }],
         max_tokens: 4000,
       });
@@ -11829,9 +11888,12 @@ async function flushTranslationQueue() {
       if (jsonMatch) {
         const translated = JSON.parse(jsonMatch[0]);
         if (!cache[lang]) cache[lang] = {};
-        
+        // Store each translation with the fingerprint of the English it was
+        // made from, and only for keys that were actually asked for.
+        const sourceOf = Object.fromEntries(items.map(({ key, enValue }) => [key, enValue]));
         for (const [k, v] of Object.entries(translated)) {
-          cache[lang][k] = v;
+          if (sourceOf[k] === undefined || typeof v !== 'string') continue;
+          cache[lang][k] = { t: v, s: sourceFingerprint(sourceOf[k]) };
         }
         
         saveTransCache(cache);
@@ -11882,7 +11944,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { callAI } from './firebase-config';
 
 export function useTranslation(language = 'en') {
-  const [, forceUpdate] = useState(0);
+  const [cacheVersion, forceUpdate] = useState(0);
   
   useEffect(() => {
     const cb = () => forceUpdate(n => n + 1);
@@ -11894,14 +11956,21 @@ export function useTranslation(language = 'en') {
 
   const lang   = useMemo(() => translations[language] || {}, [language]);
   const en     = useMemo(() => translations.en || {}, []);
-  const cached = useMemo(() => { const c = loadTransCache(); return c[language] || {}; }, [language]);
+  // Re-read when a translation lands (cacheVersion), not only when the
+  // language changes: keyed on language alone, a translation that arrived
+  // mid-visit was saved but not shown until the page was reloaded.
+  // The cache lives in localStorage, outside React, so the linter cannot see
+  // that cacheVersion is what tells this memo the stored value has changed.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const cached = useMemo(() => { const c = loadTransCache(); return c[language] || {}; }, [language, cacheVersion]);
 
   return useCallback((key) => {
     // 1. Manual translation exists for this language
     if (lang[key] !== undefined) return lang[key];
 
-    // 2. Cached auto-translation exists
-    if (cached[key] !== undefined) return cached[key];
+    // 2. Cached auto-translation of the CURRENT English exists
+    const hit = en[key] !== undefined ? readCachedTranslation(cached[key], en[key]) : undefined;
+    if (hit !== undefined) return hit;
 
     // 3. English fallback exists — queue for translation
     if (en[key] !== undefined) {

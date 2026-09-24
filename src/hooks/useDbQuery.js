@@ -337,6 +337,24 @@ export function useDbMutations() {
     onSuccess: invalidate,
   });
 
+  // Invoices submitted for approval from the Renewals tab. These used to be
+  // written to their own localStorage key, outside the workspace: never saved
+  // to the cloud, missing from every export, invisible on another device, and
+  // left behind when an account was deleted — while the form showed a success
+  // tick. They live in the workspace now, so they sync, export and delete with
+  // everything else. Accepts one invoice or a list (the one-time migration).
+  const addUploadedInvoices = useMutation({
+    mutationFn: async (items) => {
+      const list = (Array.isArray(items) ? items : [items]).filter(Boolean);
+      if (!list.length) return;
+      setDb((db) => {
+        db.uploaded_invoices = [...(db.uploaded_invoices || []), ...list].slice(-1000);
+        return db;
+      }, () => ({ action: 'invoice.uploaded', details: `${list.length} invoice(s) submitted for approval` }));
+    },
+    onSuccess: invalidate,
+  });
+
   // Apply AI-extracted invoices: record them in db.invoice_records and
   // create/update the matching tool's recurring monthly cost by vendor name.
   const importInvoices = useMutation({
@@ -642,6 +660,6 @@ export function useDbMutations() {
     createTool, updateTool, deleteTool,
     createEmployee, updateEmployee, deleteEmployee,
     createAccess, updateAccess, deleteAccess,
-    setPlan, setAuth, setBudgets, importInvoices, bulkImport,
+    setPlan, setAuth, setBudgets, importInvoices, addUploadedInvoices, bulkImport,
   };
 }

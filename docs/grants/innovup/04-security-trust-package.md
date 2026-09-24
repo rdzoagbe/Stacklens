@@ -84,12 +84,14 @@ inference path are WP5 deliverables.*
 | Data | Rule | Where |
 |---|---|---|
 | Client workspaces (agency model) | Soft delete: `deleted_at` + `purge_after` = +90 days; frozen (read-only, export allowed) until purge; `restoreorg` within the window; scheduled `purgeClientOrgs` hard-deletes chunks, document and record | `functions/workspace-write.js` (`RETENTION_DAYS = 90`); CLAUDE.md "Client workspace retention" |
-| The account | `deleteAccount(confirmEmail)` → server `deleteaccount` action | `src/firebase-config.js`; `functions/` |
+| The account | Settings → Data → Delete account: typed-email confirmation → server `deleteaccount` → `purgeAccount` erases every collection immediately. Refused (409) while a Stripe subscription can still bill, so a deleted account is never charged | `src/pages/settings/DataTab.jsx`; `functions/purge-account.js` (`subscriptionBlocksDeletion`) |
+| Cancelling a subscription | Keeps the data; the account moves to the free plan | Stripe webhook `customer.subscription.deleted` |
+| The browser copy | Signing out writes unsynced work to the cloud first, then clears the workspace, owner backup, Slack webhook and connection state from localStorage | `src/lib/db.js` (`flushBeforeSignOut`, `clearLocalWorkspace`) |
 | Audit log | Capped at 2,000 entries (`AUDIT_MAX`), oldest dropped | `src/lib/audit.js` |
 | Rate-limit counters | Hourly windows | `functions/index.js` |
 | Daily-alert de-duplication state | Pruned after 400 days | `functions/index.js` |
 | Bank exports on `/audit-saas` | Never retained: not uploaded | `src/lib/saasAudit.js` |
-| **Gap** | No written retention schedule per category for the main workspace data (it lives as long as the account) | WP5 D5.1 |
+| Main workspace data | Lives as long as the account; erased on account deletion. No time-based expiry for an idle account yet | WP5 D5.1 |
 
 ## 6. Encryption
 
@@ -138,8 +140,8 @@ the inference path may use a hosted model at all, and under what boundary.
 
 | Item | State |
 |---|---|
-| Breach notification commitment | The DPA text commits to notifying within 72 hours (`src/translations.js`, `dpa_s6_item5`) |
-| Written internal incident-response procedure | **Missing.** WP5 D5.3 |
+| Breach notification commitment | The DPA commits to notifying the customer without undue delay and within 72 hours (`src/translations.js`, `dpa_s6_item5`) |
+| Written internal incident-response procedure | **Drafted** 2026-09-24, not yet exercised: `docs/security/incident-response.md` |
 | Automated tests | 826 unit tests in CI (2026-09-20), lint at 0 errors, Firestore rules tests against the emulator, a husky pre-commit hook |
 | External penetration test | **Never done.** Budget line "security / privacy / testing" in `06`; WP5 D5.3 |
 | Vulnerability management | Dependabot; Sentry; no formal SLA |

@@ -833,6 +833,9 @@ async function callWorkspace(body) {
       err.rev = Number.isFinite(data.rev) ? data.rev : null;
     }
     err.status = res.status;
+    // A machine-readable reason, so a caller can act on it rather than parse
+    // the message — e.g. 'subscription_active' from deleteaccount.
+    if (data.code) err.code = data.code;
     throw err;
   }
   return data;

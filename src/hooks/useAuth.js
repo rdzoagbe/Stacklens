@@ -5,7 +5,7 @@ import {
   getUserPlanFromFirestore, startTrial,
 } from '../firebase-config';
 import { LS_KEY } from '../lib/constants';
-import { loadDb, saveDb, seedDbIfEmpty, setFirestoreUid, hydrateFromFirestore } from '../lib/db';
+import { loadDb, saveDb, seedDbIfEmpty, setFirestoreUid, hydrateFromFirestore, flushBeforeSignOut, clearLocalWorkspace } from '../lib/db';
 import { resolvePlan } from '../lib/plan';
 import { useDbQuery } from './useDbQuery';
 
@@ -227,13 +227,20 @@ export function useAuth() {
     return { user: googleUser, error: null };
   };
 
-  const logout = async () => {
+  // Signing out removes this account's data from the browser (see
+  // clearLocalWorkspace in lib/db). If the cloud may not yet hold everything,
+  // it resolves { needsConfirm: true } without signing out, and the caller asks
+  // the user; logout({ force: true }) then signs out and discards.
+  const logout = async ({ force = false } = {}) => {
+    if (!force && !(await flushBeforeSignOut())) return { needsConfirm: true };
     await signOutUser();
+    clearLocalWorkspace();
     localStorage.removeItem('sg_auth_uid');
     const cur = seedDbIfEmpty();
     cur.user = { is_authenticated: false, is_demo: false };
     saveDb(cur);
     qc.invalidateQueries({ queryKey: ['db'] });
+    return { ok: true };
   };
 
   const startDemo = () => {

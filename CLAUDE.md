@@ -167,7 +167,17 @@ The root cause of both outages was the reCAPTCHA **secret** field in Firebase Co
 
 ### Cloud Functions
 
-All functions require a Firebase Auth Bearer token (`verifyAuth`). Rate limits: `/ai` → 20 calls/hr per user, `/createCheckout` + `/createPortal` → 5 calls/hr per user. Limits are stored in Firestore `/rate_limits/{prefix}_{uid}`.
+Functions called from the app require a Firebase Auth Bearer token (`verifyAuth`). Four HTTP endpoints deliberately do not, and each checks something else: `api` (the customer's API key), `stripeWebhook` (Stripe's signature), `invoiceInbound` (the private inbox address) and `clientErrors` (anonymous crash reports). The public security page names all four, and `src/lib/claims.test.js` fails if a fifth appears. Rate limits: `/ai` → 20 calls/hr per user, `/createCheckout` + `/createPortal` → 5 calls/hr per user. Limits are stored in Firestore `/rate_limits/{prefix}_{uid}`.
+
+### Public claims are tested against the code
+
+`src/lib/claims.test.js` holds what the site tells people — cookie consent, integration tokens, deletion, the browser copy, export, unauthenticated endpoints, AI disclosures — to the code that makes each true. When a test there fails, the fix is usually to change the copy, not the test: the test is telling you a public statement just became false.
+
+### Signing out, cancelling and deleting
+
+- **Signing out** removes this account's data from the browser (`clearLocalWorkspace` in `src/lib/db.js`), after `flushBeforeSignOut` writes anything the cloud may not have. If that cannot be confirmed the user is asked before anything is discarded. An expired session does not clear, only an explicit sign-out.
+- **Cancelling** a subscription moves the account to `free` and deletes nothing.
+- **Deleting** the account (Settings → Data) calls the `workspace` function's `deleteaccount`, which purges everything via `purgeAccount`. It refuses with 409 `subscription_active` while Stripe can still bill (`subscriptionBlocksDeletion` in `functions/purge-account.js`), because purging `/users` removes the only link from the Stripe customer back to the account.
 
 Secrets (ANTHROPIC_API_KEY, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, SENDGRID_API_KEY) are in GCP Secret Manager — deploying functions requires billing enabled on the GCP project.
 

@@ -227,7 +227,33 @@ async function purgeAccount(db, uid, { email = '', deleteAuthUser } = {}) {
   return counts;
 }
 
+// ── A subscription that is still billing blocks deletion ────────────────────
+//
+// purgeAccount erases /users/{uid}, which is the only record that links a
+// Stripe customer back to a Stacklens account. It does not touch Stripe. So
+// an account deleted while its subscription was live would have gone on being
+// charged every month, with nothing left on our side to map the charge to or
+// stop it from. The endpoint shipped without a button, so this never
+// happened; wiring the button is what would have made it happen.
+//
+// Deletion is therefore refused while Stripe can still bill, and allowed as
+// soon as the customer has cancelled — including a cancellation that takes
+// effect at the end of the paid period, which the webhook now records.
+
+/** Stripe statuses under which a future invoice can still be raised. */
+const BILLING_STATUSES = ['active', 'trialing', 'past_due', 'unpaid', 'incomplete'];
+
+/** True when deleting now would leave a subscription charging a deleted account. */
+function subscriptionBlocksDeletion(userDoc) {
+  if (!userDoc || !userDoc.stripe_subscription_id) return false;
+  if (!BILLING_STATUSES.includes(userDoc.subscription_status)) return false;
+  if (userDoc.cancel_at_period_end === true) return false;
+  return true;
+}
+
 module.exports = {
+  BILLING_STATUSES,
+  subscriptionBlocksDeletion,
   PURGED,
   RETAINED,
   RATE_LIMIT_PREFIXES,
