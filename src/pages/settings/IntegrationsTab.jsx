@@ -241,7 +241,7 @@ function AsanaTokenModal({ onSubmit, onClose, loading }) {
               {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
           </div>
-          <p className="text-xs text-slate-500 mt-1.5">{t('int_stored_locally')}</p>
+          <p className="text-xs text-slate-500 mt-1.5">{t('int_stored_server')}</p>
         </div>
         <div className="flex gap-3">
           <button onClick={onClose}
@@ -329,7 +329,7 @@ function ZoomCredentialsModal({ onSubmit, onClose, loading }) {
                 {showSecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
-            <p className="text-xs text-slate-500 mt-1.5">{t('int_stored_locally')}</p>
+            <p className="text-xs text-slate-500 mt-1.5">{t('int_stored_server')}</p>
           </div>
         </div>
         <div className="flex gap-3">
@@ -405,7 +405,7 @@ function OktaTokenModal({ onSubmit, onClose, loading }) {
               {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
           </div>
-          <p className="text-xs text-slate-500 mt-1.5">{t('int_stored_locally')}</p>
+          <p className="text-xs text-slate-500 mt-1.5">{t('int_stored_server')}</p>
         </div>
         <div className="mb-6">
           <label className="block text-sm font-semibold text-slate-300 mb-2">{t('int_okta_domain_label')}</label>
@@ -491,7 +491,7 @@ function GitHubTokenModal({ onSubmit, onClose, loading }) {
               {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
           </div>
-          <p className="text-xs text-slate-500 mt-1.5">{t('int_stored_locally')}</p>
+          <p className="text-xs text-slate-500 mt-1.5">{t('int_stored_server')}</p>
         </div>
         <div className="mb-6">
           <label className="block text-sm font-semibold text-slate-300 mb-2">{t('int_org_slug')}</label>
@@ -574,7 +574,7 @@ function SlackTokenModal({ onSubmit, onClose, loading }) {
               {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
           </div>
-          <p className="text-xs text-slate-500 mt-1.5">{t('int_stored_locally')}</p>
+          <p className="text-xs text-slate-500 mt-1.5">{t('int_stored_server')}</p>
         </div>
         <div className="mb-6">
           <label className="block text-sm font-semibold text-slate-300 mb-2">{t('int_alerts_channel')}</label>
