@@ -45,14 +45,34 @@ export function SaasAuditPage() {
   const [dragging, setDragging] = useState(false);
   const inputRef = useRef(null);
 
-  const runOn = useCallback((text, source) => {
-    const parsed = parseBankExport(text);
+  const runOn = useCallback((text, source, forceOrder) => {
+    const parsed = parseBankExport(text, forceOrder);
     if (!parsed.columns) { setState({ phase: 'error', error: 'columns' }); return; }
     if (!parsed.transactions.length) { setState({ phase: 'error', error: 'empty' }); return; }
     const report = auditSaas(parsed.transactions);
     // Counts only. Never a label, never an amount, never the file.
     track('audit_run', { source, transactions: parsed.transactions.length, subscriptions: report.totals.subscriptionCount });
-    setState({ phase: 'done', report, symbol: detectSymbol(text), skipped: parsed.skipped });
+    setState({
+      phase: 'done', report, symbol: detectSymbol(text),
+      skipped: parsed.skipped, dateOrder: parsed.dateOrder, text,
+    });
+  }, []);
+
+  // `04/03` is 4 March here and 3 April in the United States. The parser reads
+  // which one off the file, but when every date falls on the 1st to the 12th
+  // nothing can prove it, so the reader is told what was assumed and can flip
+  // it. Silently picking one is how a US statement used to come back wrong.
+  const flipDateOrder = useCallback(() => {
+    setState((prev) => {
+      if (prev.phase !== 'done' || !prev.text) return prev;
+      const next = prev.dateOrder?.order === 'mdy' ? 'dmy' : 'mdy';
+      const parsed = parseBankExport(prev.text, next);
+      if (!parsed.transactions.length) return prev;
+      return {
+        ...prev, report: auditSaas(parsed.transactions),
+        skipped: parsed.skipped, dateOrder: parsed.dateOrder,
+      };
+    });
   }, []);
 
   const onFile = useCallback((file) => {
@@ -143,7 +163,8 @@ export function SaasAuditPage() {
           </>
         )}
 
-        {state.phase === 'done' && <Report report={state.report} symbol={state.symbol} t={t} onReset={reset} language={language} />}
+        {state.phase === 'done' && <Report report={state.report} symbol={state.symbol} t={t} onReset={reset} language={language}
+          skipped={state.skipped} dateOrder={state.dateOrder} onFlipDateOrder={flipDateOrder} />}
       </div>
     </div>
   );
@@ -185,7 +206,7 @@ const CADENCE_KEY = {
   weekly: 'audit_cadence_weekly', irregular: 'audit_cadence_irregular', single: 'audit_cadence_single',
 };
 
-function Report({ report, symbol, t, onReset, language }) {
+function Report({ report, symbol, t, onReset, language, skipped, dateOrder, onFlipDateOrder }) {
   const money = useCallback((n) => symbol + Number(n ?? 0).toLocaleString(language, { minimumFractionDigits: 0, maximumFractionDigits: 0 }), [symbol, language]);
   const date = (d) => d instanceof Date ? d.toLocaleDateString(language, { day: 'numeric', month: 'short', year: 'numeric' }) : '';
   const f = report.findings;
@@ -214,6 +235,23 @@ function Report({ report, symbol, t, onReset, language }) {
           <button onClick={onReset} className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors"><RefreshCw className="w-4 h-4" /> {t('audit_reset')}</button>
         </div>
         <p className="text-sm text-slate-500">{fill(t('audit_span'), { n: report.transactionCount, days: report.spanDays, date: date(report.asOf) })}</p>
+
+        {/* How the dates were read, and how many lines did not parse. Both
+            used to be invisible: a US export lost every row past the 12th
+            into the skipped count and had the rest silently transposed. */}
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
+          <span>
+            {/* Two separate calls, not one key built from an expression:
+                translation-keys.test.js scans statically for quoted keys and
+                reads a computed one as missing. */}
+            {dateOrder?.order === 'mdy' ? t('audit_dates_mdy') : t('audit_dates_dmy')}
+            {dateOrder?.evidence !== 'proven' && <span className="text-amber-400/80"> · {t('audit_dates_guess')}</span>}
+          </span>
+          <button onClick={onFlipDateOrder} className="underline decoration-dotted hover:text-slate-300 transition-colors">
+            {t('audit_dates_flip')}
+          </button>
+          {skipped > 0 && <span>· {fill(t('audit_skipped'), { n: skipped })}</span>}
+        </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   decodeBankFile, sniffDelimiter, detectColumns, parseAmount, parseDate,
   parseBankExport, normaliseLabel, identifyVendor, detectRecurring, auditSaas,
-  reportToCsv,
+  reportToCsv, detectDateOrder,
 } from './saasAudit';
 
 // ── The public audit has to work on a real French bank export ─────────────
@@ -360,5 +360,123 @@ describe('what it must never do', () => {
     for (const bad of ['fetch(', 'XMLHttpRequest', 'localStorage', 'sessionStorage', 'navigator.sendBeacon', 'import(']) {
       expect(src, `${bad} has no business in a browser-only audit`).not.toContain(bad);
     }
+  });
+});
+
+
+// ── Day-first or month-first, read off the file ───────────────────────────
+//
+// `04/03/2026` is 4 March nearly everywhere and 3 April in the United States,
+// and the value alone cannot say which. Reading everything day-first did not
+// fail loudly on a US export, it failed twice and quietly: a day past the
+// 12th became an impossible month and the row was dropped in with the other
+// skipped lines, and a day of 12 or less was accepted with the day and month
+// swapped. Five US rows in gave three silently gone and two silently wrong,
+// and the cadence, the monthly total and the renewal dates were then all
+// computed from dates that were never in the file.
+//
+// The statement carries the proof, so it is read rather than assumed.
+
+const usExport = (dates, label = 'NOTION LABS INC', amount = '-96.00') =>
+  ['Date,Description,Amount', ...dates.map(d => `${d},${label},${amount}`)].join('\n');
+
+describe('detectDateOrder', () => {
+  it('proves day-first from a first component above 12', () => {
+    const r = detectDateOrder(['15/01/2026', '05/02/2026']);
+    expect(r.order).toBe('dmy');
+    expect(r.evidence).toBe('proven');
+  });
+
+  it('proves month-first from a second component above 12', () => {
+    const r = detectDateOrder(['01/15/2026', '02/05/2026']);
+    expect(r.order).toBe('mdy');
+    expect(r.evidence).toBe('proven');
+  });
+
+  it('says so when nothing in the column can settle it, and takes the hint', () => {
+    const dates = ['05/01/2026', '05/02/2026', '05/03/2026'];
+    expect(detectDateOrder(dates)).toMatchObject({ order: 'dmy', evidence: 'assumed' });
+    expect(detectDateOrder(dates, 'mdy')).toMatchObject({ order: 'mdy', evidence: 'assumed' });
+  });
+
+  it('reports a conflict and follows the weight of evidence', () => {
+    const r = detectDateOrder(['15/01/2026', '02/20/2026', '16/01/2026']);
+    expect(r.evidence).toBe('conflict');
+    expect(r.dayFirstProof).toBe(2);
+    expect(r.monthFirstProof).toBe(1);
+    expect(r.order).toBe('dmy');
+  });
+
+  it('is not confused by ISO dates or by rows with no date at all', () => {
+    expect(detectDateOrder(['2026-01-15', '', null, 'n/a'])).toMatchObject({ evidence: 'none' });
+  });
+});
+
+describe('parseDate honours the order it is given', () => {
+  it('reads the same value both ways', () => {
+    expect(parseDate('04/03/2026', 'dmy').toISOString().slice(0, 10)).toBe('2026-03-04');
+    expect(parseDate('04/03/2026', 'mdy').toISOString().slice(0, 10)).toBe('2026-04-03');
+  });
+
+  it('defaults to day-first, so every existing caller is unchanged', () => {
+    expect(parseDate('04/03/2026').toISOString().slice(0, 10)).toBe('2026-03-04');
+  });
+
+  it('leaves ISO alone, which is unambiguous', () => {
+    expect(parseDate('2026-03-04', 'mdy').toISOString().slice(0, 10)).toBe('2026-03-04');
+  });
+});
+
+describe('a US bank export', () => {
+  const text = usExport(['01/15/2026', '02/15/2026', '03/15/2026', '04/03/2026', '05/03/2026']);
+
+  it('keeps every row instead of dropping the ones past the 12th', () => {
+    const p = parseBankExport(text);
+    expect(p.transactions).toHaveLength(5);
+    expect(p.skipped).toBe(0);
+  });
+
+  it('reads the dates the way the statement meant them', () => {
+    const p = parseBankExport(text);
+    expect(p.transactions.map(t => t.date.toISOString().slice(0, 10))).toEqual([
+      '2026-01-15', '2026-02-15', '2026-03-15', '2026-04-03', '2026-05-03',
+    ]);
+  });
+
+  it('says how it decided, so a wrong guess is visible rather than silent', () => {
+    expect(parseBankExport(text).dateOrder).toMatchObject({ order: 'mdy', evidence: 'proven' });
+  });
+
+  it('now detects the monthly cadence it used to read as irregular', () => {
+    const report = auditSaas(parseBankExport(text).transactions);
+    expect(report.subscriptions).toHaveLength(1);
+    expect(report.subscriptions[0].cadence).toBe('monthly');
+    expect(report.subscriptions[0].vendor).toBe('Notion');
+  });
+
+  it('the regression in full: day-first parsing loses three of five and moves the rest', () => {
+    // What the old code did, reproduced through the public function.
+    const asIfDayFirst = parseBankExport(text).transactions
+      .map(t => parseDate(t.raw.split(',')[0], 'dmy'))
+      .filter(Boolean);
+    expect(asIfDayFirst).toHaveLength(2);
+    expect(asIfDayFirst.map(d => d.toISOString().slice(0, 10))).toEqual(['2026-03-04', '2026-03-05']);
+  });
+});
+
+describe('the French export is untouched by all of this', () => {
+  it('still reads day-first, and says it proved it', () => {
+    const p = parseBankExport(FR_EXPORT);
+    expect(p.dateOrder).toMatchObject({ order: 'dmy', evidence: 'proven' });
+  });
+
+  it('a semicolon file with only low dates is still assumed day-first', () => {
+    const text = ['Date;Libellé;Débit',
+      '05/01/2026;PRLV SEPA NOTION LABS INC;96,00',
+      '05/02/2026;PRLV SEPA NOTION LABS INC;96,00'].join('\n');
+    const p = parseBankExport(text);
+    expect(p.dateOrder).toMatchObject({ order: 'dmy', evidence: 'assumed' });
+    expect(p.transactions.map(t => t.date.toISOString().slice(0, 10)))
+      .toEqual(['2026-01-05', '2026-02-05']);
   });
 });

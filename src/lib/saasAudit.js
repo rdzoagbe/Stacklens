@@ -142,7 +142,81 @@ export function parseAmount(raw) {
 }
 
 /** Day-first for the ambiguous cases, because the primary audience is French. */
-export function parseDate(raw) {
+/**
+ * A two-part date like `04/03/2026` means 4 March in most of the world and
+ * 3 April in the United States, and nothing in the value itself says which.
+ *
+ * Reading everything day-first, as this did, does not fail loudly on a US
+ * export — it fails twice, quietly. Any day past the 12th becomes an
+ * impossible month and the row is dropped with the rest of the skipped
+ * lines; anything on the 1st to the 12th is accepted with the day and month
+ * swapped. On a five-line US statement that was three rows silently gone and
+ * two silently wrong, which produced a confident report of nonsense: the
+ * cadence, the monthly total and the renewal dates were all derived from
+ * dates that were never in the file.
+ *
+ * So the order is no longer assumed. It is read off the file.
+ */
+const DMY = 'dmy', MDY = 'mdy';
+
+/**
+ * Which way round a column of dates is written.
+ *
+ * The statement carries the proof: a first component above 12 cannot be a
+ * month, so the file is day-first, and a second component above 12 cannot be
+ * a month either, so it is month-first. Any statement spanning more than
+ * twelve days of a month contains that proof, which is nearly all of them.
+ *
+ * When it does not — every date falls on the 1st to the 12th in both
+ * positions — no amount of staring at the values can settle it, so the caller
+ * supplies a hint and the result says the evidence was `assumed`. Callers are
+ * expected to show that to the user rather than pick silently.
+ *
+ * Returns { order, evidence, dayFirstProof, monthFirstProof }, where evidence
+ * is 'proven' | 'conflict' | 'assumed' | 'none'.
+ */
+export function detectDateOrder(values, hint = DMY) {
+  let dayFirstProof = 0, monthFirstProof = 0, seen = 0;
+  for (const v of values) {
+    const m = /^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})/.exec(String(v ?? '').trim());
+    if (!m) continue;
+    seen++;
+    const a = +m[1], b = +m[2];
+    if (a > 12 && b <= 12) dayFirstProof++;
+    if (b > 12 && a <= 12) monthFirstProof++;
+  }
+  if (!seen) return { order: hint, evidence: 'none', dayFirstProof, monthFirstProof };
+  if (dayFirstProof && !monthFirstProof) return { order: DMY, evidence: 'proven', dayFirstProof, monthFirstProof };
+  if (monthFirstProof && !dayFirstProof) return { order: MDY, evidence: 'proven', dayFirstProof, monthFirstProof };
+  if (dayFirstProof && monthFirstProof) {
+    // Both appear, so the column is not internally consistent — a merged
+    // export, or a machine-written column beside a hand-typed one. Go with
+    // the weight of evidence and say it was a conflict.
+    return {
+      order: dayFirstProof >= monthFirstProof ? DMY : MDY,
+      evidence: 'conflict', dayFirstProof, monthFirstProof,
+    };
+  }
+  return { order: hint, evidence: 'assumed', dayFirstProof, monthFirstProof };
+}
+
+/**
+ * A guess at the convention from how the rest of the file is punctuated, used
+ * only when the dates themselves cannot settle it. A semicolon delimiter or a
+ * decimal comma is continental European and therefore day-first. Everything
+ * else is left day-first too, because day-first is the majority of the world
+ * and the United States is the exception — the exception announces itself
+ * through the dates in almost every real statement, which is what the proof
+ * above is for.
+ */
+export function dateOrderHint(text, delimiter) {
+  if (delimiter === ';') return DMY;
+  if (/\d+,\d{2}(\D|$)/.test(String(text ?? ''))) return DMY;
+  return DMY;
+}
+
+/** `order` is 'dmy' (default) or 'mdy'. ISO dates are unambiguous either way. */
+export function parseDate(raw, order = DMY) {
   const s = String(raw ?? '').trim();
   if (!s) return null;
   let m;
@@ -152,7 +226,8 @@ export function parseDate(raw) {
   if ((m = /^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})/.exec(s))) {
     let y = +m[3];
     if (y < 100) y += 2000;
-    return mk(y, +m[2], +m[1]);
+    const first = +m[1], second = +m[2];
+    return order === MDY ? mk(y, first, second) : mk(y, second, first);
   }
   const t = Date.parse(s);
   return Number.isFinite(t) ? new Date(t) : null;
@@ -167,15 +242,17 @@ function mk(y, mo, d) {
 // ── 5. Parsing the whole export ─────────────────────────────────────────────
 
 /**
- * Text → { transactions, skipped, columns, delimiter }.
+ * Text → { transactions, skipped, columns, delimiter, dateOrder }.
+ * `forceOrder` ('dmy' | 'mdy') overrides what the dates themselves suggest.
  * A transaction is { date, label, amount, raw } with amount POSITIVE for money
  * going out. Credits are dropped: nothing about a refund tells us about a
  * subscription, and the totals must never be reduced by them.
  */
-export function parseBankExport(text) {
+export function parseBankExport(text, forceOrder) {
   const delimiter = sniffDelimiter(text);
   const lines = text.split(/\r?\n/).filter(l => l.trim());
-  if (lines.length < 2) return { transactions: [], skipped: lines.length, columns: null, delimiter };
+  const noDates = { order: DMY, evidence: 'none', dayFirstProof: 0, monthFirstProof: 0 };
+  if (lines.length < 2) return { transactions: [], skipped: lines.length, columns: null, delimiter, dateOrder: noDates };
 
   // Some exports start with a preamble ("Compte: FR76…", blank, then the
   // header). The header is the first line whose columns can be detected.
@@ -185,13 +262,27 @@ export function parseBankExport(text) {
     const cols = detectColumns(splitLine(lines[i], delimiter));
     if (cols) { headerAt = i; columns = cols; break; }
   }
-  if (!columns) return { transactions: [], skipped: lines.length, columns: null, delimiter };
+  if (!columns) return { transactions: [], skipped: lines.length, columns: null, delimiter, dateOrder: noDates };
+
+  // Read the date convention off the whole column before parsing any row.
+  // Per-row guessing cannot work: the evidence that settles it may sit on a
+  // line other than the one being read.
+  const body = lines.slice(headerAt + 1);
+  const detected = detectDateOrder(
+    body.map(line => splitLine(line, delimiter)[columns.date]),
+    dateOrderHint(text, delimiter),
+  );
+  // An explicit override always wins: the reader can see the dates and the
+  // parser cannot, so when they disagree the reader is right.
+  const dateOrder = forceOrder
+    ? { ...detected, order: forceOrder, evidence: 'chosen' }
+    : detected;
 
   const transactions = [];
   let skipped = headerAt;
-  for (const line of lines.slice(headerAt + 1)) {
+  for (const line of body) {
     const f = splitLine(line, delimiter);
-    const date = parseDate(f[columns.date]);
+    const date = parseDate(f[columns.date], dateOrder.order);
     let amount;
     if (columns.amount >= 0) {
       const a = parseAmount(f[columns.amount]);
@@ -205,7 +296,7 @@ export function parseBankExport(text) {
     transactions.push({ date, label, amount, raw: line });
   }
   transactions.sort((a, b) => a.date - b.date);
-  return { transactions, skipped, columns, delimiter };
+  return { transactions, skipped, columns, delimiter, dateOrder };
 }
 
 // ── 6. Labels ───────────────────────────────────────────────────────────────
