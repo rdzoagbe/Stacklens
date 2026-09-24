@@ -4,20 +4,26 @@ import { Shield, Lock, Mail } from 'lucide-react';
 import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
 import { submitContactForm, mailtoFallback } from '../lib/contact';
-import { RDLogo } from '../components/ui';
-import { LangSelectorCompact } from '../components/AppShell';
+import { PLAN_CARDS, planText, formatCount } from '../lib/planCards';
+import { getPlanLimits } from '../lib/plan';
+import { PublicNav } from '../components/PublicNav';
 import { LEGAL_ENTITY } from '../lib/constants';
 
-// When the security and sub-processor pages last changed in substance. Both
-// used to print "July 2026" as a literal: stale once the sub-processor list
-// changed in September, and English inside the French page. Change this when
-// either page's content changes.
+// When the security, sub-processor, privacy, terms and DPA pages last changed
+// in substance. They used to print "July 2026", "May 2026" and "April 17,
+// 2026" as literals: stale after the September corrections, and English
+// inside the French page. Change this when any of them changes.
 export const LEGAL_UPDATED = '2026-09-24';
 const LOCALE_OF = { en: 'en-GB', fr: 'fr-FR', de: 'de-DE', es: 'es-ES', pt: 'pt-PT' };
-function legalDate(language) {
-  return new Date(LEGAL_UPDATED + 'T12:00:00Z').toLocaleDateString(LOCALE_OF[language] || 'en-GB',
-    { day: 'numeric', month: 'long', year: 'numeric' });
+// The legal notice (mentions légales) last changed in May 2026; only the month
+// is known, so only the month is shown.
+const LEGAL_NOTICE_UPDATED = '2026-05';
+function legalDate(language, iso = LEGAL_UPDATED) {
+  const monthOnly = iso.length === 7;
+  return new Date((monthOnly ? iso + '-15' : iso) + 'T12:00:00Z').toLocaleDateString(LOCALE_OF[language] || 'en-GB',
+    monthOnly ? { month: 'long', year: 'numeric' } : { day: 'numeric', month: 'long', year: 'numeric' });
 }
+const colon = (language) => (language === 'fr' ? '\u00a0: ' : ': ');
 
 export function NotFound() {
   return <Navigate to="/" replace />;
@@ -76,18 +82,13 @@ export function ContactPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white">
+      <PublicNav t={t} />
       <div className="max-w-5xl mx-auto px-6 py-16">
-        <div className="flex items-center justify-between mb-8">
-          <button onClick={() => navigate(-1)} className="text-sm text-slate-400 hover:text-white flex items-center gap-1">
-            ← {t('back')}
-          </button>
-          <LangSelectorCompact />
-        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-12">
           {/* Left — form */}
           <div className="lg:col-span-3">
-            <h1 className="text-3xl font-bold mb-2">{t('contact_title')}</h1>
+            <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">{t('contact_title')}</h1>
             <p className="text-slate-400 mb-8">{t('contact_subtitle')}</p>
 
             <div className="space-y-5">
@@ -189,16 +190,12 @@ export function ContactPage() {
 export function DpaPage() {
   const { language } = useLang();
   const t = useTranslation(language);
-  const navigate = useNavigate();
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white">
+      <PublicNav t={t} />
       <div className="max-w-3xl mx-auto px-6 py-16">
-        <div className="flex items-center justify-between mb-8">
-          <button onClick={() => navigate(-1)} className="text-sm text-slate-400 hover:text-white flex items-center gap-1">← {t('back')}</button>
-          <LangSelectorCompact />
-        </div>
-        <h1 className="text-3xl font-bold mb-2">{t('dpa_title')}</h1>
-        <p className="text-slate-400 text-sm mb-2">{t('dpa_subtitle')} · {t('dpa_version')} 1.1 · {t('dpa_effective')} {t('dpa_effective_date')}</p>
+        <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">{t('dpa_title')}</h1>
+        <p className="text-slate-400 text-sm mb-2">{t('dpa_subtitle')} · {t('dpa_version')} 1.2 · {t('dpa_effective')} {t('dpa_effective_date')}</p>
         <p className="text-slate-400 text-sm mb-10">{t('dpa_auto_accepted')}</p>
 
         <div className="space-y-8 text-sm text-slate-300 leading-relaxed">
@@ -349,7 +346,7 @@ export function DpaPage() {
             <Link to="/sub-processors" className="text-blue-400 hover:text-blue-300">{t('dpa_footer_subproc')}</Link>
             <Link to="/legal" className="text-blue-400 hover:text-blue-300">{t('dpa_footer_legal')}</Link>
             <Link to="/terms" className="text-blue-400 hover:text-blue-300">{t('dpa_footer_terms')}</Link>
-            <span className="ml-auto">{t('dpa_footer_updated')}: May 2026</span>
+            <span className="ml-auto">{t('dpa_footer_updated')}{colon(language)}{legalDate(language)}</span>
           </div>
         </div>
       </div>
@@ -363,7 +360,6 @@ export function DpaPage() {
 export function SubProcessorsPage() {
   const { language } = useLang();
   const t = useTranslation(language);
-  const navigate = useNavigate();
 
   const processors = [
     { name: 'Google Firebase', purpose: t('subproc_firebase_purpose'), location: 'EU (Belgique / Belgium)', link: 'https://firebase.google.com/support/privacy', transfer: t('subproc_firebase_transfer') },
@@ -380,13 +376,10 @@ export function SubProcessorsPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white">
+      <PublicNav t={t} />
       <div className="max-w-4xl mx-auto px-6 py-16">
-        <div className="flex items-center justify-between mb-8">
-          <button onClick={() => navigate(-1)} className="text-sm text-slate-400 hover:text-white flex items-center gap-1">← {t('back')}</button>
-          <LangSelectorCompact />
-        </div>
-        <h1 className="text-3xl font-bold mb-2">{t('subproc_title')}</h1>
-        <p className="text-slate-400 text-sm mb-2">{t('subproc_last_updated')}{language === 'fr' ? ' : ' : ': '}{legalDate(language)}</p>
+        <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">{t('subproc_title')}</h1>
+        <p className="text-slate-400 text-sm mb-2">{t('subproc_last_updated')}{colon(language)}{legalDate(language)}</p>
         <p className="text-slate-400 text-sm mb-10">{t('subproc_intro')}</p>
 
         <div className="space-y-4">
@@ -430,18 +423,12 @@ export function SubProcessorsPage() {
 export function LegalMentionsPage() {
   const { language } = useLang();
   const t = useTranslation(language);
-  const navigate = useNavigate();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white">
+      <PublicNav t={t} />
       <div className="max-w-3xl mx-auto px-6 py-16">
-        <div className="flex items-center justify-between mb-8">
-          <button onClick={() => navigate(-1)} className="text-sm text-slate-400 hover:text-white flex items-center gap-1">
-            ← {t('back')}
-          </button>
-          <LangSelectorCompact />
-        </div>
-        <h1 className="text-3xl font-bold mb-8">{t('legal_title')}</h1>
+        <h1 className="text-3xl md:text-4xl font-bold text-white mb-8">{t('legal_title')}</h1>
 
         <div className="space-y-8 text-sm text-slate-300 leading-relaxed">
           {/* SECTION 1 — Éditeur (LCEN Art. 6 III — REQUIRED) */}
@@ -526,7 +513,7 @@ export function LegalMentionsPage() {
           </section>
 
           <div className="pt-8 border-t border-slate-800 text-xs text-slate-500">
-            <p>{t('legal_last_updated')}: May 2026</p>
+            <p>{t('legal_last_updated')}{colon(language)}{legalDate(language, LEGAL_NOTICE_UPDATED)}</p>
           </div>
         </div>
       </div>
@@ -541,18 +528,7 @@ export function AboutPage() {
   const t = useTranslation(language);
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white">
-      <nav className="border-b border-white/5 bg-slate-950/50 backdrop-blur-2xl sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 py-6 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-4 cursor-pointer">
-            <RDLogo size="md" />
-            <div className="text-2xl font-black bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">Stacklens</div>
-          </Link>
-          <div className="flex items-center gap-4">
-            <LangSelectorCompact />
-            <Link to="/" className="text-slate-300 hover:text-white transition-colors">← {t('about_back_home')}</Link>
-          </div>
-        </div>
-      </nav>
+      <PublicNav t={t} />
 
       <div className="max-w-3xl mx-auto px-6 py-20">
         {/* Hero */}
@@ -620,7 +596,7 @@ export function AboutPage() {
           </div>
         </section>
 
-        <div className="text-center text-xs text-slate-600">
+        <div className="text-center text-xs text-slate-500">
           {t('about_footer_line')}
         </div>
       </div>
@@ -629,27 +605,15 @@ export function AboutPage() {
 }
 
 export function PrivacyPage() {
-  const navigate = useNavigate();
   const { language } = useLang();
   const t = useTranslation(language);
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white">
-      <nav className="border-b border-white/5 bg-slate-950/50 backdrop-blur-2xl sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 py-6 flex items-center justify-between">
-          <div onClick={() => window.location.href = "/"} className="flex items-center gap-4 cursor-pointer">
-            <RDLogo size="md" />
-            <div className="text-2xl font-black bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">Stacklens</div>
-          </div>
-          <div className="flex items-center gap-4">
-            <LangSelectorCompact />
-            <button onClick={() => navigate(-1)} className="text-slate-300 hover:text-white transition-colors">← {t('back')}</button>
-          </div>
-        </div>
-      </nav>
+      <PublicNav t={t} />
 
       <div className="max-w-4xl mx-auto px-6 py-20">
-        <h1 className="text-3xl md:text-5xl font-black mb-4 text-white">{t('privacy_title')}</h1>
-        <p className="text-slate-400 mb-12">{t('privacy_last_updated')}: April 17, 2026</p>
+        <h1 className="text-3xl md:text-4xl font-bold text-white mb-4">{t('privacy_title')}</h1>
+        <p className="text-slate-400 mb-12">{t('privacy_last_updated')}{colon(language)}{legalDate(language)}</p>
 
         <div className="space-y-10 text-sm text-slate-300 leading-relaxed">
           <section>
@@ -764,27 +728,15 @@ export function PrivacyPage() {
 }
 
 export function TermsPage() {
-  const navigate = useNavigate();
   const { language } = useLang();
   const t = useTranslation(language);
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white">
-      <nav className="border-b border-white/5 bg-slate-950/50 backdrop-blur-2xl sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 py-6 flex items-center justify-between">
-          <div onClick={() => window.location.href = "/"} className="flex items-center gap-4 cursor-pointer">
-            <RDLogo size="md" />
-            <div className="text-2xl font-black bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">Stacklens</div>
-          </div>
-          <div className="flex items-center gap-4">
-            <LangSelectorCompact />
-            <button onClick={() => navigate(-1)} className="text-slate-300 hover:text-white transition-colors">← {t('back')}</button>
-          </div>
-        </div>
-      </nav>
+      <PublicNav t={t} />
 
       <div className="max-w-4xl mx-auto px-6 py-20">
-        <h1 className="text-3xl md:text-5xl font-black mb-4 text-white">{t('terms_title')}</h1>
-        <p className="text-slate-400 mb-12">{t('terms_last_updated')}: April 17, 2026</p>
+        <h1 className="text-3xl md:text-4xl font-bold text-white mb-4">{t('terms_title')}</h1>
+        <p className="text-slate-400 mb-12">{t('terms_last_updated')}{colon(language)}{legalDate(language)}</p>
 
         <div className="space-y-10 text-sm text-slate-300 leading-relaxed">
           <section>
@@ -827,10 +779,22 @@ export function TermsPage() {
                   <th className="text-left py-2">{t('terms_s4_col_limits')}</th>
                 </tr></thead>
                 <tbody className="text-slate-300">
-                  <tr className="border-b border-slate-800"><td className="py-2 pr-4">Free</td><td className="py-2 pr-4">€0</td><td className="py-2">10 {t('terms_s4_tools')}, 25 {t('terms_s4_employees')}</td></tr>
-                  <tr className="border-b border-slate-800"><td className="py-2 pr-4">Starter</td><td className="py-2 pr-4">€29/{t('terms_s4_month')}</td><td className="py-2">100 {t('terms_s4_tools')}, 250 {t('terms_s4_employees')}</td></tr>
-                  <tr className="border-b border-slate-800"><td className="py-2 pr-4">Pro</td><td className="py-2 pr-4">€79/{t('terms_s4_month')}</td><td className="py-2">500 {t('terms_s4_tools')}, 1500 {t('terms_s4_employees')}</td></tr>
-                  <tr><td className="py-2 pr-4">Enterprise</td><td className="py-2 pr-4">€299/{t('terms_s4_month')}</td><td className="py-2">{t('terms_s4_unlimited')}</td></tr>
+                  {/* From the same cards as the pricing pages, so the contract
+                      cannot list a price or limit the product does not have.
+                      It used to omit HR & Finance entirely. */}
+                  {PLAN_CARDS.map((c, i) => {
+                    const lim = getPlanLimits(c.id);
+                    const capped = lim.tools < 99999;
+                    return (
+                      <tr key={c.id} className={i < PLAN_CARDS.length - 1 ? 'border-b border-slate-800' : ''}>
+                        <td className="py-2 pr-4">{planText(language, 'plan_' + c.id)}</td>
+                        <td className="py-2 pr-4">€{c.monthly}{c.monthly ? '/' + t('terms_s4_month') : ''}</td>
+                        <td className="py-2">{capped
+                          ? `${formatCount(lim.tools, language)} ${t('terms_s4_tools')}, ${formatCount(lim.employees, language)} ${t('terms_s4_employees')}`
+                          : t('terms_s4_unlimited')}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -899,18 +863,7 @@ export function SecurityPage() {
   const t = useTranslation(language);
   return (
     <div className="min-h-screen bg-slate-950 text-white">
-      <nav className="border-b border-white/5 bg-slate-950/80 backdrop-blur sticky top-0 z-50 px-6 py-4">
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <div onClick={() => window.location.href = "/"} className="flex items-center gap-3 cursor-pointer">
-            <RDLogo size="sm" />
-            <span className="text-lg font-black bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">Stacklens</span>
-          </div>
-          <div className="flex items-center gap-4">
-            <LangSelectorCompact />
-            <button onClick={() => window.history.back()} className="text-sm text-slate-400 hover:text-white transition-colors">← Back</button>
-          </div>
-        </div>
-      </nav>
+      <PublicNav t={t} />
       <div className="max-w-4xl mx-auto px-6 py-20">
         <div className="text-center mb-16">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 mb-6">
@@ -980,8 +933,8 @@ export function SecurityPage() {
           </Link>
         </div>
 
-        <div className="mt-10 text-center text-xs text-slate-600">
-          {t('subproc_last_updated')}{language === 'fr' ? ' : ' : ': '}{legalDate(language)} · {t('subproc_questions')} <Link to="/contact" className="text-blue-400 hover:underline">hello@stacklens.fr</Link>
+        <div className="mt-10 text-center text-xs text-slate-500">
+          {t('subproc_last_updated')}{colon(language)}{legalDate(language)} · {t('subproc_questions')} <Link to="/contact" className="text-blue-400 hover:underline">hello@stacklens.fr</Link>
         </div>
       </div>
     </div>

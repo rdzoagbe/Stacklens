@@ -111,11 +111,11 @@ export function ClientsPage() {
                             {o.summary.currency}{Math.round(o.summary.monthly_spend).toLocaleString()}
                           </span>
                           {t('ws_per_month')}
-                          <span className="mx-1.5 text-slate-700">·</span>
+                          <span className="mx-1.5 text-slate-500">·</span>
                           {o.summary.tools} {t('ws_tools_tracked')}
                           {o.summary.updated_at && (
                             <>
-                              <span className="mx-1.5 text-slate-700">·</span>
+                              <span className="mx-1.5 text-slate-500">·</span>
                               {t('ws_updated')} {fmtDate(o.summary.updated_at)}
                             </>
                           )}
@@ -149,7 +149,7 @@ export function ClientsPage() {
                         client and the retention window, is what actually
                         guards the action. */}
                     <button onClick={() => deleteClient(o)} disabled={busy}
-                      className="px-3 py-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 text-xs font-semibold transition-colors disabled:opacity-50 flex items-center gap-1.5">
+                      className="px-3 py-1.5 rounded-lg text-red-400 hover:bg-red-500/10 hover:text-red-300 text-xs font-semibold transition-colors disabled:opacity-50 flex items-center gap-1.5">
                       <Trash2 className="h-3.5 w-3.5" /> {t('ws_delete')}
                     </button>
                   </span>

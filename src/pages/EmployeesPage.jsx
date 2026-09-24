@@ -87,7 +87,7 @@ function DirectorySyncBanner() {
                 ? <span className="text-emerald-500 hidden sm:inline">· {new Date(lastSync).toLocaleDateString()}</span>
                 : isConnected
                   ? <span className="text-emerald-500">✓</span>
-                  : <span className="text-slate-600">{t('st_not_connected')}</span>
+                  : <span className="text-slate-500">{t('st_not_connected')}</span>
               }
             </button>
           );
@@ -325,7 +325,7 @@ export function EmployeesPage() {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 pointer-events-none" />
               <input
-                className="w-full pl-9 pr-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-600 outline-none focus:border-blue-500 transition-colors"
+                className="w-full pl-9 pr-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 outline-none focus:border-blue-500 transition-colors"
                 placeholder={t('search_placeholder_employees')}
                 value={q} onChange={e => setQ(e.target.value)} />
             </div>

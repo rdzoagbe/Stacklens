@@ -115,7 +115,7 @@ export function TeamTab({ db, firebaseUser, t }) {
                   <option value="viewer">{t('ws_role_viewer')}</option>
                   <option value="editor">{t('ws_role_editor')}</option>
                 </select>
-                <button onClick={() => revoke(m.id)} className="text-xs text-rose-500 hover:text-rose-400 transition-colors">{t('remove_member')}</button>
+                <button onClick={() => revoke(m.id)} className="text-xs text-red-500 hover:text-red-400 transition-colors">{t('remove_member')}</button>
               </div>
             ))}
             {members?.length === 0 && (

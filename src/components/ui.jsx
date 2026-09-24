@@ -15,8 +15,11 @@ import { useTranslation } from '../translations';
 
 export function RDLogo({ size = 'md', onClick }) {
   const s = { sm: 'h-9 w-9', md: 'h-12 w-12', lg: 'h-16 w-16' }[size] || 'h-12 w-12';
+  // A button only when it does something. Inside a <Link> it was a button in
+  // an anchor: invalid HTML, and two tab stops for one destination.
+  const Tag = onClick ? 'button' : 'span';
   return (
-    <button onClick={onClick} className={cx('relative group cursor-pointer transition-all duration-300 hover:scale-105 flex-shrink-0', s)}>
+    <Tag {...(onClick ? { onClick, type: 'button' } : { 'aria-hidden': true })} className={cx('relative group block cursor-pointer transition-all duration-300 hover:scale-105 flex-shrink-0', s)}>
       <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-blue-700 via-blue-600 to-blue-800 opacity-60 blur-md group-hover:opacity-90 transition-opacity duration-300" />
       <div className="relative flex items-center justify-center rounded-xl bg-gradient-to-br from-blue-700 via-blue-600 to-blue-900 shadow-xl overflow-hidden h-full w-full border border-blue-400/30">
         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
@@ -39,7 +42,7 @@ export function RDLogo({ size = 'md', onClick }) {
           </defs>
         </svg>
       </div>
-    </button>
+    </Tag>
   );
 }
 
@@ -112,7 +115,7 @@ export function Button({ className, variant = 'primary', size = 'md', disabled, 
     primary:   'bg-blue-600 text-white hover:bg-blue-500',
     secondary: 'bg-slate-800 text-slate-100 hover:bg-slate-700 border border-slate-700',
     ghost:     'bg-transparent text-slate-200 hover:bg-slate-800',
-    danger:    'bg-rose-600 text-white hover:bg-rose-500',
+    danger:    'bg-red-600 text-white hover:bg-red-500',
   };
   return (
     <button type={type} disabled={disabled} onClick={onClick} className={cx(base, sizes[size], variants[variant], className)}>
@@ -158,7 +161,7 @@ export function Pill({ tone = 'slate', icon: Icon, children }) {
     blue:   'bg-blue-600/15 text-blue-200 border-blue-600/30',
     green:  'bg-emerald-600/15 text-emerald-200 border-emerald-600/30',
     amber:  'bg-amber-500/15 text-amber-200 border-amber-500/30',
-    rose:   'bg-rose-600/15 text-rose-200 border-rose-600/30',
+    rose:   'bg-red-600/15 text-red-200 border-red-600/30',
     purple: 'bg-violet-600/15 text-violet-200 border-violet-600/30',
   };
   return (
@@ -294,7 +297,7 @@ export function MiniStat({ label, value, tone = 'blue' }) {
   const tones = {
     blue:  'border-blue-600/30 bg-blue-600/10',
     amber: 'border-amber-500/30 bg-amber-500/10',
-    rose:  'border-rose-600/30 bg-rose-600/10',
+    rose:  'border-red-600/30 bg-red-600/10',
     slate: 'border-slate-800 bg-slate-950/30',
   };
   return (

@@ -478,7 +478,7 @@ export function TrialPage() {
             {t('lp_pricing_fine_print')}
           </p>
           {pricing.isLocal && (
-            <p className="text-center text-xs text-slate-600 mt-2">
+            <p className="text-center text-xs text-slate-500 mt-2">
               {t('lp_pricing_local_note').replace('{code}', pricing.code)}
             </p>
           )}
@@ -603,7 +603,7 @@ export function TrialPage() {
             </div>
             <div className="flex items-center gap-4 text-xs text-slate-500">
               <span>{t('lp_footer_made_in')}</span>
-              <span className="text-slate-700">·</span>
+              <span className="text-slate-500">·</span>
               <Link to="/contact" className="hover:text-white transition-colors">hello@stacklens.fr</Link>
             </div>
           </div>
@@ -684,7 +684,7 @@ export function TrialPage() {
                           </button>
                         </div>
                       </div>
-                      {authError && <div className="text-rose-400 text-xs px-1">{authError}</div>}
+                      {authError && <div className="text-red-400 text-xs px-1">{authError}</div>}
                       <button onClick={async () => {
                           setLoading(true); setAuthError('');
                           // Email/password sign-in via Google (same account) or magic link fallback
@@ -803,7 +803,7 @@ export function TrialPage() {
                           className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" />
                       </div>
 
-                      {authError && <div className="text-rose-400 text-xs px-1">{authError}</div>}
+                      {authError && <div className="text-red-400 text-xs px-1">{authError}</div>}
 
                       {/* Password field for registration.
                           Revealable, and it has to be: this is a password
@@ -869,7 +869,7 @@ export function TrialPage() {
                           </button>
                         </div>
                         {authConfirm && authPassword !== authConfirm && (
-                          <div className="text-rose-400 text-xs px-1 mt-1">{t('lp_password_mismatch')}</div>
+                          <div className="text-red-400 text-xs px-1 mt-1">{t('lp_password_mismatch')}</div>
                         )}
                       </div>
                       {/* Terms acceptance — required at signup, proof of consent (LCEN + RGPD) */}
@@ -934,7 +934,7 @@ export function TrialPage() {
                         {t('lp_sign_up_microsoft')}
                       </button>
 
-                      <p className="text-center text-[11px] text-slate-600 leading-relaxed">
+                      <p className="text-center text-[11px] text-slate-500 leading-relaxed">
                         {t('lp_terms_fine_print')}{' '}
                         <Link to="/terms" className="text-slate-400 hover:text-white underline" onClick={() => setShowAuth(false)}>Terms</Link>
                         {' '}{t('lp_terms_and')}{' '}
@@ -978,12 +978,12 @@ export function TrialPage() {
                         <div className="w-9 h-9 rounded-xl bg-slate-900 border border-slate-700 flex items-center justify-center flex-shrink-0">{p.logo}</div>
                         <div className="text-left">
                           <div className={"text-sm font-semibold " + (p.live ? "text-white" : "text-slate-500")}>{p.name}</div>
-                          <div className="text-xs text-slate-600">{p.sub}</div>
+                          <div className="text-xs text-slate-500">{p.sub}</div>
                         </div>
                       </div>
                       {p.live
                         ? <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-blue-400 transition-colors" />
-                        : <span className="text-[9px] font-bold text-slate-600 bg-slate-900 border border-slate-700 px-2 py-0.5 rounded-full uppercase tracking-widest">{t('lp_sso_soon')}</span>}
+                        : <span className="text-[9px] font-bold text-slate-500 bg-slate-900 border border-slate-700 px-2 py-0.5 rounded-full uppercase tracking-widest">{t('lp_sso_soon')}</span>}
                     </button>
                   ))}
                 </div>

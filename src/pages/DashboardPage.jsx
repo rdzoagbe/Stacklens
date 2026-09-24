@@ -135,7 +135,7 @@ function GettingStartedChecklist({ db }) {
               </div>
               <div className="text-xs text-slate-500">{t('gs_sub')}</div>
             </div>
-            <button onClick={dismiss} className="text-slate-600 hover:text-slate-400 transition-colors text-lg leading-none flex-shrink-0" title={t('close')}>✕</button>
+            <button onClick={dismiss} className="text-slate-500 hover:text-slate-400 transition-colors text-lg leading-none flex-shrink-0" title={t('close')}>✕</button>
           </div>
 
           <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden mb-5">
@@ -290,15 +290,15 @@ export function DashboardPage() {
 
       {/* ── PRIORITY ACTION BANNER ── */}
       {derived.formerAccess > 0 && (
-        <div className="relative overflow-hidden rounded-2xl border border-rose-500/30 bg-gradient-to-r from-rose-500/10 via-orange-500/5 to-transparent p-5 lg:p-6 mb-6">
-          <div className="absolute top-0 right-0 w-64 h-full bg-gradient-to-l from-rose-500/5 to-transparent pointer-events-none" />
+        <div className="relative overflow-hidden rounded-2xl border border-red-500/30 bg-gradient-to-r from-red-500/10 via-orange-500/5 to-transparent p-5 lg:p-6 mb-6">
+          <div className="absolute top-0 right-0 w-64 h-full bg-gradient-to-l from-red-500/5 to-transparent pointer-events-none" />
           <div className="relative flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-6">
             <div className="flex items-center gap-4 flex-1">
-              <div className="flex-shrink-0 h-14 w-14 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center">
-                <AlertTriangle className="h-7 w-7 text-rose-400" />
+              <div className="flex-shrink-0 h-14 w-14 rounded-xl bg-red-500/20 border border-red-500/40 flex items-center justify-center">
+                <AlertTriangle className="h-7 w-7 text-red-400" />
               </div>
               <div className="flex-1 min-w-0">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-rose-400">{t('dash_priority')}</span>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-red-400">{t('dash_priority')}</span>
                 <h2 className="text-xl lg:text-2xl font-bold text-white mb-1">
                   {derived.formerAccess} {t(derived.formerAccess === 1 ? 'dash_former_access_title_one' : 'dash_former_access_title')}
                 </h2>
@@ -307,7 +307,7 @@ export function DashboardPage() {
             </div>
             <div className="flex-shrink-0">
               <Button onClick={() => navigate('/offboarding')}
-                className="w-full lg:w-auto !bg-rose-500 hover:!bg-rose-400 !text-white !px-6 !py-3 !font-bold shadow-lg shadow-rose-900/30">
+                className="w-full lg:w-auto !bg-red-500 hover:!bg-red-400 !text-white !px-6 !py-3 !font-bold shadow-lg shadow-red-900/30">
                 {t('dash_remove_access')} →
               </Button>
             </div>
@@ -469,7 +469,7 @@ export function DashboardPage() {
             <div className="text-center py-8">
               <div className="text-3xl mb-2 opacity-40">💸</div>
               <div className="text-sm text-slate-400 mb-1">{t('dash_no_spend')}</div>
-              <div className="text-xs text-slate-600">{t('dash_import_to_see')}</div>
+              <div className="text-xs text-slate-500">{t('dash_import_to_see')}</div>
             </div>
           ) : (
             <div className="space-y-3">
@@ -692,7 +692,7 @@ export function DashboardPage() {
       </div>
 
       {showImport && importKind && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={() => setShowImport(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur p-4" onClick={() => setShowImport(false)}>
           <div className="bg-slate-950 border border-slate-700 rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto relative" onClick={e => e.stopPropagation()}>
             <button onClick={() => setShowImport(false)} className="absolute top-4 right-4 z-10 w-8 h-8 bg-slate-800 border border-slate-700 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition-colors">✕</button>
             <ImportWizard defaultKind={importKind} onDone={() => { setShowImport(false); setImportKind(null); }} />
@@ -701,7 +701,7 @@ export function DashboardPage() {
       )}
 
       {showAssignOwner && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={() => setShowAssignOwner(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur p-4" onClick={() => setShowAssignOwner(false)}>
           <div className="bg-slate-950 border border-slate-700 rounded-2xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
             <h3 className="text-lg font-bold text-white mb-1">{t('dash_assign_owner')}</h3>
             <p className="text-sm text-slate-400 mb-4">{t('dash_who_should_own')} {assignToolName}?</p>

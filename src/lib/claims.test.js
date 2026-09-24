@@ -254,7 +254,7 @@ describe('cancelling and deleting are described as the code does them', () => {
 
   it('so no page says cancelling deletes your data', () => {
     const cancelDeletes = /(when you cancel|on cancel|lors de la résiliation|quand vous résiliez).{0,40}(delet|supprim|effac)|30 days, then is deleted|30 jours, puis/i;
-    for (const key of ['sec_card_delete_body', 'lp_faq_a6', 'lp_faq7_a', 'privacy_s5_body']) {
+    for (const key of ['sec_card_delete_body', 'lp_faq_a6', 'lp_faq7_a', 'privacy_s5_body', 'terms_s7_body', 'terms_s10_body']) {
       for (const lang of ['en', 'fr']) {
         const text = copy(lang, key);
         expect(text, `${lang}.${key} missing`).toBeTruthy();
@@ -262,6 +262,12 @@ describe('cancelling and deleting are described as the code does them', () => {
       }
     }
     expect(copy('en', 'sec_card_delete_body')).toMatch(/free plan and keeps your data/);
+    // The terms said "Upon termination, your data will be deleted within 30
+    // days" beside a privacy policy saying cancelling keeps it. Both now say
+    // the same thing, and this pins the terms to it.
+    expect(copy('en', 'terms_s7_body')).toMatch(/Cancelling a paid subscription does not delete it/);
+    expect(copy('fr', 'terms_s7_body')).toMatch(/Résilier un abonnement payant ne les supprime pas/);
+    expect(copy('en', 'terms_s7_body')).not.toMatch(/Upon termination, your data will be deleted/);
   });
 
   it('the Delete account button calls the real erasure, not a contact form', () => {

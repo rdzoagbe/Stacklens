@@ -232,6 +232,15 @@ pins that first insight fires once, never on an empty inbox, never in demo.
 
 `useTranslation()` from `translations.js` returns `t(key)`. Language preference stored in `localStorage('language')` and managed by `useLang()` from `src/contexts/LangContext.jsx`. Five languages: `en`, `fr`, `de`, `es`, `pt`. Missing keys are auto-translated via AI and cached in localStorage.
 
+### Visual system
+
+Held by `src/lib/design-tokens.test.js`:
+- **Font:** Inter, self-hosted via `@fontsource-variable/inter` (imported in `main.jsx`, set as `fontFamily.sans` in `tailwind.config.js`). Never Google Fonts: it would be a new sub-processor and is outside the CSP.
+- **Secondary text:** `text-slate-500`, whose token is overridden to `#74839a` so it passes WCAG AA on slate-950 and slate-900. Never `text-slate-600/700` for text.
+- **Critical red:** `red-*` only; no `rose-*`.
+- **Modal backdrop:** `bg-slate-950/70 backdrop-blur`, the same as `<Modal>`.
+- **Public pages** (legal, about, contact, security, accountants, audit) use `<PublicNav>`; the landing nav keeps its own links but the same classes.
+
 ### Deployment
 
 Firebase Hosting (`dist/`) with security headers in `firebase.json` including a strict CSP. After any `vite build`, run `firebase deploy --only hosting`. The CSP `connect-src` must include all external APIs the app fetches (googleapis, google.com, gstatic.com, apis.google.com, accounts.google.com). Note: `open.er-api.com` was removed deliberately — amounts are never converted (see `src/lib/currency.js`), so nothing fetches exchange rates.

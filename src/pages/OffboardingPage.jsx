@@ -38,7 +38,7 @@ function ChecklistItems() {
             <div className={"mt-0.5 h-4 w-4 rounded border flex-shrink-0 flex items-center justify-center transition-all " + (checked[key] ? 'bg-emerald-500 border-emerald-500' : 'border-slate-600 group-hover:border-emerald-500/50')}>
               {checked[key] && <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7"/></svg>}
             </div>
-            <span className={checked[key] ? 'line-through text-slate-600' : 'group-hover:text-slate-300 transition-colors'}>{t(key)}</span>
+            <span className={checked[key] ? 'line-through text-slate-500' : 'group-hover:text-slate-300 transition-colors'}>{t(key)}</span>
           </div>
         ))}
       </div>
@@ -464,7 +464,7 @@ export function OffboardingPage() {
                         <BadgeX className="h-4 w-4" />
                         One-Click Offboard ({activeRecords.length} access)
                       </button>
-                      <p className="text-[10px] text-slate-600 text-center mt-2">
+                      <p className="text-[10px] text-slate-500 text-center mt-2">
                         {t("offboarding_one_click_sub")}
                       </p>
 

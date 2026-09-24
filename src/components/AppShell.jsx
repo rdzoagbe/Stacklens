@@ -705,16 +705,16 @@ function CloudSyncBanner() {
   };
 
   return (
-    <div className="bg-gradient-to-r from-rose-600 to-red-600 text-white text-sm px-4 py-2.5 flex items-center justify-between gap-3">
+    <div className="bg-gradient-to-r from-red-600 to-red-600 text-white text-sm px-4 py-2.5 flex items-center justify-between gap-3">
       <div className="flex items-center gap-2 min-w-0">
         <span className="text-base flex-shrink-0">⚠️</span>
         <span className="font-semibold flex-shrink-0">{t('sync_error_title')}</span>
-        <span className="text-rose-100 hidden sm:inline truncate">— {t('sync_error_sub')}</span>
+        <span className="text-red-100 hidden sm:inline truncate">— {t('sync_error_sub')}</span>
       </div>
       <button
         onClick={onRetry}
         disabled={retrying}
-        className="bg-white text-rose-600 hover:bg-rose-50 disabled:opacity-70 px-3 py-1 rounded-lg text-xs font-bold transition-all flex-shrink-0">
+        className="bg-white text-red-600 hover:bg-red-50 disabled:opacity-70 px-3 py-1 rounded-lg text-xs font-bold transition-all flex-shrink-0">
         {retrying ? t('sync_retrying') : t('sync_retry')}
       </button>
     </div>
@@ -748,14 +748,14 @@ export function SharedWorkspaceBanner() {
     const editing = sharedView.role === 'editor';
     return (
       <div className={"flex flex-wrap items-center justify-center gap-3 border-b px-4 py-2 text-sm " + (
-        editing ? 'bg-rose-500/10 border-rose-500/30' : 'bg-amber-500/10 border-amber-500/30')}>
-        <span className={"font-semibold " + (editing ? 'text-rose-300' : 'text-amber-300')}>
+        editing ? 'bg-red-500/10 border-red-500/30' : 'bg-amber-500/10 border-amber-500/30')}>
+        <span className={"font-semibold " + (editing ? 'text-red-300' : 'text-amber-300')}>
           {editing ? '✎' : '👁'} {t('ws_viewing')} <span className="font-mono">{sharedView.owner_email || sharedView.owner_uid}</span>
           {' — '}{editing ? t('ws_editing') : t('ws_readonly')}
         </span>
         <button onClick={() => { exitSharedView(); qc.invalidateQueries({ queryKey: ['db'] }); }}
           className={"px-3 py-1 rounded-lg text-xs font-bold transition-colors " + (
-            editing ? 'bg-rose-500/20 hover:bg-rose-500/30 text-rose-200'
+            editing ? 'bg-red-500/20 hover:bg-red-500/30 text-red-200'
                     : 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-200')}>
           {t('ws_exit')}
         </button>
