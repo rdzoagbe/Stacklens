@@ -158,19 +158,15 @@ isSupported().then(ok => {
       window.__firebaseAnalyticsSetConsent = function(consentState) {
         try { firebaseSetConsent(consentState); } catch { /* silent */ }
       };
-      // If consent was given on a prior visit (stored in localStorage), apply it now
+      // If consent was given on a prior visit, apply it now — using the same
+      // test and the same state index.html uses. This path used to read
+      // localStorage itself, check only `choice === 'accepted'` (so a consent
+      // from an old banner version, or older than the 13-month ceiling, was
+      // still honoured here while index.html correctly refused it), and grant
+      // the three advertising signals nobody had been asked about.
       try {
-        const raw = localStorage.getItem('cookie_consent_v2');
-        if (raw) {
-          const stored = JSON.parse(raw);
-          if (stored && stored.choice === 'accepted') {
-            firebaseSetConsent({
-              analytics_storage: 'granted',
-              ad_storage: 'granted',
-              ad_user_data: 'granted',
-              ad_personalization: 'granted',
-            });
-          }
+        if (window.hasStoredAnalyticsConsent && window.hasStoredAnalyticsConsent()) {
+          firebaseSetConsent(window.ANALYTICS_CONSENT);
         }
       } catch { /* silent */ }
     }

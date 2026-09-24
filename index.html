@@ -179,11 +179,35 @@
          Google Consent Mode v2 — CNIL / GDPR compliant
          MUST run before any analytics SDK initialises.
          All 4 consent parameters default to 'denied' (CNIL requirement).
+
+         Accepting the banner grants ANALYTICS ONLY. The three advertising
+         signals stay denied whatever the visitor clicks. The banner offers
+         "analytics cookies (Google Analytics)", the privacy policy says
+         analytics only, and the DPA promises no behavioural advertising —
+         yet until 2026-09 every accept path also granted ad_storage,
+         ad_user_data and ad_personalization. Four hand-typed copies of the
+         same object had drifted; there is now one, ANALYTICS_CONSENT, and
+         src/lib/claims.test.js executes this script to keep it that way.
          ════════════════════════════════════════════════════════════════════ -->
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
       window.gtag = gtag;
+
+      // The only two consent states this site ever sets. Defined once so no
+      // path can grant something the banner never asked for.
+      window.DENIED_CONSENT = {
+        analytics_storage: 'denied',
+        ad_storage: 'denied',
+        ad_user_data: 'denied',
+        ad_personalization: 'denied'
+      };
+      window.ANALYTICS_CONSENT = {
+        analytics_storage: 'granted',
+        ad_storage: 'denied',
+        ad_user_data: 'denied',
+        ad_personalization: 'denied'
+      };
 
       // Default: all 4 Consent Mode v2 parameters denied until user acts
       gtag('consent', 'default', {
@@ -194,31 +218,32 @@
         wait_for_update: 500
       });
 
-      // Consent version — bump this when cookie categories change to re-ask users
+      // Consent version — bump this when cookie categories change to re-ask users.
+      // Not bumped for the 2026-09 change: visitors consented to analytics, and
+      // analytics is now exactly what they get. Narrowing needs no re-ask.
       window.CONSENT_VERSION = 'v2-2026-04';
 
-      // If user previously accepted (and version matches), grant consent immediately on page load
-      (function() {
+      // A stored "accepted" counts only if it is for the current version and
+      // under 13 months old, the CNIL ceiling for a consent's lifetime. Exposed
+      // so src/firebase-config.js applies the same test instead of its own.
+      window.hasStoredAnalyticsConsent = function() {
         try {
           var raw = localStorage.getItem('cookie_consent_v2');
-          if (!raw) return;
+          if (!raw) return false;
           var stored = JSON.parse(raw);
-          if (stored.version !== window.CONSENT_VERSION) return;
-          // Consent expires after 6 months (CNIL minimum) — we use 13 months as ceiling
+          if (!stored || stored.choice !== 'accepted') return false;
+          if (stored.version !== window.CONSENT_VERSION) return false;
           var THIRTEEN_MONTHS_MS = 13 * 30 * 24 * 60 * 60 * 1000;
-          if (Date.now() - stored.timestamp > THIRTEEN_MONTHS_MS) return;
+          if (!(Date.now() - stored.timestamp <= THIRTEEN_MONTHS_MS)) return false;
+          return true;
+        } catch (e) { return false; /* corrupted storage — banner will re-ask */ }
+      };
 
-          if (stored.choice === 'accepted') {
-            gtag('consent', 'update', {
-              analytics_storage: 'granted',
-              ad_storage: 'granted',
-              ad_user_data: 'granted',
-              ad_personalization: 'granted'
-            });
-            loadGtagScript();
-          }
-        } catch (e) { /* corrupted storage — ignore, banner will re-ask */ }
-      })();
+      // Returning visitor who already accepted: apply it before anything loads.
+      if (window.hasStoredAnalyticsConsent()) {
+        gtag('consent', 'update', window.ANALYTICS_CONSENT);
+        loadGtagScript();
+      }
 
       function loadGtagScript() {
         if (window.__gtag_loaded) return;
@@ -228,44 +253,31 @@
         s.src = 'https://www.googletagmanager.com/gtag/js?id=G-MDRVRX854L';
         document.head.appendChild(s);
         gtag('js', new Date());
-        gtag('config', 'G-MDRVRX854L', { anonymize_ip: true });
+        // Belt and braces: the denied ad_* consent is the actual guarantee,
+        // and these switch off Google signals and ad personalisation for this
+        // measurement ID regardless of how the GA4 property is configured.
+        gtag('config', 'G-MDRVRX854L', {
+          anonymize_ip: true,
+          allow_google_signals: false,
+          allow_ad_personalization_signals: false
+        });
       }
 
       // Called from React when user clicks Accept
       window.enableAnalytics = function() {
-        gtag('consent', 'update', {
-          analytics_storage: 'granted',
-          ad_storage: 'granted',
-          ad_user_data: 'granted',
-          ad_personalization: 'granted'
-        });
+        gtag('consent', 'update', window.ANALYTICS_CONSENT);
         loadGtagScript();
         // Propagate to Firebase Analytics SDK if initialised
         if (window.__firebaseAnalyticsSetConsent) {
-          window.__firebaseAnalyticsSetConsent({
-            analytics_storage: 'granted',
-            ad_storage: 'granted',
-            ad_user_data: 'granted',
-            ad_personalization: 'granted'
-          });
+          window.__firebaseAnalyticsSetConsent(window.ANALYTICS_CONSENT);
         }
       };
 
       // Called from React when user clicks Reject
       window.disableAnalytics = function() {
-        gtag('consent', 'update', {
-          analytics_storage: 'denied',
-          ad_storage: 'denied',
-          ad_user_data: 'denied',
-          ad_personalization: 'denied'
-        });
+        gtag('consent', 'update', window.DENIED_CONSENT);
         if (window.__firebaseAnalyticsSetConsent) {
-          window.__firebaseAnalyticsSetConsent({
-            analytics_storage: 'denied',
-            ad_storage: 'denied',
-            ad_user_data: 'denied',
-            ad_personalization: 'denied'
-          });
+          window.__firebaseAnalyticsSetConsent(window.DENIED_CONSENT);
         }
       };
     </script>
