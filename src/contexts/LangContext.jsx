@@ -12,6 +12,12 @@ export function LanguageProvider({ children }) {
     const nav = (typeof navigator !== 'undefined' && navigator.language ? navigator.language : 'en').slice(0, 2).toLowerCase();
     return ['en', 'fr', 'de', 'es', 'pt'].includes(nav) ? nav : 'en';
   });
+  // index.html ships lang="en". Screen readers pick their voice from it and
+  // browsers offer to translate by it, so a French page announced as English
+  // was read with English pronunciation and offered a French→French translation.
+  React.useEffect(() => {
+    if (typeof document !== 'undefined') document.documentElement.lang = language;
+  }, [language]);
   const setAndPersist = React.useCallback((lang) => {
     localStorage.setItem('language', lang);
     setLanguage(lang);

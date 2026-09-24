@@ -283,7 +283,8 @@ setQueryClient(queryClient);
 // URL in sitemap.xml declared itself a duplicate of / and was dropped.
 function SeoHead() {
   const { pathname } = useLocation();
-  useEffect(() => { applySeo(pathname); }, [pathname]);
+  const { language } = useLang();
+  useEffect(() => { applySeo(pathname, document, language); }, [pathname, language]);
   return null;
 }
 
