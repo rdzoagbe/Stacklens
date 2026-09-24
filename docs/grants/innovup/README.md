@@ -1,5 +1,13 @@
 # Innov'up Île-de-France — Stacklens application dossier
 
+> **Closed, 24 September 2026.** The Région replied that *"les entreprises
+> individuelles ne sont pas éligibles au dispositif Innov'up"*. The exclusion
+> is the legal form, not the project: the *logiciel métier* question was never
+> reached. Start at `00-do-this-next.md`, which records the answer, what
+> transfers to the Crédit d'Impôt Innovation and to Bourse French Tech, and
+> the one clarification worth sending. The technical material below stands
+> unchanged and is reusable as it is.
+
 This folder is the working dossier for the Innov'up grant (Région Île-de-France /
 Bpifrance), prepared from the *StackLens Innov'up Grant Preparation Guide 2026*.
 It is written to be read by the founder and reused as the source of every claim
@@ -80,8 +88,9 @@ and were produced by the shipped code, not written by hand.
 1. **No number without a source.** Technical numbers come from the scripts and
    tests in this repository. Commercial numbers are marked *[founder]* until a
    document or interview note backs them.
-2. **The engine is not improved before filing.** The misses in the baseline are
-   the evidence that the project exists. Fixing them now would be starting the
-   funded work early, and Innov'up does not fund what has already been done.
-   Ordinary maintenance of the product continues; the *inference* engine is
-   frozen at the recorded commit until the application is submitted.
+2. **The engine was frozen until filing; that no longer applies.** There is no
+   filing, so improvements are free. Two habits are worth keeping for their own
+   sake: re-record the baseline whenever the engine changes, so the numbers
+   never drift from the code, and keep every dated results file, because
+   before-and-after evidence is worth as much to a tax-credit claim or an
+   investor as it was to the grant.

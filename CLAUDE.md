@@ -204,12 +204,12 @@ result to `docs/grants/innovup/evidence/baseline-results.json` and into the
 marker block of `02-technical-baseline.md`, and `src/lib/baseline.test.js`
 fails whenever either stops matching the code.
 
-**The inference engine is frozen until the application is filed.** The
-vendor list, cadence rules and findings thresholds in `saasAudit.js` are the
-measured starting point of the funded project; improving them before filing
-is starting the project early, which the grant does not fund. If a change is
-unavoidable, re-run the script, commit the new results with the change, and
-keep the previous results file rather than overwriting it once filed.
+**The freeze is lifted.** The Région answered on 2026-09-24 that entreprises
+individuelles are not eligible for Innov'up, so there is no filing and no
+reason to hold the engine still. Two rules survive on their own merit: re-run
+`tools/record-baseline.mjs` whenever the engine changes so the dossier never
+quotes a figure the code no longer earns, and keep each dated results file
+rather than overwriting it, since the before-and-after is the evidence.
 
 `src/lib/activation.js` records the activation KPIs the dossier quotes
 (`first_insight`, `return_after_insight`, `recommendations_shown`,
