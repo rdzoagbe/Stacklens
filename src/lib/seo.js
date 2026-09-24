@@ -27,35 +27,67 @@ const SUFFIX = ' | Stacklens';
 export const PAGE_SEO = {
   '/': {
     title: 'Stacklens — SaaS audits for accountants and the SMBs they run',
-    description: 'Turn the bank exports and invoices you already hold into a SaaS audit per client: duplicates, forgotten subscriptions, price rises, renewals, and who still has access. Free browser-only audit; EU data storage; GDPR-native.',
+    description: 'Turn the bank exports and invoices you already hold into a SaaS audit per client: duplicates, forgotten subscriptions, price rises, renewals, and who still has access. Free browser-only audit; EU data storage; GDPR tooling built in.',
+    fr: {
+      title: "Stacklens — l'audit SaaS des experts-comptables et des PME qu'ils accompagnent",
+      description: "Transformez les exports bancaires et les factures que vous avez déjà en audit SaaS par client : doublons, abonnements oubliés, hausses de prix, renouvellements, et qui a encore accès. Audit gratuit dans le navigateur ; données stockées dans l'UE ; outils RGPD intégrés.",
+    },
   },
   '/about': {
     title: 'About Stacklens',
     description: 'Who builds Stacklens and why: SaaS spend and access management for small and mid-sized European companies, with EU data storage and GDPR at the centre.',
+    fr: {
+      title: "À propos de Stacklens",
+      description: "Qui construit Stacklens et pourquoi : la gestion des dépenses et des accès SaaS pour les petites et moyennes entreprises européennes, avec des données stockées dans l'UE et le RGPD au centre.",
+    },
   },
   '/contact': {
     title: 'Contact',
     description: 'Get in touch with the Stacklens team about SaaS spend management, access reviews, security questions or your data protection rights.',
+    fr: {
+      title: "Contact",
+      description: "Contactez l'équipe Stacklens au sujet de la gestion des dépenses SaaS, des revues d'accès, de questions de sécurité ou de vos droits sur vos données.",
+    },
   },
   '/security-info': {
     title: 'Security',
     description: 'How Stacklens protects your data: EU data storage, encryption in transit and at rest, access controls, audit logging and our breach notification procedure.',
+    fr: {
+      title: "Sécurité",
+      description: "Comment Stacklens protège vos données : stockage dans l'UE, chiffrement en transit et au repos, contrôles d'accès, journal d'audit et procédure de notification des violations.",
+    },
   },
   '/privacy': {
     title: 'Privacy Policy',
     description: 'What personal data Stacklens processes, why, how long it is kept, and the rights you can exercise under the GDPR.',
+    fr: {
+      title: "Politique de confidentialité",
+      description: "Quelles données personnelles Stacklens traite, pourquoi, combien de temps elles sont conservées, et les droits que vous pouvez exercer au titre du RGPD.",
+    },
   },
   '/terms': {
     title: 'Terms of Service',
     description: 'The terms governing your use of Stacklens, including subscriptions, acceptable use, liability and termination.',
+    fr: {
+      title: "Conditions d'utilisation",
+      description: "Les conditions qui régissent votre utilisation de Stacklens : abonnements, usage acceptable, responsabilité et résiliation.",
+    },
   },
   '/dpa': {
     title: 'Data Processing Agreement',
     description: 'The Stacklens Data Processing Agreement: Article 28 GDPR terms, sub-processors, international transfers and the CCPA/CPRA addendum.',
+    fr: {
+      title: "Accord de traitement des données",
+      description: "L'accord de traitement des données de Stacklens : clauses de l'article 28 du RGPD, sous-traitants, transferts internationaux et avenant CCPA/CPRA.",
+    },
   },
   '/sub-processors': {
     title: 'Sub-processors',
     description: 'The complete list of sub-processors Stacklens uses, what each one processes, where it is located and the transfer safeguards that apply.',
+    fr: {
+      title: "Sous-traitants",
+      description: "La liste complète des sous-traitants de Stacklens : ce que chacun traite, où il est situé et les garanties de transfert applicables.",
+    },
   },
   // Commercial pages for the accountant channel. Titles carry the product
   // name so they read whole in a result; descriptions are French-first
@@ -71,13 +103,18 @@ export const PAGE_SEO = {
   '/legal': {
     title: 'Legal Notice',
     description: 'Legal notice and company information for Stacklens, including publisher, hosting provider and contact details.',
+    fr: {
+      title: "Mentions légales",
+      description: "Mentions légales et informations sur Stacklens : éditeur, hébergeur et coordonnées.",
+    },
   },
 };
 
 /** The full <title> for a path, or null when the path is not a public page. */
-export function titleFor(pathname) {
-  const page = PAGE_SEO[normalise(pathname)];
-  if (!page) return null;
+export function titleFor(pathname, language = 'en') {
+  const entry = PAGE_SEO[normalise(pathname)];
+  if (!entry) return null;
+  const page = localised(entry, language);
   // The homepage title already names the product; the rest get the suffix so
   // a result reads "Privacy Policy | Stacklens" rather than bare "Privacy".
   return pathname === '/' || page.title.includes('Stacklens')
@@ -92,8 +129,18 @@ export function canonicalFor(pathname) {
   return path === '/' ? SITE_ORIGIN + '/' : SITE_ORIGIN + path;
 }
 
-export function descriptionFor(pathname) {
-  return PAGE_SEO[normalise(pathname)]?.description || null;
+export function descriptionFor(pathname, language = 'en') {
+  const entry = PAGE_SEO[normalise(pathname)];
+  return entry ? localised(entry, language).description || null : null;
+}
+
+// A page's head in the reader's language where one is written, English
+// otherwise. French is written for every public page because France is the
+// market; the accountant pages are French to begin with. The other three
+// languages fall back to English rather than to a machine translation in a
+// title Google will cache.
+function localised(entry, language) {
+  return (language && language !== 'en' && entry[language]) || entry;
 }
 
 /** Trailing slashes and case differences must not produce a second URL. */
@@ -110,10 +157,10 @@ export { normalise as normalisePath };
  * page — is left alone rather than given the homepage's canonical, which is
  * the bug this module exists to fix.
  */
-export function applySeo(pathname, doc = typeof document !== 'undefined' ? document : null) {
+export function applySeo(pathname, doc = typeof document !== 'undefined' ? document : null, language = 'en') {
   if (!doc) return false;
-  const title = titleFor(pathname);
-  const description = descriptionFor(pathname);
+  const title = titleFor(pathname, language);
+  const description = descriptionFor(pathname, language);
   const canonical = canonicalFor(pathname);
   if (!title || !canonical) return false;
 
