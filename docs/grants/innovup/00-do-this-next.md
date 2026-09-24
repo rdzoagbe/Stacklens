@@ -4,54 +4,104 @@ Written 2026-09-20. This is the running order for the Innov'up application:
 what to do, in what order, and what each step is waiting on. The other files
 in this folder are the content; this one is the sequence.
 
-**The one rule that sets the order:** the grant will not fund work that
-started before you file, and it excludes "logiciels métiers". So the first
-task is a 20-minute email that tells you whether the rest is worth writing,
-and nothing in the six work packages may begin until the application is in.
+**Status, 24 September 2026: Innov'up is closed to an entreprise
+individuelle.** The Région answered in three days and the answer is below.
+The rule that set this order paid for itself: ask the eligibility question
+before writing anything long. What remains open, and what transfers, is in
+the first section. The interviews carry on unchanged.
 
 ---
 
-## Step 1 — Send the eligibility email. **DONE, Monday 21 September 2026.**
+## Innov'up is closed. Answered 24 September 2026.
 
-Sent to the Région, and to Bpifrance if you used both channels. Everything
-else is shaped by the answer, which is why this went first.
+The Région replied to the note sent on 21 September:
 
-**Two things to finish closing it out:**
+> "Nous vous informons que les entreprises individuelles ne sont pas éligibles
+> au dispositif Innov'up."
+> — Service Information-Orientation, Pôle Développement Economique Formation
+> et Innovation, Région Île-de-France
 
-1. Save the sent message as a PDF into `evidence/`, named
-   `2026-09-21-note-eligibilite-envoyee.pdf`. The Région asks for the
-   pre-filing correspondence and the date you asked is part of the argument
-   that the project had not started.
-2. If you only sent it to **aides.economiques@iledefrance.fr**, send the same
-   text through **contact.bpifrance.fr** as well, choosing "Je suis porteur
-   de projet innovant". Two channels, because either may answer first and
-   neither is obliged to.
+**Three days, and the answer cost one email.** That is the eligibility-first
+order doing exactly its job: had the long form been written first, four weeks
+of work would have been rejected on a point of legal form.
 
-**Chase date: Tuesday 6 October 2026.** That is one working day after ten
-have passed. If there is no reply by Monday 5 October, resend the same text,
-then telephone Bpifrance. Record both attempts in `evidence/`.
+### Read what it does and does not say
 
-**While it is open, do not write the long form.** Steps 2 to 4 below do not
-depend on the answer and are the right use of the wait.
+It rules out the **legal form**, not the project. It says nothing about
+*logiciel métier*, which was the risk the note was written to test. The
+framing in `02` and `03` is therefore untested, not rejected, and it survives
+intact for any other scheme or for an investor.
 
-<details>
-<summary>What was sent, for the record</summary>
+### One thing worth a single reply
 
-The text is in `01-note-eligibilite.md`, section **Version française**. It
-asks whether a project about inferring a company's software estate from bank
-and directory data falls under the advanced digital / AI and business
-security priorities, rather than being excluded as a *logiciel métier*, and
-puts the eight pre-filing questions from the guide's section 23.
+Public summaries of Innov'up describe the beneficiaries as TPE, PME and ETI
+*"quelle que soit leur forme juridique"*. That does not sit easily beside the
+answer received. The official page could not be read directly from here to
+confirm the current wording, so this is a discrepancy to raise, not a claim
+that the Région is wrong.
 
-</details>
+It costs one polite email and could reopen the whole route:
+
+> Madame, Monsieur,
+>
+> Je vous remercie pour votre réponse rapide.
+>
+> Je souhaitais simplement lever une ambiguïté : la présentation publique du
+> dispositif indique qu'il s'adresse aux TPE, PME et ETI « quelle que soit
+> leur forme juridique ». Dois-je comprendre que l'exclusion des entreprises
+> individuelles résulte d'une condition distincte, par exemple l'obligation de
+> déposer des comptes sociaux ou d'être soumis à l'impôt sur les sociétés ?
+>
+> Cette précision m'aiderait à savoir si une transformation en SASU ou EURL
+> rendrait le projet éligible, et sous quel délai.
+>
+> Je vous prie d'agréer, Madame, Monsieur, mes salutations distinguées.
+
+Ask it, then act on the answer rather than on the assumption.
+
+### What is actually open
+
+| Route | Legal form | Worth it? |
+|---|---|---|
+| **Crédit d'Impôt Innovation (CII)** | Open to an entreprise individuelle meeting the EU definition of a PME, provided it is taxed **au réel** and not under the micro regime | **Best fit.** A tax credit, not a competition: no jury, no deadline, claimed on the return. 20% of eligible expenditure in metropolitan France since the 2025 finance law, running to 31 December 2027. Covers prototype and pilot design for a product not yet on the market that is distinguished by significantly superior performance, which is what `02` and `03` already describe. **Check the tax regime with an accountant first: under micro-BIC this does not apply.** |
+| **Bourse French Tech (Bpifrance)** | No mandatory legal form. Entreprise individuelle accepted, and an applicant may even apply as a natural person before creating a structure | **Apply.** Squarely aimed at an early innovative project |
+| **Incorporating as SASU or EURL, then Innov'up** | Solves it by construction | Only if the reply above says the exclusion really is the legal form. This is a tax, social-contribution and accounting decision, not a grant decision, and it should be taken with an accountant on its own merits |
+| **Local: CCI Seine-Saint-Denis, BGE, Initiative France, Réseau Entreprendre** | Generally open | Worth a morning. Prêts d'honneur and accompaniment, and the same Île-de-France anchoring |
+
+### The dossier is not wasted
+
+Only the Innov'up framing is dead. Everything under it transfers without
+rework: the measured technical baseline (`02`), the six work packages (`03`),
+the security and privacy package (`04`), the KPIs and their measurement
+methods (`05`), the budget structure (`06`), the competitor matrix (`07`) and
+the risk register (`08`). A CII claim needs the technical description and the
+expenditure mapping, which is `02`, `03` and `06`. An investor asks for the
+same material in a different order.
+
+**The interviews continue regardless.** They were never only for the grant:
+they are how you learn whether the product is right, and questions 10 to 12
+are what work packages three and four turn on.
+
+### The engine freeze is lifted
+
+`src/lib/saasAudit.js` was frozen because Innov'up would not fund work begun
+before filing. There is no filing, so there is no freeze. The inference engine
+can be improved whenever it is worth improving.
+
+Two things stay true anyway, and are worth keeping for their own sake. Re-run
+`node tools/record-baseline.mjs` whenever the engine changes, so the measured
+numbers never drift from the code. And **keep every dated results file**
+rather than overwriting it: a CII claim is strengthened by exactly the same
+before-and-after evidence, and so is any investor conversation.
 
 ---
 
-## Step 2 — Book the interviews. **This is now the live task.**
+## The live task — book the interviews
 
-Fifteen to twenty conversations cannot be compressed. They need calendar
-time, so every day of the wait spent not booking them is a day lost. This
-does not depend on the Région's answer.
+Unchanged by the Innov'up answer, because these were never only for the
+grant. They are how you find out whether the product is right, and questions
+10 to 12 are what work packages three and four turn on. Fifteen to twenty
+conversations cannot be compressed; they need calendar time.
 
 Everything you need is in `09-interview-guide.md`: the four recruitment
 messages in French, the channel plan with the posting rule for each place,
@@ -96,9 +146,12 @@ of the whole impact case. Without it there is no after.
 
 ---
 
-## Step 3 — Two checks you can do in an hour, any time this week.
+## Still worth doing — two checks, one hour
 
-Neither depends on the Région's answer, and both are needed whatever happens.
+Neither depended on the Région's answer and both are still needed: the
+database location is a claim the public site makes, and a current SIRENE
+extract is wanted by the CII, by Bpifrance and by any accountant you talk to
+about incorporating.
 
 **Confirm where the database actually is.** Firebase console, Firestore,
 database settings, read the location. The public sub-processor page says
@@ -114,10 +167,12 @@ registration if anything has changed since May.
 
 ---
 
-## Step 4 — Fill in the competitor matrix. Two to three hours.
+## Still worth doing — the competitor matrix, two to three hours
 
 Open `07-competitor-matrix.md`. It lists candidates and has the Stacklens
-column already filled from the code. You fill three competitor columns.
+column already filled from the code. You fill three competitor columns. This
+is state-of-the-art evidence for a CII claim, material for an investor, and
+the fastest way to find out what you are actually competing with.
 
 For each one: open their product page, their pricing page and their security
 page. For every cell write what they actually state, the page address, and
@@ -130,77 +185,46 @@ checked 20 September" is a perfectly good entry.
 
 ---
 
-## Step 5 — When the answer arrives, decide.
+## The Innov'up-specific steps are retired
 
-| Their answer | What you do |
-|---|---|
-| Yes, it can be examined under advanced digital or security | Continue to step 6. Quote their reply in the eligibility paragraph of the form |
-| Yes, but only if… | Reshape the work packages in `03` to their conditions before writing anything long. Tell me the conditions and I will redraft |
-| No, this is a logiciel métier | Stop the Innov'up route. The dossier transfers: ask them which scheme fits, and look at Bpifrance Bourse French Tech, the Aide pour la faisabilité de l'innovation, and the Crédit d'Impôt Innovation. Almost none of the work is lost |
+What used to stand here was the decision tree for the Région's answer, the
+budget scenarios, the forecasts and the form. The answer came and it was no,
+so those steps have no subject any more.
 
----
+Nothing is deleted. The content they pointed at is still in `06` for the
+budget structure and `10` for the company block and the attachments list, and
+both are reusable:
 
-## Step 6 — The money. Only after a yes.
+- **For a CII claim:** the technical description in `02` and `03`, and the
+  expenditure mapping in `06` recast as eligible innovation expenditure. Take
+  it to an accountant, since the binding question is your tax regime.
+- **For Bourse French Tech:** `02`, `03` and `10` cover most of what is asked.
+- **For an investor:** the same material, reordered around the market rather
+  than the technical uncertainty.
 
-Open `06-budget-scenarios.md`. Three scenarios are drafted at thirty, fifty
-and seventy-five thousand euros, all subvention only, with every line already
-mapped to a work package. Two things are missing and only you can supply
-them.
-
-**Supplier quotes.** Four kinds: data or machine-learning engineering by the
-day, a security test, a privacy review, and design or user-research support.
-Get two quotes for the engineering line. Each quote must name the work
-package it belongs to.
-
-**Your own hours and what they cost.** Question four of the eligibility
-email asks the Région which calculation method they accept for a sole
-trader. Use their answer. Then start a timesheet from the first day of the
-project, one row per month per work package. They will ask for it later.
-
-**Then pick the smallest scenario that fully funds the work.** Do not inflate
-the project to chase a bigger grant. Write down how you will fund the
-company's share before you choose, because that is the real constraint.
-
----
-
-## Step 7 — The forecast. Only after a yes.
-
-A twelve to eighteen month forecast and a three-year one. Label every figure
-as actual, assumption or target, and keep them consistent with each other
-and with the budget. Pull the actuals from Stripe and the Firebase user
-count. The indicator table at the bottom of `05-kpis-and-measurement.md`
-is the shape to fill.
-
-No market-size claims. If you use a market statistic, keep its source and
-date beside it.
-
----
-
-## Step 8 — Fill the form and file.
-
-`10-application-fields.md` has every section of the form with the answer
-already prepared or marked as yours to supply. Work down it, then run the
-submission gate at the bottom of `README.md`. Do not file until every row
-reads yes.
-
-File at **mesdemarches.iledefrance.fr**, before any work package starts.
+Do not rewrite them for a scheme you have not yet been told you qualify for.
+Get the answer to the clarification email first, and the accountant's answer
+on the tax regime, then write once.
 
 ---
 
 ## While all this is happening
 
-**The inference engine stays frozen.** The vendor list, the cadence rules and
-the findings thresholds in `src/lib/saasAudit.js` are the measured starting
-point of the project. Improving them now is starting the funded work early,
-which cannot be claimed. Everything else in the product carries on as normal:
-marketing, bug fixes, the accountant pages, sign-in, billing.
+**The engine is no longer frozen**, and the first thing that came off the
+back of it was a real bug: the parser assumed day-first dates, so a US or any
+month-first export lost every row past the 12th and transposed the rest,
+silently. It now reads the convention off the file and says which one it used.
+Keep re-recording the baseline when the engine changes, and keep each dated
+results file: before-and-after evidence is worth as much to a CII claim as it
+was to the grant.
 
-**The measured figures look low, and that is the point.** Seventy-one percent
-precision reads like a weakness in a sales deck. In a research grant it is
-the evidence that a real unsolved problem exists and that you have
-characterised it honestly. Do not be tempted to present a better number.
+**The measured figures look low, and that is still the point.** Seventy-one
+percent precision reads like a weakness in a sales deck. In a CII file, in
+front of an investor, or in a LinkedIn post, it is evidence that a real
+unsolved problem exists and that you characterised it honestly. Do not
+present a better number than you can defend.
 
-**Say what is true about data location.** The application should state that
-data is stored in the EU, that server processing currently runs in a US
-region, and that moving it is part of the funded work. Do not use the
-"GDPR-native" badge from the website as a compliance claim.
+**Say what is true about data location.** Data is stored in the EU, server
+processing currently runs in a US region, and moving it is still on the list.
+Say exactly that, wherever it is asked. Do not use the "GDPR-native" badge
+from the website as a compliance claim.
