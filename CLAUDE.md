@@ -51,7 +51,7 @@ Plan/billing state lives in a **separate** Firestore collection (`/users/{uid}`)
 
 Three gating systems:
 - `PlanGate({ requires })` — compares `resolvePlan(user)` against `PLAN_TIERS` in `src/lib/plan.js`. The tiers are **not** a single sales ladder: `free` 0, `starter` 2, `hr_finance` 2, `pro` 3, `enterprise` 4, `scale`/`unlimited`/`professional` 4, and `trial` 4 — a trial deliberately has full access and expires after `TRIAL_DAYS`. `starter` and `hr_finance` are the same tier, so `requires` cannot distinguish them; use `ModuleGate` when the distinction matters.
-- `ModuleGate({ module })` — maps plan to enabled modules (`security`, `finance`, `people`)
+- `ModuleGate({ module })` — maps plan to enabled modules (`security`, `finance`, `people`, `ai`, `analytics`, `api`). Starter has `people`; HR & Finance adds `finance`; Pro adds `security`, `ai`, `analytics`; only Enterprise has `api`. The locked screen names the cheapest plan that unlocks the module (`cheapestPlanFor`).
 - `RoleGate({ requires })` — RBAC within the app (`viewer`, `editor`, `admin`, `owner`)
 
 **Server side:** `resolvePlan()` is client-only, and nothing ever rewrites
@@ -129,6 +129,7 @@ its allowance indefinitely. `src/lib/plan-parity.test.js` keeps the two in step.
 | `src/hooks/useAuth.js` | Firebase auth state hook |
 | `src/hooks/useDbQuery.js` | TanStack Query wrapper for localStorage DB |
 | `src/lib/plan.js` | `resolvePlan()`, `getTrialState()`, plan constants |
+| `src/lib/planCards.js` | The plan cards (prices, bullets in 5 languages) shared by the landing page and Settings → Billing; every number comes from `PLAN_LIMITS`, `TEAM_INVITE_LIMIT`, `CLIENT_WORKSPACE_LIMIT` |
 | `src/lib/db.js` | `saveDb()`, `hydrateFromFirestore()`, DB schema helpers |
 | `src/lib/dataUtils.js` | Pure data utilities (sorting, filtering, CSV export) |
 | `src/lib/currency.js` | Currency formatting and conversion |

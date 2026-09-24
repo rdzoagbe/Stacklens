@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
-import { TRIAL_DAYS, resolvePlan } from './plan';
+import { TRIAL_DAYS, resolvePlan, PLAN_LIMITS, TEAM_INVITE_LIMIT, CLIENT_WORKSPACE_LIMIT, TRIAL_CLIENT_WORKSPACES } from './plan';
 import { MODULE_PLANS } from '../components/gates';
 import { SUPPORTED_CURRENCIES } from './currency';
 
@@ -117,5 +117,37 @@ describe('the server can render the workspace currency', () => {
     for (const bad of [undefined, {}, { user: {} }, { user: { currency: 'JPY' } }]) {
       expect(server.currencySymbol(bad)).toBe('€');
     }
+  });
+});
+
+describe('sharing and client-workspace caps are the ones the server enforces', () => {
+  /** A numeric constant in functions/index.js, e.g. MAX_WORKSPACE_MEMBERS. */
+  function serverNumber(name) {
+    const m = new RegExp(`const ${name} = (\\d+);`).exec(functionsSource);
+    expect(m, `${name} not found in functions/index.js — if it was renamed, ` +
+      'update this guard rather than deleting it').toBeTruthy();
+    return Number(m[1]);
+  }
+
+  it('the invite cap on the plan cards is the server cap', () => {
+    expect(TEAM_INVITE_LIMIT).toBe(serverNumber('MAX_WORKSPACE_MEMBERS'));
+  });
+
+  it('the client-workspace caps on the plan cards are the server caps', () => {
+    expect(CLIENT_WORKSPACE_LIMIT).toBe(serverNumber('MAX_CLIENT_ORGS'));
+    expect(TRIAL_CLIENT_WORKSPACES).toBe(serverNumber('TRIAL_CLIENT_ORGS'));
+  });
+
+  it('free and trial cannot invite anyone, and the server says the same', () => {
+    expect(PLAN_LIMITS.free.teamInvites).toBe(0);
+    expect(PLAN_LIMITS.trial.teamInvites).toBe(0);
+    expect(functionsSource).toMatch(/\['free', 'trial'\]\.includes\(plan\)[\s\S]{0,120}Team sharing requires a paid plan/);
+    for (const id of ['starter', 'hr_finance', 'pro', 'enterprise']) {
+      expect(PLAN_LIMITS[id].teamInvites, id).toBe(TEAM_INVITE_LIMIT);
+    }
+  });
+
+  it('Starter can open the People pages its card sells', () => {
+    expect(MODULE_PLANS.people).toContain('starter');
   });
 });

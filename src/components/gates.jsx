@@ -8,6 +8,7 @@ import { useLang } from '../contexts/LangContext';
 import { useTour } from '../contexts/TourContext';
 import { useTranslation } from '../translations';
 import { resolvePlan, getPlanLimits, PLAN_TIERS } from '../lib/plan';
+import { PLAN_CARDS, planText } from '../lib/planCards';
 
 // ── Role-Based Access Control ──────────────────────────────────────────────
 
@@ -107,11 +108,13 @@ export function PlanGate({ requires, children, feature = null }) {
 // ── Module gate ────────────────────────────────────────────────────────────
 
 export const MODULE_PLANS = {
-  finance:   ['hr_finance', 'pro', 'enterprise', 'scale', 'unlimited', 'growth'],
-  people:    ['hr_finance', 'pro', 'enterprise', 'scale', 'unlimited', 'growth'],
-  security:  ['pro', 'enterprise', 'scale', 'unlimited', 'growth'],
-  ai:        ['pro', 'enterprise', 'scale', 'unlimited', 'growth'],
-  analytics: ['pro', 'enterprise', 'scale', 'unlimited', 'growth'],
+  finance:   ['hr_finance', 'pro', 'enterprise', 'scale', 'unlimited', 'growth', 'professional'],
+  // Starter sells "up to 250 employees"; without this module it could not
+  // open the Employees page to hold them.
+  people:    ['starter', 'hr_finance', 'pro', 'enterprise', 'scale', 'unlimited', 'growth', 'professional'],
+  security:  ['pro', 'enterprise', 'scale', 'unlimited', 'growth', 'professional'],
+  ai:        ['pro', 'enterprise', 'scale', 'unlimited', 'growth', 'professional'],
+  analytics: ['pro', 'enterprise', 'scale', 'unlimited', 'growth', 'professional'],
   // Must stay equal to API_PLANS in functions/index.js, which is what the
   // endpoint actually enforces. The Settings > API tab had no gate at all, so
   // a free user could mint a key, copy the curl example, and get 403 on every
@@ -119,6 +122,13 @@ export const MODULE_PLANS = {
   // Guarded by src/lib/plan-parity.test.js.
   api:       ['enterprise', 'scale', 'unlimited', 'professional'],
 };
+
+/** The lowest-priced card whose plan includes `module`, or null. */
+export function cheapestPlanFor(module) {
+  const allowed = MODULE_PLANS[module] || [];
+  return PLAN_CARDS.filter((c) => allowed.includes(c.id))
+    .sort((a, b) => a.monthly - b.monthly)[0] || null;
+}
 
 export function ModuleGate({ module, children, _feature = 'this module' }) {
   const { language } = useLang();
@@ -139,9 +149,12 @@ export function ModuleGate({ module, children, _feature = 'this module' }) {
     security: t('module_desc_security'), ai: t('module_desc_ai'), analytics: t('module_desc_analytics'),
     api: t('module_desc_api'),
   };
-  const isHrFinance      = ['finance', 'people'].includes(module);
-  const recommendedPlan  = isHrFinance ? 'HR & Finance Pack' : 'Pro';
-  const recommendedPrice = isHrFinance ? '€49/mo' : '€79/mo';
+  // The cheapest plan that actually includes this module. It used to be two
+  // hard-coded answers, so the API tab told people Pro would unlock it when
+  // only Enterprise does.
+  const cheapest = cheapestPlanFor(module);
+  const recommendedPlan  = cheapest ? planText(language, 'plan_' + cheapest.id) : 'Pro';
+  const recommendedPrice = cheapest ? `€${cheapest.monthly}/mo` : '';
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-6">
@@ -153,7 +166,7 @@ export function ModuleGate({ module, children, _feature = 'this module' }) {
       <p className="text-slate-400 mb-6 max-w-md">
         {t('module_available_from')}{' '}
         <span className="text-blue-400 font-semibold">{recommendedPlan}</span>
-        {' '}({recommendedPrice})
+        {recommendedPrice && <>{' '}({recommendedPrice})</>}
       </p>
       <button
         onClick={() => navigate('/settings?tab=billing')}

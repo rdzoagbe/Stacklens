@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { uid, loadDb, saveDb, seedDbIfEmpty } from '../lib/db';
-import { getPlanLimits } from '../lib/plan';
+import { getPlanLimits, resolvePlan } from '../lib/plan';
 import { track } from '../lib/analytics';
 import { noteDataArrived } from '../lib/activation';
 import { appendAudit, auditActor, changedKeys, describeChange } from '../lib/audit';
@@ -79,7 +79,7 @@ export function useDbMutations() {
   const createTool = useMutation({
     mutationFn: async (tool) => {
       const current = loadDb();
-      const plan = current?.user?.is_founder ? 'scale' : (current?.user?.plan || current?.user?.subscription_plan || 'free');
+      const plan = resolvePlan(current?.user);
       const limits = getPlanLimits(plan);
       if ((current?.tools?.length || 0) >= limits.tools) {
         throw planLimitError('tools', plan, limits.label, limits.tools);
@@ -145,7 +145,7 @@ export function useDbMutations() {
   const createEmployee = useMutation({
     mutationFn: async (emp) => {
       const current = loadDb();
-      const plan = current?.user?.is_founder ? 'scale' : (current?.user?.plan || current?.user?.subscription_plan || 'free');
+      const plan = resolvePlan(current?.user);
       const limits = getPlanLimits(plan);
       if ((current?.employees?.length || 0) >= limits.employees) {
         throw planLimitError('employees', plan, limits.label, limits.employees);
@@ -411,7 +411,7 @@ export function useDbMutations() {
     mutationFn: async ({ kind, records: initialRecords }) => {
       let records = initialRecords;
       const current = loadDb();
-      const plan = current?.user?.is_founder ? 'scale' : (current?.user?.plan || current?.user?.subscription_plan || 'free');
+      const plan = resolvePlan(current?.user);
       const limits = getPlanLimits(plan);
       const currentTools = current?.tools?.length || 0;
       const currentEmps  = current?.employees?.length || 0;
