@@ -41,3 +41,16 @@
 @media (max-width: 768px) {
   img, video, iframe { max-width: 100%; height: auto; }
 }
+
+/* ── Client report printing (SaasAuditPage → ClientReportPanel) ──
+   The report is portalled into #print-report on <body>. Only while the panel
+   is open does <body> carry .printing-report, so printing any other page is
+   untouched. */
+#print-report { display: none; }
+@media print {
+  @page { size: A4; margin: 12mm; }
+  body.printing-report { background: #fff !important; }
+  body.printing-report > *:not(#print-report) { display: none !important; }
+  body.printing-report #print-report { display: block !important; }
+  #print-report * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}

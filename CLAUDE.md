@@ -174,6 +174,13 @@ Functions called from the app require a Firebase Auth Bearer token (`verifyAuth`
 
 `src/lib/claims.test.js` holds what the site tells people — cookie consent, integration tokens, deletion, the browser copy, export, unauthenticated endpoints, AI disclosures — to the code that makes each true. When a test there fails, the fix is usually to change the copy, not the test: the test is telling you a public statement just became false.
 
+### The free audit (`/audit-saas`): review and client report
+
+The page promises the bank file never leaves the browser, and `accountant-channel.test.js` holds it to that: no fetch, no storage, analytics gets counts only. Two features live inside that promise:
+- **Review.** Each line takes a verdict (correct / not software / rename / it's software), applied by `applyVerdicts` in `src/lib/saasAudit.js`; totals, findings, CSV and report are all rebuilt from it. Verdicts live in memory only.
+- **Corrections to Stacklens** leave only as an email the reader sends: `correctionsMailto` opens their mail client with the corrected bank labels and verdicts, never amounts or dates.
+- **Client report.** A one-page print layout with the accountant's firm and client name, printed by the browser ("Save as PDF"). It is portalled into `#print-report`, and the print CSS in `index.css` hides the rest of the page only while `body.printing-report` is set.
+
 ### Signing out, cancelling and deleting
 
 - **Signing out** removes this account's data from the browser (`clearLocalWorkspace` in `src/lib/db.js`), after `flushBeforeSignOut` writes anything the cloud may not have. If that cannot be confirmed the user is asked before anything is discarded. An expired session does not clear, only an explicit sign-out.
