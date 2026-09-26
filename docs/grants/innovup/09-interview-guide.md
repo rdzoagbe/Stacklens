@@ -206,45 +206,49 @@ A post reaches people you are not connected to, so it does the recruiting the
 direct messages cannot. Post this once, then work the comments. Do not post it
 again next week: a repeated ask reads as a campaign.
 
-Copy from the block below. Nothing in it needs editing except the signature.
+Copy from the block below. Nothing in it needs editing.
+
+Every number and example is measured, not written: they come from
+`evidence/baseline-results.json` (vendor precision 0.705, 31 right out of 44
+flagged), and each quoted line is in `test-data/innovup-baseline/`. If the
+engine changes, re-run `tools/record-baseline.mjs` and check the post still
+matches before reusing it.
 
 ```
-Quand une PME paie un logiciel dont plus personne ne se sert, qui s'en aperçoit ?
+J'ai mesuré à quel point mon propre outil se trompe.
 
-Et au bout de combien de temps ?
+Il lit un relevé bancaire et repère les abonnements logiciels. Résultat : sur 10 lignes qu'il signale comme un abonnement, 7 le sont vraiment.
 
-Je pose la question sérieusement, parce que je n'ai pas la réponse.
+Les 3 autres sont plus intéressantes que les 7.
 
-Je mène une étude sur la gestion des abonnements logiciels et des accès dans les petites structures : qui détient la liste, comment on repère un prélèvement devenu inutile, ce qui se passe quand un salarié part et que ses accès restent ouverts.
+« PRLV SEPA GOOGLE ADS » et « PRLV GOOGLE GSUITE » : la première est de la publicité, la seconde un abonnement. Sur un relevé, presque rien ne les sépare.
 
-Je cherche 15 à 20 personnes pour un échange de 20 minutes :
+« CB MONDAY CAFE PARIS 11 » : un café, pas monday.com.
 
-— dirigeants de PME de 5 à 50 salariés
-— responsables informatique ou sécurité, en interne ou prestataires
-— experts-comptables, RAF, responsables administratifs
+« CB QONTO ABONNEMENT » : des frais bancaires. Le mot « abonnement » suffit à tromper la règle.
 
-Ce que je veux comprendre, c'est ce que vous faites aujourd'hui. Pas ce qu'il faudrait faire.
+Et le cas qui me gêne le plus : « CB APPLE.COM/BILL ». Stockage iCloud de l'entreprise, ou achat ponctuel sur l'App Store ? La ligne ne le dira jamais. Il faut demander à quelqu'un.
 
-Transparence : je développe un logiciel dans ce domaine. Je le précise pour que ce soit clair, mais ce n'est pas l'objet. Je ne vous présenterai rien et je ne vous vendrai rien — si je le faisais, l'étude ne vaudrait rien.
+C'est exactement pour ça que je veux parler à des gens qui font ce tri à la main aujourd'hui : experts-comptables, dirigeants de PME, responsables informatique.
 
-Je partagerai la synthèse anonymisée avec les participants.
+20 minutes, aucune démonstration, rien à vendre. Je veux comprendre comment vous tranchez ces cas-là quand c'est vous qui regardez le relevé.
 
-Un commentaire ou un message privé suffit.
+Un commentaire ou un message privé.
 
-Roland — Bondy (93)
+Roland Dzoagbe, Bondy (93)
 ```
 
 **Why it is built this way.**
 
 | Choice | Reason |
 |---|---|
-| The question is the first line | LinkedIn truncates at roughly three lines. The question has to land before "voir plus" or nobody opens it |
-| "parce que je n'ai pas la réponse" | A founder asking a question he already has an answer to is recognisably doing marketing. This one is true, and the baseline in `02` is the proof |
-| The disclosure paragraph | Anyone curious clicks your profile and sees Stacklens within two seconds. Saying it first costs nothing and buys the rest of the post. Concealing it and being found out costs the channel |
+| It opens with the tool's own failure rate | Almost no founder publishes one, so it stops the scroll, and "mon propre outil" in the first line is the disclosure: there is nothing to confess later |
+| It gives before it asks | The reader learns something from the examples whether or not they reply. The ask then reads as the obvious consequence, not a cold request |
+| Seven in ten, with the failures named | Against a spreadsheet and memory, a measured 70% with its errors shown is credible. Claimed perfection from an unknown vendor is not |
+| Concrete bank lines | An accountant recognises the Google Ads line at once and wants to say so. The café is the one people comment on |
+| The Apple line comes last | It is not an error the rule can fix: only a person knows. That is the reason for the interview, stated in the reader's own terms |
 | No link anywhere | LinkedIn suppresses reach on posts carrying an external link, and a link turns a research request back into an advert. Your profile is the link |
-| Three named profiles | People self-select. It also quietly signals that you know the problem has three different shapes |
-| "Pas ce qu'il faudrait faire" | Pre-empts the advice you do not want. You are after current practice, not opinions on best practice |
-| No statistic | You do not yet have a defensible number about other companies. Inventing one would be the fastest way to lose an accountant who deals in real figures |
+| No statistic about other companies | The only number is about your own tool, which you measured. You do not yet have a defensible figure about anyone else |
 
 **Working the post, which matters more than the post.**
 
