@@ -108,7 +108,7 @@ messages in French, the channel plan with the posting rule for each place,
 the opening script, the fourteen questions in order, the note sheet, and the
 tally sheet that turns the notes into the numbers the application quotes.
 
-**Tomorrow morning: the LinkedIn post.** Tuesday to Thursday, 08:00 to
+**The LinkedIn post (option A, chosen 2026-09-26).** Tuesday to Thursday, 08:00 to
 10:00 Paris time. The ready text is in `09-interview-guide.md` under
 "LinkedIn — the public post", with the reasoning for each choice and the
 rules for working the comments, which matter more than the post itself.
