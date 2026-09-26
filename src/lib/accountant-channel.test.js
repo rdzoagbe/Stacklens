@@ -128,6 +128,41 @@ describe('the audit page keeps its promise', () => {
     }
   });
 
+  it('anything beyond counts leaves only as an email the reader sends', () => {
+    // The review lets a reader tell us where the engine was wrong. That goes
+    // through their own mail client, which they read before sending: the page
+    // opens a mailto built by correctionsMailto and does nothing else.
+    const src = strip(audit());
+    expect(src).toMatch(/correctionsMailto\(verdicts/);
+    expect(src).toMatch(/window\.location\.href = href/);
+    expect(src, 'a mailto built in the page could carry anything').not.toContain('mailto:');
+    expect(src).not.toContain('window.open');
+    // And the email itself is labels and verdicts: the builder never touches
+    // an amount or a date.
+    const lib = read('src/lib/saasAudit.js');
+    const builder = lib.slice(lib.indexOf('export function correctionsEmail'), lib.indexOf('export function correctionsMailto'));
+    expect(builder.length).toBeGreaterThan(200);
+    expect(builder).not.toMatch(/amount|monthlyEquivalent|\.date\b|transactions/i);
+  });
+
+  it('says so where it makes the promise', () => {
+    for (const lang of ['en', 'fr']) {
+      const block = tr().slice(tr().indexOf(`  ${lang}: {`));
+      const body = /audit_privacy_body: "([^"]*)"/.exec(block)[1];
+      expect(body, lang).toMatch(/email|messagerie/);
+    }
+  });
+
+  it('the report print stylesheet cannot blank any other page', () => {
+    // It hides everything on <body> except the report. Unscoped, printing the
+    // privacy policy would produce a white page.
+    const css = read('src/index.css');
+    const print = css.slice(css.indexOf('#print-report { display: none; }'));
+    const hides = print.match(/[^{}]*\{[^}]*display:\s*none[^}]*\}/g) || [];
+    expect(hides.length).toBeGreaterThan(0);
+    for (const rule of hides.slice(1)) expect(rule).toMatch(/body\.printing-report/);
+  });
+
   it('does not persist the file anywhere', () => {
     const src = strip(audit());
     for (const bad of ['localStorage', 'sessionStorage', 'indexedDB', 'saveDb', 'setDoc', 'addDoc']) {

@@ -529,8 +529,8 @@ const PRICE_RISE_PCT = 5;
  * wall clock: a statement from last year must not report every annual
  * subscription as overdue for renewal.
  */
-export function auditSaas(transactions, { now } = {}) {
-  const recurring = detectRecurring(transactions);
+export function auditSaas(transactions, { now, verdicts } = {}) {
+  const recurring = applyVerdicts(detectRecurring(transactions), verdicts);
   const subscriptions = recurring.filter(r => r.saas);
   const otherRecurring = recurring.filter(r => !r.saas);
 
@@ -607,12 +607,104 @@ export function auditSaas(transactions, { now } = {}) {
       annualisedSaas: round2(monthlySaas * 12),
       subscriptionCount: subscriptions.length,
       recurringCount: recurring.length,
-      knownVendors: subscriptions.filter(s => s.confidence === 'known').length,
+      knownVendors: subscriptions.filter(s => s.confidence === 'known' || s.confidence === 'confirmed').length,
     },
     findings: { duplicates, multiPerMonth, priceIncreases, upcomingAnnual, forgotten },
     subscriptions,
     otherRecurring,
+    // Lines the reader said are not software. Kept apart rather than dropped
+    // so the page can show them struck through with an undo.
+    rejected: recurring.filter(r => r.reviewed === 'rejected'),
   };
+}
+
+// ── 9b. The reader's review ─────────────────────────────────────────────────
+//
+// The engine is right about seven lines in ten (docs/grants/innovup/02). The
+// person holding the statement knows the other three: that MONDAY CAFE is a
+// café, that the Qonto line is a bank fee. A verdict per line, keyed by the
+// normalised label, overrides the engine for that line only, and the whole
+// report — totals, findings, export — is rebuilt from the overridden list, so
+// a rejected line stops counting everywhere at once.
+//
+// Verdicts: { [key]: { kind: 'confirm' | 'reject' | 'rename' | 'add', name? } }
+//   confirm  the engine was right
+//   reject   not software; leaves the subscriptions
+//   rename   software, but the vendor is someone else (name required)
+//   add      a line the engine passed over is software (name optional)
+
+export const VERDICT_KINDS = ['confirm', 'reject', 'rename', 'add'];
+
+export function applyVerdicts(recurring, verdicts) {
+  if (!verdicts) return recurring;
+  return recurring.map((r) => {
+    const v = verdicts[r.key];
+    if (!v || !VERDICT_KINDS.includes(v.kind)) return r;
+    const name = String(v.name || '').trim();
+    switch (v.kind) {
+      case 'reject':
+        return { ...r, saas: false, reviewed: 'rejected' };
+      case 'rename':
+        if (!name) return r;
+        return { ...r, saas: true, vendor: name, confidence: 'confirmed', reviewed: 'renamed' };
+      case 'add':
+        return {
+          ...r, saas: true, vendor: name || r.vendor, confidence: 'confirmed', reviewed: 'added',
+          category: r.category === 'Unclassified' ? 'Software (added by reviewer)' : r.category,
+        };
+      default:
+        return { ...r, saas: true, confidence: 'confirmed', reviewed: 'confirmed' };
+    }
+  });
+}
+
+/** How many lines received each kind of verdict. Counts only — safe to send to analytics. */
+export function reviewCounts(verdicts) {
+  const out = { confirmed: 0, rejected: 0, renamed: 0, added: 0 };
+  for (const v of Object.values(verdicts || {})) {
+    if (v?.kind === 'confirm') out.confirmed++;
+    else if (v?.kind === 'reject') out.rejected++;
+    else if (v?.kind === 'rename' && String(v.name || '').trim()) out.renamed++;
+    else if (v?.kind === 'add') out.added++;
+  }
+  return out;
+}
+
+export const CORRECTIONS_ADDRESS = 'hello@stacklens.fr';
+
+const MAIL_BODY_MAX = 1800; // mailto: links longer than ~2,000 characters are cut by some mail clients
+
+/**
+ * The corrections, as an email the reader sends from their own mailbox.
+ * Only the bank labels they corrected and what they said about them — never
+ * an amount, a date, or a line they did not touch. The page never sends it:
+ * it opens their mail client, and they read it before pressing send.
+ */
+export function correctionsEmail(verdicts, { intro = '' } = {}) {
+  const lines = [];
+  for (const [key, v] of Object.entries(verdicts || {})) {
+    const name = String(v?.name || '').trim();
+    if (v?.kind === 'reject') lines.push(`NOT SOFTWARE | ${key}`);
+    else if (v?.kind === 'rename' && name) lines.push(`WRONG VENDOR | ${key} -> ${name}`);
+    else if (v?.kind === 'add') lines.push(`MISSED | ${key}${name ? ` -> ${name}` : ''}`);
+  }
+  const confirmed = reviewCounts(verdicts).confirmed;
+  let body = intro ? intro + '\n\n' : '';
+  let shown = 0;
+  for (const l of lines) {
+    if ((body + l).length > MAIL_BODY_MAX) break;
+    body += l + '\n';
+    shown++;
+  }
+  if (shown < lines.length) body += `(+${lines.length - shown} more)\n`;
+  if (confirmed) body += `\nCONFIRMED CORRECT: ${confirmed} line(s)\n`;
+  return { subject: 'Audit corrections', body, count: lines.length };
+}
+
+/** A mailto: link for correctionsEmail(). Opening it sends nothing by itself. */
+export function correctionsMailto(verdicts, opts) {
+  const { subject, body, count } = correctionsEmail(verdicts, opts);
+  return { href: `mailto:${CORRECTIONS_ADDRESS}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, count };
 }
 
 // ── 10. Export ──────────────────────────────────────────────────────────────
@@ -621,7 +713,7 @@ const fmtDate = (d) => d instanceof Date ? d.toISOString().slice(0, 10) : '';
 
 export function reportToCsv(report) {
   const cols = ['vendor', 'category', 'confidence', 'cadence', 'charges', 'first', 'last',
-    'avg_amount', 'monthly_equivalent', 'annualised', 'bank_label'];
+    'avg_amount', 'monthly_equivalent', 'annualised', 'bank_label', 'review'];
   const esc = (v) => {
     const s = v == null ? '' : String(v);
     return /[",\n;]/.test(s) ? `"${s.replaceAll('"', '""')}"` : s;
@@ -629,7 +721,7 @@ export function reportToCsv(report) {
   const rows = [...report.subscriptions, ...report.otherRecurring].map(s => [
     s.vendor, s.category, s.confidence, s.cadence, s.charges, fmtDate(s.first), fmtDate(s.last),
     s.avgAmount, s.monthlyEquivalent ?? '', s.monthlyEquivalent == null ? '' : round2(s.monthlyEquivalent * 12),
-    s.key,
+    s.key, s.reviewed || '',
   ]);
   return [cols.join(','), ...rows.map(r => r.map(esc).join(','))].join('\n') + '\n';
 }
