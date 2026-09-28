@@ -15,6 +15,7 @@ import {
   decodeBankFile, parseBankExport, auditSaas, reportToCsv, sampleBankExport,
   correctionsMailto, reviewCounts,
 } from '../lib/saasAudit';
+import { isFec, parseFec, sampleFec } from '../lib/fec';
 
 // ── /audit-saas (SaasAuditPage; AuditPage.jsx is the authenticated /audit tab) ─────────────────────────────────────────────────────────────
 //
@@ -66,15 +67,20 @@ export function SaasAuditPage() {
   const inputRef = useRef(null);
 
   const runOn = useCallback((text, source, forceOrder) => {
-    const parsed = parseBankExport(text, forceOrder);
+    // An FEC (the ledger export every French accounting package produces) is
+    // recognised by its header and read by lib/fec.js; anything else is a
+    // bank statement. Both end as the same transactions for the same engine.
+    const fec = isFec(text);
+    const parsed = fec ? parseFec(text) : parseBankExport(text, forceOrder);
     if (!parsed.columns) { setState({ phase: 'error', error: 'columns' }); return; }
     if (!parsed.transactions.length) { setState({ phase: 'error', error: 'empty' }); return; }
     const first = auditSaas(parsed.transactions);
     // Counts only. Never a label, never an amount, never the file.
-    track('audit_run', { source, transactions: parsed.transactions.length, subscriptions: first.totals.subscriptionCount });
+    track('audit_run', { source, format: fec ? 'fec' : 'bank', transactions: parsed.transactions.length, subscriptions: first.totals.subscriptionCount });
     setVerdicts({});
     setState({
-      phase: 'done', transactions: parsed.transactions, symbol: detectSymbol(text),
+      phase: 'done', transactions: parsed.transactions, symbol: fec ? '€' : detectSymbol(text),
+      format: fec ? 'fec' : 'bank', entries: parsed.entries,
       skipped: parsed.skipped, dateOrder: parsed.dateOrder, text,
     });
   }, []);
@@ -85,7 +91,7 @@ export function SaasAuditPage() {
   // it. Silently picking one is how a US statement used to come back wrong.
   const flipDateOrder = useCallback(() => {
     setState((prev) => {
-      if (prev.phase !== 'done' || !prev.text) return prev;
+      if (prev.phase !== 'done' || !prev.text || prev.format === 'fec') return prev;
       const next = prev.dateOrder?.order === 'mdy' ? 'dmy' : 'mdy';
       const parsed = parseBankExport(prev.text, next);
       if (!parsed.transactions.length) return prev;
@@ -151,6 +157,10 @@ export function SaasAuditPage() {
                   className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 font-semibold text-sm text-slate-200 transition-colors">
                   <Eye className="w-4 h-4" /> {t('audit_try_sample')}
                 </button>
+                <button onClick={() => runOn(sampleFec(), 'sample_fec')}
+                  className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 font-semibold text-sm text-slate-200 transition-colors">
+                  <FileText className="w-4 h-4" /> {t('audit_try_fec')}
+                </button>
               </div>
               <input ref={inputRef} type="file" accept=".csv,.txt,.tsv,text/csv,text/plain" className="hidden"
                 onChange={(e) => onFile(e.target.files?.[0])} />
@@ -175,6 +185,7 @@ export function SaasAuditPage() {
 
         {state.phase === 'done' && report && <Report report={report} symbol={state.symbol} t={t} onReset={reset} language={language}
           skipped={state.skipped} dateOrder={state.dateOrder} onFlipDateOrder={flipDateOrder}
+          format={state.format} entries={state.entries}
           verdicts={verdicts} setVerdict={setVerdict} />}
       </div>
     </div>
@@ -268,7 +279,7 @@ function RenameField({ initial, t, onSave, onCancel }) {
   );
 }
 
-function Report({ report, symbol, t, onReset, language, skipped, dateOrder, onFlipDateOrder, verdicts, setVerdict }) {
+function Report({ report, symbol, t, onReset, language, skipped, dateOrder, onFlipDateOrder, verdicts, setVerdict, format, entries }) {
   const money = useCallback((n) => symbol + Number(n ?? 0).toLocaleString(language, { minimumFractionDigits: 0, maximumFractionDigits: 0 }), [symbol, language]);
   const date = (d) => d instanceof Date ? d.toLocaleDateString(language, { day: 'numeric', month: 'short', year: 'numeric' }) : '';
   const f = report.findings;
@@ -325,11 +336,22 @@ function Report({ report, symbol, t, onReset, language, skipped, dateOrder, onFl
           <h2 className="text-2xl font-bold">{t('audit_result_title')}</h2>
           <button onClick={onReset} className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors"><RefreshCw className="w-4 h-4" /> {t('audit_reset')}</button>
         </div>
-        <p className="text-sm text-slate-500">{fill(t('audit_span'), { n: report.transactionCount, days: report.spanDays, date: date(report.asOf) })}</p>
+        <p className="text-sm text-slate-500">
+          {format === 'fec'
+            ? fill(t('audit_span_fec'), { n: report.transactionCount, days: report.spanDays, date: date(report.asOf) })
+            : fill(t('audit_span'), { n: report.transactionCount, days: report.spanDays, date: date(report.asOf) })}
+        </p>
 
         {/* How the dates were read, and how many lines did not parse. Both
             used to be invisible: a US export lost every row past the 12th
             into the skipped count and had the rest silently transposed. */}
+        {format === 'fec' ? (
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-400">
+            <span className="px-2 py-0.5 rounded-full border border-amber-500/30 bg-amber-500/10 text-amber-300 font-semibold">{t('audit_fec_beta')}</span>
+            <span>{fill(t('audit_fec_read'), { n: entries ?? report.transactionCount })}</span>
+            {skipped > 0 && <span>· {fill(t('audit_skipped'), { n: skipped })}</span>}
+          </div>
+        ) : (
         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
           <span>
             {/* Two separate calls, not one key built from an expression:
@@ -343,6 +365,7 @@ function Report({ report, symbol, t, onReset, language, skipped, dateOrder, onFl
           </button>
           {skipped > 0 && <span>· {fill(t('audit_skipped'), { n: skipped })}</span>}
         </div>
+        )}
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -420,7 +443,7 @@ function Report({ report, symbol, t, onReset, language, skipped, dateOrder, onFl
                       ) : (
                         <>
                           <div className={`font-medium ${out ? 'line-through text-slate-500' : ''}`}>{s.vendor}</div>
-                          <div className="text-[11px] text-slate-500">{s.category} · {s.key}</div>
+                          <div className="text-[11px] text-slate-500">{s.category} · {s.key}{s.account ? ` · ${t('audit_fec_account')} ${s.account}` : ''}</div>
                         </>
                       )}
                     </td>
@@ -482,7 +505,7 @@ function Report({ report, symbol, t, onReset, language, skipped, dateOrder, onFl
       )}
 
       {showClientReport && (
-        <ClientReportPanel report={report} money={money} language={language} t={t} onClose={() => setShowClientReport(false)} counts={counts} />
+        <ClientReportPanel report={report} money={money} language={language} t={t} onClose={() => setShowClientReport(false)} counts={counts} format={format} />
       )}
 
       <div className="rounded-2xl border border-blue-500/30 bg-gradient-to-br from-blue-500/10 to-indigo-500/10 p-6 md:p-8">
@@ -515,7 +538,7 @@ function Report({ report, symbol, t, onReset, language, skipped, dateOrder, onFl
 // body carries .printing-report. The firm and client names live in this
 // component's state and nowhere else.
 
-function ClientReportPanel({ report, money, language, t, onClose, counts }) {
+function ClientReportPanel({ report, money, language, t, onClose, counts, format }) {
   const [firm, setFirm] = useState('');
   const [client, setClient] = useState('');
   const [note, setNote] = useState('');
@@ -531,7 +554,7 @@ function ClientReportPanel({ report, money, language, t, onClose, counts }) {
   };
 
   const field = 'w-full h-10 rounded-xl border border-slate-700 bg-slate-950 px-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40';
-  const doc = <PrintReport report={report} money={money} language={language} t={t} firm={firm} client={client} note={note} />;
+  const doc = <PrintReport report={report} money={money} language={language} t={t} firm={firm} client={client} note={note} format={format} />;
 
   return (
     <div className="rounded-2xl border border-blue-500/30 bg-slate-900/60 p-5 md:p-6">
@@ -570,7 +593,7 @@ function ClientReportPanel({ report, money, language, t, onClose, counts }) {
 // A white page, dark type. The screen palette's greys are tuned for a dark
 // background (design-tokens.test.js); on paper they would be too faint, so
 // this surface uses gray-600 and darker, which read at 7:1 or better on white.
-export function PrintReport({ report, money, language, t, firm, client, note }) {
+export function PrintReport({ report, money, language, t, firm, client, note, format }) {
   const f = report.findings;
   const date = (d) => d instanceof Date ? d.toLocaleDateString(language, { day: 'numeric', month: 'long', year: 'numeric' }) : '';
   const checks = [
@@ -590,7 +613,11 @@ export function PrintReport({ report, money, language, t, firm, client, note }) 
         </div>
         <div className="text-right text-gray-600 text-xs shrink-0">{date(new Date())}</div>
       </div>
-      <p className="text-gray-600 text-xs mb-4">{fill(t('audit_report_period'), { days: report.spanDays, date: date(report.asOf) })}</p>
+      <p className="text-gray-600 text-xs mb-4">
+        {format === 'fec'
+          ? fill(t('audit_report_period_fec'), { days: report.spanDays, date: date(report.asOf) })
+          : fill(t('audit_report_period'), { days: report.spanDays, date: date(report.asOf) })}
+      </p>
       {note && <p className="mb-5 border-l-4 border-gray-300 pl-3 whitespace-pre-line">{note}</p>}
 
       <div className="grid grid-cols-3 gap-3 mb-6">

@@ -179,6 +179,7 @@ Functions called from the app require a Firebase Auth Bearer token (`verifyAuth`
 The page promises the bank file never leaves the browser, and `accountant-channel.test.js` holds it to that: no fetch, no storage, analytics gets counts only. Two features live inside that promise:
 - **Review.** Each line takes a verdict (correct / not software / rename / it's software), applied by `applyVerdicts` in `src/lib/saasAudit.js`; totals, findings, CSV and report are all rebuilt from it. Verdicts live in memory only.
 - **Corrections to Stacklens** leave only as an email the reader sends: `correctionsMailto` opens their mail client with the corrected bank labels and verdicts, never amounts or dates.
+- **FEC (beta).** A ledger export is recognised by its header (`isFec`) and read by `src/lib/fec.js` into the same transactions; each carries the class of its expense account (software / excluded / neutral), which `detectRecurring` lets override the vendor name. Bank transactions carry no ledger, so the bank baseline is unaffected. Measured on synthetic files only — `docs/fec-prototype.md` lists what real files must show.
 - **Client report.** A one-page print layout with the accountant's firm and client name, printed by the browser ("Save as PDF"). It is portalled into `#print-report`, and the print CSS in `index.css` hides the rest of the page only while `body.printing-report` is set.
 
 ### Early access (`/experts-comptables#acces-anticipe`)
