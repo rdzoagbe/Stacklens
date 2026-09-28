@@ -2,8 +2,10 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
-import { TRIAL_DAYS, resolvePlan, PLAN_LIMITS, TEAM_INVITE_LIMIT, CLIENT_WORKSPACE_LIMIT, TRIAL_CLIENT_WORKSPACES } from './plan';
+import { TRIAL_DAYS, resolvePlan, PAYING_STATUSES, PLAN_LIMITS, TEAM_INVITE_LIMIT, CLIENT_WORKSPACE_LIMIT, TRIAL_CLIENT_WORKSPACES } from './plan';
 import { MODULE_PLANS } from '../components/gates';
+import { PLAN_CARDS } from './planCards';
+import { EARLY_ACCESS, earlyAccessUntil } from './earlyAccess';
 import { SUPPORTED_CURRENCIES } from './currency';
 
 /* eslint-disable security/detect-non-literal-regexp --
@@ -149,5 +151,36 @@ describe('sharing and client-workspace caps are the ones the server enforces', (
 
   it('Starter can open the People pages its card sells', () => {
     expect(MODULE_PLANS.people).toContain('starter');
+  });
+});
+
+describe('an early-access grant ends on the same day on both sides', () => {
+  const DAY = 24 * 60 * 60 * 1000;
+  const now = Date.now();
+  const cases = [
+    ['a live grant keeps its plan', { plan: 'pro', plan_grant_until: now + 30 * DAY }, 'pro'],
+    ['an ended grant is free', { plan: 'pro', plan_grant_until: now - DAY }, 'free'],
+    ['an ended grant that started paying keeps the plan', { plan: 'pro', plan_grant_until: now - DAY, subscription_status: 'active' }, 'pro'],
+    ['a cancelled subscription does not rescue an ended grant', { plan: 'pro', plan_grant_until: now - DAY, subscription_status: 'canceled' }, 'free'],
+    ['no grant, no change', { plan: 'pro' }, 'pro'],
+  ];
+
+  it.each(cases)('%s', (_name, user, expected) => {
+    expect(resolvePlan(user)).toBe(expected);
+    expect(server.effectivePlan(user)).toBe(expected);
+  });
+
+  it('agree on which subscription statuses count as paying', () => {
+    expect(server.PAYING_STATUSES).toEqual(PAYING_STATUSES);
+  });
+
+  it('the server reads a Firestore Timestamp end date too', () => {
+    expect(server.effectivePlan({ plan: 'pro', plan_grant_until: { toMillis: () => now - DAY } })).toBe('free');
+  });
+
+  it('the offer grants a plan that exists, for the months it states', () => {
+    expect(PLAN_CARDS.map((c) => c.id)).toContain(EARLY_ACCESS.PLAN);
+    const until = earlyAccessUntil(Date.UTC(2026, 0, 15));
+    expect(new Date(until).toISOString().slice(0, 10)).toBe(`2026-${String(1 + EARLY_ACCESS.MONTHS).padStart(2, '0')}-15`);
   });
 });

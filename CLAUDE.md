@@ -181,6 +181,12 @@ The page promises the bank file never leaves the browser, and `accountant-channe
 - **Corrections to Stacklens** leave only as an email the reader sends: `correctionsMailto` opens their mail client with the corrected bank labels and verdicts, never amounts or dates.
 - **Client report.** A one-page print layout with the accountant's firm and client name, printed by the browser ("Save as PDF"). It is portalled into `#print-report`, and the print CSS in `index.css` hides the rest of the page only while `body.printing-report` is set.
 
+### Early access (`/experts-comptables#acces-anticipe`)
+
+The offer (10 firms, Pro free for 6 months, 3 calls of 20 minutes) is read from `EARLY_ACCESS` in `src/lib/earlyAccess.js`; the copy uses placeholders, never typed numbers (`claims.test.js` §9). Set `OPEN: false` when the places are taken. Applications go to hello@ through the contact form provider (Web3Forms), with a mailto fallback; nothing is stored.
+
+Granting it: **Early access** button on `/founder-admin` → `founderGrantPlan` writes `plan`, `plan_grant_until`, `plan_grant_reason` on `/users/{uid}`. Past `plan_grant_until` the account is free unless it has started paying: `grantExpired()` in `src/lib/plan.js` and its twin in `functions/workspace-write.js`, held together by `plan-parity.test.js`. The two grant fields are protected in `firestore.rules` (only the founder writes them). Setting a plan by hand clears any grant.
+
 ### Signing out, cancelling and deleting
 
 - **Signing out** removes this account's data from the browser (`clearLocalWorkspace` in `src/lib/db.js`), after `flushBeforeSignOut` writes anything the cloud may not have. If that cannot be confirmed the user is asked before anything is discarded. An expired session does not clear, only an explicit sign-out.

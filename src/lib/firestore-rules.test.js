@@ -4,7 +4,7 @@ import {
   assertFails,
   assertSucceeds,
 } from '@firebase/rules-unit-testing';
-import { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, serverTimestamp, deleteField } from 'firebase/firestore';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -122,6 +122,24 @@ describe('/users — billing fields cannot be set from the browser', () => {
 
   it('a non-founder cannot list all users', async () => {
     await assertFails(getDocs(collection(asAlice(), 'users')));
+  });
+
+  // The early-access grant ends at plan_grant_until. A user who could write
+  // that field could keep a free Pro plan for ever.
+  it('a user CANNOT extend or clear their early-access end date', async () => {
+    await admin(db => setDoc(doc(db, 'users', ALICE), { plan: 'pro', plan_grant_until: 1000, plan_grant_reason: 'early_access' }));
+    await assertFails(updateDoc(doc(asAlice(), 'users', ALICE), { plan_grant_until: 9e15 }));
+    await assertFails(updateDoc(doc(asAlice(), 'users', ALICE), { plan_grant_reason: 'forever' }));
+  });
+
+  it('a user CANNOT create their doc with a grant already on it', async () => {
+    await assertFails(setDoc(doc(asAlice(), 'users', ALICE), { plan: 'free', plan_grant_until: 9e15 }));
+  });
+
+  it('the founder can grant early access, and set a permanent plan over it', async () => {
+    await admin(db => setDoc(doc(db, 'users', ALICE), { plan: 'free' }));
+    await assertSucceeds(updateDoc(doc(asFounder(), 'users', ALICE), { plan: 'pro', plan_grant_until: 9e15, plan_grant_reason: 'early_access' }));
+    await assertSucceeds(updateDoc(doc(asFounder(), 'users', ALICE), { plan: 'enterprise', plan_grant_until: deleteField(), plan_grant_reason: deleteField() }));
   });
 });
 

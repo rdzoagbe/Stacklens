@@ -9,6 +9,7 @@ import {
 import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
 import { PublicNav } from '../components/PublicNav';
+import { EARLY_ACCESS } from '../lib/earlyAccess';
 import { track } from '../lib/analytics';
 import {
   decodeBankFile, parseBankExport, auditSaas, reportToCsv, sampleBankExport,
@@ -494,6 +495,11 @@ function Report({ report, symbol, t, onReset, language, skipped, dateOrder, onFl
           <Link to="/?signup=true" className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 font-semibold text-sm text-slate-200 transition-colors">
             {t('audit_cta_signup')}
           </Link>
+          {EARLY_ACCESS.OPEN && (
+            <Link to="/experts-comptables#acces-anticipe" className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 font-semibold text-sm text-amber-200 transition-colors">
+              {t('ea_badge')} <ArrowRight className="w-4 h-4" />
+            </Link>
+          )}
         </div>
       </div>
     </div>

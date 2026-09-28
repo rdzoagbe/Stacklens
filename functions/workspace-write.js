@@ -321,9 +321,20 @@ function toMillis(value) {
  * The plan a user is actually on right now. Mirrors resolvePlan() for the one
  * case the stored field gets wrong: an expired trial reads as 'free'.
  */
+// Twin of grantExpired() in src/lib/plan.js: a granted plan (early access)
+// ends at plan_grant_until unless the account has started paying since.
+const PAYING_STATUSES = ['active', 'trialing', 'past_due'];
+
+function grantExpired(userData, now = Date.now()) {
+  const until = toMillis(userData && userData.plan_grant_until);
+  if (!until || now < until) return false;
+  return !PAYING_STATUSES.includes(userData.subscription_status);
+}
+
 function effectivePlan(userData, now = Date.now()) {
   if (!userData) return 'free';
   if (userData.is_founder === true) return 'scale';
+  if (grantExpired(userData, now)) return 'free';
   const stored = userData.plan || userData.subscription_plan;
   if (stored && stored !== 'trial' && stored !== 'free') return stored;
   if (stored === 'trial') {
@@ -412,6 +423,8 @@ function isPurgeDue(org, now = Date.now()) {
 }
 
 module.exports = {
+  PAYING_STATUSES,
+  grantExpired,
   NOT_BILLED_STATUS,
   monthlySpend,
   billedToolCount,

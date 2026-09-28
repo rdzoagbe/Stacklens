@@ -51,6 +51,7 @@ export function useAuth() {
         let subscriptionStatus = null;
         let isFounder = false;
         let trialStartedAt = null;
+        let planGrantUntil = null;
         try {
           const tokenResult = await fbUser.getIdTokenResult();
           const claimedPlan = tokenResult.claims?.plan;
@@ -61,6 +62,7 @@ export function useAuth() {
             stripeCustomerId   = fsUser.stripe_customer_id  || null;
             subscriptionStatus = fsUser.subscription_status || null;
             isFounder          = fsUser.is_founder === true;
+            planGrantUntil     = Number(fsUser.plan_grant_until) || null;
             trialStartedAt     = fsUser.trial_started_at
               ? (typeof fsUser.trial_started_at === 'number'
                   ? fsUser.trial_started_at
@@ -84,6 +86,8 @@ export function useAuth() {
           plan,
           subscription_plan: plan,
           trial_started_at: trialStartedAt,
+          plan_grant_until: planGrantUntil,
+          subscription_status: subscriptionStatus,
         });
 
         // Enable Firestore saves immediately — _firestoreUid was never set for
@@ -152,6 +156,7 @@ export function useAuth() {
           subscription_status: subscriptionStatus,
           is_founder:         isFounder,
           trial_started_at:   trialStartedAt,
+          plan_grant_until:   planGrantUntil,
         };
         // Bookkeeping, not an edit: every field patched above came from
         // Firebase Auth or the /users document, is re-derived on the next load,
