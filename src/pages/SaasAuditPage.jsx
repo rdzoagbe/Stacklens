@@ -164,6 +164,15 @@ export function SaasAuditPage() {
               </div>
               <input ref={inputRef} type="file" accept=".csv,.txt,.tsv,text/csv,text/plain" className="hidden"
                 onChange={(e) => onFile(e.target.files?.[0])} />
+              {/* The demo kit (public/demo, tools/make-demo-kit.mjs): real files
+                  to download and drop back in, for anyone who wants to try the
+                  upload itself rather than the sample buttons. */}
+              <p className="mt-5 text-xs text-slate-500">
+                {t('audit_demo_files')}{' '}
+                <a href="/demo/releve-bancaire-atelier-lumen.csv" download className="underline hover:text-slate-300">{t('audit_demo_bank')}</a>
+                {' · '}
+                <a href="/demo/fec-atelier-lumen-2026-09-30.txt" download className="underline hover:text-slate-300">{t('audit_demo_fec')}</a>
+              </p>
             </div>
 
             {state.phase === 'error' && (

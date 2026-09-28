@@ -64,7 +64,13 @@ mechanism works, not how often it works.
    6278 would lose it. Look for any known vendor in an excluded account.
 4. **Credit notes.** They are dropped rather than matched to the invoice they
    refund; check how often that distorts a monthly figure.
-5. **Size and encoding.** Real FECs run to tens of thousands of lines and
+5. **One charge in the file.** A single charge booked to a software account
+   is kept as a likely *annual* subscription, because a yearly licence appears
+   once per fiscal year (without this, Adobe disappeared from a year's
+   ledger). The flip side: a monthly subscription that started in the last
+   month of the file is also read as annual until a second charge arrives.
+   Rows carry `singleCharge: true`; check how often that misreads.
+6. **Size and encoding.** Real FECs run to tens of thousands of lines and
    ISO-8859-15. The reader is linear, and `decodeBankFile` handles
    windows-1252; confirm on a large real file.
 
