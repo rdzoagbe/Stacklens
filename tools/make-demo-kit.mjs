@@ -7,9 +7,9 @@
 // the free audit (bank statement, FEC) and inside the app (tools, people,
 // access):
 //
+//   atelier-lumen-application.csv      everything the app needs, in one file
 //   releve-bancaire-atelier-lumen.csv  24 months of the business account
 //   fec-atelier-lumen-2026-09-30.txt   the ledger for the year to 30 Sept 2026
-//   1-outils.csv, 2-employes.csv, 3-acces.csv   the in-app import, in that order
 //
 // Deterministic: the same script always writes the same bytes, so the guide's
 // figures can be asserted by src/lib/demo-kit.test.js. Run from the repo root:
@@ -167,10 +167,7 @@ function fec() {
   return out.join('\n') + '\n';
 }
 
-// ── 3. The in-app import: tools, then employees, then access ───────────────
-//
-// In that order: importing tools while employees exist gives each tool's owner
-// an admin grant automatically, which would duplicate 3-acces.csv.
+// ── 3. The company, for the in-app import ──────────────────────────────────
 const P = (first, last) => `${first.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')}.${last.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')}@${DOMAIN}`;
 const PEOPLE = [
   ['Camille', 'Durand', 'Direction', 'Gérante', 'active', '2019-03-01', ''],
@@ -248,37 +245,38 @@ grant('Figma', 'Sarah', 'editor', '2026-08-29'); grant('Dropbox', 'Sarah', 'admi
 
 const csv = (rows) => rows.map((r) => r.map((v) => (/[",]/.test(String(v)) ? `"${String(v).replaceAll('"', '""')}"` : v)).join(',')).join('\n') + '\n';
 
-function toolsCsv() {
-  return csv([
-    ['name', 'category', 'owner_email', 'owner_name', 'criticality', 'url', 'status', 'cost_per_month', 'last_used_date', 'renewal_date'],
-    ...TOOLS.map(([name, cat, owner, crit, url, status, cost, used, renewal]) => {
-      const p = PEOPLE.find((x) => x[0] === owner);
-      return [name, cat, owner ? email(owner) : '', p ? `${p[0]} ${p[1]}` : '', crit, url, status, cost, used, renewal];
-    }),
-  ]);
-}
-function employeesCsv() {
-  return csv([
-    ['full_name', 'email', 'department', 'role', 'status', 'start_date', 'end_date'],
-    ...PEOPLE.map(([f, l, dept, role, status, start, end]) => [`${f} ${l}`, P(f, l), dept, role, status, start, end]),
-  ]);
-}
-function accessCsv() {
-  return csv([
-    ['tool_name', 'employee_email', 'access_level', 'granted_date', 'last_accessed_date', 'last_reviewed_date', 'status'],
-    ...ACCESS.map(([tool, who, level, last, reviewed]) => {
-      const p = PEOPLE.find((x) => x[0] === who);
-      return [tool, email(who), level, p[5], last, reviewed, 'active'];
-    }),
-  ]);
+
+// ── One file for the whole app ─────────────────────────────────────────────
+//
+// The "Company data" import reads people, tools and who has access to what
+// from a single file: one row per access, plus a row for a tool nobody holds.
+// The optional columns (tool owner, last use, access status and review date)
+// carry what the separate files did, so every in-app alert shows up.
+function companyCsv() {
+  const head = ['employee_name', 'employee_email', 'department', 'role', 'employee_status', 'start_date', 'end_date',
+    'tool_name', 'tool_category', 'tool_cost_monthly', 'tool_url', 'tool_status', 'tool_criticality', 'renewal_date',
+    'tool_owner_email', 'tool_owner_name', 'tool_last_used',
+    'access_level', 'access_status', 'access_last_used', 'access_last_reviewed'];
+  const toolCols = (name) => {
+    const [n, cat, owner, crit, url, status, cost, used, renewal] = TOOLS.find((x) => x[0] === name);
+    const p = PEOPLE.find((x) => x[0] === owner);
+    return [n, cat, cost, url, status, crit, renewal, owner ? email(owner) : '', p ? `${p[0]} ${p[1]}` : '', used];
+  };
+  const rows = ACCESS.map(([tool, who, level, last, reviewed]) => {
+    const [f, l, dept, role, status, start, end] = PEOPLE.find((x) => x[0] === who);
+    return [`${f} ${l}`, P(f, l), dept, role, status, start, end, ...toolCols(tool), level, 'active', last, reviewed];
+  });
+  // Tools no one has access to still belong in the file: that is the finding.
+  for (const [name] of TOOLS.filter(([n]) => !ACCESS.some((a) => a[0] === n))) {
+    rows.push(['', '', '', '', '', '', '', ...toolCols(name), '', '', '', '']);
+  }
+  return csv([head, ...rows]);
 }
 
 const FILES = {
+  'atelier-lumen-application.csv': companyCsv,
   'releve-bancaire-atelier-lumen.csv': bankStatement,
   'fec-atelier-lumen-2026-09-30.txt': fec,
-  '1-outils.csv': toolsCsv,
-  '2-employes.csv': employeesCsv,
-  '3-acces.csv': accessCsv,
 };
 
 /** { filename: contents }, byte-identical on every call. */
