@@ -5,11 +5,12 @@ import {
   Users, Clock, Shield, Search,
   Zap, Crown, RefreshCw, Pencil, Check, X, ArrowLeft, Trash2, Mail, ShieldCheck,
 } from 'lucide-react';
-import { loadAllUsersAdmin, founderExtendTrial, founderSetPlan, founderEnrichProfiles, founderDeleteUser, founderTestEmail, founderSetBankCreds, founderBankCredsStatus, founderListErrors, PUBLIC_FIREBASE_CONFIG } from '../firebase-config';
+import { loadAllUsersAdmin, founderExtendTrial, founderSetPlan, founderGrantPlan, founderEnrichProfiles, founderDeleteUser, founderTestEmail, founderSetBankCreds, founderBankCredsStatus, founderListErrors, PUBLIC_FIREBASE_CONFIG } from '../firebase-config';
 import { probeAppCheck } from '../lib/appCheckProbe';
 import { getFirestore, doc, updateDoc } from 'firebase/firestore';
 import { useAuth } from '../hooks/useAuth';
 import { isFounderUser } from '../lib/plan';
+import { EARLY_ACCESS, earlyAccessUntil } from '../lib/earlyAccess';
 
 const PLAN_COLORS = {
   free: 'bg-slate-700 text-slate-300',
@@ -63,6 +64,8 @@ function UserTableRow({ u, onAction }) {
   const trialStart = toDate(u.trial_started_at);
   const trialEnd = trialStart ? new Date(trialStart.getTime() + 7 * 24 * 60 * 60 * 1000) : null;
   const isTrialExpired = trialEnd && trialEnd < new Date();
+  const grantEnd = Number(u.plan_grant_until) > 0 ? new Date(Number(u.plan_grant_until)) : null;
+  const grantActive = !!grantEnd && grantEnd > new Date();
   const subEnd = toDate(u.subscription_current_period_end);
   const plan = u.plan || 'free';
   const hasProfile = u.displayName || u.email;
@@ -93,6 +96,22 @@ function UserTableRow({ u, onAction }) {
     try {
       await founderSetPlan(u.uid, newPlan);
       toast.success(`Plan set to ${newPlan.replace('_', ' ')} for ${u.displayName || u.email || u.uid.slice(0, 8)}`);
+      onAction();
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleGrantEarlyAccess() {
+    const until = earlyAccessUntil();
+    const who = u.displayName || u.email || u.uid.slice(0, 8);
+    if (!window.confirm(`Grant ${who} the ${EARLY_ACCESS.PLAN} plan free until ${new Date(until).toLocaleDateString()}? It returns to free on that date unless they subscribe.`)) return;
+    setBusy(true);
+    try {
+      await founderGrantPlan(u.uid, { plan: EARLY_ACCESS.PLAN, until, reason: 'early_access' });
+      toast.success(`Early access granted to ${who} until ${new Date(until).toLocaleDateString()}`);
       onAction();
     } catch (err) {
       toast.error(err.message);
@@ -135,6 +154,10 @@ function UserTableRow({ u, onAction }) {
     expiryCell = isTrialExpired
       ? <span className="text-red-400">Expired {trialEnd.toLocaleDateString()}</span>
       : <span className="text-emerald-400">{trialEnd.toLocaleDateString()}</span>;
+  } else if (grantEnd) {
+    expiryCell = !grantActive
+      ? <span className="text-red-400">Grant ended {grantEnd.toLocaleDateString()}</span>
+      : <span className="text-amber-300" title={u.plan_grant_reason || 'grant'}>Free until {grantEnd.toLocaleDateString()}</span>;
   } else if (subEnd) {
     expiryCell = <span className="text-slate-300">{subEnd.toLocaleDateString()}</span>;
   } else {
@@ -223,6 +246,16 @@ function UserTableRow({ u, onAction }) {
               className="px-2 py-0.5 text-[10px] bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 rounded-md transition-colors"
             >
               +7d
+            </button>
+          )}
+          {!u.is_founder && !u.stripe_subscription_id && !grantActive && (
+            <button
+              onClick={handleGrantEarlyAccess}
+              disabled={busy}
+              title={`Grant early access: ${EARLY_ACCESS.PLAN} free for ${EARLY_ACCESS.MONTHS} months`}
+              className="px-2 py-0.5 text-[10px] bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 rounded-md transition-colors"
+            >
+              Early access
             </button>
           )}
           {!u.is_founder && (

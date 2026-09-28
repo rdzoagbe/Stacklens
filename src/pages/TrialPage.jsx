@@ -12,6 +12,7 @@ import { RDLogo, ScrollToTop } from '../components/ui';
 import { LangSelectorCompact, _openCookieBanner } from '../components/AppShell';
 import { usePlanPricing } from '../contexts/CurrencyContext';
 import { PLAN_CARDS, planFeatures, planText } from '../lib/planCards';
+import { EARLY_ACCESS } from '../lib/earlyAccess';
 import { passwordProblem, suggestPassword } from '../lib/password';
 
 // Signup consent copy. Authored in all five languages rather than routed
@@ -192,6 +193,12 @@ export function TrialPage() {
             </button>
           </div>
           <p className="text-xs text-slate-500">{t('lp_hero_fine_print')}</p>
+          {EARLY_ACCESS.OPEN && (
+            <Link to="/experts-comptables#acces-anticipe" onClick={() => track('cta_click', { location: 'hero', target: 'early_access' })}
+              className="inline-flex items-center gap-2 mt-5 px-3 py-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 text-sm text-amber-200 hover:bg-amber-500/20 transition-colors">
+              {t('ea_hero_link').replace('{n}', EARLY_ACCESS.SPOTS).replace('{months}', EARLY_ACCESS.MONTHS)}
+            </Link>
+          )}
         </div>
       </section>
 

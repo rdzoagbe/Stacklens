@@ -59,12 +59,28 @@ export const TRIAL_MS = TRIAL_DAYS * 24 * 60 * 60 * 1000;
 /**
  * Resolve the effective plan for a user object.
  * Single source of truth — handles trial expiry and founder override.
- * @param {object|null} user - { is_founder, plan, subscription_plan, trial_started_at }
+ * @param {object|null} user - { is_founder, plan, subscription_plan, trial_started_at, plan_grant_until, subscription_status }
  * @returns {string} plan key
  */
+// A plan given rather than bought — the early-access programme — carries an
+// end date in plan_grant_until (ms). Past it the account is free, unless it has
+// since started paying: a grant never overrides a live Stripe subscription.
+// Nothing rewrites the stored plan when a grant ends, exactly as with trials,
+// so the expiry has to be applied wherever the plan is read. The server twin
+// is effectivePlan() in functions/workspace-write.js; plan-parity.test.js
+// holds them together.
+export const PAYING_STATUSES = ['active', 'trialing', 'past_due'];
+
+export function grantExpired(user, now = Date.now()) {
+  const until = Number(user?.plan_grant_until) || 0;
+  if (!until || now < until) return false;
+  return !PAYING_STATUSES.includes(user?.subscription_status);
+}
+
 export function resolvePlan(user) {
   if (!user) return 'free';
   if (isFounderUser(user)) return 'scale';
+  if (grantExpired(user)) return 'free';
   const stored = user.plan || user.subscription_plan;
   if (stored && stored !== 'trial' && stored !== 'free') return stored;
   if (stored === 'trial') {

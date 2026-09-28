@@ -140,9 +140,24 @@ export function BillingPage({ noShell = false }) {
     </div>
   );
 
+  // An early-access grant: say when it ends and what happens then, which is
+  // exactly what resolvePlan() will do on that date.
+  const grantEnd = Number(db?.user?.plan_grant_until) > 0 ? new Date(Number(db.user.plan_grant_until)) : null;
+  const grantLive = !!grantEnd && grantEnd > new Date() && plan !== 'free';
+
   const Body = (
     <div className="space-y-8">
       {noShell && <div className="flex items-center justify-end">{HeaderRight}</div>}
+
+      {grantLive && (
+        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-5 text-sm">
+          <div className="font-semibold text-amber-200">{t('bill_grant_title')}</div>
+          <p className="mt-1 text-amber-100/80">
+            {t('bill_grant_body').replace('{plan}', getPlanLimits(plan).label)
+              .replace('{date}', grantEnd.toLocaleDateString(language, { day: 'numeric', month: 'long', year: 'numeric' }))}
+          </p>
+        </div>
+      )}
 
       {isTrial && (
         <div className="rounded-2xl border-2 border-amber-500/40 bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-amber-500/5 p-7 shadow-lg shadow-amber-500/5">

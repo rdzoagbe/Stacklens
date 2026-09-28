@@ -436,3 +436,43 @@ describe('small claims', () => {
     expect(copy('en', 'subproc_sentry_purpose')).toMatch(/performance/);
   });
 });
+
+// ── 9. The early-access offer ──────────────────────────────────────────────
+//
+// The page promises a plan, a length, a number of places, and that the account
+// returns to free with nothing charged. Each is tied to the code that does it:
+// the numbers are placeholders filled from EARLY_ACCESS, the founder's button
+// grants exactly EARLY_ACCESS, and the return to free is grantExpired() in
+// both plan resolvers (plan-parity.test.js) and a rules-protected end date
+// (firestore-rules.test.js).
+describe('the early-access offer is what the grant gives', () => {
+  it('no number is typed into the offer copy', () => {
+    for (const lang of ['en', 'fr']) {
+      const block = translations.slice(translations.indexOf(`  ${lang}: {`));
+      const keys = [...block.matchAll(/\b(ea_[a-z0-9_]+):\s*"([^"]*)"/g)].slice(0, 60);
+      expect(keys.length, lang).toBeGreaterThan(20);
+      // The form's own size buckets ("Fewer than 20") are not offer terms.
+      for (const [, key, text] of keys.filter(([, k]) => !k.startsWith('ea_form_'))) {
+        expect(text.replace(/\{[a-z]+\}/g, ''), `${lang}.${key} types a number`).not.toMatch(/\d/);
+      }
+    }
+  });
+
+  it('the founder grants the plan and length the page states', () => {
+    const admin = read('src/pages/FounderAdminPage.jsx');
+    expect(admin).toMatch(/founderGrantPlan\(u\.uid, \{ plan: EARLY_ACCESS\.PLAN, until, reason: 'early_access' \}\)/);
+    expect(admin).toMatch(/const until = earlyAccessUntil\(\)/);
+  });
+
+  it('a plan set by hand clears any grant, so it cannot expire by surprise', () => {
+    const cfg = read('src/firebase-config.js');
+    const setPlan = cfg.slice(cfg.indexOf('export async function founderSetPlan'), cfg.indexOf('export async function founderGrantPlan'));
+    expect(setPlan).toMatch(/plan_grant_until: deleteField\(\)/);
+  });
+
+  it('the page says the account returns to free with nothing charged', () => {
+    expect(copy('en', 'ea_terms_1')).toMatch(/No card\. Nothing is charged/);
+    expect(copy('en', 'ea_terms_2')).toMatch(/moves to the free plan/);
+    expect(copy('fr', 'ea_terms_2')).toMatch(/passe au plan gratuit/);
+  });
+});

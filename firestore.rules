@@ -32,10 +32,13 @@ service cloud.firestore {
     // EXCEPTION: users may self-start a trial — set plan='trial' + trial_started_at.
     // Handles both create (resource == null) and update cases.
     function protectedFieldsSafe() {
+      // plan_grant_until / plan_grant_reason: the early-access end date. A
+      // user who could write it could grant themselves any plan for ever.
       let protectedFields = ['plan', 'subscription_plan', 'stripe_customer_id',
                              'stripe_subscription_id', 'subscription_status',
                              'subscription_current_period_end', 'is_admin',
-                             'is_founder', 'role'];
+                             'is_founder', 'role', 'plan_grant_until',
+                             'plan_grant_reason'];
       // Check if user is just starting their trial — that's allowed once.
       // For updates: only permit if the existing doc has no trial_started_at yet
       // and the current plan is 'free', preventing trial replay attacks.
@@ -59,7 +62,8 @@ service cloud.firestore {
         ? !request.resource.data.keys().hasAny(
              ['subscription_plan', 'stripe_customer_id', 'stripe_subscription_id',
               'subscription_status', 'subscription_current_period_end',
-              'is_admin', 'is_founder', 'role'])
+              'is_admin', 'is_founder', 'role', 'plan_grant_until',
+              'plan_grant_reason'])
         : request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(['plan', 'trial_started_at']);
       let isTrialStart = request.resource.data.keys().hasAny(['plan', 'trial_started_at'])
@@ -80,7 +84,8 @@ service cloud.firestore {
                       ['subscription_plan', 'stripe_customer_id',
                        'stripe_subscription_id', 'subscription_status',
                        'subscription_current_period_end', 'is_admin',
-                       'is_founder', 'role']));
+                       'is_founder', 'role', 'plan_grant_until',
+                       'plan_grant_reason']));
     }
 
     // Once a trial has been started, the owner can NEVER change or clear
@@ -96,7 +101,8 @@ service cloud.firestore {
 
     // Founders may update plan, trial, and profile fields on any user doc.
     function founderWriteSafe() {
-      let allowed = ['plan', 'trial_started_at', 'displayName', 'email', 'photoURL', 'updatedAt'];
+      let allowed = ['plan', 'trial_started_at', 'displayName', 'email', 'photoURL', 'updatedAt',
+                     'plan_grant_until', 'plan_grant_reason'];
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(allowed);
     }
 

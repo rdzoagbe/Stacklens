@@ -38,6 +38,7 @@ import {
   serverTimestamp,
   Timestamp,
   runTransaction,
+  deleteField,
 } from 'firebase/firestore';
 import { getAnalytics, isSupported, setConsent as firebaseSetConsent } from 'firebase/analytics';
 import { track } from './lib/analytics';
@@ -765,7 +766,23 @@ export async function founderSetPlan(targetUid, plan) {
   if (!firestoreDb) throw new Error('Firestore unavailable');
   const validPlans = ['free', 'trial', 'starter', 'hr_finance', 'pro', 'enterprise', 'scale'];
   if (!validPlans.includes(plan)) throw new Error('Invalid plan');
-  await updateDoc(doc(firestoreDb, 'users', targetUid), { plan });
+  // A plan set by hand is permanent, so any end date left by an earlier
+  // grant goes with it — otherwise it would quietly expire the new plan.
+  await updateDoc(doc(firestoreDb, 'users', targetUid), {
+    plan, plan_grant_until: deleteField(), plan_grant_reason: deleteField(),
+  });
+}
+
+// The early-access grant: the plan and the end date from src/lib/earlyAccess.js,
+// nothing typed by hand. resolvePlan()/effectivePlan() return 'free' once the
+// date passes, unless the account has started paying.
+export async function founderGrantPlan(targetUid, { plan, until, reason }) {
+  if (!firestoreDb) throw new Error('Firestore unavailable');
+  if (!['starter', 'hr_finance', 'pro', 'enterprise'].includes(plan)) throw new Error('Invalid plan');
+  if (!(Number(until) > Date.now())) throw new Error('The grant must end in the future');
+  await updateDoc(doc(firestoreDb, 'users', targetUid), {
+    plan, plan_grant_until: Number(until), plan_grant_reason: String(reason || 'grant').slice(0, 40),
+  });
 }
 
 // Ask the founderAdmin function to backfill missing displayName/email on
