@@ -65,6 +65,8 @@ public/*
 # The demo kit (tools/make-demo-kit.mjs): served at /demo/ so prospects can
 # download a realistic statement and ledger to try the free audit.
 !public/demo/
+# Customer logos for approved testimonials (src/lib/testimonials.js).
+!public/proof/
 scripts/
 
 # Firestore emulator artifacts
