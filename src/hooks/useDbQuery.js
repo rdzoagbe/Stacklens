@@ -506,13 +506,16 @@ export function useDbMutations() {
                 id:             uid('tool'),
                 name:           r.tool_name        || '',
                 category:       r.tool_category    || 'other',
-                owner_email:    r.employee_email   || '',
-                owner_name:     r.employee_name    || '',
+                // Optional columns let one file describe the owner and the
+                // last use explicitly; without them the first person listed
+                // owns the tool and it counts as used today, as before.
+                owner_email:    'tool_owner_email' in r ? r.tool_owner_email : (r.employee_email || ''),
+                owner_name:     'tool_owner_name' in r ? r.tool_owner_name : (r.employee_name || ''),
                 criticality:    r.tool_criticality || 'medium',
                 url:            r.tool_url         || '',
                 description:    '',
                 status:         r.tool_status      || 'active',
-                last_used_date: new Date().toISOString().slice(0, 10),
+                last_used_date: r.tool_last_used   || new Date().toISOString().slice(0, 10),
                 cost_per_month: Number(r.tool_cost_monthly || 0),
                 cost_monthly:   Number(r.tool_cost_monthly || 0),
                 cost:           Number(r.tool_cost_monthly || 0),
@@ -523,7 +526,10 @@ export function useDbMutations() {
               };
             }
             if (email && toolName) {
-              accessRows.push({ email, toolName: toolKey, access_level: r.access_level || 'member' });
+              accessRows.push({
+                email, toolName: toolKey, access_level: r.access_level || 'member',
+                status: r.access_status || '', last_accessed: r.access_last_used || '', last_reviewed: r.access_last_reviewed || '',
+              });
             }
           });
 
@@ -550,7 +556,12 @@ export function useDbMutations() {
               employee_email: emp.email,
               access_level:   a.access_level,
               granted_date:   emp.start_date || new Date().toISOString().slice(0, 10),
-              status:         emp.status === 'offboarded' ? 'revoked' : 'active',
+              // An explicit access_status wins: a leaver whose access was never
+              // removed is exactly what an audit needs to be able to import.
+              // Without the column, a leaver's access is assumed revoked.
+              status:         a.status || (emp.status === 'offboarded' ? 'revoked' : 'active'),
+              ...(a.last_accessed ? { last_accessed_date: a.last_accessed } : {}),
+              ...(a.last_reviewed ? { last_reviewed_date: a.last_reviewed } : {}),
             };
           }).filter(Boolean);
           db.access = [...newAccess, ...keptAccess];

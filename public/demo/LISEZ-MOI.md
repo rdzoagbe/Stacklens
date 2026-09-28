@@ -10,11 +10,15 @@ utilisent le domaine `atelier-lumen.example`, réservé à la documentation.
 
 | Fichier | À quoi il sert |
 |---|---|
+| `atelier-lumen-application.csv` | **Tout pour l'application, en un seul fichier** : les logiciels, l'équipe, et qui a accès à quoi. |
 | `releve-bancaire-atelier-lumen.csv` | 24 mois du compte pro (oct. 2024 → sept. 2026). Pour l'audit gratuit. |
 | `fec-atelier-lumen-2026-09-30.txt` | Le fichier des écritures comptables de l'exercice clos le 30/09/2026. Pour l'audit gratuit, mode FEC. |
-| `1-outils.csv`, `2-employes.csv`, `3-acces.csv` | Les logiciels, l'équipe et qui a accès à quoi. À importer dans l'application, **dans cet ordre**. |
 
-Téléchargement : `https://stacklens.fr/demo/<nom du fichier>`.
+Tout se télécharge sur **stacklens.fr/demo/**.
+
+Pourquoi pas un seul fichier pour tout le site : l'audit gratuit lit un relevé
+bancaire (ou un FEC), l'application lit la liste des logiciels et des
+personnes. Ce sont deux choses différentes, comme chez un vrai client.
 
 ---
 
@@ -78,14 +82,15 @@ compte les trois pièges ; le FEC est en HT sur 12 mois et les exclut.
 ## 3. Dans l'application (10 minutes)
 
 Créez un compte : les nouveaux comptes ont 7 jours d'essai avec toutes les
-fonctions. Puis **Importer**, et importez **dans cet ordre** :
+fonctions. Puis, un seul fichier, une seule fois :
 
-1. `1-outils.csv` en « Outils »
-2. `2-employes.csv` en « Employés »
-3. `3-acces.csv` en « Accès »
+1. Allez sur **stacklens.fr/import**, onglet **Importer des données**.
+2. Choisissez **Données entreprise**.
+3. Cliquez **J'ai déjà un CSV — passer au téléversement**.
+4. Déposez `atelier-lumen-application.csv`, puis **Importer**.
 
-(Dans un autre ordre, chaque responsable d'outil recevrait un accès admin en
-double.)
+Utilisez un compte neuf : en mode démo, le fichier s'ajoute aux données
+d'exemple déjà présentes et les chiffres ci-dessous ne correspondent plus.
 
 **Ce qui s'affiche :** 14 outils, 17 personnes, 76 accès, et une dépense de
 1 506 € HT par mois (Loom, résilié, n'est plus compté).

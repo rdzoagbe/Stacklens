@@ -39,7 +39,7 @@ export function ImportWizard({ defaultKind = null, onDone = null }) {
   };
 
   const COLS     = { company: ['employee_name','employee_email','department','tool_name','tool_category','access_level'], tools: ['name','category','status','criticality','cost_per_month','owner_name'], employees: ['full_name','email','department','role','status'], access: ['tool_name','employee_email','access_level','status'] };
-  const REQUIRED = { company: ['employee_name','employee_email','tool_name'], tools: ['name'], employees: ['full_name','email'], access: ['tool_name','employee_email'] };
+  const REQUIRED = { company: ['tool_name'], tools: ['name'], employees: ['full_name','email'], access: ['tool_name','employee_email'] };
 
   const liveRows = useMemo(() => { if (!text.trim()) return []; try { return parseCsv(text); } catch { return []; } }, [text]);
   const cols = kind ? COLS[kind] : [];

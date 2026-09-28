@@ -97,7 +97,7 @@ describe('the ledger, in the free audit', () => {
   });
 });
 
-describe('the three CSVs, imported into the app in order', () => {
+describe('the one application file, imported as company data', () => {
   let db;
   beforeAll(async () => {
     vi.useFakeTimers({ toFake: ['Date'] });
@@ -111,9 +111,9 @@ describe('the three CSVs, imported into the app in order', () => {
     function Harness() { muts = useDbMutations(); return null; }
     const root = createRoot(document.createElement('div'));
     await act(async () => root.render(<QueryClientProvider client={new QueryClient()}><Harness /></QueryClientProvider>));
-    for (const [kind, name] of [['tools', '1-outils.csv'], ['employees', '2-employes.csv'], ['access', '3-acces.csv']]) {
-      await act(async () => { await muts.bulkImport.mutateAsync({ kind, records: parseCsv(file(name).toString('utf8')) }); });
-    }
+    await act(async () => {
+      await muts.bulkImport.mutateAsync({ kind: 'company', records: parseCsv(file('atelier-lumen-application.csv').toString('utf8')) });
+    });
     db = loadDb();
     await act(async () => root.unmount());
   });
@@ -141,5 +141,35 @@ describe('the three CSVs, imported into the app in order', () => {
     const waste = computeWaste(db);
     expect(waste.unusedTools.map((t) => t.name)).toEqual(['Miro']);
     expect(guide).toContain(`${euros(spend)} € HT par mois`);
+  });
+});
+
+describe('the demo page', () => {
+  it('links only to files that exist, and features the single application file', () => {
+    const html = readFileSync(resolve(DEMO, 'index.html'), 'utf8');
+    const links = [...html.matchAll(/href="\/demo\/([^"]+)"/g)].map((m) => m[1]);
+    expect(links).toContain('atelier-lumen-application.csv');
+    for (const name of links) expect(() => file(name), name).not.toThrow();
+    for (const name of Object.keys(buildKit())) expect(links, name).toContain(name);
+  });
+});
+
+describe('a company file without the optional columns imports as before', () => {
+  it('a leaver\'s access is assumed revoked, and the first person listed owns the tool', async () => {
+    localStorage.setItem('accessguard_v1', JSON.stringify({
+      user: { is_authenticated: true, is_demo: false, plan: 'trial', trial_started_at: Date.now() },
+      tools: [], employees: [], access: [], contracts: [], invoices: [], licenses: [], audit_log: [],
+    }));
+    let muts;
+    function Harness() { muts = useDbMutations(); return null; }
+    const root = createRoot(document.createElement('div'));
+    await act(async () => root.render(<QueryClientProvider client={new QueryClient()}><Harness /></QueryClientProvider>));
+    const csv = 'employee_name,employee_email,employee_status,tool_name,access_level\n'
+      + 'Ana Lopez,ana@x.example,active,Slack,admin\nBen Roy,ben@x.example,offboarded,Slack,member\n';
+    await act(async () => { await muts.bulkImport.mutateAsync({ kind: 'company', records: parseCsv(csv) }); });
+    const db = loadDb();
+    await act(async () => root.unmount());
+    expect(db.tools[0].owner_email).toBe('ana@x.example');
+    expect(db.access.find((a) => a.employee_email === 'ben@x.example').status).toBe('revoked');
   });
 });
