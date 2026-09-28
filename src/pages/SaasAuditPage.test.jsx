@@ -107,3 +107,19 @@ describe('the client report', () => {
     expect(printed).toContain('1 recurring line(s) reviewed as not software are excluded.');
   });
 });
+
+describe('an FEC instead of a bank statement', () => {
+  it('is recognised, says how it was read, and trusts the ledger account', async () => {
+    expect(button('Read them the other way'), 'the bank sample offers the flip').toBeTruthy();
+    await click(button('Audit another file'));
+    await click(button('Try with a sample FEC'));
+    const text = document.body.textContent;
+    expect(text).toContain('FEC · beta');
+    expect(text).toContain('Amounts exclude VAT');
+    // Dates in an FEC are unambiguous: no day/month flip to offer.
+    expect(button('Read them the other way')).toBeFalsy();
+    const rows = [...document.querySelectorAll('tbody tr')].map((r) => r.textContent);
+    expect(rows.some((r) => r.includes('Zeendoc') && r.includes('account 6512'))).toBe(true);
+    expect(rows.some((r) => /GOOGLE IRELAND|QONTO|MONDAY CAFE/.test(r))).toBe(false);
+  });
+});

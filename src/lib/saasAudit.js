@@ -481,7 +481,20 @@ export function detectRecurring(transactions) {
     const amounts = txs.map(t => t.amount);
     const cadence = cadenceOf(dates);
     const avg = amounts.reduce((a, b) => a + b, 0) / amounts.length;
-    const vendor = identifyVendor(key);
+    // From an FEC, each charge also carries the class of the expense account
+    // it was booked to (src/lib/fec.js). The account settles what the name
+    // cannot: Google Ads booked to advertising is not Google Workspace, and a
+    // vendor we have never heard of booked to software licences is software.
+    // Bank transactions carry no ledger, so for them nothing changes.
+    const classes = new Set(txs.map(t => t.ledger?.class).filter(Boolean));
+    const ledgerClass = !classes.size ? null
+      : classes.has('software') ? 'software'
+      : [...classes].every(c => c === 'excluded') ? 'excluded' : 'neutral';
+    let vendor = identifyVendor(key);
+    if (ledgerClass === 'excluded') vendor = null;
+    else if (!vendor && ledgerClass === 'software') {
+      vendor = { name: titleCase(key), category: 'Software (from ledger account)', confidence: 'likely' };
+    }
     // A known cadence converts by its factor. An irregular one — Figma billed
     // on the 5th and the 21st, several seats on one card — used to get null
     // here and so contributed NOTHING to the monthly total, while the finding
@@ -510,6 +523,7 @@ export function detectRecurring(transactions) {
       avgAmount: round2(avg),
       monthlyEquivalent,
       transactions: txs,
+      ...(ledgerClass ? { ledgerClass, account: txs[txs.length - 1].ledger.account } : {}),
     });
   }
   return out.sort((a, b) => (b.monthlyEquivalent ?? 0) - (a.monthlyEquivalent ?? 0));
