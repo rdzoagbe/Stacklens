@@ -124,6 +124,25 @@ describe('why read the ledger at all', () => {
     expect(z).toMatchObject({ confidence: 'likely', ledgerClass: 'software', account: '6512' });
   });
 
+  it('an annual licence booked once in the year is kept, and its renewal flagged', () => {
+    // One fiscal year holds one charge of a yearly licence. It used to be
+    // dropped for lack of a second charge: the biggest software line gone.
+    const text = [HEADER,
+      row('Y1', '20251014', '6512', '', 'Adobe CC annuel', '2699,90', '0,00'),
+      rowAux('Y1', '20251014', 'ADOBE SYSTEMS SOFTWARE IRELAND', 'Adobe', '3239,88'),
+      row('Y2', '20260920', '6135', '', 'Slack', '122,50', '0,00'), rowAux('Y2', '20260920', 'SLACK', 'Slack', '147,00'),
+      row('Y3', '20260920', '6064', '', 'Clé USB', '19,90', '0,00'), rowAux('Y3', '20260920', 'FNAC', 'Clé USB', '23,88'),
+    ].join('\n');
+    const r = auditSaas(parseFec(text).transactions);
+    const adobe = r.subscriptions.find((s) => s.vendor === 'Adobe');
+    expect(adobe).toMatchObject({ cadence: 'annual', singleCharge: true, charges: 1 });
+    expect(adobe.monthlyEquivalent).toBeCloseTo(2699.9 / 12, 1);
+    expect(r.findings.upcomingAnnual.map((u) => u.vendor)).toContain('Adobe');
+    // A single charge anywhere else is still not a subscription.
+    expect(r.subscriptions.some((s) => /FNAC/.test(s.key))).toBe(false);
+    expect(r.subscriptions.some((s) => s.vendor === 'Slack')).toBe(true);
+  });
+
   it('bank transactions are untouched by the ledger rules', () => {
     const tx = parseBankExport('Date;Libellé;Débit;Crédit\n05/01/2026;CB SLACK;12,00;\n05/02/2026;CB SLACK;12,00;\n').transactions;
     expect(auditSaas(tx).subscriptions[0]).not.toHaveProperty('ledgerClass');

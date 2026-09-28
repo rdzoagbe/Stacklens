@@ -475,11 +475,17 @@ export function detectRecurring(transactions) {
 
   const out = [];
   for (const [key, txs] of groups) {
-    if (txs.length < 2) continue;
+    // One charge is not a pattern — except in a ledger, where an annual
+    // licence booked to a software account appears exactly once per fiscal
+    // year. Dropping it lost the largest line in a typical FEC (Adobe, a year
+    // up front). So a single charge in a software account is kept as a likely
+    // annual subscription; everywhere else it still needs a second charge.
+    const singleSoftware = txs.length === 1 && txs[0].ledger?.class === 'software';
+    if (txs.length < 2 && !singleSoftware) continue;
     txs.sort((a, b) => a.date - b.date);
     const dates = txs.map(t => t.date.getTime());
     const amounts = txs.map(t => t.amount);
-    const cadence = cadenceOf(dates);
+    const cadence = singleSoftware ? 'annual' : cadenceOf(dates);
     const avg = amounts.reduce((a, b) => a + b, 0) / amounts.length;
     // From an FEC, each charge also carries the class of the expense account
     // it was booked to (src/lib/fec.js). The account settles what the name
@@ -524,6 +530,7 @@ export function detectRecurring(transactions) {
       monthlyEquivalent,
       transactions: txs,
       ...(ledgerClass ? { ledgerClass, account: txs[txs.length - 1].ledger.account } : {}),
+      ...(singleSoftware ? { singleCharge: true } : {}),
     });
   }
   return out.sort((a, b) => (b.monthlyEquivalent ?? 0) - (a.monthlyEquivalent ?? 0));
