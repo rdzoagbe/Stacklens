@@ -200,6 +200,13 @@ and what must never be automated, which is what WP3 and WP4 turn on. They are
 section 10. So Reddit can never substitute for the French channel. Do the
 French channel first and treat Reddit as an addition.
 
+### After the interview: quotes and reviews
+
+When a firm has found something concrete on a real client file, ask for a
+quote and later a review — never as a condition of anything. The questions,
+the consent email to send as written, and the review-site checklist are in
+`docs/outreach/preuves-clients.md`.
+
 ### LinkedIn — the public post
 
 A post reaches people you are not connected to, so it does the recruiting the

@@ -7,6 +7,7 @@ import { PublicNav } from '../components/PublicNav';
 import { track } from '../lib/analytics';
 import { submitContactForm, mailtoFallback } from '../lib/contact';
 import { EARLY_ACCESS } from '../lib/earlyAccess';
+import { Testimonials } from '../components/Testimonials';
 import { CLIENT_WORKSPACE_LIMIT } from '../lib/plan';
 
 // ── /experts-comptables ─────────────────────────────────────────────────────
@@ -270,6 +271,8 @@ export function AccountantsPage() {
             ))}
           </div>
         </section>
+
+        <Testimonials t={t} language={language} />
 
         <EarlyAccess t={t} />
 

@@ -13,6 +13,7 @@ import { LangSelectorCompact, _openCookieBanner } from '../components/AppShell';
 import { usePlanPricing } from '../contexts/CurrencyContext';
 import { PLAN_CARDS, planFeatures, planText } from '../lib/planCards';
 import { EARLY_ACCESS } from '../lib/earlyAccess';
+import { Testimonials } from '../components/Testimonials';
 import { passwordProblem, suggestPassword } from '../lib/password';
 
 // Signup consent copy. Authored in all five languages rather than routed
@@ -62,19 +63,7 @@ export function TrialPage() {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [suggested, setSuggested] = useState(false);
   const [authError, setAuthError] = useState('');
-  const [, setCurrentTestimonial] = useState(0);
   const [loading, setLoading] = useState(false);
-
-  // No fake testimonials — we're in early access. Real testimonials come from real customers.
-  const testimonials = [];
-
-  // Auto-rotate testimonials
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentTestimonial((prev) => (prev + 1) % testimonials.length);
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [testimonials.length]);
 
   // Handle SSO provider click
   const handleSSOClick = async (provider) => {
@@ -404,6 +393,12 @@ export function TrialPage() {
           </div>
         </div>
       </section>
+
+      {/* Real customers' words with their written agreement, or nothing: the
+          section is absent until src/lib/testimonials.js has an entry. The
+          empty list used to drive a timer that re-rendered this page every
+          five seconds to rotate through nothing. */}
+      <Testimonials t={t} language={language} />
 
       {/* ── PRICING ── */}
       <section id="pricing" className="relative z-10 py-20 px-6 border-t border-slate-900">
