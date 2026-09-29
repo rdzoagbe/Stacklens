@@ -170,6 +170,29 @@ describe('the audit page keeps its promise', () => {
     }
   });
 
+  it('remembers one thing, the firm name, and only through auditPrefs', () => {
+    // The page may import storage helpers from one module; that module may
+    // touch one key, and only with the firm's name. Anything more would be
+    // the first step to keeping a client's figures.
+    const imports = [...strip(audit()).matchAll(/from '(\.\.\/lib\/[^']+)'/g)].map((m) => m[1]);
+    expect(imports).toContain('../lib/auditPrefs');
+    const prefs = strip(read('src/lib/auditPrefs.js'));
+    expect(prefs.match(/localStorage\.\w+/g)).toEqual(['localStorage.getItem', 'localStorage.setItem', 'localStorage.removeItem']);
+    expect(prefs.match(/'[a-z_]+_firm'/g)).toEqual(["'stacklens_audit_firm'"]);
+    expect(prefs).not.toMatch(/sessionStorage|indexedDB|fetch\(|cookie/);
+    // …and the page says so, in both languages.
+    for (const lang of ['en', 'fr']) {
+      const block = tr().slice(tr().indexOf(`  ${lang}: {`));
+      const body = /audit_privacy_body: "([^"]*)"/.exec(block)[1];
+      expect(body, lang).toMatch(/firm's name|nom de votre cabinet/);
+      // The report panel used to say nothing typed there is saved. With the
+      // box it can be, so it must not claim otherwise.
+      const panel = /audit_report_panel_sub: "([^"]*)"/.exec(block)[1];
+      expect(panel, lang).not.toMatch(/saved or sent|enregistré ni envoyé/);
+      expect(panel, lang).toMatch(/firm's name|nom de votre cabinet/);
+    }
+  });
+
   it('reads the file as bytes, so windows-1252 exports decode', () => {
     // readAsText would assume UTF-8 and mangle every "Libellé".
     expect(strip(audit())).toMatch(/readAsArrayBuffer/);
