@@ -9,6 +9,7 @@ import { useTranslation } from '../../translations';
 import { getCurrency, displayAmount } from '../../lib/currency';
 import { callAI, invoiceInboxAddress, invoiceInboxList, invoiceInboxAck, bankConnect, bankStatus, bankSync } from '../../firebase-config';
 import { Landmark } from 'lucide-react';
+import { isRejectedVendor } from '../../lib/toolReview';
 import { UNALLOCATED, allocateSpendByDepartment, parseBudgetCsv, monthlyAmountFromInvoice } from '../../lib/budget';
 
 function yearElapsedFraction(year) {
@@ -76,7 +77,7 @@ export function BudgetTabContent() {
       const { candidates } = await bankSync();
       setImportState({
         phase: 'review', errors: [],
-        rows: (candidates || []).map(c => ({ ...c, file: `${c.occurrences}× ${t('bank_seen')}`, include: true })),
+        rows: (candidates || []).map(c => ({ ...c, file: `${c.occurrences}× ${t('bank_seen')}`, include: !isRejectedVendor(db, c.vendor) })),
       });
     } catch (err) {
       setImportState(null);
@@ -89,7 +90,7 @@ export function BudgetTabContent() {
       phase: 'review',
       errors: [],
       inboxIds: inboxItems.map(i => i.id),
-      rows: inboxItems.map(i => ({ ...i, monthly: monthlyAmountFromInvoice(i), include: true })),
+      rows: inboxItems.map(i => ({ ...i, monthly: monthlyAmountFromInvoice(i), include: !isRejectedVendor(db, i.vendor) })),
     });
   };
 
@@ -200,7 +201,7 @@ export function BudgetTabContent() {
             source: 'invoice',
           };
           row.monthly = monthlyAmountFromInvoice(row);
-          if (row.vendor && row.amount > 0) rows.push({ ...row, include: true });
+          if (row.vendor && row.amount > 0) rows.push({ ...row, include: !isRejectedVendor(db, row.vendor) });
         });
       } catch {
         errors.push(batch.map(b => b.name).join(', ') + ': ' + t('budget_inv_ai_failed'));
@@ -486,7 +487,8 @@ export function BudgetTabContent() {
                             <input type="checkbox" checked={r.include} className="accent-emerald-500"
                               onChange={e => setImportState(s => ({ ...s, rows: s.rows.map((x, j) => j === i ? { ...x, include: e.target.checked } : x) }))} />
                           </td>
-                          <td className="px-2 py-2 text-white font-semibold">{r.vendor}<div className="text-xs text-slate-500 font-normal">{r.file}{r.invoice_date ? ` · ${r.invoice_date}` : ''}</div></td>
+                          <td className="px-2 py-2 text-white font-semibold">{r.vendor}<div className="text-xs text-slate-500 font-normal">{r.file}{r.invoice_date ? ` · ${r.invoice_date}` : ''}</div>
+                            {isRejectedVendor(db, r.vendor) && <div className="text-xs text-amber-300/90 font-normal">{t('tool_review_rejected_before')}</div>}</td>
                           <td className="px-2 py-2 text-slate-300">{r.amount.toLocaleString()} {r.currency}</td>
                           <td className="px-2 py-2 text-slate-400">{r.billing_cycle}</td>
                           <td className="px-2 py-2 text-slate-300">{r.monthly > 0 ? cur(r.monthly) + '/mo' : '—'}</td>

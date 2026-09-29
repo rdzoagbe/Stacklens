@@ -7,6 +7,7 @@ import { noteDataArrived } from '../lib/activation';
 import { appendAudit, auditActor, changedKeys, describeChange } from '../lib/audit';
 import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
+import { REVIEW_ORIGINS, isRejectedVendor, originOfRow, vendorKey } from '../lib/toolReview';
 
 // The first time real data enters a workspace is when time-to-first-insight
 // starts. Demo data is not an arrival: nobody imported it.
@@ -368,6 +369,9 @@ export function useDbMutations() {
           const monthly = Math.round((r.monthly || 0) * 100) / 100;
           const nameKey = (r.vendor || '').toLowerCase().trim();
           if (!nameKey) return;
+          // Someone here already said this vendor is not software: the
+          // invoice is still recorded, but no tool comes back.
+          if (isRejectedVendor(db, r.vendor)) return;
           const existing = byName[nameKey];
           if (existing) {
             if (monthly > 0) {
@@ -386,6 +390,7 @@ export function useDbMutations() {
               cost_per_month: monthly, cost_monthly: monthly, cost: monthly,
               renewal_date: r.period_end || '', risk_score: 'low', derived_risk: 'low',
               notes: 'Created from invoice import',
+              origin: originOfRow(r),
             };
             db.tools = [tool, ...db.tools];
             byName[nameKey] = tool;
@@ -586,6 +591,9 @@ export function useDbMutations() {
             risk_score:     r.risk_score      || 'low',
             derived_risk:   r.risk_score      || 'low',
             notes:          r.notes           || '',
+            // Set by the app's own discovery paths, never by a CSV column
+            // someone could fill with anything.
+            ...(REVIEW_ORIGINS.includes(r.origin) ? { origin: r.origin } : {}),
           }));
           db.tools = [...newTools, ...db.tools];
           if (db.employees && db.employees.length > 0) {
@@ -667,8 +675,47 @@ export function useDbMutations() {
     },
   });
 
+  // A person's verdict on a tool the app added by itself (lib/toolReview.js).
+  //   confirm  it is right
+  //   rename   right tool, wrong name (name required)
+  //   reject   not software: the tool goes, its access records with it, and
+  //            the vendor is remembered so the next invoice does not re-add it
+  const reviewTool = useMutation({
+    mutationFn: async ({ id, kind, name }) => {
+      setDb((db) => {
+        const tool = (db.tools || []).find((x) => x.id === id);
+        if (!tool) return db;
+        if (kind === 'reject') {
+          db.tools = db.tools.filter((x) => x.id !== id);
+          db.access = (db.access || []).filter((a) => a.tool_id !== id);
+          const key = vendorKey(tool.name);
+          if (key && !(db.rejected_vendors || []).includes(key)) {
+            db.rejected_vendors = [...(db.rejected_vendors || []), key].slice(-500);
+          }
+        } else if (kind === 'rename') {
+          const next = String(name || '').trim();
+          if (!next) return db;
+          db.tools = db.tools.map((x) => (x.id === id ? { ...x, name: next, reviewed: 'renamed' } : x));
+          db.access = (db.access || []).map((a) => (a.tool_id === id ? { ...a, tool_name: next } : a));
+        } else {
+          db.tools = db.tools.map((x) => (x.id === id ? { ...x, reviewed: 'confirmed' } : x));
+        }
+        return db;
+      }, (after, before) => {
+        const was = (before.tools || []).find((x) => x.id === id);
+        if (!was) return null;
+        const details = kind === 'reject' ? `${was.name} — not software, removed`
+          : kind === 'rename' ? `${was.name} → ${String(name || '').trim()}`
+          : `${was.name} — confirmed`;
+        return { action: 'tool.reviewed', details };
+      });
+    },
+    onSuccess: (_d, { kind }) => { invalidate(); track('tool_reviewed', { kind }); },
+    onError: () => toast.error(t('err_update_tool')),
+  });
+
   return {
-    createTool, updateTool, deleteTool,
+    createTool, updateTool, deleteTool, reviewTool,
     createEmployee, updateEmployee, deleteEmployee,
     createAccess, updateAccess, deleteAccess,
     setPlan, setAuth, setBudgets, importInvoices, addUploadedInvoices, bulkImport,
