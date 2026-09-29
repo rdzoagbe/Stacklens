@@ -214,6 +214,22 @@ describe('the audit page keeps its promise', () => {
     }
   });
 
+  it('reading several clients at once keeps the same promise', () => {
+    // lib/portfolio.js reads every client's file; it must not send or keep
+    // anything either, and the page reads each file as bytes like the single one.
+    const mod = strip(read('src/lib/portfolio.js'));
+    for (const bad of ['fetch(', 'XMLHttpRequest', 'localStorage', 'sessionStorage', 'indexedDB', 'sendBeacon', 'track(']) {
+      expect(mod, `${bad} in lib/portfolio.js`).not.toContain(bad);
+    }
+    const page = strip(audit());
+    const portfolioReads = page.slice(page.indexOf('const onFiles = useCallback'), page.indexOf('const onDrop'));
+    expect(portfolioReads).toMatch(/readAsArrayBuffer\(file\)/);
+    expect(portfolioReads).toMatch(/decodeBankFile\(reader\.result\)/);
+    // Analytics hears how many, never which.
+    const run = /track\('audit_portfolio_run', \{([^}]*)\}\)/.exec(page)[1];
+    expect(run.replace(/\s/g, '')).toBe('source,clients:clients.length,failed:errors.length,dropped');
+  });
+
   it('reads the file as bytes, so windows-1252 exports decode', () => {
     // readAsText would assume UTF-8 and mangle every "Libellé".
     expect(strip(audit())).toMatch(/readAsArrayBuffer/);

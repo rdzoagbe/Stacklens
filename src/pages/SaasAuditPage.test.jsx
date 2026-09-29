@@ -162,6 +162,90 @@ describe('creating a workspace from the results', () => {
   });
 });
 
+describe('several clients at once', () => {
+  const rows = () => [...document.querySelectorAll('[data-testid="pf-row"]')];
+  const openSample = async () => {
+    await click(button('Audit another file'));
+    await click(button('Try with 3 sample clients'));
+  };
+
+  it('shows one row per client, the portfolio total, and counts only to analytics', async () => {
+    await openSample();
+    expect(document.body.textContent).toContain('Portfolio: 3 client(s)');
+    expect(rows().map((r) => r.querySelector('td').textContent)).toEqual(['Boulangerie Dupont', 'Atelier Martin Architectes', 'Studio Lumière']);
+    expect(document.body.textContent).toContain('Clients with points to check');
+    const run = track.mock.calls.find(([n]) => n === 'audit_portfolio_run');
+    expect(run[1]).toEqual({ source: 'sample', clients: 3, failed: 0, dropped: 0 });
+  });
+
+  it("opens a client's full report, with the name on the client report, and comes back", async () => {
+    await openSample();
+    await click([...rows()[1].querySelectorAll('button')].find((b) => b.textContent.includes('Report')));
+    expect(document.body.textContent).toContain('Atelier Martin Architectes');
+    expect(document.body.textContent).toContain('FEC');
+    await click(button('Client report (PDF)'));
+    const [, client] = [...document.querySelectorAll('input:not([type=checkbox])')];
+    expect(client.value).toBe('Atelier Martin Architectes');
+    await click(document.querySelector('[data-testid="pf-back"]'));
+    expect(rows()).toHaveLength(3);
+  });
+
+  it("a client's review is kept when coming back, and changes its row", async () => {
+    await openSample();
+    const subsOf = () => Number(rows().find((r) => r.querySelector('td').textContent === 'Boulangerie Dupont').querySelectorAll('td')[2].textContent);
+    const before = subsOf();
+    await click([...rows()[0].querySelectorAll('button')].find((b) => b.textContent.includes('Report')));
+    await click(buttons().find((b) => b.textContent.trim() === 'Not software'));
+    await click(document.querySelector('[data-testid="pf-back"]'));
+    expect(subsOf()).toBe(before - 1);
+    // …and reopening the client shows the review it was given. (The table
+    // re-sorts by spend, so the client is found by name, not position.)
+    const dupont = rows().find((r) => r.querySelector('td').textContent === 'Boulangerie Dupont');
+    await click([...dupont.querySelectorAll('button')].find((b) => b.textContent.includes('Report')));
+    expect(document.body.textContent).toContain('Boulangerie Dupont');
+    expect(document.body.textContent).toContain('1 line(s) reviewed');
+  });
+
+  it('takes 25 files at most and says how many were left out', async () => {
+    await click(button('Audit another file'));
+    const text = 'Date;Libellé;Débit;Crédit\n05/01/2026;CB SLACK;10,00;\n05/02/2026;CB SLACK;10,00;\n';
+    const input = document.querySelector('input[type=file]');
+    Object.defineProperty(input, 'files', { configurable: true,
+      value: Array.from({ length: 27 }, (_, i) => new File([text], `client-${i}.csv`, { type: 'text/csv' })) });
+    await act(async () => { input.dispatchEvent(new window.Event('change', { bubbles: true })); });
+    for (let i = 0; i < 40 && !document.querySelector('[data-testid="portfolio"]'); i++) {
+      await act(async () => { await new Promise((r) => setTimeout(r, 10)); });
+    }
+    expect(rows()).toHaveLength(25);
+    expect(document.querySelector('[data-testid="pf-errors"]').textContent).toContain('2 more file(s) left out: 25 at most at once.');
+  });
+
+  it('reads several dropped files, names each after its file, and says which could not be read', async () => {
+    await click(button('Audit another file'));
+    const file = (name, text) => new File([text], name, { type: 'text/csv' });
+    const input = document.querySelector('input[type=file]');
+    Object.defineProperty(input, 'files', { configurable: true, value: [
+      file('boulangerie_dupont.csv', 'Date;Libellé;Débit;Crédit\n05/01/2026;CB SLACK;10,00;\n05/02/2026;CB SLACK;10,00;\n05/03/2026;CB SLACK;10,00;\n'),
+      file('notes.txt', 'nothing to see\n'),
+    ] });
+    await act(async () => { input.dispatchEvent(new window.Event('change', { bubbles: true })); });
+    for (let i = 0; i < 20 && !document.querySelector('[data-testid="portfolio"]'); i++) {
+      await act(async () => { await new Promise((r) => setTimeout(r, 10)); });
+    }
+    expect(rows().map((r) => r.querySelector('td').textContent)).toEqual(['Boulangerie dupont']);
+    expect(document.querySelector('[data-testid="pf-errors"]').textContent).toContain('notes.txt: not read');
+  });
+
+  it('a client can be renamed', async () => {
+    await openSample();
+    await click(rows()[0].querySelector('button[aria-label="Rename the client"]'));
+    const input = rows()[0].querySelector('input');
+    Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(input, 'Dupont & Fils');
+    await act(async () => { input.form.requestSubmit(); });
+    expect(rows().map((r) => r.querySelector('td').textContent)).toContain('Dupont & Fils');
+  });
+});
+
 describe('a subscription that stopped', () => {
   // The sample statement's Zoom line ends in March; the file runs to June.
   it('is listed apart with its last charge, and counted nowhere else', async () => {
