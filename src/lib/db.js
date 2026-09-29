@@ -691,9 +691,29 @@ export function seedDbIfEmpty() {
     grant('Notion',      'antoine.rey@acme.com',    'viewer',  { granted: 700, used: 65, reviewed: 300, status: 'revoked' }),
   ];
 
+  // Supplier invoices, so Finance → Budget's invoice check has something to
+  // show (lib/invoiceCheck.js): Notion billed above the price agreed before
+  // tax, HubSpot's price going up with nothing agreed, Slack billed twice.
+  byName.Notion.agreed_monthly = 100;
+  byName.Notion.agreed_basis = 'ht';
+  const invoice = (vendor, amount, daysAgo, extra = {}) => ({
+    id: uid('inv'), vendor, amount, currency: 'EUR', invoice_date: d(daysAgo),
+    billing_cycle: 'monthly', source: 'invoice', file: `${vendor.split(' ')[0].toLowerCase()}-${d(daysAgo)}.pdf`,
+    imported_at: now.toISOString(), ...extra,
+  });
+  const invoice_records = [
+    invoice('Notion Labs Inc', 120, 65, { amount_excl_tax: 100 }),
+    invoice('Notion Labs Inc', 144, 35, { amount_excl_tax: 120 }),
+    invoice('HubSpot Inc', 575, 62),
+    invoice('HubSpot Inc', 690, 32),
+    invoice('Slack Technologies Limited', 312, 20, { amount_excl_tax: 260 }),
+    invoice('Slack Technologies Limited', 312, 20, { amount_excl_tax: 260 }),
+    invoice('Salesforce France', 520, 28, { amount_excl_tax: 433.33 }),
+  ];
+
   const user = { id: uid('usr'), email: 'demo@accessguard.app', subscription_plan: 'pro', is_authenticated: false, is_demo: false };
 
-  const db = { tools, employees, access, user };
+  const db = { tools, employees, access, invoice_records, user };
   saveDb(db);
   return db;
 }

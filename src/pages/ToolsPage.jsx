@@ -56,6 +56,8 @@ export function ToolForm({ initial, employees, onSubmit, onClose }) {
         onSubmit({
           ...form,
           cost_per_month: Math.max(0, Number(form.cost_per_month) || 0),
+          agreed_monthly: Math.max(0, Number(form.agreed_monthly) || 0),
+          agreed_basis: form.agreed_basis === 'ttc' ? 'ttc' : 'ht',
         });
         onClose();
       }}
@@ -137,7 +139,7 @@ export function ToolForm({ initial, employees, onSubmit, onClose }) {
         <Textarea rows={3} value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="grid gap-3 md:grid-cols-3">
         <div>
           <div className="mb-1 text-xs font-semibold text-slate-400">{t('col_cost_month')}</div>
           {/* min/step guard the spinner; the onChange clamp guards typing and
@@ -153,6 +155,30 @@ export function ToolForm({ initial, employees, onSubmit, onClose }) {
               setForm((f) => ({ ...f, cost_per_month: v === '' ? '' : Math.max(0, Number(v) || 0) }));
             }}
           />
+        </div>
+        <div>
+          {/* The price negotiated with the vendor: invoices are checked
+              against it (lib/invoiceCheck.js). Separate from the cost above,
+              which follows the latest invoice. */}
+          <div className="mb-1 text-xs font-semibold text-slate-400">{t('inv_check_agreed_label')}</div>
+          <div className="flex gap-2">
+            <Input
+              type="number"
+              min="0"
+              step="0.01"
+              aria-label={t('inv_check_agreed_label')}
+              value={form.agreed_monthly ?? ''}
+              onChange={(e) => {
+                const v = e.target.value;
+                setForm((f) => ({ ...f, agreed_monthly: v === '' ? '' : Math.max(0, Number(v) || 0) }));
+              }}
+            />
+            <Select value={form.agreed_basis === 'ttc' ? 'ttc' : 'ht'} aria-label={t('inv_check_basis')}
+              onChange={(e) => setForm((f) => ({ ...f, agreed_basis: e.target.value }))}>
+              <option value="ht">{t('inv_check_ht')}</option>
+              <option value="ttc">{t('inv_check_ttc')}</option>
+            </Select>
+          </div>
         </div>
         <div>
           <div className="mb-1 text-xs font-semibold text-slate-400">{t('fld_notes')}</div>

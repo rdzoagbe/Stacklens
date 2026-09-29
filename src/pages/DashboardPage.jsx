@@ -23,6 +23,7 @@ import { Button, Pill } from '../components/ui';
 import { RoleGate } from '../components/gates';
 import { AppShell } from '../components/AppShell';
 import { ImportWizard } from '../components/ImportWizard';
+import { invoiceCheckSummary } from '../lib/invoiceCheck';
 
 // Re-export for lazy-loading in App.jsx
 export { ImportWizard } from '../components/ImportWizard';
@@ -547,6 +548,19 @@ export function DashboardPage() {
             onAction: () => muts.updateAccess.mutate({ id: a.id, patch: { status: 'revoked' } }, { onSuccess: () => toast.success(t('revoked')) }),
           });
         });
+
+        // Supplier invoices above the agreed price, billed twice, or billed
+        // after cancellation (lib/invoiceCheck.js): money leaving now, so it
+        // ranks first among the high-severity items (the list shows six).
+        const _invoiceCheck = invoiceCheckSummary(db);
+        if (_invoiceCheck.count > 0) {
+          actions.push({
+            id: 'invoice-check', kind: 'invoice_check', severity: 'high', icon: '🧾',
+            title: t('inv_check_dash_title').replace('{n}', _invoiceCheck.count),
+            reason: t('inv_check_dash_reason').replace('{amount}', money(_invoiceCheck.annualAtStake)),
+            action: t('review'), link: '/finance?tab=budget',
+          });
+        }
 
         (derived.tools || []).filter(tool => !tool.owner_email).slice(0, 4).forEach(tool => {
           actions.push({

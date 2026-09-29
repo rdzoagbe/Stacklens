@@ -711,6 +711,23 @@ export function useDbMutations() {
     onError: () => toast.error(t('err_update_tool')),
   });
 
+  // A finding on a supplier invoice that someone has explained (lib/invoiceCheck.js):
+  // the invoice stays, the finding is no longer reported, and the audit trail
+  // says who accepted it.
+  const clearInvoiceFinding = useMutation({
+    mutationFn: async (invoiceId) => {
+      setDb((db) => {
+        db.invoice_records = (db.invoice_records || []).map((r) => (r.id === invoiceId ? { ...r, cleared: true } : r));
+        return db;
+      }, (after, before) => {
+        const r = (before.invoice_records || []).find((x) => x.id === invoiceId);
+        return r ? { action: 'invoice.cleared', details: `${r.vendor} ${r.amount} ${r.currency || ''} ${r.invoice_date || ''} — marked justified`.replace(/\s+/g, ' ').trim() } : null;
+      });
+    },
+    onSuccess: () => { invalidate(); track('invoice_finding_cleared'); },
+    onError: () => toast.error(t('err_update_tool')),
+  });
+
   // A person's verdict on a tool the app added by itself (lib/toolReview.js).
   //   confirm  it is right
   //   rename   right tool, wrong name (name required)
@@ -751,7 +768,7 @@ export function useDbMutations() {
   });
 
   return {
-    createTool, updateTool, deleteTool, reviewTool, importAuditTools,
+    createTool, updateTool, deleteTool, reviewTool, importAuditTools, clearInvoiceFinding,
     createEmployee, updateEmployee, deleteEmployee,
     createAccess, updateAccess, deleteAccess,
     setPlan, setAuth, setBudgets, importInvoices, addUploadedInvoices, bulkImport,
