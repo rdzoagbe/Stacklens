@@ -96,6 +96,10 @@ export const PAGE_SEO = {
     title: 'Stacklens pour les experts-comptables',
     description: "Un audit SaaS pour chaque client, en cinq minutes. Stacklens donne aux experts-comptables et DAF externalisés une vue des abonnements logiciels, des doublons et des renouvellements de tous leurs clients, depuis un seul compte.",
   },
+  '/direction-financiere': {
+    title: 'Stacklens pour les directions financières',
+    description: "Budgets logiciels par service, factures fournisseurs contrôlées contre le prix convenu, renouvellements à venir et rapport budgétaire exportable : Stacklens tient les dépenses logicielles dont le DAF et le contrôleur de gestion sont garants.",
+  },
   '/audit-saas': {
     title: 'Audit SaaS gratuit',
     description: "Déposez un export bancaire, obtenez la liste des abonnements logiciels récurrents, des doublons, des hausses de prix et des renouvellements à venir. Tout se passe dans votre navigateur : rien n'est envoyé à Stacklens.",

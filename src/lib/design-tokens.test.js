@@ -73,6 +73,7 @@ describe('the public pages share one header', () => {
   it.each([
     'src/pages/LegalPages.jsx',
     'src/pages/AccountantsPage.jsx',
+    'src/pages/FinanceLeadsPage.jsx',
     'src/pages/SaasAuditPage.jsx',
   ])('%s uses PublicNav and no hand-rolled nav', (file) => {
     const text = readFileSync(resolve(root, file), 'utf8');
