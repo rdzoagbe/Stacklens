@@ -193,6 +193,27 @@ describe('the audit page keeps its promise', () => {
     }
   });
 
+  it('hands a list to the app only on the click that says so, through auditHandoff', () => {
+    const page = strip(audit());
+    // saveHandoff appears once, inside the click handler, never at render.
+    expect(page.match(/saveHandoff\(/g)).toHaveLength(1);
+    expect(page).toMatch(/const startWorkspace = \(\) => \{\s*const count = saveHandoff\(report\);/);
+    const mod = strip(read('src/lib/auditHandoff.js'));
+    expect(mod.match(/localStorage\.\w+/g)).toEqual(['localStorage.setItem', 'localStorage.removeItem', 'localStorage.getItem']);
+    expect(mod).not.toMatch(/sessionStorage|indexedDB|fetch\(|cookie|transactions|\.key\b/);
+    // Signing out removes a list left waiting.
+    expect(read('src/lib/db.js')).toMatch(/'stacklens_audit_handoff'/);
+    // …and the page says what the click keeps, and for how long.
+    for (const lang of ['en', 'fr']) {
+      const block = tr().slice(tr().indexOf(`  ${lang}: {`));
+      const fine = /audit_handoff_fine: "([^"]*)"/.exec(block)[1];
+      expect(fine, lang).toMatch(/\{hours\}/);
+      expect(fine, lang).toMatch(/no bank labels|aucun libellé bancaire/);
+      const body = /audit_privacy_body: "([^"]*)"/.exec(block)[1];
+      expect(body, lang).toMatch(/create your workspace|créer votre espace/);
+    }
+  });
+
   it('reads the file as bytes, so windows-1252 exports decode', () => {
     // readAsText would assume UTF-8 and mangle every "Libellé".
     expect(strip(audit())).toMatch(/readAsArrayBuffer/);

@@ -3,7 +3,9 @@
 // Several paths create a tool without anyone typing it: an invoice read by the
 // AI or received by email, a recurring charge found by the bank connection
 // (all three through Finance → Budget), and an app found through Google
-// Workspace sign-ins (Tools → sync usage). Both can be wrong in the way the
+// Workspace sign-ins (Tools → sync usage). A list brought over from the free
+// audit (lib/auditHandoff.js) is one more; lines the reader already confirmed
+// in the audit arrive reviewed. Both can be wrong in the way the
 // free audit is wrong — a bank fee read as software, a vendor under the wrong
 // name — and the person who knows is the one looking at the list. So each
 // such tool carries a "to check" mark until someone says Correct, renames it,
@@ -13,7 +15,7 @@
 // db.rejected_vendors, so the next invoice from them does not bring it back.
 // Nothing here leaves the workspace.
 
-export const REVIEW_ORIGINS = ['invoice', 'bank', 'google-workspace'];
+export const REVIEW_ORIGINS = ['invoice', 'bank', 'google-workspace', 'audit'];
 
 // Tools created before `origin` existed are recognised by the note each path
 // has always written.

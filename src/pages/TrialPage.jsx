@@ -49,9 +49,13 @@ export function TrialPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const [showAuth, setShowAuth] = useState(false);
+  // Links from the free audit, the accountants page and the demo banner end
+  // in ?signup=true: they mean "open the account form", so it opens, on the
+  // create-account tab.
+  const wantsSignup = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('signup') === 'true';
+  const [showAuth, setShowAuth] = useState(wantsSignup);
   const [, setShowEmailForm] = useState(false);
-  const [authTab, setAuthTab] = useState('signin');
+  const [authTab, setAuthTab] = useState(wantsSignup ? 'create' : 'signin');
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
   const [authConfirm, setAuthConfirm] = useState('');

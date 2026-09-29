@@ -675,6 +675,42 @@ export function useDbMutations() {
     },
   });
 
+  // The subscriptions a reader reviewed in the free audit, brought in after
+  // they signed up (lib/auditHandoff.js plans the list). Within the plan's
+  // tool allowance: past it, the rest is left out and the caller says so.
+  const importAuditTools = useMutation({
+    mutationFn: async (records) => {
+      const current = loadDb();
+      const limits = getPlanLimits(resolvePlan(current?.user));
+      const room = Math.max(0, limits.tools - (current?.tools?.length || 0));
+      const take = (records || []).slice(0, room);
+      if (take.length) {
+        setDb((db) => {
+          const tools = take.map((r) => ({
+            id: uid('tool'), name: r.name, category: r.category || 'other',
+            owner_email: '', owner_name: '', criticality: 'medium', url: '', description: '',
+            status: 'active',
+            // A charge is not a use: nobody knows yet who uses it, or when.
+            last_used_date: '',
+            cost_per_month: r.cost_per_month, cost_monthly: r.cost_per_month, cost: r.cost_per_month,
+            renewal_date: r.renewal_date || '', risk_score: 'low', derived_risk: 'low',
+            notes: r.notes || '', origin: 'audit',
+            ...(r.reviewed === 'confirmed' ? { reviewed: 'confirmed' } : {}),
+          }));
+          db.tools = [...tools, ...(db.tools || [])];
+          return db;
+        }, () => ({ action: 'tool.imported', details: `${take.length} tool(s) from the free audit` }));
+      }
+      return { added: take.length, left: (records || []).length - take.length };
+    },
+    onSuccess: ({ added, left }) => {
+      invalidate();
+      if (added) stampArrival();
+      track('audit_handoff_imported', { added, left });
+    },
+    onError: () => toast.error(t('err_update_tool')),
+  });
+
   // A person's verdict on a tool the app added by itself (lib/toolReview.js).
   //   confirm  it is right
   //   rename   right tool, wrong name (name required)
@@ -715,7 +751,7 @@ export function useDbMutations() {
   });
 
   return {
-    createTool, updateTool, deleteTool, reviewTool,
+    createTool, updateTool, deleteTool, reviewTool, importAuditTools,
     createEmployee, updateEmployee, deleteEmployee,
     createAccess, updateAccess, deleteAccess,
     setPlan, setAuth, setBudgets, importInvoices, addUploadedInvoices, bulkImport,

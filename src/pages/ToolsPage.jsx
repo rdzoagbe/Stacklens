@@ -263,7 +263,7 @@ export function ToolsPage() {
   const unassignedCount = tools.filter(t => !t.owner_email).length;
   const reviewCount = tools.filter(needsReview).length;
   const showingToReview = toReview && reviewCount > 0;
-  const ORIGIN_KEY = { invoice: 'tool_review_from_invoice', bank: 'tool_review_from_bank', 'google-workspace': 'tool_review_from_gws' };
+  const ORIGIN_KEY = { invoice: 'tool_review_from_invoice', bank: 'tool_review_from_bank', 'google-workspace': 'tool_review_from_gws', audit: 'tool_review_from_audit' };
   const review = (tool, kind, name) => {
     if (kind === 'reject' && !window.confirm(t('tool_review_reject_confirm').replace('{name}', tool.name))) return;
     muts.reviewTool.mutate({ id: tool.id, kind, name }, {
