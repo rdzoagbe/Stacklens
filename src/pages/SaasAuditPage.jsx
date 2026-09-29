@@ -469,6 +469,28 @@ function Report({ report, symbol, t, onReset, language, skipped, dateOrder, onFl
           </table>
         </div>
 
+        {report.stopped.length > 0 && (
+          <div className="mt-4 rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4" data-testid="audit-stopped">
+            <h3 className="text-sm font-semibold text-amber-200">{fill(t('audit_stopped_title'), { n: report.stopped.length })}</h3>
+            <p className="text-xs text-slate-400 mt-1 mb-3">{t('audit_stopped_sub')}</p>
+            <ul className="text-sm space-y-1.5">
+              {report.stopped.map((s) => (
+                <li key={s.key} className="flex flex-wrap justify-between items-center gap-x-4 gap-y-1">
+                  <span className="font-medium text-slate-200">{s.vendor}</span>
+                  <span className="flex items-center gap-3 text-slate-400 text-xs">
+                    <span>{fill(t('audit_stopped_last'), { date: date(s.last) })}</span>
+                    {s.monthlyEquivalent != null && <span>{fill(t('audit_stopped_was'), { amount: money(s.monthlyEquivalent) })}</span>}
+                    <button onClick={() => setVerdict(s.key, { kind: 'reject' })}
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-300 text-[11px] font-semibold transition-colors">
+                      <X className="w-3 h-3" /> {t('audit_review_no')}
+                    </button>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {others.length > 0 && (
           <div className="mt-3">
             <button onClick={() => setShowOther(v => !v)} className="text-sm text-slate-400 hover:text-white transition-colors">
@@ -676,6 +698,11 @@ export function PrintReport({ report, money, language, t, firm, client, note, fo
           ))}
         </tbody>
       </table>
+      {report.stopped.length > 0 && (
+        <p className="text-xs text-gray-600 mb-1">
+          {fill(t('audit_report_stopped'), { list: report.stopped.map((s) => `${s.vendor} (${date(s.last)})`).join(', ') })}
+        </p>
+      )}
       {report.rejected.length > 0 && (
         <p className="text-xs text-gray-600 mb-3">{fill(t('audit_report_excluded'), { n: report.rejected.length })}</p>
       )}
