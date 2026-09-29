@@ -82,6 +82,17 @@ exactement le genre de retour que la phase bêta doit récolter.
 Pourquoi les deux totaux diffèrent : le relevé est en TTC sur 24 mois et
 compte les trois pièges ; le FEC est en HT sur 12 mois et les exclut.
 
+### Plusieurs clients d'un coup
+
+Revenez à l'accueil de l'audit et sélectionnez **les deux fichiers ensemble**
+(relevé et FEC), ou cliquez « Essayer avec 3 clients d'exemple ». La page
+affiche un **portefeuille** : une ligne par client, avec les logiciels par
+mois, le nombre d'abonnements, les points à vérifier et les abonnements
+arrêtés, puis le total du portefeuille. « Rapport » ouvre le détail d'un
+client, avec son nom déjà sur le rapport client ; « CSV du portefeuille »
+exporte le tableau. C'est le geste d'un cabinet en fin de mois : trente
+relevés, un seul écran.
+
 ## 3. Dans l'application (10 minutes)
 
 Créez un compte : les nouveaux comptes ont 7 jours d'essai avec toutes les

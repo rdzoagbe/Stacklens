@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import {
   Upload, ShieldCheck, Download, Copy, TrendingUp, CalendarClock, Eye, Layers,
   ArrowRight, RefreshCw, FileSpreadsheet, AlertTriangle, CheckCircle2,
-  Check, X, Pencil, Undo2, Printer, Mail, FileText,
+  Check, X, Pencil, Undo2, Printer, Mail, FileText, Users, ArrowLeft,
 } from 'lucide-react';
 import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
@@ -18,6 +18,9 @@ import {
   correctionsMailto, reviewCounts,
 } from '../lib/saasAudit';
 import { isFec, parseFec, sampleFec } from '../lib/fec';
+import {
+  detectSymbol, readClientFile, portfolioRow, portfolioTotals, portfolioCsv, samplePortfolio, MAX_PORTFOLIO_FILES,
+} from '../lib/portfolio';
 
 // ── /audit-saas (SaasAuditPage; AuditPage.jsx is the authenticated /audit tab) ─────────────────────────────────────────────────────────────
 //
@@ -36,13 +39,6 @@ import { isFec, parseFec, sampleFec } from '../lib/fec';
 // not say; a symbol in the text is used when present, and € otherwise, since
 // the pages this is linked from are French.
 
-const CURRENCY_HINTS = [
-  [/€|\bEUR\b/, '€'], [/£|\bGBP\b/, '£'], [/\$|\bUSD\b/, '$'], [/\bCHF\b/, 'CHF '],
-];
-function detectSymbol(text) {
-  for (const [re, sym] of CURRENCY_HINTS) if (re.test(text)) return sym;
-  return '€';
-}
 
 const fill = (s, vars) => Object.entries(vars).reduce((acc, [k, v]) => acc.replaceAll(`{${k}}`, String(v)), String(s || ''));
 
@@ -67,6 +63,23 @@ export function SaasAuditPage() {
   );
   const [dragging, setDragging] = useState(false);
   const inputRef = useRef(null);
+
+  // Several clients at once (lib/portfolio.js): null, or { clients, errors,
+  // active, dropped }. Kept apart from `state` so the one-file audit works
+  // exactly as before. Each client carries its own review, in memory only.
+  const [portfolio, setPortfolio] = useState(null);
+  const openPortfolio = useCallback((inputs, source, dropped = 0) => {
+    const read = inputs.map((i) => { try { return readClientFile(i); } catch { return { name: i.name || i.fileName, fileName: i.fileName, error: 'columns' }; } });
+    const clients = read.filter((c) => !c.error);
+    const errors = read.filter((c) => c.error).map(({ name, fileName, error }) => ({ name, fileName, error }));
+    // Counts only: how many files, how many read. Never a name.
+    track('audit_portfolio_run', { source, clients: clients.length, failed: errors.length, dropped });
+    setPortfolio({ clients, errors, active: null, dropped });
+  }, []);
+  const updateClient = useCallback((index, patch) => {
+    setPortfolio((p) => p && { ...p, clients: p.clients.map((c, i) => (i === index ? { ...c, ...(typeof patch === 'function' ? patch(c) : patch) } : c)) });
+  }, []);
+  const closePortfolio = () => { setPortfolio(null); if (inputRef.current) inputRef.current.value = ''; };
 
   const runOn = useCallback((text, source, forceOrder) => {
     // An FEC (the ledger export every French accounting package produces) is
@@ -115,10 +128,28 @@ export function SaasAuditPage() {
     reader.onerror = () => setState({ phase: 'error', error: 'columns' });
     reader.readAsArrayBuffer(file);
   }, [runOn]);
+  const onFiles = useCallback((fileList) => {
+    const files = [...(fileList || [])];
+    if (files.length <= 1) { onFile(files[0]); return; }
+    const taken = files.slice(0, MAX_PORTFOLIO_FILES);
+    setState({ phase: 'reading' });
+    Promise.all(taken.map((file) => new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        try { resolve({ fileName: file.name, text: decodeBankFile(reader.result) }); }
+        catch { resolve({ fileName: file.name, text: '' }); }
+      };
+      reader.onerror = () => resolve({ fileName: file.name, text: '' });
+      reader.readAsArrayBuffer(file);
+    }))).then((inputs) => {
+      setState({ phase: 'idle' });
+      openPortfolio(inputs, 'file', files.length - taken.length);
+    });
+  }, [openPortfolio, onFile]);
 
   const onDrop = (e) => {
     e.preventDefault(); setDragging(false);
-    onFile(e.dataTransfer?.files?.[0]);
+    onFiles(e.dataTransfer?.files);
   };
 
   const reset = () => { setState({ phase: 'idle' }); setVerdicts({}); if (inputRef.current) inputRef.current.value = ''; };
@@ -139,7 +170,24 @@ export function SaasAuditPage() {
           <p className="text-xl text-slate-400 leading-relaxed max-w-2xl">{t('audit_sub')}</p>
         </div>
 
-        {state.phase !== 'done' && (
+        {portfolio && (
+          <PortfolioView portfolio={portfolio} t={t} language={language} onClose={closePortfolio}
+            onOpen={(i) => setPortfolio((p) => ({ ...p, active: i }))}
+            onBack={() => setPortfolio((p) => ({ ...p, active: null }))}
+            onRename={(i, name) => updateClient(i, { name })}
+            setClientVerdict={(i, key, verdict) => updateClient(i, (c) => {
+              const next = { ...c.verdicts };
+              if (verdict) next[key] = verdict; else delete next[key];
+              return { verdicts: next };
+            })}
+            flipClientOrder={(i) => updateClient(i, (c) => {
+              if (c.format === 'fec') return {};
+              const parsed = parseBankExport(c.text, c.dateOrder?.order === 'mdy' ? 'dmy' : 'mdy');
+              return parsed.transactions.length ? { transactions: parsed.transactions, skipped: parsed.skipped, dateOrder: parsed.dateOrder } : {};
+            })} />
+        )}
+
+        {!portfolio && state.phase !== 'done' && (
           <>
             <div
               onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
@@ -164,8 +212,16 @@ export function SaasAuditPage() {
                   <FileText className="w-4 h-4" /> {t('audit_try_fec')}
                 </button>
               </div>
-              <input ref={inputRef} type="file" accept=".csv,.txt,.tsv,text/csv,text/plain" className="hidden"
-                onChange={(e) => onFile(e.target.files?.[0])} />
+              {/* Several files at once: one row per client (lib/portfolio.js). */}
+              <p className="mt-5 text-sm text-slate-400">
+                <Users className="inline w-4 h-4 mr-1 -mt-0.5 text-blue-400" />
+                {fill(t('audit_pf_hint'), { n: MAX_PORTFOLIO_FILES })}{' '}
+                <button onClick={() => openPortfolio(samplePortfolio(), 'sample')} className="underline text-blue-300 hover:text-blue-200">
+                  {t('audit_pf_try_sample')}
+                </button>
+              </p>
+              <input ref={inputRef} type="file" multiple accept=".csv,.txt,.tsv,text/csv,text/plain" className="hidden"
+                onChange={(e) => onFiles(e.target.files)} />
               {/* The demo kit (public/demo, tools/make-demo-kit.mjs): real files
                   to download and drop back in, for anyone who wants to try the
                   upload itself rather than the sample buttons. */}
@@ -194,10 +250,145 @@ export function SaasAuditPage() {
           </>
         )}
 
-        {state.phase === 'done' && report && <Report report={report} symbol={state.symbol} t={t} onReset={reset} language={language}
+        {!portfolio && state.phase === 'done' && report && <Report report={report} symbol={state.symbol} t={t} onReset={reset} language={language}
           skipped={state.skipped} dateOrder={state.dateOrder} onFlipDateOrder={flipDateOrder}
           format={state.format} entries={state.entries}
           verdicts={verdicts} setVerdict={setVerdict} />}
+      </div>
+    </div>
+  );
+}
+
+// ── Several clients at once ───────────────────────────────────────────────
+//
+// One row per client: software per month, subscriptions, points to check,
+// stopped subscriptions. A click opens that client's full report, the same
+// one the single-file audit shows, with its own review and its name already
+// on the client report. Everything stays in memory, like the single file.
+function PortfolioClient({ client, index, t, language, onBack, setClientVerdict, flipClientOrder }) {
+  const report = useMemo(() => auditSaas(client.transactions, { verdicts: client.verdicts }), [client]);
+  const setVerdict = useCallback((key, v) => setClientVerdict(index, key, v), [index, setClientVerdict]);
+  return (
+    <div>
+      <button onClick={onBack} className="mb-4 inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors" data-testid="pf-back">
+        <ArrowLeft className="w-4 h-4" /> {t('audit_pf_back')}
+      </button>
+      <h2 className="text-2xl font-bold mb-4">{client.name}</h2>
+      <Report report={report} symbol={client.symbol} t={t} language={language}
+        onReset={onBack} resetLabel={t('audit_pf_back')}
+        skipped={client.skipped} dateOrder={client.dateOrder} onFlipDateOrder={() => flipClientOrder(index)}
+        format={client.format} entries={client.entries}
+        verdicts={client.verdicts} setVerdict={setVerdict} clientName={client.name} />
+    </div>
+  );
+}
+
+function PortfolioView({ portfolio, t, language, onClose, onOpen, onBack, onRename, setClientVerdict, flipClientOrder }) {
+  const { clients, errors, active, dropped } = portfolio;
+  const rows = useMemo(() => clients.map((c, i) => ({ ...portfolioRow(c), index: i })), [clients]);
+  const totals = useMemo(() => portfolioTotals(rows), [rows]);
+  const [renaming, setRenaming] = useState(null);
+  const [sort, setSort] = useState('monthly');
+  const sorted = useMemo(() => [...rows].sort((a, b) => (sort === 'flagged' ? b.flagged - a.flagged : 0) || b.monthly - a.monthly), [rows, sort]);
+  const money = (n, sym = '€') => sym + Math.round(Number(n) || 0).toLocaleString(language);
+
+  if (active != null && clients[active]) {
+    return <PortfolioClient client={clients[active]} index={active} t={t} language={language} onBack={onBack}
+      setClientVerdict={setClientVerdict} flipClientOrder={flipClientOrder} />;
+  }
+
+  const download = () => {
+    const blob = new Blob([portfolioCsv(rows)], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'stacklens-portefeuille.csv'; a.click();
+    URL.revokeObjectURL(url);
+    track('audit_portfolio_download', { clients: rows.length });
+  };
+
+  return (
+    <div className="space-y-6" data-testid="portfolio">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-2xl font-bold flex items-center gap-2"><Users className="w-6 h-6 text-blue-400" /> {fill(t('audit_pf_title'), { n: rows.length })}</h2>
+        <div className="flex gap-2">
+          <button onClick={download} disabled={!rows.length}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-sm font-semibold">
+            <Download className="w-4 h-4" /> {t('audit_pf_csv')}
+          </button>
+          <button onClick={onClose} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm font-semibold text-slate-300">
+            <RefreshCw className="w-4 h-4" /> {t('audit_pf_other')}
+          </button>
+        </div>
+      </div>
+
+      {rows.length > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <Kpi label={t('audit_pf_kpi_monthly')} value={totals.monthly == null ? '—' : money(totals.monthly, rows[0].symbol)} />
+          <Kpi label={t('audit_pf_kpi_annual')} value={totals.annual == null ? '—' : money(totals.annual, rows[0].symbol)} />
+          <Kpi label={t('audit_pf_kpi_subs')} value={totals.subscriptions} />
+          <Kpi label={t('audit_pf_kpi_to_check')} value={fill(t('audit_pf_kpi_to_check_value'), { n: totals.withFindings, of: totals.clients })} accent={totals.withFindings ? 'text-amber-300' : 'text-emerald-300'} />
+        </div>
+      )}
+      {totals.mixedCurrencies && <p className="text-xs text-slate-500">{t('audit_pf_mixed')}</p>}
+
+      {rows.length > 0 && (
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/60 overflow-x-auto">
+          <table className="w-full text-sm min-w-[640px]">
+            <thead>
+              <tr className="text-left text-xs uppercase tracking-wider text-slate-500 border-b border-slate-800">
+                <th className="px-4 py-3">{t('audit_pf_col_client')}</th>
+                <th className="px-4 py-3">{t('audit_pf_col_source')}</th>
+                <th className="px-4 py-3 text-right">{t('audit_pf_col_subs')}</th>
+                <th className="px-4 py-3 text-right cursor-pointer hover:text-slate-300" onClick={() => setSort('monthly')}>{t('audit_pf_col_monthly')}{sort === 'monthly' ? ' ↓' : ''}</th>
+                <th className="px-4 py-3 text-right cursor-pointer hover:text-slate-300" onClick={() => setSort('flagged')}>{t('audit_pf_col_flagged')}{sort === 'flagged' ? ' ↓' : ''}</th>
+                <th className="px-4 py-3 text-right">{t('audit_pf_col_stopped')}</th>
+                <th className="px-4 py-3" />
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map((r) => (
+                <tr key={r.index} className="border-b border-slate-800/60 last:border-0" data-testid="pf-row">
+                  <td className="px-4 py-3 font-medium">
+                    {renaming === r.index ? (
+                      <form onSubmit={(e) => { e.preventDefault(); const v = e.currentTarget.elements.n.value.trim(); if (v) onRename(r.index, v); setRenaming(null); }} className="flex gap-1.5">
+                        <input name="n" autoFocus defaultValue={r.name} aria-label={t('audit_pf_rename')}
+                          className="w-44 px-2 py-1 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white outline-none focus:border-blue-500" />
+                        <button type="submit" className="px-2 py-1 rounded-lg bg-blue-600 text-xs font-semibold">{t('audit_review_save')}</button>
+                      </form>
+                    ) : (
+                      <span className="inline-flex items-center gap-2">{r.name}
+                        <button onClick={() => setRenaming(r.index)} title={t('audit_pf_rename')} aria-label={t('audit_pf_rename')} className="text-slate-500 hover:text-white"><Pencil className="w-3.5 h-3.5" /></button>
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-slate-400">{r.format === 'fec' ? 'FEC' : t('audit_pf_bank')}</td>
+                  <td className="px-4 py-3 text-right">{r.subscriptions}</td>
+                  <td className="px-4 py-3 text-right font-semibold">{money(r.monthly, r.symbol)}</td>
+                  <td className={`px-4 py-3 text-right font-semibold ${r.flagged ? 'text-amber-300' : 'text-slate-500'}`}>{r.flagged}</td>
+                  <td className="px-4 py-3 text-right text-slate-400">{r.stopped || '—'}</td>
+                  <td className="px-4 py-3 text-right">
+                    <button onClick={() => { onOpen(r.index); track('audit_portfolio_open', { flagged: r.flagged }); }}
+                      className="inline-flex items-center gap-1 text-blue-300 hover:text-blue-200 font-semibold whitespace-nowrap">
+                      {t('audit_pf_open')} <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {(errors.length > 0 || dropped > 0) && (
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200 space-y-1" data-testid="pf-errors">
+          {errors.map((e, i) => <div key={i}>{fill(t(e.error === 'empty' ? 'audit_pf_err_empty' : 'audit_pf_err_columns'), { file: e.fileName || e.name })}</div>)}
+          {dropped > 0 && <div>{fill(t('audit_pf_dropped'), { n: dropped, max: MAX_PORTFOLIO_FILES })}</div>}
+        </div>
+      )}
+
+      <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-5 py-4 flex gap-3">
+        <ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+        <p className="text-sm text-emerald-200/80">{t('audit_pf_privacy')}</p>
       </div>
     </div>
   );
@@ -290,7 +481,7 @@ function RenameField({ initial, t, onSave, onCancel }) {
   );
 }
 
-function Report({ report, symbol, t, onReset, language, skipped, dateOrder, onFlipDateOrder, verdicts, setVerdict, format, entries }) {
+function Report({ report, symbol, t, onReset, language, skipped, dateOrder, onFlipDateOrder, verdicts, setVerdict, format, entries, clientName = '', resetLabel }) {
   const money = useCallback((n) => symbol + Number(n ?? 0).toLocaleString(language, { minimumFractionDigits: 0, maximumFractionDigits: 0 }), [symbol, language]);
   const date = (d) => d instanceof Date ? d.toLocaleDateString(language, { day: 'numeric', month: 'short', year: 'numeric' }) : '';
   const f = report.findings;
@@ -354,7 +545,7 @@ function Report({ report, symbol, t, onReset, language, skipped, dateOrder, onFl
       <div>
         <div className="flex items-center justify-between gap-4 mb-2">
           <h2 className="text-2xl font-bold">{t('audit_result_title')}</h2>
-          <button onClick={onReset} className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors"><RefreshCw className="w-4 h-4" /> {t('audit_reset')}</button>
+          <button onClick={onReset} className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors"><RefreshCw className="w-4 h-4" /> {resetLabel || t('audit_reset')}</button>
         </div>
         <p className="text-sm text-slate-500">
           {format === 'fec'
@@ -547,7 +738,7 @@ function Report({ report, symbol, t, onReset, language, skipped, dateOrder, onFl
       )}
 
       {showClientReport && (
-        <ClientReportPanel report={report} money={money} language={language} t={t} onClose={() => setShowClientReport(false)} counts={counts} format={format} />
+        <ClientReportPanel report={report} money={money} language={language} t={t} onClose={() => setShowClientReport(false)} counts={counts} format={format} defaultClient={clientName} />
       )}
 
       {report.subscriptions.length > 0 && (
@@ -592,7 +783,7 @@ function Report({ report, symbol, t, onReset, language, skipped, dateOrder, onFl
 // body carries .printing-report. The firm and client names live in this
 // component's state and nowhere else.
 
-function ClientReportPanel({ report, money, language, t, onClose, counts, format }) {
+function ClientReportPanel({ report, money, language, t, onClose, counts, format, defaultClient = '' }) {
   // Only the firm's own name can be remembered, and only when asked
   // (lib/auditPrefs.js). The client's name and the note are never kept.
   const [firm, setFirm] = useState(loadFirmName);
@@ -605,7 +796,7 @@ function ClientReportPanel({ report, money, language, t, onClose, counts, format
     setRemember(on);
     if (on) saveFirmName(firm); else forgetFirmName();
   };
-  const [client, setClient] = useState('');
+  const [client, setClient] = useState(defaultClient);
   const [note, setNote] = useState('');
 
   useEffect(() => {
