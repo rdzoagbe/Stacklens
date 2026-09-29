@@ -88,6 +88,7 @@ its allowance indefinitely. `src/lib/plan-parity.test.js` keeps the two in step.
 | `SettingsPage.jsx` | `/settings` (shell; tabs below) |
 | `SecurityCompliancePage.jsx` | `/audit` (same page as `/security`) |
 | `OnboardingPage.jsx` | `/onboarding` |
+| `FinanceLeadsPage.jsx` | `/direction-financiere` — for finance leads; each row is a job-description line and the screen that does it, held to the code by `finance-channel.test.js` |
 | `LegalPages.jsx` | `/privacy`, `/terms`, `/dpa`, `/sub-processors`, `/security-info`, `/legal`, `/about`, `/contact` |
 | `FinishSignUpPage.jsx` | `/finishSignUp` |
 
