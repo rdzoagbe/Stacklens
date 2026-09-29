@@ -3,6 +3,8 @@ import { saveUserData } from '../../firebase-config';
 import { loadDb, saveDb, seedDbIfEmpty } from '../../lib/db';
 import { Card, CardHeader, CardBody } from '../../components/ui';
 import { SlackNotifications } from '../../components/SlackNotifications';
+import { MonthlyReportSettings } from '../../components/MonthlyReportSettings';
+import { useLang } from '../../contexts/LangContext';
 
 function Toggle({ checked, onChange, label }) {
   // role/aria-checked so assistive tech reports this as a switch and announces
@@ -16,6 +18,7 @@ function Toggle({ checked, onChange, label }) {
 }
 
 export function NotificationsTab({ firebaseUser, qc, t }) {
+  const { language } = useLang();
   const _savedNotifs = (() => { try { return JSON.parse(localStorage.getItem('sg_notifications') || '{}'); } catch { return {}; } })();
   const [notifRenewal,    setNotifRenewal]    = useState(_savedNotifs.renewal    ?? true);
   const [notifOrphaned,   setNotifOrphaned]   = useState(_savedNotifs.orphaned   ?? true);
@@ -50,6 +53,7 @@ export function NotificationsTab({ firebaseUser, qc, t }) {
     <Card>
       <CardHeader title={t('notifications_title')} subtitle={t('notifications_sub')} />
       <CardBody>
+        <MonthlyReportSettings firebaseUser={firebaseUser} qc={qc} t={t} language={language} />
         <div className="space-y-1">
           {[
             { label: t('notif_renewal'),             sub: t('notif_renewal_sub'),    val: notifRenewal,    set: setNotifRenewal,    key: 'renewal',    live: true },

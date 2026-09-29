@@ -341,11 +341,11 @@ jobs:
         run: sleep 90
       - name: Deploy Cloud Functions (batch 3/4)
         if: steps.scope.outputs.deploy == 'true'
-        run: firebase deploy --project accessguard-v2 --force --non-interactive --only functions:invoiceInbound,functions:invoiceInbox,functions:refreshClaims,functions:sendInvite,functions:stripeWebhook
+        run: firebase deploy --project accessguard-v2 --force --non-interactive --only functions:invoiceInbound,functions:invoiceInbox,functions:refreshClaims,functions:sendInvite,functions:stripeWebhook,functions:reportnow
 
       - name: Let batch 3 drain before batch 4
         if: steps.scope.outputs.deploy == 'true'
         run: sleep 90
       - name: Deploy Cloud Functions (batch 4/4)
         if: steps.scope.outputs.deploy == 'true'
-        run: firebase deploy --project accessguard-v2 --force --non-interactive --only functions:syncuser,functions:weeklyBackup,functions:weeklySummary,functions:workspace,functions:purgeClientOrgs
+        run: firebase deploy --project accessguard-v2 --force --non-interactive --only functions:syncuser,functions:weeklyBackup,functions:weeklySummary,functions:workspace,functions:purgeClientOrgs,functions:monthlyReport

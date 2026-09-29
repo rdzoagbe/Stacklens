@@ -45,6 +45,7 @@ const PURGED = {
   integration_credentials:  { by: 'doc-id' },   // stored vendor secrets
   bank_requisitions:        { by: 'doc-id' },
   alert_state:              { by: 'doc-id' },
+  report_state:             { by: 'doc-id' },   // which month's report was last sent
   inbox_invoices:           { by: 'doc-id', subcollections: ['items'] },
   // Keyed by a field, so they need a query.
   backups:                  { by: 'field', field: 'uid', subcollections: ['chunks'] },
@@ -97,7 +98,7 @@ const RETAINED = {
 /** Every rate-limit prefix in use. MUST match the checkRateLimit callers. */
 const RATE_LIMIT_PREFIXES = [
   'ai', 'api', 'bankfeed', 'checkout', 'founderAdmin', 'integrations',
-  'invite', 'portal', 'syncuser', 'workspace',
+  'invite', 'portal', 'reportnow', 'syncuser', 'workspace',
 ];
 
 const BATCH_LIMIT = 400;
@@ -182,7 +183,7 @@ async function purgeAccount(db, uid, { email = '', deleteAuthUser } = {}) {
   }
 
   // Documents keyed by the uid.
-  for (const name of ['users', 'integration_credentials', 'bank_requisitions', 'alert_state']) {
+  for (const name of ['users', 'integration_credentials', 'bank_requisitions', 'alert_state', 'report_state']) {
     const ref = db.collection(name).doc(uid);
     await ref.delete();
     counts[name] = (counts[name] || 0) + 1;

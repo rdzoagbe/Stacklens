@@ -63,6 +63,14 @@ describe('each duty row names something the product does', () => {
     expect(read('src/pages/FinancePage.jsx')).toMatch(/'budget'/);
   });
 
+  it('the monthly report goes by email on the 1st, to the account and colleagues it allows', () => {
+    const fn = read('functions/index.js');
+    expect(fn).toMatch(/exports\.monthlyReport = onSchedule\(\{\s*schedule: '0 8 1 \* \*'/);
+    const report = read('functions/monthly-report.js');
+    expect(report).toMatch(/budgets, invoices, renewals: renewals\.slice\(0, \d+\), actions: actions\.slice\(0, 3\)/);
+    expect(read('src/pages/settings/NotificationsTab.jsx')).toMatch(/<MonthlyReportSettings /);
+  });
+
   it('the budget report exports to PDF, Excel and CSV', () => {
     expect(budget()).toMatch(/buildBudgetPdfBlob\(/);
     expect(budget()).toMatch(/buildBudgetXlsxBlob\(/);
