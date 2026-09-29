@@ -13,6 +13,7 @@ import { AppShell } from '../components/AppShell';
 import { Search, Plus, Pencil, Trash2, ChevronDown, AlertTriangle, Check, X, Boxes, RefreshCw } from 'lucide-react';
 import { loadGIS, requestReportsToken, fetchTokenActivities, aggregateAppUsage, matchAppsToTools } from '../lib/gws-usage';
 import { monthlySpend } from '../lib/waste';
+import { isRejectedVendor, needsReview, toolOrigin } from '../lib/toolReview';
 
 export function ToolForm({ initial, employees, onSubmit, onClose }) {
   const { language } = useLang();
@@ -187,6 +188,8 @@ export function ToolsPage() {
   const [status, setStatus] = useState("");
   const [risk, setRisk] = useState("");
   const [page, setPage] = useState(0);
+  const [toReview, setToReview] = useState(false);
+  const [renaming, setRenaming] = useState(null); // { id, name }
   const PAGE_SIZE = 25;
 
   const [open, setOpen] = useState(false);
@@ -223,19 +226,23 @@ export function ToolsPage() {
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
+    // Once the last one is reviewed the filter lets go, rather than leaving
+    // an empty table behind a banner that has gone.
+    const onlyToReview = toReview && tools.some(needsReview);
     return tools
       .filter((t) => {
         if (s && !`${t.name} ${t.owner_name || ''} ${t.owner_email || ''}`.toLowerCase().includes(s)) return false;
         if (cat && t.category !== cat) return false;
         if (status && t.derived_status !== status) return false;
         if (risk && t.derived_risk !== risk) return false;
+        if (onlyToReview && !needsReview(t)) return false;
         return true;
       })
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [tools, q, cat, status, risk]);
+  }, [tools, q, cat, status, risk, toReview]);
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
-  React.useEffect(() => { setPage(0); }, [q, cat, status, risk]);
+  React.useEffect(() => { setPage(0); }, [q, cat, status, risk, toReview]);
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
@@ -254,6 +261,16 @@ export function ToolsPage() {
   const totalCost = monthlySpend({ tools });
   const highRiskCount = tools.filter(t => t.derived_risk === 'high').length;
   const unassignedCount = tools.filter(t => !t.owner_email).length;
+  const reviewCount = tools.filter(needsReview).length;
+  const showingToReview = toReview && reviewCount > 0;
+  const ORIGIN_KEY = { invoice: 'tool_review_from_invoice', bank: 'tool_review_from_bank', 'google-workspace': 'tool_review_from_gws' };
+  const review = (tool, kind, name) => {
+    if (kind === 'reject' && !window.confirm(t('tool_review_reject_confirm').replace('{name}', tool.name))) return;
+    muts.reviewTool.mutate({ id: tool.id, kind, name }, {
+      onSuccess: () => { if (kind === 'reject') toast.success(t('tool_review_removed').replace('{name}', tool.name)); },
+    });
+    setRenaming(null);
+  };
   const employees = db?.employees || [];
 
   // ── Google Workspace usage sync: observed last-use + shadow-IT discovery ──
@@ -271,7 +288,8 @@ export function ToolsPage() {
         phase: 'review',
         matched,
         // Single-user discoveries are usually personal experiments — start unticked.
-        discovered: discovered.map(d => ({ ...d, include: d.users >= 2 })),
+        // An app someone here already said is not software starts unticked too.
+        discovered: discovered.map(d => ({ ...d, include: d.users >= 2 && !isRejectedVendor(db, d.app) })),
       });
     } catch (err) {
       setGwsSync(null);
@@ -297,6 +315,7 @@ export function ToolsPage() {
         status: 'active',
         cost_per_month: 0,
         last_used_date: d.lastSeen.slice(0, 10),
+        origin: 'google-workspace',
         notes: `Discovered via Google Workspace — ${d.users} user(s) signed in with Google in the last 180 days`,
       }));
       if (toAdd.length) await muts.bulkImport.mutateAsync({ kind: 'tools', records: toAdd });
@@ -376,6 +395,21 @@ export function ToolsPage() {
           </div>
         )}
 
+        {/* ── Tools the app added by itself, waiting for a person's word ── */}
+        {reviewCount > 0 && (
+          <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-5 flex flex-col sm:flex-row sm:items-center gap-4" data-testid="tool-review-banner">
+            <AlertTriangle className="h-5 w-5 text-amber-400 shrink-0" />
+            <div className="flex-1">
+              <div className="text-sm font-semibold text-amber-200">{t('tool_review_title').replace('{n}', reviewCount)}</div>
+              <p className="text-sm text-slate-400 mt-1">{t('tool_review_body')}</p>
+            </div>
+            <button onClick={() => setToReview(v => !v)}
+              className="px-4 py-2 rounded-xl text-sm font-semibold bg-amber-500/15 hover:bg-amber-500/25 text-amber-200 shrink-0 transition-colors">
+              {showingToReview ? t('tool_review_show_all') : t('tool_review_show_only')}
+            </button>
+          </div>
+        )}
+
         {/* ── Row 3: Tool inventory table ── */}
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 overflow-hidden">
           <div className="p-4 border-b border-slate-800 flex flex-col sm:flex-row gap-3 items-center">
@@ -421,13 +455,24 @@ export function ToolsPage() {
                   <tbody>
                     {paginated.map((tool) => (
                       <React.Fragment key={tool.id}>
-                      <tr className="border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors cursor-pointer"
+                      <tr className={`${needsReview(tool) && renaming?.id !== tool.id ? '' : 'border-b border-slate-800/50 '}hover:bg-slate-800/30 transition-colors cursor-pointer`}
                           onClick={() => setExpandedTool(expandedTool === tool.id ? null : tool.id)}>
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-3">
                             <CategoryIcon category={tool.category} />
                             <div className="min-w-0">
-                              <div className="text-sm font-semibold text-white truncate">{tool.name}</div>
+                              {renaming?.id === tool.id ? (
+                                <form className="flex items-center gap-1.5" onClick={(ev) => ev.stopPropagation()}
+                                  onSubmit={(ev) => { ev.preventDefault(); if (renaming.name.trim()) review(tool, 'rename', renaming.name); }}>
+                                  <input autoFocus value={renaming.name} onChange={(ev) => setRenaming({ id: tool.id, name: ev.target.value })}
+                                    aria-label={t('tool_review_rename')}
+                                    className="w-40 px-2 py-1 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white outline-none focus:border-blue-500" />
+                                  <button type="submit" className="px-2 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-xs font-semibold text-white">{t('tool_review_save')}</button>
+                                  <button type="button" onClick={() => setRenaming(null)} className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-300">{t('tool_review_cancel')}</button>
+                                </form>
+                              ) : (
+                                <div className="text-sm font-semibold text-white truncate">{tool.name}</div>
+                              )}
                               <div className="text-xs text-slate-500 truncate capitalize">{tool.category || '—'}</div>
                             </div>
                             <ChevronDown className={`h-4 w-4 text-slate-500 transition-transform flex-shrink-0 ${expandedTool === tool.id ? 'rotate-180' : ''}`} />
@@ -460,6 +505,31 @@ export function ToolsPage() {
                           </div>
                         </td>
                       </tr>
+                      {needsReview(tool) && renaming?.id !== tool.id && (
+                        <tr className="border-b border-slate-800/50 bg-amber-500/[0.03]">
+                          <td colSpan="7" className="px-4 pb-3 pt-0">
+                            <div className="flex flex-wrap items-center gap-2 pl-11" data-testid="tool-review">
+                              <span className="px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 text-[11px] font-semibold whitespace-nowrap">
+                                {t('tool_review_badge')} · {t(ORIGIN_KEY[toolOrigin(tool)])}
+                              </span>
+                              <RoleGate requires="editor">
+                                <button onClick={() => review(tool, 'confirm')}
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 text-[11px] font-semibold transition-colors">
+                                  <Check className="h-3 w-3" /> {t('tool_review_ok')}
+                                </button>
+                                <button onClick={() => setRenaming({ id: tool.id, name: tool.name })}
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-semibold transition-colors">
+                                  <Pencil className="h-3 w-3" /> {t('tool_review_rename')}
+                                </button>
+                                <button onClick={() => review(tool, 'reject')}
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-300 text-[11px] font-semibold transition-colors">
+                                  <X className="h-3 w-3" /> {t('tool_review_reject')}
+                                </button>
+                              </RoleGate>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
                       {/* ── Expanded employees drill-down ── */}
                       {expandedTool === tool.id && (
                         <tr>
