@@ -93,6 +93,7 @@ const seedAccount = (uid = 'u1', email = 'a@b.com') => ({
   [`integration_credentials/${uid}`]: { zoom: 'secret' },
   [`bank_requisitions/${uid}`]: {},
   [`alert_state/${uid}`]: {},
+  [`report_state/${uid}`]: { last_period: '2026-08' },
   [`inbox_invoices/${uid}`]: {},
   [`inbox_invoices/${uid}/items/i1`]: { vendor: 'Figma' },
   'api_keys/hash1': { uid },
@@ -155,7 +156,7 @@ describe('a full account purge', () => {
       'backups/u1__2026-09-01', 'backups/u1__2026-09-01/chunks/employees_0',
       'users/u1',
       'integration_credentials/u1',   // stored vendor secrets
-      'bank_requisitions/u1', 'alert_state/u1',
+      'bank_requisitions/u1', 'alert_state/u1', 'report_state/u1',
       'inbox_invoices/u1', 'inbox_invoices/u1/items/i1',
       'api_keys/hash1', 'inbox_tokens/tok1',
       'workspace_members/m1', 'workspace_members/m2', 'workspace_members/m3',

@@ -906,6 +906,21 @@ async function callInvoiceInbox(body) {
   if (!res.ok) throw new Error(data.error || 'Invoice inbox request failed');
   return data;
 }
+// Settings → Notifications: send this month's report so far, now, to the
+// signed-in account's own address only (functions/index.js reportnow).
+export async function sendMonthlyReportNow(lang) {
+  const token = await getToken();
+  if (!token) throw new Error('Not authenticated');
+  const res = await fetch(`${FUNCTIONS_BASE}/reportnow`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    body: JSON.stringify({ lang: lang === 'fr' ? 'fr' : 'en' }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'send_failed');
+  return data;
+}
+
 export const invoiceInboxAddress = () => callInvoiceInbox({ action: 'get' });
 export const invoiceInboxList    = () => callInvoiceInbox({ action: 'list' });
 export const invoiceInboxAck     = (ids) => callInvoiceInbox({ action: 'ack', ids });

@@ -72,6 +72,9 @@ const {
 } = require('./workspace-write.js');
 const { purgeAccount, subscriptionBlocksDeletion } = require('./purge-account.js');
 const { shouldAlert, recordAlert, MAX_PER_HOUR } = require('./crash-alerts.js');
+const {
+  allocSpendByDept, spentToDateByDept, reportRecipients, buildMonthlyReport, renderMonthlyReport,
+} = require('./monthly-report.js');
 
 // Explicitly allow stacklens.fr and Firebase preview domains
 const ALLOWED_ORIGINS = [
@@ -2043,50 +2046,9 @@ exports.weeklyBackup = onSchedule({
 // Users can opt out via user.daily_alerts === false (checked below).
 const ALERTS_FOUNDERS_ONLY = false;
 
-// Server-side twin of src/lib/budget.js allocateSpendByDepartment.
-function allocSpendByDept(data) {
-  const empDept = {};
-  // Lowercase keys — mirrors src/lib/budget.js ("Sales" and "sales" are one department)
-  (data.employees || []).forEach(e => { empDept[e.id] = (e.department || '').trim().toLowerCase() || 'other'; });
-  const seatsByTool = {};
-  (data.access || []).filter(a => a.status === 'active').forEach(a => {
-    const dept = empDept[a.employee_id];
-    if (!dept) return;
-    if (!seatsByTool[a.tool_id]) seatsByTool[a.tool_id] = {};
-    seatsByTool[a.tool_id][dept] = (seatsByTool[a.tool_id][dept] || 0) + 1;
-  });
-  const byDept = {};
-  (data.tools || []).filter(t => t.status !== 'archived').forEach(tool => {
-    const cost = Number(tool.cost_per_month || tool.cost_monthly || tool.cost || 0);
-    if (!cost) return;
-    const seats = seatsByTool[tool.id];
-    const totalSeats = seats ? Object.values(seats).reduce((s, n) => s + n, 0) : 0;
-    if (!totalSeats) return; // unallocated spend has no department budget to breach
-    Object.entries(seats).forEach(([dept, n]) => {
-      byDept[dept] = (byDept[dept] || 0) + cost * (n / totalSeats);
-    });
-  });
-  return byDept;
-}
-
-// Spent-to-date per department, matching the Budget tab: recorded monthly
-// snapshots where they exist, run-rate fallback elsewhere.
-function spentToDateByDept(data, byDeptMonthly, now) {
-  const year = now.getFullYear();
-  const hist = Object.fromEntries((data.spend_history || []).map(s => [s.month, s]));
-  const completed = now.getMonth();
-  const frac = (now.getDate() - 1) / new Date(year, now.getMonth() + 1, 0).getDate();
-  const out = {};
-  Object.entries(byDeptMonthly).forEach(([dept, monthly]) => {
-    let sum = 0;
-    for (let m = 0; m < completed; m++) {
-      const snap = hist[`${year}-${String(m + 1).padStart(2, '0')}`];
-      sum += snap?.by_department?.[dept] ?? monthly;
-    }
-    out[dept] = sum + monthly * frac;
-  });
-  return out;
-}
+// allocSpendByDept and spentToDateByDept live in monthly-report.js, shared
+// by these alerts and the monthly report so the two emails cannot disagree
+// about a department's budget.
 
 exports.dailyAlerts = onSchedule({
   schedule: 'every day 08:30',
@@ -2467,4 +2429,86 @@ exports.weeklySummary = onSchedule({
     }
   }
   console.log('Weekly summaries sent:', sent);
+});
+
+// ── Monthly report to management (1st of each month, 08:00 Europe/Paris) ──
+//
+// Opt-in: data.user.monthly_report.enabled, set in Settings → Notifications.
+// Built and rendered by monthly-report.js. Sent to the account's Auth email
+// plus the extra recipients reportRecipients accepts (same company domain,
+// three at most), once per month: report_state/{uid}.last_period stops a
+// retried run from sending the same month twice.
+exports.monthlyReport = onSchedule({
+  schedule: '0 8 1 * *',
+  timeZone: 'Europe/Paris',
+  region: 'us-central1',
+  secrets: [SENDGRID_API_KEY],
+}, async () => {
+  if (!mailConfigured(SENDGRID_API_KEY.value())) {
+    console.log('monthlyReport: email is not configured — skipping, nothing sent.');
+    return;
+  }
+  const db = getFirestore();
+  const now = new Date();
+  let sent = 0;
+  const snapshot = await db.collection('userdata').get();
+  for (const docSnap of snapshot.docs) {
+    const uid = docSnap.id;
+    const data = await assembleUserdata(docSnap);
+    const settings = data?.user?.monthly_report;
+    if (!settings || settings.enabled !== true) continue;
+    const email = await verifiedEmailForUid(uid);
+    const { to } = reportRecipients(email, settings.recipients);
+    if (!to.length) continue;
+
+    const report = buildMonthlyReport(data, now);
+    const stateRef = db.collection('report_state').doc(uid);
+    const state = await stateRef.get();
+    if (state.exists && state.data().last_period === report.period) continue;
+
+    const { subject, html } = renderMonthlyReport(report, { lang: settings.lang === 'en' ? 'en' : 'fr', data, sender: to[0] });
+    try {
+      const mail = await sendMail(SENDGRID_API_KEY.value(), {
+        to, from: { email: 'hello@stacklens.fr', name: 'Stacklens' }, subject, html,
+      });
+      if (!mail.sent) { console.error('monthlyReport send failed for', uid, mail.error || mail.skipped); continue; }
+      await stateRef.set({ last_period: report.period, sent_at: now.toISOString(), recipients: to.length }, { merge: true });
+      sent++;
+    } catch (err) {
+      console.error('monthlyReport send failed for', uid, err?.message);
+    }
+  }
+  console.log('Monthly reports sent:', sent);
+});
+
+// "Send me an example now", from Settings → Notifications. The month so far,
+// from the workspace as last saved to the cloud, to the caller's own Auth
+// email only — never the extra recipients — three times an hour at most.
+const REPORT_TEST_LIMIT = { maxCalls: 3, windowMs: 60 * 60 * 1000 };
+exports.reportnow = onRequest({ cors: true, timeoutSeconds: 60, secrets: [SENDGRID_API_KEY] }, async (req, res) => {
+  cors(req, res, async () => {
+    if (req.method === 'OPTIONS') return res.status(204).send('');
+    if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
+    const decoded = await verifyAuth(req, res); if (!decoded) return;
+    if (!mailConfigured(SENDGRID_API_KEY.value())) return res.status(503).json({ error: 'mail_not_configured' });
+    if (!(await checkRateLimit(decoded.uid, res, REPORT_TEST_LIMIT, 'reportnow'))) return;
+    try {
+      const snap = await getFirestore().collection('userdata').doc(decoded.uid).get();
+      const data = await assembleUserdata(snap);
+      const email = await verifiedEmailForUid(decoded.uid);
+      const { to } = reportRecipients(email, []);
+      if (!to.length) return res.status(400).json({ error: 'no_email' });
+      const lang = req.body?.lang === 'en' ? 'en' : 'fr';
+      const report = buildMonthlyReport(data, new Date(), { preview: true });
+      const { subject, html } = renderMonthlyReport(report, { lang, data, sender: to[0] });
+      const mail = await sendMail(SENDGRID_API_KEY.value(), {
+        to, from: { email: 'hello@stacklens.fr', name: 'Stacklens' }, subject, html,
+      });
+      if (!mail.sent) return res.status(502).json({ error: 'send_failed' });
+      return res.json({ sent: true, to: to[0] });
+    } catch (err) {
+      console.error('reportnow error:', err?.message);
+      return res.status(500).json({ error: 'Internal error' });
+    }
+  });
 });
