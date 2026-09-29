@@ -79,7 +79,7 @@ describe('the client report', () => {
   it('carries the firm and client names, and prints only while open', async () => {
     await open();
     expect(document.body.classList.contains('printing-report')).toBe(true);
-    const [firm, client] = [...document.querySelectorAll('input')];
+    const [firm, client] = [...document.querySelectorAll('input:not([type=checkbox])')];
     const type = (el, v) => act(async () => {
       Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(el, v);
       el.dispatchEvent(new window.Event('input', { bubbles: true }));
@@ -96,6 +96,36 @@ describe('the client report', () => {
     await click(button('Close'));
     expect(document.body.classList.contains('printing-report')).toBe(false);
     expect(document.getElementById('print-report')).toBeNull();
+  });
+
+  it('remembers the firm name on this device only when asked, and never the client', async () => {
+    const type = (el, v) => act(async () => {
+      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(el, v);
+      el.dispatchEvent(new window.Event('input', { bubbles: true }));
+    });
+    localStorage.clear();
+    await open();
+    let [firm, client] = [...document.querySelectorAll('input:not([type=checkbox])')];
+    const remember = () => document.querySelector('input[type=checkbox]');
+    await type(firm, 'Cabinet Martin');
+    await type(client, 'Boulangerie Dupont');
+    expect(localStorage.length, 'nothing kept until the box is ticked').toBe(0);
+    await click(remember());
+    expect(localStorage.getItem('stacklens_audit_firm')).toBe('Cabinet Martin');
+    await type(firm, 'Cabinet Martin & Associés');
+    expect(localStorage.getItem('stacklens_audit_firm')).toBe('Cabinet Martin & Associés');
+    expect(JSON.stringify({ ...localStorage })).not.toContain('Boulangerie');
+
+    // Closed and reopened: the firm is back, the client is not.
+    await click(button('Close'));
+    await open();
+    [firm, client] = [...document.querySelectorAll('input:not([type=checkbox])')];
+    expect(firm.value).toBe('Cabinet Martin & Associés');
+    expect(client.value).toBe('');
+    expect(remember().checked).toBe(true);
+
+    await click(remember());
+    expect(localStorage.getItem('stacklens_audit_firm')).toBeNull();
   });
 
   it('leaves out lines the reader said are not software', async () => {

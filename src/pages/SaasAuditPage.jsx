@@ -10,6 +10,7 @@ import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
 import { PublicNav } from '../components/PublicNav';
 import { EARLY_ACCESS } from '../lib/earlyAccess';
+import { loadFirmName, saveFirmName, forgetFirmName } from '../lib/auditPrefs';
 import { track } from '../lib/analytics';
 import {
   decodeBankFile, parseBankExport, auditSaas, reportToCsv, sampleBankExport,
@@ -570,7 +571,18 @@ function Report({ report, symbol, t, onReset, language, skipped, dateOrder, onFl
 // component's state and nowhere else.
 
 function ClientReportPanel({ report, money, language, t, onClose, counts, format }) {
-  const [firm, setFirm] = useState('');
+  // Only the firm's own name can be remembered, and only when asked
+  // (lib/auditPrefs.js). The client's name and the note are never kept.
+  const [firm, setFirm] = useState(loadFirmName);
+  const [remember, setRemember] = useState(() => loadFirmName() !== '');
+  const changeFirm = (value) => {
+    setFirm(value);
+    if (remember) saveFirmName(value);
+  };
+  const toggleRemember = (on) => {
+    setRemember(on);
+    if (on) saveFirmName(firm); else forgetFirmName();
+  };
   const [client, setClient] = useState('');
   const [note, setNote] = useState('');
 
@@ -597,9 +609,15 @@ function ClientReportPanel({ report, money, language, t, onClose, counts, format
         <button onClick={onClose} className="text-sm text-slate-400 hover:text-white transition-colors">{t('audit_report_close')}</button>
       </div>
       <div className="grid sm:grid-cols-2 gap-3 mb-3">
-        <label className="text-xs text-slate-400">{t('audit_report_firm')}
-          <input value={firm} onChange={(e) => setFirm(e.target.value)} className={field + ' mt-1'} />
-        </label>
+        <div>
+          <label className="block text-xs text-slate-400">{t('audit_report_firm')}
+            <input value={firm} onChange={(e) => changeFirm(e.target.value)} className={field + ' mt-1'} />
+          </label>
+          <label className="mt-1.5 flex items-center gap-2 text-xs text-slate-400 cursor-pointer">
+            <input type="checkbox" checked={remember} onChange={(e) => toggleRemember(e.target.checked)} className="accent-blue-500" />
+            {t('audit_report_remember_firm')}
+          </label>
+        </div>
         <label className="text-xs text-slate-400">{t('audit_report_client')}
           <input value={client} onChange={(e) => setClient(e.target.value)} className={field + ' mt-1'} />
         </label>
