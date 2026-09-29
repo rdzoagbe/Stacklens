@@ -10,6 +10,7 @@ import { getCurrency, displayAmount } from '../../lib/currency';
 import { callAI, invoiceInboxAddress, invoiceInboxList, invoiceInboxAck, bankConnect, bankStatus, bankSync } from '../../firebase-config';
 import { Landmark } from 'lucide-react';
 import { isRejectedVendor } from '../../lib/toolReview';
+import { InvoiceCheckPanel } from '../../components/InvoiceCheckPanel';
 import { UNALLOCATED, allocateSpendByDepartment, parseBudgetCsv, monthlyAmountFromInvoice } from '../../lib/budget';
 
 function yearElapsedFraction(year) {
@@ -22,8 +23,8 @@ function yearElapsedFraction(year) {
 }
 
 const INVOICE_PROMPT_HEAD = `You are an invoice data extractor. Below are one or more supplier invoices (raw text). For EACH invoice, extract the fields and return ONLY a JSON array (no markdown, no commentary):
-[{"file_index": 1, "vendor": "supplier name", "amount": 123.45, "currency": "EUR", "invoice_date": "YYYY-MM-DD", "period_start": "YYYY-MM-DD or null", "period_end": "YYYY-MM-DD or null", "billing_cycle": "monthly" | "yearly" | "quarterly" | "one_time"}]
-Rules: amount is the total including tax. billing_cycle is your best inference from the service period or wording (a 12-month period = yearly). Use null when a field is not present. vendor is the company SELLING the service.`;
+[{"file_index": 1, "vendor": "supplier name", "amount": 123.45, "amount_excl_tax": 102.88, "currency": "EUR", "invoice_date": "YYYY-MM-DD", "period_start": "YYYY-MM-DD or null", "period_end": "YYYY-MM-DD or null", "billing_cycle": "monthly" | "yearly" | "quarterly" | "one_time"}]
+Rules: amount is the total including tax; amount_excl_tax is the total before tax (null when the invoice does not show it). billing_cycle is your best inference from the service period or wording (a 12-month period = yearly). Use null when a field is not present. vendor is the company SELLING the service.`;
 
 export function BudgetTabContent() {
   const { data: db } = useDbQuery();
@@ -192,6 +193,8 @@ export function BudgetTabContent() {
           const row = {
             vendor: String(p.vendor || '').trim(),
             amount: Number(p.amount || 0),
+            // Before tax, for comparing with a price agreed before tax (lib/invoiceCheck.js).
+            ...(Number(p.amount_excl_tax) > 0 && Number(p.amount_excl_tax) <= Number(p.amount) ? { amount_excl_tax: Number(p.amount_excl_tax) } : {}),
             currency: p.currency || 'EUR',
             invoice_date: p.invoice_date || null,
             period_start: p.period_start || null,
@@ -348,6 +351,8 @@ export function BudgetTabContent() {
           </button>
         </div>
       )}
+
+      <InvoiceCheckPanel />
 
       <div className="grid sm:grid-cols-3 gap-4">
         <div className="rounded-2xl bg-slate-900/60 border border-slate-800 p-4">

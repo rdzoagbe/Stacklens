@@ -1780,8 +1780,8 @@ function parseMultipart(req) {
 }
 
 const INVOICE_EXTRACT_PROMPT = `You are an invoice data extractor. Below are one or more supplier invoices (raw text). For EACH invoice, extract the fields and return ONLY a JSON array (no markdown, no commentary):
-[{"file_index": 1, "vendor": "supplier name", "amount": 123.45, "currency": "EUR", "invoice_date": "YYYY-MM-DD", "period_start": "YYYY-MM-DD or null", "period_end": "YYYY-MM-DD or null", "billing_cycle": "monthly" | "yearly" | "quarterly" | "one_time"}]
-Rules: amount is the total including tax. billing_cycle is your best inference from the service period or wording (a 12-month period = yearly). Use null when a field is not present. vendor is the company SELLING the service.`;
+[{"file_index": 1, "vendor": "supplier name", "amount": 123.45, "amount_excl_tax": 102.88, "currency": "EUR", "invoice_date": "YYYY-MM-DD", "period_start": "YYYY-MM-DD or null", "period_end": "YYYY-MM-DD or null", "billing_cycle": "monthly" | "yearly" | "quarterly" | "one_time"}]
+Rules: amount is the total including tax; amount_excl_tax is the total before tax (null when the invoice does not show it). billing_cycle is your best inference from the service period or wording (a 12-month period = yearly). Use null when a field is not present. vendor is the company SELLING the service.`;
 
 async function extractInvoicesWithAI(apiKey, texts) {
   const rows = [];
@@ -1806,8 +1806,10 @@ async function extractInvoicesWithAI(apiKey, texts) {
         const amount = Number(p.amount || 0);
         const vendor = String(p.vendor || '').trim().slice(0, 120);
         if (!vendor || !(amount > 0)) return;
+        const excl = Number(p.amount_excl_tax || 0);
         rows.push({
           vendor, amount,
+          ...(excl > 0 && excl <= amount ? { amount_excl_tax: excl } : {}),
           currency: String(p.currency || 'EUR').slice(0, 8),
           invoice_date: p.invoice_date || null,
           period_start: p.period_start || null,

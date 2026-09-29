@@ -124,7 +124,7 @@ describe('the call sites', () => {
     const page = src('src/pages/DashboardPage.jsx');
     const inbox = page.slice(page.indexOf('ROW 3: Action Inbox'), page.indexOf('ROW 4: Quick Actions'));
     const kinds = [...inbox.matchAll(/kind: '([a-z_]+)'/g)].map(m => m[1]);
-    expect(kinds).toEqual(['former_access', 'no_owner', 'no_mfa', 'budget', 'idle_spend']);
+    expect(kinds).toEqual(['former_access', 'invoice_check', 'no_owner', 'no_mfa', 'budget', 'idle_spend']);
     expect((inbox.match(/noteRecommendationActed\(item\.kind, item\.severity\)/g) || []).length,
       'assign-owner button, revoke button and the link must each note the action').toBe(3);
   });
