@@ -27,7 +27,7 @@ personnes. Ce sont deux choses différentes, comme chez un vrai client.
 Sur **stacklens.fr/audit-saas**, déposez `releve-bancaire-atelier-lumen.csv`.
 Rien n'est envoyé : tout se passe dans le navigateur.
 
-**Ce qui s'affiche :** 17 abonnements, environ 2 300 € par mois (TTC, tels
+**Ce qui s'affiche :** 16 abonnements, environ 2 286 € par mois (TTC, tels
 que prélevés). Les points à regarder de près :
 
 - **Renouvellement imminent :** Adobe Creative Cloud, 3 239,88 € le 14 octobre, dans 16 jours.
@@ -53,15 +53,18 @@ Ensuite :
 - **Envoyer mes corrections par email** : votre messagerie s'ouvre avec les libellés corrigés, sans montants. C'est ainsi que les retours nous arrivent.
 
 À savoir : Loom a été résilié en juin ; son dernier prélèvement date du
-9 mai 2026. L'audit le liste encore (il était récurrent) : la date du dernier
-prélèvement montre qu'il s'est arrêté.
+9 mai 2026. L'audit le range à part, sous **Abonnements arrêtés**, avec la
+date de ce dernier prélèvement, et ne le compte plus dans le total. C'est
+aussi une question à poser au client : la résiliation est-elle bien
+effective, ou le prélèvement est-il passé sur une autre carte ?
 
 ## 2. Le même client, avec son FEC (5 minutes)
 
 Cliquez **Auditer un autre fichier** et déposez
 `fec-atelier-lumen-2026-09-30.txt`. La page affiche « FEC · bêta ».
 
-**Ce qui s'affiche :** 13 abonnements, environ 1 446 € HT par mois.
+**Ce qui s'affiche :** 12 abonnements, environ 1 434 € HT par mois (Loom est là aussi
+rangé parmi les abonnements arrêtés).
 
 C'est le cœur de la démonstration pour un expert-comptable : **le compte de
 charge tranche là où le libellé ne peut pas.**

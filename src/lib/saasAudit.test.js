@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   decodeBankFile, sniffDelimiter, detectColumns, parseAmount, parseDate,
   parseBankExport, normaliseLabel, identifyVendor, detectRecurring, auditSaas,
-  reportToCsv, detectDateOrder,
+  reportToCsv, detectDateOrder, isStopped,
 } from './saasAudit';
 
 // ── The public audit has to work on a real French bank export ─────────────
@@ -335,6 +335,77 @@ describe('the findings', () => {
     const tx = mk(['15/03/2025;CB ADOBE ANNUEL;-719,88', '15/03/2026;CB ADOBE ANNUEL;-719,88']);
     const r = auditSaas(tx, { now: new Date(Date.UTC(2027, 1, 1)) });
     expect(r.findings.upcomingAnnual).toHaveLength(1);
+  });
+});
+
+describe('subscriptions that stopped', () => {
+  const mk = (rows) => parseBankExport('Date;Libellé;Montant\n' + rows.join('\n')).transactions;
+  const monthly = (label, months, amount = '-15,00', day = 9) =>
+    months.map((m) => `${String(day).padStart(2, '0')}/${String(m).padStart(2, '0')}/2026;${label};${amount}`);
+  const slack = monthly('CB SLACK TECHNOLOGIES', [1, 2, 3, 4, 5, 6, 7, 8, 9], '-80,00', 20);
+
+  it('a monthly charge that ended months before the file is set apart, out of every total', () => {
+    const r = auditSaas(mk([...slack, ...monthly('CB LOOM INC', [1, 2, 3, 4, 5])]));
+    expect(r.stopped.map((s) => s.vendor)).toEqual(['Loom']);
+    expect(r.stopped[0]).toMatchObject({ stopped: true, daysSinceLast: 134 });
+    expect(r.subscriptions.map((s) => s.vendor)).toEqual(['Slack']);
+    expect(r.totals.subscriptionCount).toBe(1);
+    expect(r.totals.monthlySaas).toBe(80);
+  });
+
+  it('a charge merely late, or not yet due at the end of the file, is still running', () => {
+    // Last charge 9 Aug, file ends 20 Sep: 42 days, inside one month and a half.
+    const r = auditSaas(mk([...slack, ...monthly('CB LOOM INC', [1, 2, 3, 4, 5, 6, 7, 8])]));
+    expect(r.stopped).toEqual([]);
+    expect(r.totals.subscriptionCount).toBe(2);
+  });
+
+  it('the edge: 51 days is stopped for a monthly charge, 50 is not', () => {
+    const sub = { cadence: 'monthly', charges: 6, first: new Date(Date.UTC(2026, 0, 1)), last: new Date(Date.UTC(2026, 5, 1)) };
+    const at = (days) => new Date(sub.last.getTime() + days * 86_400_000);
+    expect(isStopped(sub, at(50))).toBe(false);
+    expect(isStopped(sub, at(51))).toBe(true);
+  });
+
+  it('an annual licence is judged on a year, not a month', () => {
+    const sub = { cadence: 'annual', charges: 2, first: new Date(Date.UTC(2024, 2, 15)), last: new Date(Date.UTC(2025, 2, 15)) };
+    expect(isStopped(sub, new Date(Date.UTC(2026, 3, 1)))).toBe(false);   // renewal a fortnight late
+    expect(isStopped(sub, new Date(Date.UTC(2026, 8, 30)))).toBe(true);   // eighteen months on
+  });
+
+  it('an irregular one is judged on its own average gap, and never under three weeks', () => {
+    const base = { cadence: 'irregular', charges: 5, first: new Date(Date.UTC(2026, 0, 1)), last: new Date(Date.UTC(2026, 0, 21)) };
+    // 5 days between charges on average: the three-week floor applies.
+    expect(isStopped(base, new Date(Date.UTC(2026, 1, 10)))).toBe(false);
+    expect(isStopped(base, new Date(Date.UTC(2026, 1, 12)))).toBe(true);
+  });
+
+  it('a line charged once has no gap to measure, so it never counts as stopped', () => {
+    const sub = { cadence: 'annual', charges: 1, singleCharge: true, first: new Date(Date.UTC(2025, 0, 1)), last: new Date(Date.UTC(2025, 0, 1)) };
+    expect(isStopped(sub, new Date(Date.UTC(2027, 0, 1)))).toBe(false);
+  });
+
+  it('a card switch is not a duplicate: the old line stopped when the new one began', () => {
+    const r = auditSaas(mk([...slack, ...monthly('PRLV NOTION LABS', [1, 2, 3, 4]), ...monthly('CB NOTION', [5, 6, 7, 8, 9])]));
+    expect(r.findings.duplicates).toEqual([]);
+    expect(r.stopped.map((s) => s.vendor)).toEqual(['Notion']);
+    expect(r.subscriptions.filter((s) => s.vendor === 'Notion')).toHaveLength(1);
+  });
+
+  it('the export lists it, marked stopped, so a sum over active rows gives the page total', () => {
+    const csv = reportToCsv(auditSaas(mk([...slack, ...monthly('CB LOOM INC', [1, 2, 3, 4, 5])])));
+    const [head, ...rows] = csv.trim().split('\n');
+    expect(head.split(',').at(-1)).toBe('status');
+    expect(rows.find((l) => l.startsWith('Loom,')).split(',').at(-1)).toBe('stopped');
+    expect(rows.find((l) => l.startsWith('Slack,')).split(',').at(-1)).toBe('active');
+  });
+
+  it('the reader can still say a stopped line was not software', () => {
+    const tx = mk([...slack, ...monthly('CB LOOM INC', [1, 2, 3, 4, 5])]);
+    const key = auditSaas(tx).stopped[0].key;
+    const r = auditSaas(tx, { verdicts: { [key]: { kind: 'reject' } } });
+    expect(r.stopped).toEqual([]);
+    expect(r.rejected.map((x) => x.key)).toEqual([key]);
   });
 });
 

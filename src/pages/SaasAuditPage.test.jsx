@@ -108,6 +108,30 @@ describe('the client report', () => {
   });
 });
 
+describe('a subscription that stopped', () => {
+  // The sample statement's Zoom line ends in March; the file runs to June.
+  it('is listed apart with its last charge, and counted nowhere else', async () => {
+    const panel = document.querySelector('[data-testid="audit-stopped"]');
+    expect(panel.textContent).toContain('Stopped subscriptions (1)');
+    expect(panel.textContent).toContain('Zoom');
+    expect(panel.textContent).toMatch(/Last charged .*2026/);
+    const table = [...document.querySelectorAll('tbody tr td .font-medium')].map((td) => td.textContent);
+    expect(table).not.toContain('Zoom');
+  });
+
+  it('is named in the client report as excluded from the totals', async () => {
+    await click(button('Client report (PDF)'));
+    expect(document.getElementById('print-report').textContent).toMatch(/Stopped, excluded from the totals: Zoom \(.*2026\)\./);
+  });
+
+  it('can still be marked as not software', async () => {
+    const panel = document.querySelector('[data-testid="audit-stopped"]');
+    await click([...panel.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Not software'));
+    expect(document.querySelector('[data-testid="audit-stopped"]')).toBeNull();
+    expect(document.body.textContent).toContain('1 line(s) reviewed');
+  });
+});
+
 describe('an FEC instead of a bank statement', () => {
   it('is recognised, says how it was read, and trusts the ledger account', async () => {
     expect(button('Read them the other way'), 'the bank sample offers the flip').toBeTruthy();

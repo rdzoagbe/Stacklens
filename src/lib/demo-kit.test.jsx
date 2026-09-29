@@ -49,7 +49,7 @@ describe('the bank statement, in the free audit', () => {
   const vendors = r.subscriptions.map((s) => s.vendor);
 
   it('finds the subscriptions and the total the guide quotes', () => {
-    expect(r.totals.subscriptionCount).toBe(17);
+    expect(r.totals.subscriptionCount).toBe(16);
     expect(guide).toContain(`${r.totals.subscriptionCount} abonnements`);
     expect(guide).toContain(`${euros(r.totals.monthlySaas)} € par mois`);
   });
@@ -61,6 +61,12 @@ describe('the bank statement, in the free audit', () => {
     expect(f.multiPerMonth.map((d) => d.vendor)).toContain('Figma');
     expect(f.priceIncreases.map((p) => p.vendor)).toEqual(expect.arrayContaining(['HubSpot', 'Notion']));
     expect(f.forgotten.map((g) => g.vendor)).toEqual(expect.arrayContaining(['Zoom', 'Dropbox', 'Canva', 'Calendly']));
+  });
+
+  it('sets Loom apart as stopped, as the guide says, and out of the total', () => {
+    expect(r.stopped.map((s) => s.vendor)).toEqual(['Loom']);
+    expect(vendors).not.toContain('Loom');
+    expect(guide).toMatch(/Loom[\s\S]{0,160}Abonnements arrêtés/);
   });
 
   it('falls for the three traps, which the review then corrects', () => {
@@ -77,7 +83,7 @@ describe('the ledger, in the free audit', () => {
   const keys = r.subscriptions.map((s) => s.key);
 
   it('finds the subscriptions and the total the guide quotes', () => {
-    expect(r.totals.subscriptionCount).toBe(13);
+    expect(r.totals.subscriptionCount).toBe(12);
     expect(guide).toContain(`${r.totals.subscriptionCount} abonnements`);
     expect(guide).toContain(`${euros(r.totals.monthlySaas)} € HT par mois`);
   });
@@ -85,6 +91,10 @@ describe('the ledger, in the free audit', () => {
   it('the account removes the traps and finds Wimi and Miro under their legal names', () => {
     for (const trap of ['GOOGLE IRELAND', 'QONTO', 'MONDAY CAFE']) expect(keys).not.toContain(trap);
     expect(keys).toEqual(expect.arrayContaining(['WIMI', 'REALTIMEBOARD']));
+  });
+
+  it('sets Loom apart as stopped here too', () => {
+    expect(r.stopped.map((s) => s.vendor)).toEqual(['Loom']);
   });
 
   it('keeps the annual Adobe licence and flags its renewal', () => {

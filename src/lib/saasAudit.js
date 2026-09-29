@@ -552,12 +552,24 @@ const PRICE_RISE_PCT = 5;
  */
 export function auditSaas(transactions, { now, verdicts } = {}) {
   const recurring = applyVerdicts(detectRecurring(transactions), verdicts);
-  const subscriptions = recurring.filter(r => r.saas);
-  const otherRecurring = recurring.filter(r => !r.saas);
 
   const asOf = now instanceof Date
     ? now
     : (transactions.length ? new Date(Math.max(...transactions.map(t => t.date.getTime()))) : new Date());
+
+  // A subscription whose charges stopped months before the end of the file
+  // was cancelled (or moved to another card, which shows up as a new line).
+  // Counting it in the monthly total overstated the spend by everything the
+  // company had already stopped paying, and could flag a card switch as a
+  // duplicate. It is listed apart, with the date of its last charge, and
+  // counts nowhere else.
+  const allSubscriptions = recurring.filter(r => r.saas);
+  const stopped = allSubscriptions
+    .filter(r => isStopped(r, asOf))
+    .map(r => ({ ...r, stopped: true, daysSinceLast: Math.round((asOf - r.last) / DAY) }))
+    .sort((a, b) => b.last - a.last);
+  const subscriptions = allSubscriptions.filter(r => !isStopped(r, asOf));
+  const otherRecurring = recurring.filter(r => !r.saas);
 
   const monthlySaas = round2(subscriptions.reduce((s, r) => s + (r.monthlyEquivalent ?? 0), 0));
 
@@ -636,7 +648,32 @@ export function auditSaas(transactions, { now, verdicts } = {}) {
     // Lines the reader said are not software. Kept apart rather than dropped
     // so the page can show them struck through with an undo.
     rejected: recurring.filter(r => r.reviewed === 'rejected'),
+    // Software that was paid for and no longer is: out of every total above.
+    stopped,
   };
+}
+
+// The usual gap between two charges, in days.
+const PERIOD_DAYS = { weekly: 7, monthly: 30.44, quarterly: 91.31, annual: 365.25 };
+// A charge may slip: a weekend, a short month, a card retried a week later.
+// Half a period plus five days of slack before a missing charge counts, and
+// never less than three weeks.
+const STOP_SLACK = 1.5;
+const STOP_EXTRA_DAYS = 5;
+const STOP_MIN_DAYS = 21;
+
+/**
+ * Has this subscription stopped being charged? True when the time since its
+ * last charge is well past the gap it was billed on. A line seen once has no
+ * gap to measure (an annual licence in a one-year ledger), so it never is.
+ */
+export function isStopped(sub, asOf) {
+  if (!sub || sub.charges < 2 || !(asOf instanceof Date)) return false;
+  let period = PERIOD_DAYS[sub.cadence];
+  if (!period) period = (sub.last - sub.first) / DAY / (sub.charges - 1);
+  if (!(period > 0)) return false;
+  const since = (asOf - sub.last) / DAY;
+  return since > Math.max(STOP_MIN_DAYS, period * STOP_SLACK + STOP_EXTRA_DAYS);
 }
 
 // ── 9b. The reader's review ─────────────────────────────────────────────────
@@ -734,15 +771,17 @@ const fmtDate = (d) => d instanceof Date ? d.toISOString().slice(0, 10) : '';
 
 export function reportToCsv(report) {
   const cols = ['vendor', 'category', 'confidence', 'cadence', 'charges', 'first', 'last',
-    'avg_amount', 'monthly_equivalent', 'annualised', 'bank_label', 'review'];
+    'avg_amount', 'monthly_equivalent', 'annualised', 'bank_label', 'review', 'status'];
   const esc = (v) => {
     const s = v == null ? '' : String(v);
     return /[",\n;]/.test(s) ? `"${s.replaceAll('"', '""')}"` : s;
   };
-  const rows = [...report.subscriptions, ...report.otherRecurring].map(s => [
+  // Stopped subscriptions are in the file, marked, so a spreadsheet total over
+  // the 'active' rows gives the page's figure.
+  const rows = [...report.subscriptions, ...(report.stopped || []), ...report.otherRecurring].map(s => [
     s.vendor, s.category, s.confidence, s.cadence, s.charges, fmtDate(s.first), fmtDate(s.last),
     s.avgAmount, s.monthlyEquivalent ?? '', s.monthlyEquivalent == null ? '' : round2(s.monthlyEquivalent * 12),
-    s.key, s.reviewed || '',
+    s.key, s.reviewed || '', s.stopped ? 'stopped' : (s.saas ? 'active' : ''),
   ]);
   return [cols.join(','), ...rows.map(r => r.map(esc).join(','))].join('\n') + '\n';
 }
