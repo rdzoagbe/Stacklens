@@ -369,6 +369,7 @@ export const SIGN_OUT_KEYS = [
   'ag_uploaded_invoices',        // pre-migration invoice uploads
   'slack_webhook',               // a secret: anyone holding it can post
   'sg_connected_integrations',   // which vendors this account connected
+  'stacklens_audit_handoff',     // a free-audit list waiting to be imported (lib/auditHandoff.js)
 ];
 
 /**

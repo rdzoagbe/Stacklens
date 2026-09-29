@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 
 vi.mock('../firebase-config', () => ({ callAI: vi.fn() }));
 vi.mock('../lib/analytics', () => ({ track: vi.fn() }));
@@ -19,6 +19,9 @@ import { SaasAuditPage } from './SaasAuditPage';
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 let host, root, assign;
+// Where the page has sent the reader (MemoryRouter never touches window.location).
+function Where() { const l = useLocation(); return <div data-testid="where" hidden>{l.pathname + l.search}</div>; }
+const here = () => document.querySelector('[data-testid="where"]').textContent;
 const buttons = () => [...document.querySelectorAll('button')];
 const button = (text) => buttons().find((b) => b.textContent.trim() === text);
 const click = (el) => act(async () => { el.click(); });
@@ -35,7 +38,7 @@ beforeEach(async () => {
   host = document.createElement('div');
   document.body.appendChild(host);
   root = createRoot(host);
-  await act(async () => { root.render(<MemoryRouter><SaasAuditPage /></MemoryRouter>); });
+  await act(async () => { root.render(<MemoryRouter><SaasAuditPage /><Where /></MemoryRouter>); });
   await click(button('Try with sample data'));
 });
 
@@ -135,6 +138,27 @@ describe('the client report', () => {
     const printed = document.getElementById('print-report').textContent;
     expect(printed).not.toContain(first + '');
     expect(printed).toContain('1 recurring line(s) reviewed as not software are excluded.');
+  });
+});
+
+describe('creating a workspace from the results', () => {
+  it('keeps nothing until the click, then the list only, and opens the sign-up', async () => {
+    localStorage.clear();
+    // Reviewing, opening the report, typing: none of it stores anything.
+    await click(buttons().find((b) => b.textContent.trim() === 'Not software'));
+    expect(localStorage.length).toBe(0);
+    const card = document.querySelector('[data-testid="audit-handoff"]');
+    const n = Number(kpi('Subscriptions found'));
+    const btn = [...card.querySelectorAll('button')][0];
+    expect(btn.textContent).toContain(`Create my workspace with these ${n} subscriptions`);
+    expect(card.textContent).toContain('in this browser for 2 hours');
+    await click(btn);
+    const kept = JSON.parse(localStorage.getItem('stacklens_audit_handoff'));
+    expect(kept.subscriptions).toHaveLength(n);
+    expect(Object.keys({ ...localStorage })).toEqual(['stacklens_audit_handoff']);
+    expect(here()).toBe('/?signup=true');
+    const started = track.mock.calls.find(([name]) => name === 'audit_handoff_started');
+    expect(started[1]).toEqual({ count: n });
   });
 });
 
