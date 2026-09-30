@@ -43,7 +43,7 @@ The app uses a **dual-layer persistence model**:
 1. **localStorage** (`LS_KEY = 'accessguard_v1'`) — primary read path. All app state (tools, employees, access, contracts, invoices, licenses) lives here as a single JSON blob.
 2. **Firestore** (`/userdata/{uid}`) — cloud backup. Writes are debounced fire-and-forget via `saveDb()`. Large arrays (employees, access, audit_log) are stored as size-capped slices in the `/userdata/{uid}/chunks` subcollection (Firestore 1MB doc limit) and reassembled by `loadUserData()`. On sign-in, `hydrateFromFirestore()` pulls cloud → localStorage (local wins if it has more data).
 
-`useDbQuery()` (TanStack Query, `queryKey: ['db']`) reads localStorage. `useDbMutations()` wraps writes that call `saveDb()`. To update data anywhere: mutate via `useDbMutations()`, never write to localStorage directly.
+`useDbQuery()` (TanStack Query, `queryKey: ['db']`) reads localStorage through `readDb()`, which **never writes**: with no workspace in the browser it returns the demo company built in memory (`buildSeedDb()`). Only the paths that mean it save the demo (`seedDbIfEmpty()`: starting the demo, signing in, a change), so a visitor to a public page leaves nothing in their browser, and sign-out writes nothing back (`public-storage.test.jsx`). `useDbMutations()` wraps writes that call `saveDb()`. To update data anywhere: mutate via `useDbMutations()`, never write to localStorage directly.
 
 Plan/billing state lives in a **separate** Firestore collection (`/users/{uid}`) updated only by the Stripe webhook. Client reads it via `getUserPlanFromFirestore()` and merges into `db.user`.
 

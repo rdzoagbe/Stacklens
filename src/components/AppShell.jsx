@@ -943,7 +943,7 @@ export function AppShell({ _subtitle, title, right, children }) {
             footer={
               <div className="flex justify-end">
                 <Button variant="secondary" onClick={() => setMobileOpen(false)}>
-                  Done
+                  {t('done')}
                 </Button>
               </div>
             }
