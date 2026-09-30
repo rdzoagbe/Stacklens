@@ -584,6 +584,25 @@ export function seedDbIfEmpty() {
   }
   if (existing) return existing;
 
+  const db = buildSeedDb();
+  saveDb(db);
+  return db;
+}
+
+/**
+ * The browser's workspace, or the demo company in memory when there is none.
+ * Never writes: reading the app's data on a public page (the home page, the
+ * free audit, the legal pages) used to save the whole demo workspace into
+ * the visitor's browser, although they had signed in to nothing and started
+ * no demo. It is saved only when they start the demo, sign in, or change
+ * something (seedDbIfEmpty, called by those paths).
+ */
+export function readDb() {
+  return loadDb() || buildSeedDb();
+}
+
+/** The demo company, built fresh. Pure apart from the ids and dates it draws. */
+export function buildSeedDb() {
   const now = new Date();
   const d = (daysAgo) => format(subDays(now, daysAgo), 'yyyy-MM-dd');
 
@@ -713,9 +732,7 @@ export function seedDbIfEmpty() {
 
   const user = { id: uid('usr'), email: 'demo@accessguard.app', subscription_plan: 'pro', is_authenticated: false, is_demo: false };
 
-  const db = { tools, employees, access, invoice_records, user };
-  saveDb(db);
-  return db;
+  return { tools, employees, access, invoice_records, user };
 }
 
 export async function resetDb() {

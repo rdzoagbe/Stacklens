@@ -190,6 +190,9 @@ export function Pill({ tone = 'slate', icon: Icon, children }) {
 // honestly non-dismissible; supply it and the exit works.
 export function Modal({ open, title, subtitle, onClose, children, footer }) {
   const dismissible = typeof onClose === 'function';
+  // Every pop-up in the app said "Close" in English, whatever the language.
+  const { language } = useLang();
+  const t = useTranslation(language);
   return (
     <AnimatePresence>
       {open ? (
@@ -213,7 +216,7 @@ export function Modal({ open, title, subtitle, onClose, children, footer }) {
                 </div>
                 {dismissible ? (
                   <Button variant="ghost" size="sm" onClick={onClose}>
-                    <X className="h-4 w-4" /> Close
+                    <X className="h-4 w-4" /> {t('close')}
                   </Button>
                 ) : null}
               </div>

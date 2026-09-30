@@ -167,8 +167,12 @@ export function useAuth() {
         saveDb(cur, { cloudSync: false });
         qc.invalidateQueries({ queryKey: ['db'] });
       } else {
-        const cur = seedDbIfEmpty();
-        if (cur.user?.is_authenticated && !cur.user?.is_demo) {
+        // Nobody signed in. Only an existing session needs marking as ended;
+        // with no workspace in this browser there is nothing to write, and
+        // writing the demo here is how every visitor to a public page used
+        // to end up with it saved.
+        const cur = loadDb();
+        if (cur?.user?.is_authenticated && !cur.user?.is_demo) {
           cur.user = { ...cur.user, is_authenticated: false, is_demo: false };
           saveDb(cur);
           qc.invalidateQueries({ queryKey: ['db'] });
@@ -241,9 +245,8 @@ export function useAuth() {
     await signOutUser();
     clearLocalWorkspace();
     localStorage.removeItem('sg_auth_uid');
-    const cur = seedDbIfEmpty();
-    cur.user = { is_authenticated: false, is_demo: false };
-    saveDb(cur);
+    // Signed out means nothing of the account, and nothing else either: the
+    // demo it used to write back here would have stayed in the browser.
     qc.invalidateQueries({ queryKey: ['db'] });
     return { ok: true };
   };

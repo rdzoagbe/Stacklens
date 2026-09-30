@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { uid, loadDb, saveDb, seedDbIfEmpty } from '../lib/db';
+import { uid, loadDb, saveDb, seedDbIfEmpty, readDb } from '../lib/db';
 import { getPlanLimits, resolvePlan } from '../lib/plan';
 import { track } from '../lib/analytics';
 import { noteDataArrived } from '../lib/activation';
@@ -33,7 +33,9 @@ function planLimitError(kind, plan, label, cap) {
 export function useDbQuery() {
   return useQuery({
     queryKey: ['db'],
-    queryFn: async () => seedDbIfEmpty(),
+    // Reads only: the demo company is built in memory when this browser holds
+    // no workspace, and written by the paths that mean it (lib/db.js readDb).
+    queryFn: async () => readDb(),
   });
 }
 
