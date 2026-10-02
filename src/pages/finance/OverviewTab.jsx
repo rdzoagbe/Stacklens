@@ -6,8 +6,7 @@ import {
   CalendarClock, DollarSign,
   Sparkles,
 } from 'lucide-react';
-import { saveUserData } from '../../firebase-config';
-import { loadDb, saveDb, seedDbIfEmpty } from '../../lib/db';
+import { loadDb, saveDb, seedDbIfEmpty, saveOwnWorkspaceNow } from '../../lib/db';
 import {
   displayAmount,
   getCurrency,
@@ -211,7 +210,7 @@ export function FinanceOverviewTab({ financialData, showBudgetModal, setShowBudg
     const cur = loadDb() || seedDbIfEmpty();
     cur.user = { ...cur.user, budget_cap: numCap };
     saveDb(cur);
-    if (firebaseUser?.uid) saveUserData(firebaseUser.uid, cur).catch(() => {});
+    saveOwnWorkspaceNow(firebaseUser?.uid, cur).catch(() => {});
     qc.invalidateQueries({ queryKey: ['db'] });
   };
   // lastMonthSpend is null until this workspace has a completed month in

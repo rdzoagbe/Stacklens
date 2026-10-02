@@ -5,6 +5,10 @@
 
 export const translations = {
   en: {
+    mr_test_unverified: "Confirm your email address first: the report is only sent to a verified address.",
+    mr_test_mail_off: "Email sending is not switched on at Stacklens yet, so no report can be sent for now.",
+    notif_shared_note: "These are your own account's settings: switch back to your workspace to change them.",
+    set_shared_readonly: "You can view this workspace but not change it.",
     mr_title: "Monthly report to management",
     mr_badge: "On the 1st",
     mr_sub: "On the 1st of each month, by email: spend and forecast, budgets by department, supplier invoices to check, renewals in the next 30 days, and the three priority actions. In French when the app is in French, otherwise in English.",
@@ -3475,6 +3479,10 @@ export const translations = {
     notif_offboard_sub: "When an offboarding task is started",
   },
   fr: {
+    mr_test_unverified: "Confirmez d'abord votre adresse e-mail : le rapport n'est envoyé qu'à une adresse vérifiée.",
+    mr_test_mail_off: "L'envoi d'e-mails n'est pas encore activé chez Stacklens : aucun rapport ne peut partir pour le moment.",
+    notif_shared_note: "Ces réglages sont ceux de votre propre compte : revenez à votre espace pour les modifier.",
+    set_shared_readonly: "Vous pouvez consulter cet espace, mais pas le modifier.",
     mr_title: "Rapport mensuel à la direction",
     mr_badge: "Le 1er du mois",
     mr_sub: "Le 1er de chaque mois, par e-mail : dépenses et prévisionnel, budgets par service, factures fournisseurs à vérifier, renouvellements dans les 30 jours et les trois actions prioritaires. En français quand l'application est en français, en anglais sinon.",
@@ -7081,6 +7089,10 @@ export const translations = {
     notif_offboard_sub: "Quand une tâche de départ est lancée",
   },
   de: {
+    mr_test_unverified: "Bestätigen Sie zuerst Ihre E-Mail-Adresse: Der Bericht wird nur an eine bestätigte Adresse gesendet.",
+    mr_test_mail_off: "Der E-Mail-Versand ist bei Stacklens noch nicht eingeschaltet, daher kann derzeit kein Bericht gesendet werden.",
+    notif_shared_note: "Dies sind die Einstellungen Ihres eigenen Kontos: Wechseln Sie zu Ihrem Arbeitsbereich, um sie zu ändern.",
+    set_shared_readonly: "Sie können diesen Arbeitsbereich ansehen, aber nicht ändern.",
     mr_title: "Monatsbericht an die Geschäftsleitung",
     mr_badge: "Am 1.",
     mr_sub: "Am 1. jedes Monats per E-Mail: Ausgaben und Prognose, Budgets nach Abteilung, zu prüfende Lieferantenrechnungen, Verlängerungen in den nächsten 30 Tagen und die drei vorrangigen Maßnahmen. Auf Englisch, auf Französisch wenn die App auf Französisch ist.",
@@ -8658,6 +8670,10 @@ export const translations = {
     aud_more: "weitere",
   },
   es: {
+    mr_test_unverified: "Confirme primero su dirección de correo: el informe solo se envía a una dirección verificada.",
+    mr_test_mail_off: "El envío de correos aún no está activado en Stacklens, así que por ahora no se puede enviar ningún informe.",
+    notif_shared_note: "Estos son los ajustes de su propia cuenta: vuelva a su espacio para cambiarlos.",
+    set_shared_readonly: "Puede ver este espacio, pero no modificarlo.",
     mr_title: "Informe mensual a la dirección",
     mr_badge: "El día 1",
     mr_sub: "El día 1 de cada mes, por correo: gasto y previsión, presupuestos por departamento, facturas de proveedores por revisar, renovaciones en los próximos 30 días y las tres acciones prioritarias. En inglés; en francés si la aplicación está en francés.",
@@ -10385,6 +10401,10 @@ export const translations = {
     aud_more: "más",
   },
   pt: {
+    mr_test_unverified: "Confirme primeiro o seu endereço de e-mail: o relatório só é enviado para um endereço verificado.",
+    mr_test_mail_off: "O envio de e-mails ainda não está ativado na Stacklens, por isso ainda não é possível enviar relatórios.",
+    notif_shared_note: "Estas são as definições da sua própria conta: volte ao seu espaço para as alterar.",
+    set_shared_readonly: "Pode consultar este espaço, mas não alterá-lo.",
     mr_title: "Relatório mensal à direção",
     mr_badge: "No dia 1",
     mr_sub: "No dia 1 de cada mês, por e-mail: despesa e previsão, orçamentos por departamento, faturas de fornecedores a verificar, renovações nos próximos 30 dias e as três ações prioritárias. Em inglês; em francês se a aplicação estiver em francês.",

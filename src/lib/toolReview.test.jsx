@@ -120,6 +120,20 @@ describe('reviewing, through the workspace', () => {
     expect(needsReview(db.tools.find((x) => x.name === 'Figma'))).toBe(true);
   });
 
+  it('an invoice already recorded is not recorded again, and the import is in the audit log', async () => {
+    const rows = [{ vendor: 'Figma', amount: 45, monthly: 45, source: 'bank', invoice_date: '2026-09-21' }];
+    await run(() => muts.importInvoices.mutateAsync(rows));
+    await run(() => muts.importInvoices.mutateAsync(rows));   // a second bank sync, no new charge
+    const db = loadDb();
+    expect(db.invoice_records.filter((r) => r.vendor === 'Figma')).toHaveLength(1);
+    expect(db.audit_log.filter((e) => e.action === 'invoice.imported').map((e) => e.details)).toEqual(['1 invoice(s) recorded, 1 tool(s) created']);
+    // The same PDF twice is one document; two different PDFs are two.
+    await run(() => muts.importInvoices.mutateAsync([{ vendor: 'Notion', amount: 96, monthly: 96, source: 'invoice', invoice_date: '2026-09-05', file: 'a.pdf' }]));
+    await run(() => muts.importInvoices.mutateAsync([{ vendor: 'Notion', amount: 96, monthly: 96, source: 'invoice', invoice_date: '2026-09-05', file: 'a.pdf' }]));
+    await run(() => muts.importInvoices.mutateAsync([{ vendor: 'Notion', amount: 96, monthly: 96, source: 'invoice', invoice_date: '2026-09-05', file: 'b.pdf' }]));
+    expect(loadDb().invoice_records.filter((r) => r.vendor === 'Notion')).toHaveLength(2);
+  });
+
   it('a tools import keeps an origin the app sets, and drops one it does not know', async () => {
     await run(() => muts.bulkImport.mutateAsync({ kind: 'tools', records: [
       { name: 'Miro', origin: 'google-workspace' },

@@ -362,12 +362,22 @@ export function useDbMutations() {
   // create/update the matching tool's recurring monthly cost by vendor name.
   const importInvoices = useMutation({
     mutationFn: async (rows) => {
+      let recorded = 0; let created = 0;
       setDb((db) => {
-        const stamped = rows.map((r) => ({ ...r, id: uid('inv'), imported_at: new Date().toISOString() }));
+        // A line already recorded is not recorded again: a second bank sync
+        // before the next charge, or the same PDF uploaded and also forwarded
+        // to the inbox, used to add it twice, and the invoice check then read
+        // the pair as a supplier billing twice.
+        const sameKey = (r) => [r.source || '', String(r.vendor || '').toLowerCase().trim(),
+          Number(r.amount || 0).toFixed(2), r.invoice_date || r.period_start || '', r.source === 'bank' ? '' : (r.file || '')].join('|');
+        const known = new Set((db.invoice_records || []).map(sameKey));
+        const fresh = rows.filter((r) => { const k = sameKey(r); if (known.has(k)) return false; known.add(k); return true; });
+        recorded = fresh.length;
+        const stamped = fresh.map((r) => ({ ...r, id: uid('inv'), imported_at: new Date().toISOString() }));
         db.invoice_records = [...stamped, ...(db.invoice_records || [])].slice(0, 1000);
 
         const byName = Object.fromEntries((db.tools || []).map((t) => [(t.name || '').toLowerCase().trim(), t]));
-        rows.forEach((r) => {
+        fresh.forEach((r) => {
           const monthly = Math.round((r.monthly || 0) * 100) / 100;
           const nameKey = (r.vendor || '').toLowerCase().trim();
           if (!nameKey) return;
@@ -396,10 +406,16 @@ export function useDbMutations() {
             };
             db.tools = [tool, ...db.tools];
             byName[nameKey] = tool;
+            created++;
           }
         });
         return db;
-      });
+      }, () => (recorded ? {
+        // The audit log promises every change to tools; an import creates
+        // tools and rewrites their cost and renewal date.
+        action: 'invoice.imported',
+        details: `${recorded} invoice(s) recorded${created ? `, ${created} tool(s) created` : ''}`,
+      } : null));
     },
     onSuccess: (_data, rows) => { invalidate(); track('invoice_import_completed', { count: Array.isArray(rows) ? rows.length : undefined }); },
   });

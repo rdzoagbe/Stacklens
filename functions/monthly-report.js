@@ -43,11 +43,13 @@ function allocSpendByDept(data) {
 
 // Spent-to-date per department, matching the Budget tab: recorded monthly
 // snapshots where they exist, run-rate fallback elsewhere.
-function spentToDateByDept(data, byDeptMonthly, now) {
+// `throughMonthEnd`: count `now`'s month as complete (the monthly report closes
+// the month it covers; the alerts look at today).
+function spentToDateByDept(data, byDeptMonthly, now, { throughMonthEnd = false } = {}) {
   const year = now.getFullYear();
-  const hist = Object.fromEntries((data.spend_history || []).map(s => [s.month, s]));
-  const completed = now.getMonth();
-  const frac = (now.getDate() - 1) / new Date(year, now.getMonth() + 1, 0).getDate();
+  const hist = Object.fromEntries((Array.isArray(data.spend_history) ? data.spend_history : []).filter(Boolean).map(s => [s.month, s]));
+  const completed = throughMonthEnd ? now.getMonth() + 1 : now.getMonth();
+  const frac = throughMonthEnd ? 0 : (now.getDate() - 1) / new Date(year, now.getMonth() + 1, 0).getDate();
   const out = {};
   Object.entries(byDeptMonthly).forEach(([dept, monthly]) => {
     let sum = 0;
@@ -96,13 +98,31 @@ function monthlyHt(r) {
 const over = (actual, expected) => actual - expected > Math.max(TOLERANCE_EUR, expected * TOLERANCE_PCT / 100);
 
 function checkInvoices(db, { now = new Date() } = {}) {
-  const tools = db?.tools || [];
-  const records = (db?.invoice_records || [])
+  // The workspace is client-written: anything that is not a list is ignored
+  // rather than allowed to throw (one bad workspace stopped the whole monthly
+  // report run).
+  const tools = Array.isArray(db?.tools) ? db.tools : [];
+  const rejected = Array.isArray(db?.rejected_vendors) ? db.rejected_vendors : [];
+  const records = (Array.isArray(db?.invoice_records) ? db.invoice_records : [])
     .filter((r) => r && r.id && r.vendor && Number(r.amount) > 0)
+    // A vendor someone here said is not software (lib/toolReview.js) is not checked.
+    .filter((r) => !rejected.some((name) => vendorMatchesTool(r.vendor, name)))
     .map((r) => ({ ...r, _date: Date.parse(r.invoice_date || r.period_start || r.imported_at || '') || 0 }))
     .sort((a, b) => a._date - b._date);
 
-  const toolFor = (vendor) => tools.find((t) => vendorMatchesTool(vendor, t.name)) || null;
+  // The closest tool, not the first that matches: an "Adobe Sign" invoice must
+  // not be checked against the price agreed for "Adobe".
+  const toolFor = (vendor) => {
+    const v = invoiceVendorKey(vendor);
+    let best = null; let bestLen = -1;
+    for (const t of tools) {
+      if (!t || !vendorMatchesTool(vendor, t.name)) continue;
+      const k = invoiceVendorKey(t.name);
+      const len = k === v ? Infinity : k.length;
+      if (len > bestLen) { best = t; bestLen = len; }
+    }
+    return best;
+  };
   const findings = [];
   const flagged = new Set();
   const add = (f) => {
@@ -122,10 +142,14 @@ function checkInvoices(db, { now = new Date() } = {}) {
     if (!when) continue;
     const k = `${invoiceVendorKey(r.vendor)}|${Number(r.amount).toFixed(2)}|${when}`;
     if (!seen.has(k)) { seen.set(k, r); continue; }
+    const first = seen.get(k);
+    // Not billed twice: two bank summaries of the same charge (a second sync
+    // before the next one), or the same document imported twice.
+    if ((r.source === 'bank' && first.source === 'bank') || (r.file && r.file === first.file)) continue;
     if (r.cleared) continue;
     const tool = toolFor(r.vendor);
     const monthly = monthlyTtc(r);
-    add({ ...base(r, tool), kind: 'duplicate', firstInvoiceId: seen.get(k).id,
+    add({ ...base(r, tool), kind: 'duplicate', firstInvoiceId: first.id,
       overMonthly: round2(monthly), overAnnual: round2(monthly ? monthly * 12 : Number(r.amount)) });
   }
 
@@ -138,6 +162,19 @@ function checkInvoices(db, { now = new Date() } = {}) {
     add({ ...base(r, tool), kind: 'after_cancel',
       overMonthly: round2(monthly), overAnnual: round2(monthly ? monthly * 12 : Number(r.amount)) });
   }
+
+  // One vendor billing several products (Jira and Confluence from Atlassian)
+  // shows two amounts in the same month; comparing them is not a price rise.
+  const amountsByMonth = new Map();
+  for (const r of records) {
+    if (!monthlyTtc(r)) continue;
+    const mk = `${invoiceVendorKey(r.vendor)}|${r.billing_cycle}|${String(r.invoice_date || r.period_start || '').slice(0, 7)}`;
+    if (!amountsByMonth.has(mk)) amountsByMonth.set(mk, new Set());
+    amountsByMonth.get(mk).add(Number(r.amount).toFixed(2));
+  }
+  const multiProduct = new Set([...amountsByMonth]
+    .filter(([, amounts]) => amounts.size > 1)
+    .map(([mk]) => mk.split('|').slice(0, 2).join('|')));
 
   const previous = new Map();
   for (const r of records) {
@@ -166,7 +203,7 @@ function checkInvoices(db, { now = new Date() } = {}) {
       continue;
     }
 
-    if (prev) {
+    if (prev && !multiProduct.has(key)) {
       const before = monthlyTtc(prev);
       if (before > 0 && over(monthly, before)) {
         const diff = monthly - before;
@@ -221,22 +258,36 @@ const monthKeyOf = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStar
  * Everything the email says, as data. `now` is the send time; the report
  * covers the month that just ended (or, for a preview, the month so far).
  */
-function buildMonthlyReport(data, now = new Date(), { preview = false } = {}) {
+function buildMonthlyReport(rawData, now = new Date(), { preview = false } = {}) {
+  // The workspace is client-written, with no schema: a field that should be a
+  // list and is not is read as empty, so one malformed workspace cannot throw
+  // (and, before the per-user try/catch, stop the run for everyone after it).
+  const list = (x) => (Array.isArray(x) ? x.filter((v) => v && typeof v === 'object') : []);
+  const data = {
+    ...(rawData && typeof rawData === 'object' ? rawData : {}),
+    tools: list(rawData?.tools), employees: list(rawData?.employees), access: list(rawData?.access),
+    budgets: list(rawData?.budgets), invoice_records: list(rawData?.invoice_records),
+    spend_history: list(rawData?.spend_history),
+    rejected_vendors: Array.isArray(rawData?.rejected_vendors) ? rawData.rejected_vendors.filter((v) => typeof v === 'string') : [],
+  };
   const periodDate = preview ? now : new Date(now.getFullYear(), now.getMonth() - 1, 15);
-  const tools = data?.tools || [];
-  const monthly = monthlySpend(data || {});
+  const tools = data.tools;
+  const monthly = monthlySpend(data);
 
-  // Budgets: the same figures as Finance → Budget (spent to date, run rate × 12).
-  const year = now.getFullYear();
-  const byDept = allocSpendByDept(data || {});
-  const spent = spentToDateByDept(data || {}, byDept, now);
-  const budgets = (data?.budgets || [])
+  // Budgets: the same figures as Finance → Budget. As of the end of the month
+  // reported, not of today: the report sent on 1 January closes December, and
+  // used to show the new year's budgets with nothing spent against them.
+  const year = periodDate.getFullYear();
+  const byDept = allocSpendByDept(data);
+  const spent = preview ? spentToDateByDept(data, byDept, now) : spentToDateByDept(data, byDept, periodDate, { throughMonthEnd: true });
+  const budgets = data.budgets
     .filter((b) => b.year === year && Number(b.annual) > 0)
     .map((b) => {
       const key = String(b.department || '').toLowerCase();
       const spentToDate = spent[key] || 0;
       const projected = (byDept[key] || 0) * 12;
-      const status = spentToDate > b.annual ? 'over' : projected > b.annual ? 'risk' : 'ok';
+      // The Budget tab's rule, so the email and the screen never disagree.
+      const status = projected > b.annual ? (spentToDate > b.annual ? 'over' : 'risk') : 'ok';
       return {
         department: b.department, annual: Number(b.annual),
         spent: round2(spentToDate), projected: round2(projected),
@@ -255,7 +306,7 @@ function buildMonthlyReport(data, now = new Date(), { preview = false } = {}) {
   const todayStr = now.toISOString().slice(0, 10);
   const in30Str = new Date(now.getTime() + 30 * DAY).toISOString().slice(0, 10);
   const renewals = tools
-    .filter((t) => t.renewal_date && t.renewal_date >= todayStr && t.renewal_date <= in30Str && t.status !== 'decommissioned')
+    .filter((t) => /^\d{4}-\d{2}-\d{2}$/.test(String(t.renewal_date || '')) && t.renewal_date >= todayStr && t.renewal_date <= in30Str && t.status !== 'decommissioned')
     .sort((a, b) => a.renewal_date.localeCompare(b.renewal_date))
     .map((t) => ({
       name: t.name, date: t.renewal_date,

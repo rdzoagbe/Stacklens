@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { Boxes, Download, FileJson, Users } from 'lucide-react';
-import { saveUserData, deleteAccount, signOutUser, createBillingPortal } from '../../firebase-config';
-import { loadDb, saveDb, seedDbIfEmpty, todayISO } from '../../lib/db';
+import { deleteAccount, signOutUser, createBillingPortal } from '../../firebase-config';
+import { loadDb, saveDb, seedDbIfEmpty, todayISO, saveOwnWorkspaceNow, getSharedView } from '../../lib/db';
 import { toCsv, downloadText } from '../../lib/dataUtils';
+import { appendAudit, auditActor } from '../../lib/audit';
 import { downloadWorkspaceExport } from '../../lib/workspace-export';
 import { track } from '../../lib/analytics';
 import { Card, CardHeader, CardBody, Modal, Button, Input } from '../../components/ui';
@@ -170,16 +171,23 @@ export function DataTab({ db, firebaseUser, isDemo, qc, t }) {
                 btn: t('set_del_tools_btn'),
                 onClick: async () => {
                   if (isDemo) { toast.error(t('set_demo_error')); return; }
+                  // A viewer of someone else's workspace cannot change it, and
+                  // wiping only this browser's copy would report a deletion
+                  // that never happened.
+                  if (getSharedView() && getSharedView().role !== 'editor') { toast.error(t('set_shared_readonly')); return; }
                   if (!window.confirm(t('set_del_tools_confirm'))) return;
                   const cur = loadDb() || seedDbIfEmpty();
+                  const n = { t: (cur.tools || []).length, e: (cur.employees || []).length, a: (cur.access || []).length };
                   cur.tools = []; cur.employees = []; cur.access = [];
+                  // The audit log promises every change to tools, people and access.
+                  cur.audit_log = appendAudit(cur, { action: 'data.deleted', details: `All tools (${n.t}), employees (${n.e}) and access (${n.a}) deleted`, user: auditActor(cur) });
                   saveDb(cur);
                   qc.invalidateQueries({ queryKey: ['db'] });
                   // Await the cloud wipe: if it fails while the local wipe
                   // succeeded, hydration can resurrect the deleted data — so
                   // never report success we did not achieve.
                   if (firebaseUser?.uid) {
-                    try { await saveUserData(firebaseUser.uid, cur); }
+                    try { await saveOwnWorkspaceNow(firebaseUser.uid, cur); }
                     catch { toast.error(t('set_del_cloud_error'), { duration: 8000 }); return; }
                   }
                   toast.success(t('set_del_tools_done'));
@@ -191,13 +199,19 @@ export function DataTab({ db, firebaseUser, isDemo, qc, t }) {
                 btn: t('set_del_emp_btn'),
                 onClick: async () => {
                   if (isDemo) { toast.error(t('set_demo_error')); return; }
+                  // A viewer of someone else's workspace cannot change it, and
+                  // wiping only this browser's copy would report a deletion
+                  // that never happened.
+                  if (getSharedView() && getSharedView().role !== 'editor') { toast.error(t('set_shared_readonly')); return; }
                   if (!window.confirm(t('set_del_emp_confirm'))) return;
                   const cur = loadDb() || seedDbIfEmpty();
+                  const n = { e: (cur.employees || []).length, a: (cur.access || []).length };
                   cur.employees = []; cur.access = [];
+                  cur.audit_log = appendAudit(cur, { action: 'data.deleted', details: `All employees (${n.e}) and access (${n.a}) deleted`, user: auditActor(cur) });
                   saveDb(cur);
                   qc.invalidateQueries({ queryKey: ['db'] });
                   if (firebaseUser?.uid) {
-                    try { await saveUserData(firebaseUser.uid, cur); }
+                    try { await saveOwnWorkspaceNow(firebaseUser.uid, cur); }
                     catch { toast.error(t('set_del_cloud_error'), { duration: 8000 }); return; }
                   }
                   toast.success(t('set_del_emp_done'));

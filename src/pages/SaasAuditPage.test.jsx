@@ -186,6 +186,8 @@ describe('several clients at once', () => {
     await click(button('Client report (PDF)'));
     const [, client] = [...document.querySelectorAll('input:not([type=checkbox])')];
     expect(client.value).toBe('Atelier Martin Architectes');
+    // A client's subscriptions are not offered for import into the accountant's own workspace.
+    expect(document.querySelector('[data-testid="audit-handoff"]')).toBeNull();
     await click(document.querySelector('[data-testid="pf-back"]'));
     expect(rows()).toHaveLength(3);
   });

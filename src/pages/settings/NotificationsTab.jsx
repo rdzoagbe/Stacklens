@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import { saveUserData } from '../../firebase-config';
-import { loadDb, saveDb, seedDbIfEmpty } from '../../lib/db';
+import { loadDb, saveDb, seedDbIfEmpty, saveOwnWorkspaceNow, getSharedView } from '../../lib/db';
 import { Card, CardHeader, CardBody } from '../../components/ui';
 import { SlackNotifications } from '../../components/SlackNotifications';
 import { MonthlyReportSettings } from '../../components/MonthlyReportSettings';
@@ -35,7 +34,9 @@ export function NotificationsTab({ firebaseUser, qc, t }) {
       offboard: notifOffboard, newTool: notifNewTool, compliance: notifCompliance,
       weekly: notifWeekly, invoice: notifInvoice, budget: notifBudget, ...patch };
     localStorage.setItem('sg_notifications', JSON.stringify(next));
-    const backendChanged = 'renewal' in patch || 'weekly' in patch;
+    // In someone else's workspace the account-level switches are not theirs
+    // to change from here (saveOwnWorkspaceNow refuses anyway).
+    const backendChanged = ('renewal' in patch || 'weekly' in patch) && !getSharedView();
     if (backendChanged) {
       const cur = loadDb() || seedDbIfEmpty();
       cur.user = {
@@ -44,7 +45,7 @@ export function NotificationsTab({ firebaseUser, qc, t }) {
         ...('weekly'  in patch ? { weekly_summary: patch.weekly  } : {}),
       };
       saveDb(cur);
-      if (firebaseUser?.uid) saveUserData(firebaseUser.uid, cur).catch(() => {});
+      saveOwnWorkspaceNow(firebaseUser?.uid, cur).catch(() => {});
       qc.invalidateQueries({ queryKey: ['db'] });
     }
   };
@@ -53,6 +54,7 @@ export function NotificationsTab({ firebaseUser, qc, t }) {
     <Card>
       <CardHeader title={t('notifications_title')} subtitle={t('notifications_sub')} />
       <CardBody>
+        {getSharedView() && <p className="mb-4 text-sm text-amber-300" data-testid="notif-shared-note">{t('notif_shared_note')}</p>}
         <MonthlyReportSettings firebaseUser={firebaseUser} qc={qc} t={t} language={language} />
         <div className="space-y-1">
           {[

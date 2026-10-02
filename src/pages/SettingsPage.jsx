@@ -4,9 +4,9 @@ import {
   Bell, CreditCard, Download, Plug, Shield, Users, Wrench, Zap,
 } from 'lucide-react';
 import {
-  getUserPlanFromFirestore, syncClaimsFromServer, saveUserData,
+  getUserPlanFromFirestore, syncClaimsFromServer,
 } from '../firebase-config';
-import { loadDb, saveDb, seedDbIfEmpty } from '../lib/db';
+import { loadDb, saveDb, seedDbIfEmpty, saveOwnWorkspaceNow } from '../lib/db';
 import { SUPPORTED_CURRENCIES, getCurrencyCode } from '../lib/currency';
 import { track } from '../lib/analytics';
 import { useDbQuery } from '../hooks/useDbQuery';
@@ -105,7 +105,7 @@ export function SettingsPage() {
         const cur = loadDb() || seedDbIfEmpty();
         cur.user = { ...cur.user, currency: data.currency };
         saveDb(cur);
-        if (firebaseUser?.uid) saveUserData(firebaseUser.uid, cur).catch(() => {});
+        saveOwnWorkspaceNow(firebaseUser?.uid, cur).catch(() => {});
         qc.invalidateQueries({ queryKey: ['db'] });
       } catch { /* a failed sync must not block the local save */ }
     }
