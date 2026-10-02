@@ -5,11 +5,17 @@ import App from './App.jsx'
 import '@fontsource-variable/inter'
 import './index.css'
 import { purgeLegacyCredentials } from './lib/legacyCredentials'
+import { loadHandoff } from './lib/auditHandoff'
 
 // Remove integration credentials that older builds kept in localStorage.
 // Runs before React mounts so it reaches every session, not just users who
 // happen to open Settings.
 purgeLegacyCredentials();
+
+// The free audit's handoff list lives two hours (lib/auditHandoff.js). Reading
+// it deletes one that has expired, so a visitor who never signs in does not
+// keep it past the next time they open the site.
+loadHandoff();
 
 // After a deploy, lazily-loaded chunk filenames change (content hash), so a tab
 // that was already open 404s when it navigates to a lazy route ("Failed to fetch

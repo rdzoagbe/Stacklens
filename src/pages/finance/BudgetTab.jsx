@@ -8,7 +8,9 @@ import { useLang } from '../../contexts/LangContext';
 import { useTranslation } from '../../translations';
 import { getCurrency, displayAmount } from '../../lib/currency';
 import { callAI, invoiceInboxAddress, invoiceInboxList, invoiceInboxAck, bankConnect, bankStatus, bankSync } from '../../firebase-config';
-import { Landmark } from 'lucide-react';
+import { Landmark, Lock } from 'lucide-react';
+import { hasModule, hasRole } from '../../components/gates';
+import { getSharedView } from '../../lib/db';
 import { isRejectedVendor } from '../../lib/toolReview';
 import { InvoiceCheckPanel } from '../../components/InvoiceCheckPanel';
 import { UNALLOCATED, allocateSpendByDepartment, parseBudgetCsv, monthlyAmountFromInvoice } from '../../lib/budget';
@@ -35,6 +37,17 @@ export function BudgetTabContent() {
   const fileRef = useRef(null);
   const invoiceRef = useRef(null);
 
+  // A viewer reads the budget; only an editor sets it or brings invoices in
+  // (the same rule as the Tools and Employees pages). The inbox and the bank
+  // connection belong to the signed-in account, not to a workspace someone
+  // shared, so they are not offered there. The bank connection is an
+  // Enterprise feature: functions/index.js `bankfeed` checks API_PLANS, which
+  // the 'api' module mirrors (plan-parity.test.js).
+  const canEdit = hasRole('editor');
+  const shared = !!(db?._shared_view || getSharedView());
+  const ownInbox = canEdit && !shared;
+  const bankAllowed = ownInbox && hasModule(db?.user, 'api');
+
   const nowYear = new Date().getFullYear();
   const [year, setYear] = useState(nowYear);
   const [drafts, setDrafts] = useState({}); // department -> input string while editing
@@ -46,21 +59,23 @@ export function BudgetTabContent() {
   const [inboxAddress, setInboxAddress] = useState('');
   const [inboxItems, setInboxItems] = useState([]);
   React.useEffect(() => {
+    if (!ownInbox) return undefined;
     let alive = true;
     invoiceInboxAddress().then(r => { if (alive) setInboxAddress(r.address || ''); }).catch(() => {});
     invoiceInboxList().then(r => { if (alive) setInboxItems(r.items || []); }).catch(() => {});
     return () => { alive = false; };
-  }, []);
+  }, [ownInbox]);
 
   // Bank feed (Bridge): connection status + recurring-charge sync
   const [bank, setBank] = useState({ checked: false, connected: false });
   const [bankBusy, setBankBusy] = useState(false);
   React.useEffect(() => {
+    if (!bankAllowed) return undefined;
     let alive = true;
     bankStatus().then(r => { if (alive) setBank({ checked: true, connected: !!r.connected }); })
       .catch(() => { if (alive) setBank({ checked: true, connected: false }); });
     return () => { alive = false; };
-  }, []);
+  }, [bankAllowed]);
 
   const startBankConnect = async () => {
     if (bankBusy) return;
@@ -302,22 +317,31 @@ export function BudgetTabContent() {
             className="bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white">
             {[nowYear - 1, nowYear, nowYear + 1].map(y => <option key={y} value={y}>{y}</option>)}
           </select>
-          <button onClick={() => invoiceRef.current?.click()}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold transition-colors">
-            <FileText size={15} /> {t('budget_import_invoices')}
-          </button>
-          <input ref={invoiceRef} type="file" accept=".pdf,.docx,.txt" multiple className="hidden"
-            onChange={e => { if (e.target.files?.length) runInvoiceImport(e.target.files); e.target.value = ''; }} />
-          <button onClick={() => fileRef.current?.click()}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold transition-colors">
-            <Upload size={15} /> {t('budget_import_csv')}
-          </button>
-          <input ref={fileRef} type="file" accept=".csv,.txt" className="hidden"
-            onChange={e => { const f = e.target.files?.[0]; if (f) importCsv(f); e.target.value = ''; }} />
-          <button onClick={bank.connected ? runBankSync : startBankConnect} disabled={bankBusy} title={t(bank.connected ? 'bank_sync_title' : 'bank_connect_title')}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition-colors disabled:opacity-50">
-            <Landmark size={15} /> {t(bank.connected ? 'bank_sync_btn' : 'bank_connect_btn')}
-          </button>
+          {canEdit && (<>
+            <button onClick={() => invoiceRef.current?.click()}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold transition-colors">
+              <FileText size={15} /> {t('budget_import_invoices')}
+            </button>
+            <input ref={invoiceRef} type="file" accept=".pdf,.docx,.txt" multiple className="hidden"
+              onChange={e => { if (e.target.files?.length) runInvoiceImport(e.target.files); e.target.value = ''; }} />
+            <button onClick={() => fileRef.current?.click()}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold transition-colors">
+              <Upload size={15} /> {t('budget_import_csv')}
+            </button>
+            <input ref={fileRef} type="file" accept=".csv,.txt" className="hidden"
+              onChange={e => { const f = e.target.files?.[0]; if (f) importCsv(f); e.target.value = ''; }} />
+          </>)}
+          {bankAllowed ? (
+            <button onClick={bank.connected ? runBankSync : startBankConnect} disabled={bankBusy} title={t(bank.connected ? 'bank_sync_title' : 'bank_connect_title')}
+              className="flex items-center gap-2 px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition-colors disabled:opacity-50">
+              <Landmark size={15} /> {t(bank.connected ? 'bank_sync_btn' : 'bank_connect_btn')}
+            </button>
+          ) : ownInbox && (
+            <button onClick={() => toast(t('bank_enterprise_only'))} title={t('bank_enterprise_only')} data-testid="bank-locked"
+              className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 text-sm font-semibold transition-colors">
+              <Lock size={14} /> {t('bank_connect_btn')} · Enterprise
+            </button>
+          )}
           <button onClick={exportPdf} title={t('budget_export_pdf')}
             className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-semibold transition-colors">
             <Printer size={15} /> PDF
@@ -330,7 +354,7 @@ export function BudgetTabContent() {
       </div>
       <p className="text-xs text-slate-500">{t('budget_csv_hint')} · {t('budget_estimate_note')}</p>
 
-      {inboxAddress && (
+      {ownInbox && inboxAddress && (
         <p className="text-xs text-slate-500">
           📧 {t('budget_inbox_hint')}{' '}
           <button onClick={() => { navigator.clipboard?.writeText(inboxAddress); toast.success(t('budget_inbox_copied')); }}
@@ -340,7 +364,7 @@ export function BudgetTabContent() {
         </p>
       )}
 
-      {inboxItems.length > 0 && (
+      {ownInbox && inboxItems.length > 0 && (
         <div className="rounded-2xl bg-emerald-500/5 border border-emerald-500/20 p-4 flex items-center justify-between gap-3">
           <div className="text-sm text-emerald-300 font-semibold">
             📬 {inboxItems.length} {t('budget_inbox_pending')}
@@ -397,7 +421,7 @@ export function BudgetTabContent() {
                   <tr key={r.dept} className="border-b border-slate-800/60 last:border-0">
                     <td className="px-4 py-3 font-semibold text-white capitalize">{r.dept}</td>
                     <td className="px-4 py-3">
-                      <input
+                      {canEdit ? <input
                         value={drafts[r.dept] ?? (r.budget || '')}
                         placeholder={t('budget_no_budget')}
                         onChange={e => setDrafts(d => ({ ...d, [r.dept]: e.target.value }))}
@@ -407,7 +431,9 @@ export function BudgetTabContent() {
                           setDrafts(d => { const n = { ...d }; delete n[r.dept]; return n; });
                         }}
                         className="w-28 bg-slate-800/70 border border-slate-700 rounded-lg px-2 py-1.5 text-white text-sm placeholder:text-slate-500"
-                        inputMode="numeric" />
+                        inputMode="numeric" /> : (
+                        <span className="text-sm text-slate-300">{r.budget > 0 ? cur(r.budget) : t('budget_no_budget')}</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-slate-300">{cur(r.monthly)}</td>
                     <td className="px-4 py-3 text-slate-300">{cur(r.spentYtd)}</td>

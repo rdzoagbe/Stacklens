@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
-import { TRIAL_DAYS, resolvePlan, PAYING_STATUSES, PLAN_LIMITS, TEAM_INVITE_LIMIT, CLIENT_WORKSPACE_LIMIT, TRIAL_CLIENT_WORKSPACES } from './plan';
+import { TRIAL_DAYS, NO_TEAM_PLANS, canInviteTeam, resolvePlan, PAYING_STATUSES, PLAN_LIMITS, TEAM_INVITE_LIMIT, CLIENT_WORKSPACE_LIMIT, TRIAL_CLIENT_WORKSPACES } from './plan';
 import { MODULE_PLANS } from '../components/gates';
 import { PLAN_CARDS } from './planCards';
 import { EARLY_ACCESS, earlyAccessUntil } from './earlyAccess';
@@ -97,6 +97,40 @@ describe('API access is gated the same way in both places', () => {
       'Settings > API is gated on a different plan list than the endpoint ' +
       'enforces, so the tab either offers a key the API will refuse or hides ' +
       'one it would accept.').toEqual(clientAllows);
+  });
+});
+
+describe('team invites are offered on the plans the endpoint accepts', () => {
+  it('the workspace invite refuses exactly NO_TEAM_PLANS', () => {
+    const fn = readFileSync(resolve(__dirname, '../../functions/index.js'), 'utf8');
+    const invite = fn.slice(fn.indexOf("if (action === 'invite')"), fn.indexOf("if (action === 'members')"));
+    const m = /if \((\[[^\]]*\])\.includes\(plan\)/.exec(invite);
+    expect(m, 'the invite plan check moved').toBeTruthy();
+    expect(JSON.parse(m[1].replace(/'/g, '"')).sort()).toEqual([...NO_TEAM_PLANS].sort());
+    expect(canInviteTeam({ plan: 'trial', trial_started_at: Date.now() })).toBe(false);
+    expect(canInviteTeam({ plan: 'hr_finance' })).toBe(true);
+  });
+
+  it('the getting-started step and the Team tab ask before offering it', () => {
+    expect(readFileSync(resolve(__dirname, '../pages/DashboardPage.jsx'), 'utf8'))
+      .toMatch(/\.\.\.\(canInviteTeam\(db\?\.user\) \? \[\{\s*id: 'invite_team'/);
+    const team = readFileSync(resolve(__dirname, '../pages/settings/TeamTab.jsx'), 'utf8');
+    expect(team).toMatch(/disabled=\{!allowed \|\| busy/);
+    expect(team).toMatch(/toast\.error\(inviteError\(err\?\.message\)\)/);
+  });
+});
+
+describe('the bank connection is offered on the plans the endpoint accepts', () => {
+  it('bankfeed checks API_PLANS, and the Budget tab offers it on the api module', () => {
+    const fn = readFileSync(resolve(__dirname, '../../functions/index.js'), 'utf8');
+    const bank = fn.slice(fn.indexOf('exports.bankfeed'), fn.indexOf("const reqRef = db.collection('bank_requisitions')"));
+    expect(bank).toMatch(/!API_PLANS\.has\(plan\)/);
+    // The button used to show on every plan with Finance, and HR & Finance and
+    // Pro got a 403 from the endpoint after clicking it.
+    const tab = readFileSync(resolve(__dirname, '../pages/finance/BudgetTab.jsx'), 'utf8');
+    expect(tab).toMatch(/const bankAllowed = ownInbox && hasModule\(db\?\.user, 'api'\);/);
+    expect(tab).toMatch(/\{bankAllowed \? \(\s*<button onClick=\{bank\.connected \? runBankSync : startBankConnect\}/);
+    expect(tab).toMatch(/if \(!bankAllowed\) return undefined;\s*let alive = true;\s*bankStatus\(\)/);
   });
 });
 

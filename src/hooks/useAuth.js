@@ -151,12 +151,21 @@ export function useAuth() {
                               || cur.user?.displayName || '',
           photoURL:           fbUser.photoURL,
           uid:                fbUser.uid,
-          plan:               effectivePlan,
-          stripe_customer_id: stripeCustomerId,
-          subscription_status: subscriptionStatus,
-          is_founder:         isFounder,
-          trial_started_at:   trialStartedAt,
-          plan_grant_until:   planGrantUntil,
+          // In a workspace a colleague shared, the plan is the owner's: they
+          // pay for the modules it opens, and the workspace `read` sent their
+          // effective plan. Writing the member's own plan over it changed what
+          // the same workspace showed after a reload (a free member lost the
+          // Pro owner's Finance tabs; a Pro member opened a free owner's). A
+          // client workspace runs on the agency's plan, which is the signed-in
+          // person's own, so it is refreshed like any other.
+          ...(cur._shared_view && !cur.user?.is_client_org ? {} : {
+            plan:               effectivePlan,
+            stripe_customer_id: stripeCustomerId,
+            subscription_status: subscriptionStatus,
+            is_founder:         isFounder,
+            trial_started_at:   trialStartedAt,
+            plan_grant_until:   planGrantUntil,
+          }),
         };
         // Bookkeeping, not an edit: every field patched above came from
         // Firebase Auth or the /users document, is re-derived on the next load,

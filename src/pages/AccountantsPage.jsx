@@ -146,9 +146,14 @@ function EarlyAccess({ t }) {
               <select value={form.clients} onChange={set('clients')} className={field}>
                 <option value="">—</option>
                 <option value="<20">{t('ea_form_clients_1')}</option>
-                <option value="20-100">{t('ea_form_clients_2')}</option>
-                <option value=">100">{t('ea_form_clients_3')}</option>
+                {/* The buckets end at the plan's cap: a firm told nothing
+                    about it when ticking "more than 100" would find out after. */}
+                <option value={`20-${CLIENT_WORKSPACE_LIMIT}`}>{t('ea_form_clients_2').replace('{limit}', CLIENT_WORKSPACE_LIMIT)}</option>
+                <option value={`>${CLIENT_WORKSPACE_LIMIT}`}>{t('ea_form_clients_3').replace('{limit}', CLIENT_WORKSPACE_LIMIT)}</option>
               </select>
+              {form.clients === `>${CLIENT_WORKSPACE_LIMIT}` && (
+                <span className="mt-1 block text-xs text-amber-300" data-testid="ea-over-cap">{t('ea_form_clients_over').replace('{limit}', CLIENT_WORKSPACE_LIMIT)}</span>
+              )}
             </label>
             <label className={label + ' sm:col-span-2'}>{t('ea_form_role')}
               <select value={form.role} onChange={set('role')} className={field}>

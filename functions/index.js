@@ -2111,7 +2111,10 @@ exports.dailyAlerts = onSchedule({
 
     // 2) Department budgets crossing 80% / 100% consumption (once each per year).
     const year = now.getFullYear();
-    const budgets = (data.budgets || []).filter(b => b.year === year && b.annual > 0);
+    // Each kind has its own switch in Settings → Notifications
+    // (NOTIFICATION_SWITCHES in src/pages/settings/NotificationsTab.jsx).
+    const budgets = data?.user?.budget_alerts === false ? []
+      : (data.budgets || []).filter(b => b.year === year && b.annual > 0);
     if (budgets.length) {
       const byDeptMonthly = allocSpendByDept(data);
       const spent = spentToDateByDept(data, byDeptMonthly, now);
@@ -2136,7 +2139,7 @@ exports.dailyAlerts = onSchedule({
     const inactive = (data.employees || []).filter(e => e.status && e.status !== 'active');
     const inactiveById = Object.fromEntries(inactive.map(e => [e.id, e]));
     const flagged = new Set();
-    (data.access || []).forEach(a => {
+    (data?.user?.access_alerts === false ? [] : (data.access || [])).forEach(a => {
       const emp = inactiveById[a.employee_id];
       if (!emp || a.status === 'revoked' || flagged.has(emp.id)) return;
       const key = `exaccess_${emp.id}`;

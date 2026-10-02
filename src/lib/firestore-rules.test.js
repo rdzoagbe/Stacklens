@@ -253,6 +253,15 @@ describe('/legal_acceptances — you can only accept as yourself', () => {
     }));
   });
 
+  it('the record cannot carry an email: it outlives the account', async () => {
+    await assertFails(setDoc(doc(asAlice(), 'legal_acceptances', 'a4'), {
+      uid: ALICE, email: 'alice@example.com', documents: ['terms'], accepted_at: serverTimestamp(),
+    }));
+    await assertSucceeds(setDoc(doc(asAlice(), 'legal_acceptances', 'a5'), {
+      uid: ALICE, documents: ['terms'], plan_id: 'pro', accepted_at: serverTimestamp(),
+    }));
+  });
+
   it('an anonymous visitor cannot record an acceptance', async () => {
     await assertFails(setDoc(doc(asAnon(), 'legal_acceptances', 'a3'), {
       uid: ALICE, documents: ['terms'], accepted_at: serverTimestamp(),

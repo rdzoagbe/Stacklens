@@ -64,3 +64,16 @@ describe('the Data tab bulk deletes', () => {
     }
   });
 });
+
+describe('signing in again inside a shared workspace', () => {
+  it('keeps the owner’s plan for a colleague’s workspace, refreshes the agency’s own for a client one', () => {
+    const auth = readFileSync(resolve(process.cwd(), 'src/hooks/useAuth.js'), 'utf8');
+    const patch = auth.slice(auth.indexOf('cur.user = {\n          ...cur.user,\n          is_authenticated:   true'), auth.indexOf('saveDb(cur, { cloudSync: false });'));
+    expect(patch).toMatch(/\.\.\.\(cur\._shared_view && !cur\.user\?\.is_client_org \? \{\} : \{\s*plan:\s+effectivePlan,/);
+    // Every plan field is inside that condition, none before it.
+    const before = patch.slice(0, patch.indexOf('...(cur._shared_view'));
+    for (const field of ['plan:', 'stripe_customer_id:', 'subscription_status:', 'is_founder:', 'trial_started_at:', 'plan_grant_until:']) {
+      expect(before, field).not.toContain(field);
+    }
+  });
+});

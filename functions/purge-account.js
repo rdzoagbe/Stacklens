@@ -75,8 +75,10 @@ const RETAINED = {
   // They carry no uid.
   consent_logs: 'CNIL: 3-year audit trail, not keyed to the account',
   // Evidence that this account accepted the Terms and DPA. French law expects
-  // contract evidence to survive the contract; the row is a uid, a list of
-  // document versions and a timestamp, which after deletion identifies nobody.
+  // contract evidence to survive the contract; the row is a uid, the names of
+  // the documents accepted, the plan and a timestamp — no email
+  // (firestore.rules allows nothing else) — which after deletion identifies
+  // nobody.
   legal_acceptances: 'contract evidence, required after termination',
   // Uncaught client errors. No uid is recorded, and the collection self-prunes
   // past 300 rows.

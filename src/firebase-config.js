@@ -722,18 +722,20 @@ export async function logConsent({ choice, version, userAgent, language }) {
 // LEGAL ACCEPTANCE LOG — GDPR/LCEN audit trail
 // Writes to /legal_acceptances/{uid}_{ts} — best-effort, never blocks UI.
 // ============================================================================
-export async function logLegalAcceptance(uid, email, planId) {
+// The row is kept after the account is deleted (functions/purge-account.js,
+// RETAINED), so it holds nothing that names the person: no email, only the
+// uid, which after deletion leads nowhere. firestore.rules allows these
+// fields and no others.
+export async function logLegalAcceptance(uid, planId) {
   if (!firestoreDb) return;
   try {
     await setDoc(
       doc(firestoreDb, 'legal_acceptances', `${uid}_${Date.now()}`),
       {
         uid,
-        email: email || '',
         accepted_at: serverTimestamp(),
         documents: ['terms', 'privacy', 'dpa'],
-        plan_id: planId,
-        ip_hint: 'client',
+        plan_id: String(planId || ''),
       }
     );
   } catch { /* best-effort — never block checkout */ }

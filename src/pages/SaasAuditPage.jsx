@@ -11,7 +11,7 @@ import { useTranslation } from '../translations';
 import { PublicNav } from '../components/PublicNav';
 import { EARLY_ACCESS } from '../lib/earlyAccess';
 import { loadFirmName, saveFirmName, forgetFirmName } from '../lib/auditPrefs';
-import { saveHandoff, HANDOFF_TTL_HOURS } from '../lib/auditHandoff';
+import { saveHandoff, HANDOFF_TTL_HOURS, HANDOFF_MAX_LINES } from '../lib/auditHandoff';
 import { track } from '../lib/analytics';
 import {
   decodeBankFile, parseBankExport, auditSaas, reportToCsv, sampleBankExport,
@@ -747,10 +747,10 @@ function Report({ report, symbol, t, onReset, language, skipped, dateOrder, onFl
       {report.subscriptions.length > 0 && !clientName && (
         <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-6 md:p-8" data-testid="audit-handoff">
           <h3 className="text-xl md:text-2xl font-bold mb-2">{t('audit_handoff_title')}</h3>
-          <p className="text-slate-300 mb-5 max-w-xl">{fill(t('audit_handoff_body'), { n: report.subscriptions.length })}</p>
+          <p className="text-slate-300 mb-5 max-w-xl">{fill(t('audit_handoff_body'), { n: Math.min(report.subscriptions.length, HANDOFF_MAX_LINES) })}</p>
           <button onClick={startWorkspace}
             className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-semibold text-sm transition-colors">
-            {fill(t('audit_handoff_btn'), { n: report.subscriptions.length })} <ArrowRight className="w-4 h-4" />
+            {fill(t('audit_handoff_btn'), { n: Math.min(report.subscriptions.length, HANDOFF_MAX_LINES) })} <ArrowRight className="w-4 h-4" />
           </button>
           <p className="text-xs text-slate-500 mt-3 max-w-2xl">{fill(t('audit_handoff_fine'), { hours: HANDOFF_TTL_HOURS })}</p>
         </div>
