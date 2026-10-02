@@ -13,6 +13,8 @@ vi.mock('../hooks/useAuth', () => ({ useAuth: () => ({ login: vi.fn(), startDemo
 vi.mock('../components/AppShell', () => ({ LangSelectorCompact: () => null, _openCookieBanner: vi.fn() }));
 
 import { TrialPage } from './TrialPage';
+import { LanguageProvider } from '../contexts/LangContext';
+import { translations } from '../translations';
 
 // ── "?signup=true" opens the account form ──────────────────────────────────
 //
@@ -24,13 +26,13 @@ import { TrialPage } from './TrialPage';
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 let root;
 
-async function open(search) {
-  localStorage.setItem('language', 'en');
+async function open(search, lang = 'en') {
+  localStorage.setItem('language', lang);
   window.history.pushState({}, '', `/${search}`);
   const host = document.createElement('div');
   document.body.appendChild(host);
   root = createRoot(host);
-  await act(async () => { root.render(<MemoryRouter><TrialPage /></MemoryRouter>); });
+  await act(async () => { root.render(<LanguageProvider><MemoryRouter><TrialPage /></MemoryRouter></LanguageProvider>); });
 }
 const tab = (label) => [...document.querySelectorAll('button')].find((b) => b.textContent.trim() === label);
 
@@ -47,5 +49,41 @@ describe('the sign-up link', () => {
   it('the plain home page opens nothing', async () => {
     await open('');
     expect(tab('Create Account')).toBeFalsy();
+  });
+});
+
+describe('the account forms, in French', () => {
+  const fr = translations.fr;
+  const labelsPointAtFields = () => {
+    const labels = [...document.querySelectorAll('label')].filter((l) => !l.querySelector('input'));
+    expect(labels.length).toBeGreaterThan(1);
+    for (const l of labels) {
+      const id = l.getAttribute('for');
+      expect(id, `label "${l.textContent}" names no field`).toBeTruthy();
+      expect(document.getElementById(id), `label "${l.textContent}" points at nothing`).toBeTruthy();
+    }
+  };
+
+  it('sign-up: every label names its field, and nothing is left in English', async () => {
+    await open('?signup=true', 'fr');
+    labelsPointAtFields();
+    const placeholders = [...document.querySelectorAll('input')].map((i) => i.placeholder);
+    expect(placeholders).not.toContain('Jane Smith');
+    expect(placeholders).not.toContain('you@company.com');
+    const links = [...document.querySelectorAll('a')].map((a) => a.textContent.trim());
+    expect(links).toContain(fr.footer_terms);
+    expect(links).not.toContain('Terms');
+  });
+
+  it('sign-in: the same', async () => {
+    await open('?signup=true', 'fr');
+    // The nav has its own "Se connecter" buttons; the tab is the last one.
+    const signinTab = [...document.querySelectorAll('button')].filter((b) => b.textContent.trim() === fr.lp_auth_signin_tab).at(-1);
+    await act(async () => { signinTab.click(); });
+    expect(document.getElementById('signin-email')).toBeTruthy();
+    labelsPointAtFields();
+    const spans = [...document.querySelectorAll('span')].map((x) => x.textContent.trim());
+    expect(spans).toContain(fr.lp_or);
+    expect(spans).not.toContain('or');
   });
 });

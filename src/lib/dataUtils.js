@@ -2,7 +2,7 @@ import { differenceInDays } from 'date-fns';
 import toast from 'react-hot-toast';
 import { Boxes, UserMinus, GitMerge, Download } from 'lucide-react';
 import { safeParseISO } from './db';
-import { getCurrency } from './currency';
+import { formatMoney } from './currency';
 import { monthlySpend } from './waste';
 
 // ── Tool/access derived-state computations ─────────────────────────────────
@@ -131,7 +131,7 @@ export function buildRiskAlerts(db, t) {
     id: 'spend_watch', severity: 'medium',
     title: tr('alert_spend_title', 'Monthly spend exceeds threshold'),
     body: tr('alert_spend_body', 'Current tool spend is {amount} / month.')
-      .replace('{amount}', `${getCurrency(localStorage.getItem('language') || 'en')}${Math.round(spend)}`),
+      .replace('{amount}', formatMoney(spend)),
     action: { label: tr('alert_spend_action', 'Tools'), to: '/tools', icon: Boxes },
   });
 

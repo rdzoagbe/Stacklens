@@ -29,3 +29,35 @@ describe('the close button', () => {
     expect(await openIn(lang)).toContain(label);
   });
 });
+
+describe('a dialog to the keyboard and to screen readers', () => {
+  async function openWith(onClose) {
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    root = createRoot(host);
+    await act(async () => {
+      root.render(<LanguageProvider><Modal open title="Supprimer l’outil" onClose={onClose}>x</Modal></LanguageProvider>);
+    });
+    return document.querySelector('[role="dialog"]');
+  }
+
+  it('is a modal dialog named by its title, and takes the focus', async () => {
+    const dialog = await openWith(() => {});
+    expect(dialog.getAttribute('aria-modal')).toBe('true');
+    expect(document.getElementById(dialog.getAttribute('aria-labelledby')).textContent).toBe('Supprimer l’outil');
+    expect(document.activeElement).toBe(dialog);
+  });
+
+  it('closes on Escape', async () => {
+    let closed = 0;
+    await openWith(() => { closed += 1; });
+    await act(async () => { document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape' })); });
+    expect(closed).toBe(1);
+  });
+
+  it('a dialog without a close action ignores Escape', async () => {
+    await openWith(undefined);
+    await act(async () => { document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape' })); });
+    expect(document.querySelector('[role="dialog"]')).toBeTruthy();
+  });
+});

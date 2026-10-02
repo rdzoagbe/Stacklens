@@ -12,6 +12,8 @@ import { PublicNav } from '../components/PublicNav';
 import { EARLY_ACCESS } from '../lib/earlyAccess';
 import { loadFirmName, saveFirmName, forgetFirmName } from '../lib/auditPrefs';
 import { saveHandoff, HANDOFF_TTL_HOURS, HANDOFF_MAX_LINES } from '../lib/auditHandoff';
+import { auditCategoryLabel } from '../lib/auditCategories';
+import { formatInSymbol } from '../lib/currency';
 import { track } from '../lib/analytics';
 import {
   decodeBankFile, parseBankExport, auditSaas, reportToCsv, sampleBankExport,
@@ -290,7 +292,7 @@ function PortfolioView({ portfolio, t, language, onClose, onOpen, onBack, onRena
   const [renaming, setRenaming] = useState(null);
   const [sort, setSort] = useState('monthly');
   const sorted = useMemo(() => [...rows].sort((a, b) => (sort === 'flagged' ? b.flagged - a.flagged : 0) || b.monthly - a.monthly), [rows, sort]);
-  const money = (n, sym = '€') => sym + Math.round(Number(n) || 0).toLocaleString(language);
+  const money = (n, sym = '€') => formatInSymbol(n, sym, language);
 
   if (active != null && clients[active]) {
     return <PortfolioClient client={clients[active]} index={active} t={t} language={language} onBack={onBack}
@@ -482,7 +484,7 @@ function RenameField({ initial, t, onSave, onCancel }) {
 }
 
 function Report({ report, symbol, t, onReset, language, skipped, dateOrder, onFlipDateOrder, verdicts, setVerdict, format, entries, clientName = '', resetLabel }) {
-  const money = useCallback((n) => symbol + Number(n ?? 0).toLocaleString(language, { minimumFractionDigits: 0, maximumFractionDigits: 0 }), [symbol, language]);
+  const money = useCallback((n) => formatInSymbol(n ?? 0, symbol, language), [symbol, language]);
   const date = (d) => d instanceof Date ? d.toLocaleDateString(language, { day: 'numeric', month: 'short', year: 'numeric' }) : '';
   const f = report.findings;
   const flagged = f.duplicates.length + f.multiPerMonth.length + f.priceIncreases.length + f.upcomingAnnual.length + f.forgotten.length;
@@ -654,7 +656,7 @@ function Report({ report, symbol, t, onReset, language, skipped, dateOrder, onFl
                       ) : (
                         <>
                           <div className={`font-medium ${out ? 'line-through text-slate-500' : ''}`}>{s.vendor}</div>
-                          <div className="text-[11px] text-slate-500">{s.category} · {s.key}{s.account ? ` · ${t('audit_fec_account')} ${s.account}` : ''}</div>
+                          <div className="text-[11px] text-slate-500">{auditCategoryLabel(s.category, language)} · {s.key}{s.account ? ` · ${t('audit_fec_account')} ${s.account}` : ''}</div>
                         </>
                       )}
                     </td>

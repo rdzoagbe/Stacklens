@@ -41,13 +41,13 @@ function FloatingChatbot() {
     try {
       const data = await callAI({
         messages: newMessages.map(m => ({ role: m.role, content: m.content })),
-        system: `You are a helpful support assistant for Stacklens, a SaaS management platform. Be concise, friendly, and helpful. Answer questions about SaaS management, security, cost optimisation, and how to use Stacklens features.`,
+        system: `You are a helpful support assistant for Stacklens, a SaaS management platform. Be concise, friendly, and helpful. Answer questions about SaaS management, security, cost optimisation, and how to use Stacklens features. Reply in the language the user writes in.`,
         max_tokens: 1000,
       });
-      const reply = data.content?.[0]?.text || 'Sorry, I could not respond right now.';
+      const reply = data.content?.[0]?.text || t('chatbot_no_reply');
       setMessages(prev => [...prev, { role: 'assistant', content: reply }]);
     } catch {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Connection error. Please try again or email hello@stacklens.fr' }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: t('chatbot_conn_error') }]);
     } finally { setLoading(false); }
   };
 
@@ -63,11 +63,12 @@ function FloatingChatbot() {
               <div>
                 <div className="text-white font-bold text-sm">{t('chatbot_title')}</div>
                 <div className="text-blue-200 text-xs flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" /> Online
+                  {/* Said "Online", as if a person were there. It is an AI, and says so. */}
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" /> {t('chatbot_ai_label')}
                 </div>
               </div>
             </div>
-            <button onClick={() => setOpen(false)} className="text-white/70 hover:text-white transition-colors text-xl leading-none">&times;</button>
+            <button onClick={() => setOpen(false)} aria-label={t('close')} className="text-white/70 hover:text-white transition-colors text-xl leading-none">&times;</button>
           </div>
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
             {messages.map((m, i) => (
@@ -98,7 +99,7 @@ function FloatingChatbot() {
               placeholder={t('chatbot_placeholder')}
               className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
             />
-            <button onClick={send} disabled={!input.trim() || loading}
+            <button onClick={send} disabled={!input.trim() || loading} aria-label={t('chatbot_send')}
               className="px-3 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white rounded-xl transition-colors">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
@@ -107,7 +108,7 @@ function FloatingChatbot() {
           </div>
         </div>
       )}
-      <button onClick={() => setOpen(o => !o)}
+      <button onClick={() => setOpen(o => !o)} aria-label={open ? t('close') : t('chatbot_title')} aria-expanded={open}
         className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 hover:from-blue-400 hover:to-blue-600 shadow-lg shadow-blue-900/40 flex items-center justify-center transition-all hover:scale-105 active:scale-95">
         {open
           ? <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>

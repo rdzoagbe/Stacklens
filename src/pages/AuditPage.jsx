@@ -426,9 +426,9 @@ export function AuditExportPage() {
             <CardBody>
               <div className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-3">{t('aud_spend')}</div>
               <div className="space-y-2 text-sm">
-                <div className="flex justify-between"><span className="text-slate-400">{t('monthly_total')}</span><span className="font-bold text-white">{derived ? formatMoney(derived.spend, null, language) : "—"}</span></div>
-                <div className="flex justify-between"><span className="text-slate-400">{t('annual_projection')}</span><span className="font-bold text-blue-400">{derived ? formatMoney(derived.spend * 12, null, language) : "—"}</span></div>
-                <div className="flex justify-between"><span className="text-slate-400">{t('avg_per_tool')}</span><span className="font-bold text-slate-300">{derived && derived.tools.length ? formatMoney(derived.spend / derived.tools.length, null, language) : "—"}</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">{t('monthly_total')}</span><span className="font-bold text-white">{derived ? formatMoney(derived.spend, language) : "—"}</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">{t('annual_projection')}</span><span className="font-bold text-blue-400">{derived ? formatMoney(derived.spend * 12, language) : "—"}</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">{t('avg_per_tool')}</span><span className="font-bold text-slate-300">{derived && derived.tools.length ? formatMoney(derived.spend / derived.tools.length, language) : "—"}</span></div>
               </div>
             </CardBody>
           </Card>
@@ -509,7 +509,7 @@ export function AuditExportPage() {
                   derived.highRiskCount > 0 && { icon: "🔴", title: t('aud_high_risk_tools'), text: t('aud_high_risk_text').replace('{count}', derived.highRiskCount), ok: false },
                   derived.formerEmpAccess > 0 && { icon: "🚨", title: t('aud_former_access'), text: t('aud_former_access_text').replace('{count}', derived.formerEmpAccess), ok: false },
                   derived.formerEmpAccess === 0 && { icon: "✅", title: t('aud_no_ghost'), text: t('aud_no_ghost_text'), ok: true },
-                  { icon: "💰", title: t('aud_monthly_spend'), text: t('aud_spend_text').replace('{monthly}', formatMoney(derived.spend, null, language)).replace('{annual}', formatMoney(derived.spend * 12, null, language)), ok: true },
+                  { icon: "💰", title: t('aud_monthly_spend'), text: t('aud_spend_text').replace('{monthly}', formatMoney(derived.spend, language)).replace('{annual}', formatMoney(derived.spend * 12, language)), ok: true },
                 ].filter(Boolean).map((item) => (
                   <div key={item.title} className={cx(
                     "rounded-xl border p-4 text-sm",

@@ -3,7 +3,7 @@ import { FileWarning, Check } from 'lucide-react';
 import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
 import { useDbQuery, useDbMutations } from '../hooks/useDbQuery';
-import { getCurrency, displayAmount } from '../lib/currency';
+import { formatMoney } from '../lib/currency';
 import { checkInvoices, invoiceCheckSummary, vendorMatchesTool } from '../lib/invoiceCheck';
 import { RoleGate } from './gates';
 
@@ -52,9 +52,9 @@ export function InvoiceCheckPanel() {
   }, [db]);
 
   const records = db?.invoice_records || [];
-  const money = (n) => getCurrency(language) + Math.round(displayAmount(n || 0)).toLocaleString(language);
-  // Invoice lines are compared to the cent, so they are shown to the cent (displayAmount rounds to the euro).
-  const money2 = (n) => getCurrency(language) + (Number(n) || 0).toLocaleString(language, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  const money = (n) => formatMoney(n || 0, language);
+  // Invoice lines are compared to the cent, so they are shown to the cent.
+  const money2 = (n) => formatMoney(n, language, { decimals: Number.isInteger(Number(n)) ? 0 : 2 });
   const date = (d) => (d ? new Date(d).toLocaleDateString(language, { day: 'numeric', month: 'short', year: 'numeric' }) : '—');
   const fill = (key, vars) => Object.entries(vars).reduce((s, [k, v]) => s.replaceAll(`{${k}}`, String(v)), t(key));
   const toolById = (id) => (db?.tools || []).find((x) => x.id === id);

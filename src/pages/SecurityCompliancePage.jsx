@@ -64,7 +64,7 @@ function SecurityTabContent() {
   const mfaCoverage = mfa ? mfa.percent : null;
   const securityScore = computeSecurityScore({ orphanedTools, highRiskTools, formerAccess });
   const scoreColor = securityScore >= 80 ? '#10b981' : securityScore >= 60 ? '#f59e0b' : '#ef4444';
-  const scoreLabel = securityScore >= 80 ? 'Good' : securityScore >= 60 ? 'Needs Work' : 'Critical';
+  const scoreLabel = securityScore >= 80 ? t('sec_score_good') : securityScore >= 60 ? t('sec_score_work') : t('sec_score_critical');
 
   const alerts = buildRiskAlerts({ tools, access, employees }, t);
   const criticalAlerts = alerts.filter(a => a.severity === 'critical');
@@ -164,12 +164,12 @@ function SecurityTabContent() {
         <div className="flex items-center justify-between mb-5">
           <div>
             <h2 className="text-base font-semibold text-white">{t('security_alerts') || 'Security Alerts'}</h2>
-            <p className="text-sm text-slate-500">{alerts.length} active alerts across your SaaS stack</p>
+            <p className="text-sm text-slate-500">{t('sec_n_alerts').replace('{n}', alerts.length)}</p>
           </div>
           <div className="flex items-center gap-2">
-            {criticalAlerts.length > 0 && <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-red-500/20 text-red-400 border border-red-500/30">{criticalAlerts.length} critical</span>}
-            {highAlerts.length > 0 && <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">{highAlerts.length} high</span>}
-            {mediumAlerts.length > 0 && <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30">{mediumAlerts.length} medium</span>}
+            {criticalAlerts.length > 0 && <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-red-500/20 text-red-400 border border-red-500/30">{criticalAlerts.length} {t('badge_critical').toLowerCase()}</span>}
+            {highAlerts.length > 0 && <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">{highAlerts.length} {t('badge_high').toLowerCase()}</span>}
+            {mediumAlerts.length > 0 && <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30">{mediumAlerts.length} {t('badge_medium').toLowerCase()}</span>}
           </div>
         </div>
 
@@ -207,7 +207,7 @@ function SecurityTabContent() {
                       <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${
                         tone === 'red' ? 'bg-red-500/20 text-red-400' :
                         tone === 'amber' ? 'bg-amber-500/20 text-amber-400' : 'bg-blue-500/20 text-blue-400'
-                      }`}>{alert.severity}</span>
+                      }`}>{({ critical: t('badge_critical'), high: t('badge_high'), medium: t('badge_medium') })[alert.severity] || alert.severity}</span>
                     </div>
                     <div className="text-sm text-slate-400">{alert.body || alert.description}</div>
                   </div>
@@ -231,10 +231,10 @@ function SecurityTabContent() {
           <h2 className="text-base font-semibold text-white mb-4">{t("security_compliance")}</h2>
           <div className="space-y-3">
             {[
-              { name: 'GDPR', status: 'compliant', desc: 'General Data Protection Regulation' },
-              { name: 'SOC 2 Type II', status: 'review', desc: 'On our roadmap — not yet certified' },
-              { name: 'ISO 27001', status: 'review', desc: 'On our roadmap — not yet certified' },
-              { name: 'HIPAA', status: 'non-compliant', desc: 'Not supported' },
+              { name: 'GDPR', status: 'compliant', desc: t('sec_gdpr_desc') },
+              { name: 'SOC 2 Type II', status: 'review', desc: t('sec_roadmap_cert') },
+              { name: 'ISO 27001', status: 'review', desc: t('sec_roadmap_cert') },
+              { name: 'HIPAA', status: 'non-compliant', desc: t('sec_not_supported') },
             ].map((c) => (
               <div key={c.name} className="flex items-center justify-between p-3.5 rounded-xl border border-slate-800 bg-slate-950/30">
                 <div>

@@ -15,7 +15,7 @@ import { computeWaste, activeGrantsByTool } from './waste';
 const escHtml = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 export function generateAuditReportHTML(derived, language, t) {
-  const fm = (n) => formatMoney(n, null, language);
+  const fm = (n) => formatMoney(n, language);
   // The report is a standalone document — its language must follow the app's,
   // including the lang attribute and the date format.
   const localeTag = { en: 'en-GB', fr: 'fr-FR', de: 'de-DE', es: 'es-ES', pt: 'pt-PT' }[language] || 'en-GB';
@@ -247,14 +247,14 @@ export function generateAuditReportHTML(derived, language, t) {
     </tbody>
   </table>` : ''}
 
-  <h2>Recommendations</h2>
+  <h2>${t('rep_recs_title')}</h2>
   <ol style="padding-left:20px;color:#334155;font-size:14px;line-height:1.8">
-    ${derived.formerEmpAccess > 0 ? `<li><strong>Revoke ${derived.formerEmpAccess} former employee access records</strong> — Critical security risk. Former employees with active permissions can access company data.</li>` : ''}
-    ${highRiskTools.length > 0 ? `<li><strong>Address ${highRiskTools.length} high-risk tools</strong> — Assign owners to orphaned tools and review unused subscriptions.</li>` : ''}
-    ${unusedTools.length > 0 ? `<li><strong>Review ${unusedTools.length} unowned or long-unused tools</strong> — ${recoverableIds.size > 0 ? `${recoverableIds.size} of them have nobody holding access and can be cancelled for ${fm(annualSavings)}/year.` : 'all of them still have people holding access, so the action is to assign an owner or confirm the tool is still needed, not to cancel.'}</li>` : ''}
-    ${derived.tools.filter(t => !t.mfa_enabled && !t.mfa_required).length > 0 ? `<li><strong>Enable MFA on ${derived.tools.filter(t => !t.mfa_enabled && !t.mfa_required).length} tools</strong> — Multi-factor authentication should be required for all business-critical applications.</li>` : ''}
-    <li><strong>Schedule quarterly access reviews</strong> — Regular reviews prevent permission creep and ensure least-privilege access.</li>
-    <li><strong>Consolidate overlapping tools</strong> — Review tools in the same category for consolidation opportunities.</li>
+    ${derived.formerEmpAccess > 0 ? `<li><strong>${t('rep_rec_former').replace('{n}', derived.formerEmpAccess)}</strong> — ${t('rep_rec_former_why')}</li>` : ''}
+    ${highRiskTools.length > 0 ? `<li><strong>${t('rep_rec_risk').replace('{n}', highRiskTools.length)}</strong> — ${t('rep_rec_risk_why')}</li>` : ''}
+    ${unusedTools.length > 0 ? `<li><strong>${t('rep_rec_unused').replace('{n}', unusedTools.length)}</strong> — ${recoverableIds.size > 0 ? t('rep_rec_unused_cancel').replace('{n}', recoverableIds.size).replace('{amount}', fm(annualSavings)) : t('rep_rec_unused_keep')}</li>` : ''}
+    ${derived.tools.filter(t => !t.mfa_enabled && !t.mfa_required).length > 0 ? `<li><strong>${t('rep_rec_mfa').replace('{n}', derived.tools.filter(x => !x.mfa_enabled && !x.mfa_required).length)}</strong> — ${t('rep_rec_mfa_why')}</li>` : ''}
+    <li><strong>${t('rep_rec_reviews')}</strong> — ${t('rep_rec_reviews_why')}</li>
+    <li><strong>${t('rep_rec_consolidate')}</strong> — ${t('rep_rec_consolidate_why')}</li>
   </ol>
 
   <div class="footer">

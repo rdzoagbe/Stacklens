@@ -3,11 +3,8 @@ import {
   AlertTriangle, Boxes,
   Check, Sparkles, Target, TrendingDown,
 } from 'lucide-react';
-import {
-  displayAmount,
-  getCurrency,
-} from '../../lib/dataUtils';
-import { enrichToolCosts } from '../../lib/waste';
+import { formatMoney } from '../../lib/dataUtils';
+import { enrichToolCosts, EXPENSIVE_PER_USER } from '../../lib/waste';
 import { useDbQuery } from '../../hooks/useDbQuery';
 import { useLang } from '../../contexts/LangContext';
 import { useTranslation } from '../../translations';
@@ -15,6 +12,7 @@ import { useTranslation } from '../../translations';
 export function CostTabContent({ setFinTab }) {
   const { language } = useLang();
   const t = useTranslation(language);
+  const money = (n) => formatMoney(n, language);
   const { data: db } = useDbQuery();
   const [sortBy, setSortBy] = useState('cost');
   const [filter, setFilter] = useState('all');
@@ -65,20 +63,20 @@ export function CostTabContent({ setFinTab }) {
             <span className="text-xs font-semibold uppercase tracking-wider text-emerald-400">{t("cost_potential_savings")}</span>
           </div>
           <div className="flex items-baseline gap-3 mb-3">
-            <span className="text-5xl font-black text-emerald-400">{getCurrency(language)}{displayAmount(potentialSavings).toLocaleString()}</span>
-            <span className="text-base text-slate-500">/ month</span>
+            <span className="text-5xl font-black text-emerald-400">{money(potentialSavings)}</span>
+            <span className="text-base text-slate-500">{t('per_month')}</span>
           </div>
           <div className="text-sm text-slate-400 mb-4">
-            {getCurrency(language)}{displayAmount(potentialSavings * 12).toLocaleString()}/year on tools with no active users
+            {t('cost_year_unused').replace('{amount}', money(potentialSavings * 12))}
           </div>
           <div className="flex flex-wrap gap-2">
             <button onClick={() => setFinTab && setFinTab('licenses')}
               className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-semibold text-sm text-white transition-colors">
-              Reclaim Licenses →
+              {t('cost_reclaim')} →
             </button>
             <button onClick={() => setFilter('waste')}
               className="px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-xl font-semibold text-sm text-slate-300 transition-colors">
-              View Waste ({wasteTools.length})
+              {t('cost_view_waste').replace('{n}', wasteTools.length)}
             </button>
           </div>
         </div>
@@ -86,8 +84,8 @@ export function CostTabContent({ setFinTab }) {
         {/* Total spend snapshot */}
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
           <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t("cost_total_monthly")}</div>
-          <div className="text-3xl font-black text-white mb-1">{getCurrency(language)}{displayAmount(Math.round(totalSpend)).toLocaleString()}</div>
-          <div className="text-sm text-slate-500 mb-4">{enriched.length} active tools</div>
+          <div className="text-3xl font-black text-white mb-1">{money(Math.round(totalSpend))}</div>
+          <div className="text-sm text-slate-500 mb-4">{t('cost_active_tools').replace('{n}', enriched.length)}</div>
           
           {/* Waste breakdown bar */}
           <div className="mb-2 flex items-center justify-between">
@@ -100,7 +98,7 @@ export function CostTabContent({ setFinTab }) {
           <div className="flex items-center justify-between text-xs">
             <span className="text-slate-500">{t('st_wasted')}</span>
             <span className={"font-semibold " + (wastePercent > 20 ? "text-red-400" : wastePercent > 10 ? "text-amber-400" : "text-emerald-400")}>
-              {wastePercent}% ({getCurrency(language)}{displayAmount(Math.round(wasteAmount)).toLocaleString()})
+              {wastePercent}% ({money(Math.round(wasteAmount))})
             </span>
           </div>
         </div>
@@ -114,7 +112,7 @@ export function CostTabContent({ setFinTab }) {
             <Boxes className="h-4 w-4 text-amber-400" />
           </div>
           <div className="text-3xl font-black text-amber-400">{unusedTools.length}</div>
-          <div className="text-sm text-slate-500 mt-1">{getCurrency(language)}{displayAmount(Math.round(unusedAmount)).toLocaleString()}/mo wasted</div>
+          <div className="text-sm text-slate-500 mt-1">{t('cost_mo_wasted').replace('{amount}', money(Math.round(unusedAmount)))}</div>
         </div>
         
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-red-500">
@@ -123,7 +121,7 @@ export function CostTabContent({ setFinTab }) {
             <TrendingDown className="h-4 w-4 text-red-400" />
           </div>
           <div className="text-3xl font-black text-red-400">{expensiveTools.length}</div>
-          <div className="text-sm text-slate-500 mt-1">{getCurrency(language)}{displayAmount(Math.round(expensiveAmount)).toLocaleString()}/mo · {">"}{getCurrency(language)}200 per user</div>
+          <div className="text-sm text-slate-500 mt-1">{money(Math.round(expensiveAmount))}{t('per_mo_short')} · {t('cost_over_per_user').replace('{amount}', money(EXPENSIVE_PER_USER))}</div>
         </div>
 
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-emerald-500">
@@ -132,7 +130,7 @@ export function CostTabContent({ setFinTab }) {
             <Check className="h-4 w-4 text-emerald-400" />
           </div>
           <div className="text-3xl font-black text-emerald-400">{enriched.length - wasteTools.length}</div>
-          <div className="text-sm text-slate-500 mt-1">tools well-utilized</div>
+          <div className="text-sm text-slate-500 mt-1">{t('cost_well_used')}</div>
         </div>
       </div>
 
@@ -157,13 +155,13 @@ export function CostTabContent({ setFinTab }) {
                     <div className="text-xs text-slate-500 capitalize truncate">{tool.category || '—'}</div>
                   </div>
                   <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 flex-shrink-0">
-                    {tool.wasteReason === 'no-users' ? 'Unused' : 'Pricey'}
+                    {tool.wasteReason === 'no-users' ? t('cost_badge_unused') : t('cost_badge_pricey')}
                   </span>
                 </div>
                 <div className="mt-3 pt-3 border-t border-slate-800/50 space-y-1">
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-slate-500">{t('col_cost_mo')}</span>
-                    <span className="text-white font-semibold">{getCurrency(language)}{displayAmount(Math.round(tool.cost)).toLocaleString()}</span>
+                    <span className="text-white font-semibold">{money(Math.round(tool.cost))}</span>
                   </div>
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-slate-500">{t('col_active_users')}</span>
@@ -176,7 +174,7 @@ export function CostTabContent({ setFinTab }) {
                   {tool.wasteReason === 'no-users' && (
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-slate-500">{t('act_save')}</span>
-                      <span className="text-emerald-400 font-semibold">{getCurrency(language)}{displayAmount(Math.round(tool.cost)).toLocaleString()}/mo</span>
+                      <span className="text-emerald-400 font-semibold">{money(Math.round(tool.cost))}{t('per_mo_short')}</span>
                     </div>
                   )}
                 </div>
@@ -191,10 +189,10 @@ export function CostTabContent({ setFinTab }) {
         <div className="p-4 border-b border-slate-800 flex flex-col sm:flex-row gap-3 items-center">
           <div className="flex-1 min-w-0">
             <h3 className="text-base font-semibold text-white">{t("cost_all_tools_by_cost")}</h3>
-            <p className="text-xs text-slate-500">{filtered.length} tools shown</p>
+            <p className="text-xs text-slate-500">{t('cost_n_shown').replace('{n}', filtered.length)}</p>
           </div>
           <div className="flex gap-2 flex-wrap">
-            {[['all','All',enriched.length],['waste','Waste',wasteTools.length],['ok','Healthy',enriched.length-wasteTools.length]].map(([val, label, count]) => (
+            {[['all',t('cost_f_all'),enriched.length],['waste',t('cost_f_waste'),wasteTools.length],['ok',t('cost_f_ok'),enriched.length-wasteTools.length]].map(([val, label, count]) => (
               <button key={val} onClick={() => setFilter(val)}
                 className={"px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap " + (filter === val ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white')}>
                 {label} ({count})
@@ -202,9 +200,9 @@ export function CostTabContent({ setFinTab }) {
             ))}
             <select value={sortBy} onChange={e => setSortBy(e.target.value)}
               className="px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-slate-300 outline-none">
-              <option value="cost">Sort: Cost</option>
-              <option value="perUser">Sort: Cost/User</option>
-              <option value="users">Sort: Users</option>
+              <option value="cost">{t('sort_cost')}</option>
+              <option value="perUser">{t('sort_cost_per_user')}</option>
+              <option value="users">{t('sort_users')}</option>
             </select>
           </div>
         </div>
@@ -215,7 +213,7 @@ export function CostTabContent({ setFinTab }) {
               <Boxes className="h-6 w-6 text-slate-500" />
             </div>
             <h3 className="text-base font-semibold text-white mb-1">{t("cost_no_tools_to_show")}</h3>
-            <p className="text-sm text-slate-500">{filter === 'all' ? t("cost_no_tools_sub") : 'Try a different filter.'}</p>
+            <p className="text-sm text-slate-500">{filter === 'all' ? t("cost_no_tools_sub") : t('try_other_filter')}</p>
           </div>
         ) : (
           <>
@@ -238,13 +236,13 @@ export function CostTabContent({ setFinTab }) {
                         <div className="text-xs text-slate-500 capitalize truncate">{tool.category || '—'}</div>
                       </td>
                       <td className="py-3 px-4 text-right text-sm font-semibold text-white whitespace-nowrap">
-                        {getCurrency(language)}{displayAmount(Math.round(tool.cost)).toLocaleString()}
+                        {money(Math.round(tool.cost))}
                       </td>
                       <td className="py-3 px-4 text-center text-sm text-slate-300 hidden md:table-cell">
                         {tool.activeUsers === 0 ? <span className="text-red-400 font-semibold">0</span> : tool.activeUsers}
                       </td>
                       <td className="py-3 px-4 text-right text-sm text-slate-400 hidden md:table-cell whitespace-nowrap">
-                        {tool.activeUsers > 0 ? getCurrency(language) + displayAmount(Math.round(tool.costPerUser)).toLocaleString() : '—'}
+                        {tool.activeUsers > 0 ? money(Math.round(tool.costPerUser)) : '—'}
                       </td>
                       <td className="py-3 px-4 text-center">
                         {tool.wasteFlag ? (
@@ -265,19 +263,19 @@ export function CostTabContent({ setFinTab }) {
             {totalPages > 1 && (
               <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-slate-800 bg-slate-950/30">
                 <span className="text-xs text-slate-500">
-                  Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, filtered.length)} of {filtered.length}
+                  {t('pg_showing').replace('{a}', page * PAGE_SIZE + 1).replace('{b}', Math.min((page + 1) * PAGE_SIZE, filtered.length)).replace('{n}', filtered.length)}
                 </span>
                 <div className="flex items-center gap-1">
                   <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}
                     className="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-400 text-xs hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
-                    ‹ Prev
+                    ‹ {t('pg_prev')}
                   </button>
                   <span className="px-3 py-1 text-xs text-slate-300 font-semibold">
-                    Page {page + 1} / {totalPages}
+                    {t('pg_page').replace('{p}', page + 1).replace('{n}', totalPages)}
                   </span>
                   <button onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1}
                     className="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-400 text-xs hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
-                    Next ›
+                    {t('pg_next')} ›
                   </button>
                 </div>
               </div>

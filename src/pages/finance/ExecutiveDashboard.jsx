@@ -2,7 +2,8 @@ import React from 'react';
 import {
   AlertTriangle, ArrowDown, ArrowUp, Boxes, DollarSign, Download, TrendingUp,
 } from 'lucide-react';
-import { formatMoney, getCurrency } from '../../lib/dataUtils';
+import { formatMoney } from '../../lib/dataUtils';
+import { useEnumLabel } from '../../components/ui';
 import { computeWaste, monthlySpend } from '../../lib/waste';
 import { spendTrend } from '../../lib/budget';
 import { useLang } from '../../contexts/LangContext';
@@ -15,6 +16,8 @@ import {
 export function ExecutiveDashboard({ data }) {
   const { language } = useLang();
   const t = useTranslation(language);
+  const enumLabel = useEnumLabel();
+  const money = (n) => formatMoney(n, language);
   const totalSpend = monthlySpend(data);
   const annualSpend = totalSpend * 12;
   // Was "unused for 90+ days", a fourth definition of savings that
@@ -27,7 +30,7 @@ export function ExecutiveDashboard({ data }) {
   const criticalAlerts = data?.alerts?.filter(a => a.severity === 'critical').length || 0;
   const categorySpend = {};
   data?.tools?.forEach(tool => {
-    const cat = tool.category || 'Other';
+    const cat = tool.category || t('exec_other');
     categorySpend[cat] = (categorySpend[cat] || 0) + (tool.cost_per_month || 0);
   });
   const categoryData = Object.entries(categorySpend).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value).slice(0, 6);
@@ -36,7 +39,7 @@ export function ExecutiveDashboard({ data }) {
   // and savings 0.6 to 1.0 — rendered as a trend line on the screen an
   // executive is most likely to screenshot. It moved when this month's total
   // moved and never reflected a single past month. Now: recorded history.
-  const MONTH_LABELS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const MONTH_LABELS = Array.from({ length: 12 }, (_, i) => new Date(2000, i, 1).toLocaleDateString(language, { month: 'short' }));
   const trendData = spendTrend(data, totalSpend).map(p => ({
     month: MONTH_LABELS[p.monthIndex],
     spend: p.spend,
@@ -46,13 +49,15 @@ export function ExecutiveDashboard({ data }) {
     <div className="w-full space-y-6">
       <div className="flex items-center justify-end">
         <button onClick={() => window.print()} className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold text-white">
-          <Download className="h-5 w-5" /> Export Report
+          <Download className="h-5 w-5" /> {t('exec_export_report')}
         </button>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* The spend card carried a "+12%" trend that was typed into the
+            code, not measured. A trend comes back when one is recorded. */}
         {[
-          { label: t('annual_saas_spend'), value: formatMoney(annualSpend, null, language), Icon: DollarSign, color: 'blue', trend: '+12%', trendUp: true },
-          { label: t('annual_savings_potential'), value: formatMoney(annualSavings, null, language), Icon: TrendingUp, color: 'emerald', trend: roi + '%', trendUp: false },
+          { label: t('annual_saas_spend'), value: formatMoney(annualSpend, language), Icon: DollarSign, color: 'blue' },
+          { label: t('annual_savings_potential'), value: formatMoney(annualSavings, language), Icon: TrendingUp, color: 'emerald', trend: roi + '%', trendUp: false },
           { label: t('saas_tools_tracked'), value: data?.tools?.length || 0, Icon: Boxes, color: 'purple' },
           { label: t('active_risk_items'), value: highRiskTools + criticalAlerts, Icon: AlertTriangle, color: 'orange' },
         ].map(({ label, value, Icon, color, trend, trendUp }) => (
@@ -82,8 +87,8 @@ export function ExecutiveDashboard({ data }) {
             <LineChart data={trendData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
               <XAxis dataKey="month" stroke="#94a3b8" />
-              <YAxis stroke="#94a3b8" tickFormatter={val => getCurrency(language) + (val/1000).toFixed(0) + "K"} />
-              <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }} formatter={val => [`${getCurrency(language)}${val.toLocaleString()}`, '']} />
+              <YAxis stroke="#94a3b8" tickFormatter={val => new Intl.NumberFormat(language, { notation: 'compact', maximumFractionDigits: 0 }).format(val)} />
+              <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }} formatter={val => [money(val), '']} />
               <Line type="monotone" dataKey="spend" stroke="#3b82f6" strokeWidth={3} />
             </LineChart>
           </ResponsiveContainer>
@@ -98,7 +103,7 @@ export function ExecutiveDashboard({ data }) {
               <Pie data={categoryData} cx="50%" cy="50%" labelLine={false} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} outerRadius={100} dataKey="value">
                 {categoryData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
               </Pie>
-              <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }} formatter={val => [`${getCurrency(language)}${val.toLocaleString()}/mo`, '']} />
+              <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }} formatter={val => [money(val) + t('per_mo_short'), '']} />
             </RPieChart>
           </ResponsiveContainer>
           </div>
@@ -109,20 +114,20 @@ export function ExecutiveDashboard({ data }) {
         <div className="overflow-x-auto w-full">
         <table className="w-full">
           <thead><tr className="border-b border-slate-800">
-            {['Tool','Category','Monthly','Annual','Risk'].map(h => (
-              <th key={h} className={`py-3 px-4 text-sm font-semibold text-slate-400 ${h === 'Monthly' || h === 'Annual' ? 'text-right' : h === 'Risk' ? 'text-center' : 'text-left'}`}>{h}</th>
+            {[['exec_col_tool', 'text-left'], ['exec_col_category', 'text-left'], ['exec_col_monthly', 'text-right'], ['exec_col_annual', 'text-right'], ['exec_col_risk', 'text-center']].map(([h, align]) => (
+              <th key={h} className={`py-3 px-4 text-sm font-semibold text-slate-400 ${align}`}>{t(h)}</th>
             ))}
           </tr></thead>
           <tbody>
             {topTools.map((tool, idx) => (
               <tr key={idx} className="border-b border-slate-800/50">
                 <td className="py-3 px-4 text-white font-medium">{tool.name}</td>
-                <td className="py-3 px-4 text-slate-400">{tool.category || 'Other'}</td>
-                <td className="py-3 px-4 text-right text-white">{getCurrency(language)}{(tool.cost_per_month || 0).toLocaleString()}</td>
-                <td className="py-3 px-4 text-right text-emerald-400">{getCurrency(language)}{((tool.cost_per_month || 0) * 12).toLocaleString()}</td>
+                <td className="py-3 px-4 text-slate-400">{tool.category || t('exec_other')}</td>
+                <td className="py-3 px-4 text-right text-white">{money(tool.cost_per_month || 0)}</td>
+                <td className="py-3 px-4 text-right text-emerald-400">{money((tool.cost_per_month || 0) * 12)}</td>
                 <td className="py-3 px-4 text-center">
                   <span className={`px-3 py-1 rounded-full text-xs font-semibold ${tool.derived_risk === 'high' ? 'bg-red-500/20 text-red-400' : tool.derived_risk === 'medium' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
-                    {tool.derived_risk || 'low'}
+                    {enumLabel(tool.derived_risk || 'low')}
                   </span>
                 </td>
               </tr>
@@ -135,7 +140,11 @@ export function ExecutiveDashboard({ data }) {
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-xl font-bold text-white mb-2">{t('exec_summary_title')}</h3>
-            <p className="text-slate-300">Spending <span className="font-bold text-white">{getCurrency(language)}{totalSpend.toLocaleString()}/month</span> on {data?.tools?.length || 0} tools. Identified <span className="font-bold text-emerald-400">{getCurrency(language)}{potentialSavings.toLocaleString()}/month</span> in savings.{highRiskTools > 0 && <span className="text-orange-400"> {highRiskTools} high-risk tools need attention.</span>}</p>
+            <p className="text-slate-300">
+              {t('exec_summary_spend').replace('{amount}', money(totalSpend)).replace('{n}', data?.tools?.length || 0)}{' '}
+              <span className="font-bold text-emerald-400">{t('exec_summary_savings').replace('{amount}', money(potentialSavings))}</span>
+              {highRiskTools > 0 && <span className="text-orange-400"> {t('exec_summary_risk').replace('{n}', highRiskTools)}</span>}
+            </p>
           </div>
           <div className="text-right"><div className="text-sm text-slate-400 mb-1">{t("hc_annual_roi")}</div><div className="text-2xl md:text-4xl font-black text-emerald-400">{roi}%</div></div>
         </div>
