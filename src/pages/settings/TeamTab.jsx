@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { sendInviteEmail, workspaceInvite, workspaceMembers, workspaceRevoke, workspaceSetRole } from '../../firebase-config';
 import { Card, CardHeader, CardBody } from '../../components/ui';
+import { canInviteTeam } from '../../lib/plan';
 
 // Real team sharing: invites live in the server-only /workspace_members
 // collection. The invitee signs in to Stacklens with the invited email and
@@ -26,6 +27,18 @@ export function TeamTab({ db, firebaseUser, t }) {
     .then(r => setMembers(r.members || []))
     .catch(() => setMembers([]));
   useEffect(() => { refresh(); }, []);
+
+  // The endpoint's answers, in the reader's language (they arrived in English).
+  const inviteError = (msg) => {
+    const m = String(msg || '');
+    if (/paid plan/i.test(m)) return t('ws_invite_paid_only');
+    if (/^Maximum \d+ members/.test(m)) return t('ws_invite_max');
+    if (/Already invited/i.test(m)) return t('ws_invite_already');
+    if (/invite yourself/i.test(m)) return t('ws_invite_self');
+    if (/Valid email/i.test(m)) return t('ws_invite_invalid');
+    return t('ws_invite_failed');
+  };
+  const allowed = canInviteTeam(db?.user);
 
   const invite = async () => {
     const email = inviteEmail.trim();
@@ -57,7 +70,7 @@ export function TeamTab({ db, firebaseUser, t }) {
       setInviteEmail('');
       refresh();
     } catch (err) {
-      toast.error(err.message || t('ws_invite_failed'));
+      toast.error(inviteError(err?.message));
     } finally { setBusy(false); }
   };
 
@@ -127,12 +140,13 @@ export function TeamTab({ db, firebaseUser, t }) {
       <Card>
         <CardHeader title={t('invite_team')} subtitle={t('ws_invite_sub')} />
         <CardBody>
+          {!allowed && <p className="mb-3 text-sm text-amber-300" data-testid="invite-paid-only">{t('ws_invite_paid_only')}</p>}
           <div className="flex gap-3 flex-wrap">
-            <input value={inviteEmail} onChange={e => setInviteEmail(e.target.value)}
+            <input value={inviteEmail} disabled={!allowed} onChange={e => setInviteEmail(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') invite(); }}
               className="flex-1 min-w-48 bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm outline-none focus:border-emerald-500 transition-colors"
               placeholder="colleague@company.com" />
-            <button onClick={invite} disabled={busy || !inviteEmail.trim()}
+            <button onClick={invite} disabled={!allowed || busy || !inviteEmail.trim()}
               className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 rounded-xl font-semibold text-sm transition-colors whitespace-nowrap">
               {busy ? t('sending') : t('send_invite')}
             </button>

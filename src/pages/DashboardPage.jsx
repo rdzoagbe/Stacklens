@@ -24,6 +24,7 @@ import { RoleGate } from '../components/gates';
 import { AppShell } from '../components/AppShell';
 import { ImportWizard } from '../components/ImportWizard';
 import { invoiceCheckSummary } from '../lib/invoiceCheck';
+import { canInviteTeam } from '../lib/plan';
 
 // Re-export for lazy-loading in App.jsx
 export { ImportWizard } from '../components/ImportWizard';
@@ -86,7 +87,9 @@ function GettingStartedChecklist({ db }) {
       action: () => navigate('/finance?tab=budget'),
       cta: t('gs_step3_cta'),
     },
-    {
+    // Only where the server accepts an invite: free and trial accounts got
+    // an English "Team sharing requires a paid plan" after following it.
+    ...(canInviteTeam(db?.user) ? [{
       id: 'invite_team',
       icon: '✉️',
       title: t('gs_step4_title'),
@@ -94,7 +97,7 @@ function GettingStartedChecklist({ db }) {
       done: teamCount > 0,
       action: () => navigate('/settings?tab=team'),
       cta: t('gs_step4_cta'),
-    },
+    }] : []),
   ];
 
   const doneCount = steps.filter(s => s.done).length;

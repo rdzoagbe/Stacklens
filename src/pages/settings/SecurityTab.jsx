@@ -15,10 +15,11 @@ import { Card, CardHeader, CardBody } from '../../components/ui';
 // a gap, a switch is a claim.
 //
 // Replaced with what is actually true. Each line below corresponds to
-// something enforced in code — the Firestore rules, the App Check token, the
-// per-account rate limits, the audit trail, the write-only credential store —
-// and the roadmap card names the three that are not, so nobody has to infer
-// it from an empty list.
+// something enforced in code — the Firestore rules, the per-account rate
+// limits, the audit trail, the write-only credential store — and the roadmap
+// card names what is not, so nobody has to infer it from an empty list. App
+// Check is in the roadmap card: the client sends the token, but
+// verifyAppCheck in functions/index.js lets every request through.
 //
 // The switches come back when they work, not before. Note that nothing here
 // quotes a test count: a number in customer-facing copy goes stale silently,
@@ -29,7 +30,6 @@ export function SecurityTab({ t }) {
 
   const enforced = [
     t('sec_real_isolation'),
-    t('sec_real_appcheck'),
     t('sec_real_creds'),
     t('sec_real_ratelimit'),
     t('sec_real_audit'),
@@ -55,6 +55,7 @@ export function SecurityTab({ t }) {
         <CardBody>
           <div className="font-bold text-white text-sm mb-1">{t('sec_roadmap_title')}</div>
           <p className="text-xs text-slate-400">{t('sec_roadmap_body')}</p>
+          <p className="text-xs text-slate-400 mt-2">{t('sec_real_appcheck')}</p>
         </CardBody>
       </Card>
 

@@ -56,6 +56,8 @@ Three gating systems:
 - `ModuleGate({ module })` — maps plan to enabled modules (`security`, `finance`, `people`, `ai`, `analytics`, `api`). Starter has `people`; HR & Finance adds `finance`; Pro adds `security`, `ai`, `analytics`; only Enterprise has `api`. The locked screen names the cheapest plan that unlocks the module (`cheapestPlanFor`).
 - `RoleGate({ requires })` — RBAC within the app (`viewer`, `editor`, `admin`, `owner`)
 
+`hasModule(user, module)` and `hasRole(requires)` (in `gates.jsx`) are the same rules for a single control, e.g. Finance → Budget: viewers read, editors import and set budgets; the bank button needs the `api` module because the `bankfeed` endpoint checks `API_PLANS` (`plan-parity.test.js`), and is shown locked below it. Team invites: `canInviteTeam()` / `NO_TEAM_PLANS` in `plan.js` mirror the `invite` check in the `workspace` function (free and trial cannot invite).
+
 **Server side:** `resolvePlan()` is client-only, and nothing ever rewrites
 `/users/{uid}.plan` from `'trial'` back to `'free'`. Cloud Functions must use
 `effectivePlan()` from `functions/workspace-write.js`, which applies trial
@@ -197,6 +199,10 @@ Invoice import, the email inbox and the bank connection (all via `importInvoices
 
 Every imported invoice (`db.invoice_records`, from the PDF import, the email inbox or the bank connection) is checked: **duplicate** (same vendor, amount and date/period), **after_cancel** (a recent invoice for a decommissioned tool), **above_agreed** (more per month than the tool's `agreed_monthly`, `agreed_basis` `ht`/`ttc`) and **price_rise** (more than the vendor's previous invoice on the same billing cycle, only when no agreed price exists). Import paths extract `amount` including tax and, from PDFs and the inbox, `amount_excl_tax`; a before-tax agreed price is compared with that, or with the total after adding 20 % VAT, which the finding says it assumed. Shown in Finance → Budget (`components/InvoiceCheckPanel.jsx`: Justified sets `cleared` on the invoice, and the agreed price can be recorded inline or in the tool form) and as a dashboard action (`invoice_check`). Two bank summaries of one charge, or one document imported twice, are not a duplicate, and `importInvoices` skips a line already recorded (same source, vendor, amount, date, file); several amounts from one vendor in one month mean several products, not a price rise; an invoice is matched to the closest tool; vendors in `rejected_vendors` are not checked. The demo seed carries one of each main kind.
 
+### Notification switches (`src/lib/notifications.js`)
+
+Settings → Notifications shows only switches that change an email: each entry in `NOTIFICATION_SWITCHES` names the `db.user` field `dailyAlerts` / `weeklySummary` check (`renewal_alerts`, `budget_alerts`, `access_alerts`, `weekly_summary`). `notifications.test.jsx` fails if a switch has no server reader or a daily alert kind has no switch. Never add a switch for an email that does not exist.
+
 ### Monthly report to management (`functions/monthly-report.js`)
 
 Opt-in in Settings → Notifications (`components/MonthlyReportSettings.jsx`, stored as `db.user.monthly_report = { enabled, recipients, lang }`). `monthlyReport` (scheduled `0 8 1 * *` Europe/Paris) builds last month's report — spend and forecast, budgets by department (same figures as Finance → Budget), supplier invoice findings, renewals in the next 30 days, three priority actions — and sends it once per period (`report_state/{uid}`, purged with the account). Recipients: the account's Firebase Auth email **only if verified** (`verifiedEmailForUid`, which every scheduled email uses) plus up to three colleagues **on the same domain, never a public mail domain** (`reportRecipients`; the workspace is client-written, so the server re-checks). `reportnow` sends a preview to the caller's own address only, 3/hour. The invoice check and the recipient rule exist in both `src/lib` and the functions module; `report-parity.test.js` runs both on the same inputs and compares their constants.
@@ -228,6 +234,8 @@ Secrets (ANTHROPIC_API_KEY, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, SENDGRID_A
 `/users/{uid}` — owner read/write, but `protectedFieldsSafe()` blocks client writes to billing fields (`plan`, `stripe_*`, `subscription_*`, `is_founder`, `role`). Only exception: self-starting a trial (`plan='trial'` + `trial_started_at`) is allowed once per user (prevented from replay by checking existing doc has no `trial_started_at`).
 
 `/userdata/{uid}` — owner only, no field restrictions.
+
+`/legal_acceptances/{id}` — create-only, and only `uid`, `accepted_at`, `documents`, `plan_id` (no email: the row outlives the account, `functions/purge-account.js` RETAINED).
 
 `/client_orgs/{orgId}` — server only (`allow read, write: if false`); reached
 exclusively through the `workspace` function.

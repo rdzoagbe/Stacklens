@@ -8,6 +8,9 @@ import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
 import { PublicNav } from '../components/PublicNav';
 import { track } from '../lib/analytics';
+import { cheapestPlanFor } from '../components/gates';
+import { planText } from '../lib/planCards';
+import { TRIAL_DAYS } from '../lib/plan';
 
 // ── /direction-financiere ──────────────────────────────────────────────────
 //
@@ -47,6 +50,14 @@ function Step({ n, icon: Icon, title, body }) {
 export function FinanceLeadsPage() {
   const { language } = useLang();
   const t = useTranslation(language);
+  // Every screen named below is in the Finance module; say which plan opens
+  // it, from the same lists ModuleGate checks, instead of leaving the reader
+  // to find out after signing up.
+  const plan = cheapestPlanFor('finance');
+  const planNote = plan && t('fin_plan_note')
+    .replace('{plan}', planText(language, 'plan_' + plan.id))
+    .replace('{price}', language === 'en' ? `€${plan.monthly}` : `${plan.monthly} €`)
+    .replace('{days}', String(TRIAL_DAYS));
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white">
@@ -73,6 +84,7 @@ export function FinanceLeadsPage() {
               {t('fin_cta_secondary')}
             </Link>
           </div>
+          {planNote && <p className="mt-4 text-sm text-slate-500" data-testid="fin-plan-note">{planNote}</p>}
         </div>
 
         {/* Your job description, and where Stacklens does each line */}

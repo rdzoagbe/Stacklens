@@ -84,6 +84,18 @@ describe('each duty row names something the product does', () => {
     expect(lib).toMatch(/overAnnual/);
   });
 
+  it('the page says which plan opens these screens, from the gate itself', () => {
+    const page = read('src/pages/FinanceLeadsPage.jsx');
+    expect(page).toMatch(/const plan = cheapestPlanFor\('finance'\);/);
+    expect(page).toMatch(/data-testid="fin-plan-note"/);
+    for (const lang of ['en', 'fr']) {
+      const block = read('src/translations.js').slice(read('src/translations.js').indexOf(`  ${lang}: {`));
+      const note = /fin_plan_note: "([^"]*)"/.exec(block)[1];
+      expect(note, lang).toMatch(/\{plan\}.*\{price\}.*\{days\}/);
+      expect(note.replace(/\{\w+\}/g, ''), `${lang}: a typed number`).not.toMatch(/\d/);
+    }
+  });
+
   it('renewals have their own tab', () => {
     expect(read('src/pages/FinancePage.jsx')).toMatch(/'renewals'/);
   });

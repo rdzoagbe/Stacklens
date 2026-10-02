@@ -33,10 +33,15 @@ export function can(action, role) {
   return (ROLES[r] || ROLES.owner).can.includes(action);
 }
 
-export function RoleGate({ requires, children, fallback = null }) {
+/** Is the signed-in user's role at least `requires`? What RoleGate renders on. */
+export function hasRole(requires) {
   const userLevel    = ROLES[getUserRole()]?.level || 4;
   const requiredLevel = ROLES[requires]?.level || 1;
-  return userLevel >= requiredLevel ? children : fallback;
+  return userLevel >= requiredLevel;
+}
+
+export function RoleGate({ requires, children, fallback = null }) {
+  return hasRole(requires) ? children : fallback;
 }
 
 export function RoleBadge({ role }) {
@@ -130,14 +135,18 @@ export function cheapestPlanFor(module) {
     .sort((a, b) => a.monthly - b.monthly)[0] || null;
 }
 
+/** Does this user's plan include the module? The one rule ModuleGate and any single locked button share. */
+export function hasModule(user, module) {
+  const plan = resolvePlan(user);
+  return plan === 'trial' || plan === 'demo' || (MODULE_PLANS[module] || []).includes(plan);
+}
+
 export function ModuleGate({ module, children, _feature = 'this module' }) {
   const { language } = useLang();
   const t = useTranslation(language);
   const { user } = useAuth();
   const navigate  = useNavigate();
-  const plan      = resolvePlan(user);
-  const hasAccess = plan === 'trial' || plan === 'demo' || (MODULE_PLANS[module] || []).includes(plan);
-  if (hasAccess) return children;
+  if (hasModule(user, module)) return children;
 
   const moduleNames = {
     finance: t('module_finance'), people: t('module_people'),

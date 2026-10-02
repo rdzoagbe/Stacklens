@@ -95,6 +95,18 @@ export function resolvePlan(user) {
 }
 
 /**
+ * Plans that cannot invite colleagues. The workspace function's `invite`
+ * refuses these (functions/index.js; plan-parity.test.js holds the two lists
+ * together), so the app does not offer an invite it would refuse.
+ */
+export const NO_TEAM_PLANS = ['free', 'trial'];
+
+/** May this account invite colleagues? Founders resolve to 'scale', so yes. */
+export function canInviteTeam(user) {
+  return !NO_TEAM_PLANS.includes(resolvePlan(user));
+}
+
+/**
  * Returns trial state: { isTrial, daysLeft, expired }
  */
 export function getTrialState(user) {

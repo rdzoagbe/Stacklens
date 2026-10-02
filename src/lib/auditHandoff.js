@@ -16,14 +16,16 @@ import { CATEGORIES } from './constants';
 export const HANDOFF_KEY = 'stacklens_audit_handoff';
 export const HANDOFF_TTL_HOURS = 2;
 const TTL_MS = HANDOFF_TTL_HOURS * 3_600_000;
-const MAX_LINES = 200;
+// The card on the audit page counts with this too, so it never offers more
+// lines than the click keeps.
+export const HANDOFF_MAX_LINES = 200;
 
 const isoDay = (d) => (d instanceof Date && !Number.isNaN(d.getTime()) ? d.toISOString().slice(0, 10) : '');
 const REVIEWED = ['confirmed', 'renamed', 'added'];
 
 /** The list to hand over: active subscriptions only, summary fields only. */
 export function handoffFromReport(report, now = new Date()) {
-  const subscriptions = (report?.subscriptions || []).slice(0, MAX_LINES).map((s) => ({
+  const subscriptions = (report?.subscriptions || []).slice(0, HANDOFF_MAX_LINES).map((s) => ({
     vendor: String(s.vendor || '').slice(0, 120),
     category: String(s.category || '').slice(0, 60),
     cadence: String(s.cadence || ''),

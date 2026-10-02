@@ -201,14 +201,19 @@ describe('the audit page keeps its promise', () => {
     const mod = strip(read('src/lib/auditHandoff.js'));
     expect(mod.match(/localStorage\.\w+/g)).toEqual(['localStorage.setItem', 'localStorage.removeItem', 'localStorage.getItem']);
     expect(mod).not.toMatch(/sessionStorage|indexedDB|fetch\(|cookie|transactions|\.key\b/);
-    // Signing out removes a list left waiting.
+    // Signing out removes a list left waiting, and so does opening the site
+    // once it has expired (loadHandoff deletes an expired list).
     expect(read('src/lib/db.js')).toMatch(/'stacklens_audit_handoff'/);
+    expect(strip(read('src/main.jsx'))).toMatch(/^loadHandoff\(\);$/m);
     // …and the page says what the click keeps, and for how long.
     for (const lang of ['en', 'fr']) {
       const block = tr().slice(tr().indexOf(`  ${lang}: {`));
       const fine = /audit_handoff_fine: "([^"]*)"/.exec(block)[1];
       expect(fine, lang).toMatch(/\{hours\}/);
-      expect(fine, lang).toMatch(/no bank labels|aucun libellé bancaire/);
+      // The vendor name is read from the bank label, so "no bank labels" was
+      // not quite true: the page says the name is kept, the lines are not.
+      expect(fine, lang).toMatch(/not the bank lines themselves|pas les lignes bancaires/);
+      expect(fine, lang).not.toMatch(/no bank labels|aucun libellé bancaire/);
       const body = /audit_privacy_body: "([^"]*)"/.exec(block)[1];
       expect(body, lang).toMatch(/create your workspace|créer votre espace/);
     }

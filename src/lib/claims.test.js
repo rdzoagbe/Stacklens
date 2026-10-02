@@ -476,3 +476,72 @@ describe('the early-access offer is what the grant gives', () => {
     expect(copy('fr', 'ea_terms_2')).toMatch(/passe au plan gratuit/);
   });
 });
+
+// ── 10. What the review of 2026-10-02 found the site saying ────────────────
+
+describe('App Check is described as it is: sent, not enforced', () => {
+  it('the server lets every request through, so no page calls it a protection', () => {
+    const verify = functionsSrc.slice(functionsSrc.indexOf('async function verifyAppCheck'), functionsSrc.indexOf('async function checkRateLimit'));
+    expect(verify, 'App Check is now enforced: move sec_real_appcheck back into the enforced list, '
+      + 'reword it and dpa_s9_body, then rewrite this test').toMatch(/allowing \(monitoring mode\)/);
+    // Settings → Security lists only enforced controls; App Check is not one.
+    const tab = read('src/pages/settings/SecurityTab.jsx');
+    const list = tab.slice(tab.indexOf('const enforced = ['), tab.indexOf('];', tab.indexOf('const enforced = [')));
+    expect(list).not.toMatch(/appcheck/);
+    for (const lang of ['en', 'fr']) {
+      expect(copy(lang, 'sec_real_appcheck'), lang).toMatch(/not reject|ne rejette pas/);
+      expect(copy(lang, 'dpa_s9_body'), lang).toMatch(/not yet enforced|pas encore exigés/);
+    }
+  });
+});
+
+describe('the AI disclosures name every feature', () => {
+  it('the legal notice, terms, privacy table and DPA list them all', () => {
+    for (const key of ['legal_ai_body', 'terms_s8_body', 'dpa_s3_item3', 'privacy_s3_anthropic_purpose']) {
+      const text = copy('en', key);
+      for (const feature of [/contract/i, /invoice/i, /support assistant/i, /weekly/i]) {
+        expect(text, `${key} misses ${feature}`).toMatch(feature);
+      }
+    }
+  });
+});
+
+describe('the email provider and the invoice inbox', () => {
+  it('SendGrid is listed for the mail it receives, not only what it sends', () => {
+    expect(functionsSrc).toMatch(/SendGrid\s*\n?\s*\/\/\s*Inbound Parse posts incoming mail to invoiceInbound/);
+    expect(copy('en', 'subproc_sendgrid_purpose')).toMatch(/receiving the invoices you forward/);
+    expect(copy('fr', 'subproc_sendgrid_purpose')).toMatch(/réception des factures/);
+  });
+
+  it('the DPA says an emailed invoice is kept with its sender and subject', () => {
+    const inbound = functionsSrc.slice(functionsSrc.indexOf('exports.invoiceInbound'));
+    expect(inbound).toMatch(/from: String\(fields\.from/);
+    expect(inbound).toMatch(/subject: String\(fields\.subject/);
+    expect(copy('en', 'dpa_s11_item5')).toMatch(/sender and subject until you review it, then deleted from the inbox/);
+    // …and reviewing it deletes it, whether applied or unticked.
+    const budget = read('src/pages/finance/BudgetTab.jsx');
+    const apply = budget.slice(budget.indexOf('const applyInvoices'), budget.indexOf('const rows = departments.map'));
+    expect(apply).toMatch(/if \(inboxIds\?\.length\) \{\s*invoiceInboxAck\(inboxIds\)/);
+    expect(functionsSrc).toMatch(/if \(action === 'ack'\) \{[\s\S]{0,300}batch\.delete\(/);
+    expect(copy('fr', 'dpa_s11_item5')).toMatch(/expéditeur et son objet/);
+  });
+});
+
+describe('"hosted in the EU" says where the rest runs', () => {
+  it('the trust lines that say EU also say some providers are outside it', () => {
+    for (const lang of ['en', 'fr']) {
+      for (const key of ['fin_trust_1', 'acct_trust_1']) {
+        expect(copy(lang, key), `${lang}.${key}`).toMatch(/outside|hors UE/);
+      }
+    }
+  });
+});
+
+describe('a legal acceptance names nobody once the account is gone', () => {
+  it('the record holds no email, and the rules refuse one', () => {
+    const cfg = read('src/firebase-config.js');
+    const fn = cfg.slice(cfg.indexOf('export async function logLegalAcceptance'), cfg.indexOf('// FOUNDER ADMIN'));
+    expect(fn).not.toMatch(/email/);
+    expect(read('firestore.rules')).toMatch(/match \/legal_acceptances\/\{logId\}[\s\S]*?hasOnly\(\['uid', 'accepted_at', 'documents', 'plan_id'\]\)/);
+  });
+});

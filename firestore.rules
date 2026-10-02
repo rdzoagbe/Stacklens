@@ -165,6 +165,8 @@ service cloud.firestore {
       allow create: if
         request.auth != null &&
         request.resource.data.uid == request.auth.uid &&
+        // Kept after the account is deleted, so nothing that names anyone.
+        request.resource.data.keys().hasOnly(['uid', 'accepted_at', 'documents', 'plan_id']) &&
         request.resource.data.documents is list &&
         request.resource.data.accepted_at == request.time;
     }

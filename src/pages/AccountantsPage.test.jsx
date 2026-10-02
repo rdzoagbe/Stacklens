@@ -11,6 +11,7 @@ import { track } from '../lib/analytics';
 import { submitContactForm, mailtoFallback } from '../lib/contact';
 import { AccountantsPage } from './AccountantsPage';
 import { EARLY_ACCESS } from '../lib/earlyAccess';
+import { CLIENT_WORKSPACE_LIMIT } from '../lib/plan';
 
 // ── Applying for early access ──────────────────────────────────────────────
 //
@@ -37,7 +38,7 @@ async function fill({ consent = true } = {}) {
   await type(name, 'Claire Martin');
   await type(email, 'claire@cabinet-martin.fr');
   await type(firm, 'Cabinet Martin');
-  await type(clients, '20-100');
+  await type(clients, '20-50');
   await type(role, 'expert_comptable');
   if (consent) await act(async () => { section().querySelector('input[type="checkbox"]').click(); });
 }
@@ -53,6 +54,17 @@ beforeEach(async () => {
 afterEach(async () => {
   await act(async () => root.unmount());
   document.body.innerHTML = '';
+});
+
+describe('the size question', () => {
+  it('ends its buckets at the plan cap, and says so past it', async () => {
+    const clients = section().querySelectorAll('select')[0];
+    const values = [...clients.options].map((o) => o.value);
+    expect(values).toEqual(['', '<20', `20-${CLIENT_WORKSPACE_LIMIT}`, `>${CLIENT_WORKSPACE_LIMIT}`]);
+    expect(section().querySelector('[data-testid="ea-over-cap"]')).toBeNull();
+    await type(clients, `>${CLIENT_WORKSPACE_LIMIT}`);
+    expect(section().querySelector('[data-testid="ea-over-cap"]').textContent).toContain(`up to ${CLIENT_WORKSPACE_LIMIT} client workspaces`);
+  });
 });
 
 describe('the early-access offer', () => {
@@ -97,7 +109,7 @@ describe('the early-access offer', () => {
     await fill();
     await act(async () => { submitButton().click(); });
     const [, params] = track.mock.calls.find(([name]) => name === 'early_access_applied');
-    expect(params).toEqual({ clients: '20-100', role: 'expert_comptable' });
+    expect(params).toEqual({ clients: '20-50', role: 'expert_comptable' });
     expect(JSON.stringify(track.mock.calls)).not.toMatch(/Claire|claire@|Cabinet Martin/);
   });
 });

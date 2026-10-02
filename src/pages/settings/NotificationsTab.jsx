@@ -4,6 +4,7 @@ import { Card, CardHeader, CardBody } from '../../components/ui';
 import { SlackNotifications } from '../../components/SlackNotifications';
 import { MonthlyReportSettings } from '../../components/MonthlyReportSettings';
 import { useLang } from '../../contexts/LangContext';
+import { NOTIFICATION_SWITCHES } from '../../lib/notifications';
 
 function Toggle({ checked, onChange, label }) {
   // role/aria-checked so assistive tech reports this as a switch and announces
@@ -18,65 +19,46 @@ function Toggle({ checked, onChange, label }) {
 
 export function NotificationsTab({ firebaseUser, qc, t }) {
   const { language } = useLang();
-  const _savedNotifs = (() => { try { return JSON.parse(localStorage.getItem('sg_notifications') || '{}'); } catch { return {}; } })();
-  const [notifRenewal,    setNotifRenewal]    = useState(_savedNotifs.renewal    ?? true);
-  const [notifOrphaned,   setNotifOrphaned]   = useState(_savedNotifs.orphaned   ?? true);
-  const [notifHighRisk,   setNotifHighRisk]   = useState(_savedNotifs.highRisk   ?? true);
-  const [notifOffboard,   setNotifOffboard]   = useState(_savedNotifs.offboard   ?? true);
-  const [notifNewTool,    setNotifNewTool]    = useState(_savedNotifs.newTool    ?? true);
-  const [notifCompliance, setNotifCompliance] = useState(_savedNotifs.compliance ?? false);
-  const [notifWeekly,     setNotifWeekly]     = useState(_savedNotifs.weekly     ?? true);
-  const [notifInvoice,    setNotifInvoice]    = useState(_savedNotifs.invoice    ?? false);
-  const [notifBudget,     setNotifBudget]     = useState(_savedNotifs.budget     ?? true);
+  const shared = !!getSharedView();
+  // The account's own setting (db.user) wins; the browser copy is what the
+  // in-app budget banner reads (DashboardPage, OverviewTab).
+  const [values, setValues] = useState(() => {
+    let local = {};
+    try { local = JSON.parse(localStorage.getItem('sg_notifications') || '{}'); } catch { /* none */ }
+    const user = loadDb()?.user || {};
+    return Object.fromEntries(NOTIFICATION_SWITCHES.map(({ key, field }) =>
+      [key, typeof user[field] === 'boolean' ? user[field] : (local[key] ?? true)]));
+  });
 
-  const saveNotifications = (patch) => {
-    const next = { renewal: notifRenewal, orphaned: notifOrphaned, highRisk: notifHighRisk,
-      offboard: notifOffboard, newTool: notifNewTool, compliance: notifCompliance,
-      weekly: notifWeekly, invoice: notifInvoice, budget: notifBudget, ...patch };
+  const setSwitch = (key, value) => {
+    const next = { ...values, [key]: value };
+    setValues(next);
     localStorage.setItem('sg_notifications', JSON.stringify(next));
     // In someone else's workspace the account-level switches are not theirs
     // to change from here (saveOwnWorkspaceNow refuses anyway).
-    const backendChanged = ('renewal' in patch || 'weekly' in patch) && !getSharedView();
-    if (backendChanged) {
-      const cur = loadDb() || seedDbIfEmpty();
-      cur.user = {
-        ...cur.user,
-        ...('renewal' in patch ? { renewal_alerts: patch.renewal } : {}),
-        ...('weekly'  in patch ? { weekly_summary: patch.weekly  } : {}),
-      };
-      saveDb(cur);
-      saveOwnWorkspaceNow(firebaseUser?.uid, cur).catch(() => {});
-      qc.invalidateQueries({ queryKey: ['db'] });
-    }
+    if (shared) return;
+    const sw = NOTIFICATION_SWITCHES.find((n) => n.key === key);
+    const cur = loadDb() || seedDbIfEmpty();
+    cur.user = { ...cur.user, [sw.field]: value };
+    saveDb(cur);
+    saveOwnWorkspaceNow(firebaseUser?.uid, cur).catch(() => {});
+    qc.invalidateQueries({ queryKey: ['db'] });
   };
 
   return (
     <Card>
       <CardHeader title={t('notifications_title')} subtitle={t('notifications_sub')} />
       <CardBody>
-        {getSharedView() && <p className="mb-4 text-sm text-amber-300" data-testid="notif-shared-note">{t('notif_shared_note')}</p>}
+        {shared && <p className="mb-4 text-sm text-amber-300" data-testid="notif-shared-note">{t('notif_shared_note')}</p>}
         <MonthlyReportSettings firebaseUser={firebaseUser} qc={qc} t={t} language={language} />
-        <div className="space-y-1">
-          {[
-            { label: t('notif_renewal'),             sub: t('notif_renewal_sub'),    val: notifRenewal,    set: setNotifRenewal,    key: 'renewal',    live: true },
-            { label: t('notif_new_tool'),            sub: t('notif_new_tool_sub'),   val: notifNewTool,    set: setNotifNewTool,    key: 'newTool' },
-            { label: t('notif_orphaned'),            sub: t('notif_orphaned_sub'),   val: notifOrphaned,   set: setNotifOrphaned,   key: 'orphaned' },
-            { label: t('notif_high_risk'),           sub: t('notif_high_risk_sub'),  val: notifHighRisk,   set: setNotifHighRisk,   key: 'highRisk' },
-            { label: t('notif_offboard'),            sub: t('notif_offboard_sub'),   val: notifOffboard,   set: setNotifOffboard,   key: 'offboard' },
-            { label: t('notif_compliance'),          sub: t('notif_compliance_sub'), val: notifCompliance, set: setNotifCompliance, key: 'compliance' },
-            { label: t('notif_weekly'),              sub: t('notif_weekly_sub'),     val: notifWeekly,     set: setNotifWeekly,     key: 'weekly' },
-            { label: t('notif_invoice'),             sub: t('notif_invoice_sub'),    val: notifInvoice,    set: setNotifInvoice,    key: 'invoice' },
-            { label: t('budget_limit'),              sub: t('notif_budget_sub'),     val: notifBudget,     set: setNotifBudget,     key: 'budget' },
-          ].map(n => (
+        <div className="space-y-1" data-testid="notification-switches">
+          {NOTIFICATION_SWITCHES.map(n => (
             <div key={n.key} className="flex items-center justify-between py-3.5 border-b border-slate-800 last:border-0">
               <div>
-                <div className="text-sm font-medium text-slate-200 flex items-center gap-2">
-                  {n.label}
-                  {n.live && <span className="text-xs font-semibold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400">Live</span>}
-                </div>
-                <div className="text-xs text-slate-500 mt-0.5">{n.sub}</div>
+                <div className="text-sm font-medium text-slate-200">{t(n.label)}</div>
+                <div className="text-xs text-slate-500 mt-0.5">{t(n.sub)}</div>
               </div>
-              <Toggle checked={n.val} label={n.label} onChange={(v) => { n.set(v); saveNotifications({ [n.key]: v }); }} />
+              <Toggle checked={values[n.key]} label={t(n.label)} onChange={(v) => setSwitch(n.key, v)} />
             </div>
           ))}
         </div>

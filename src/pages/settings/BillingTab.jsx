@@ -106,7 +106,7 @@ export function BillingPage({ noShell = false }) {
     setUpgrading(id);
     // GDPR/LCEN audit trail: the user explicitly accepted the Terms/Privacy/DPA
     // in the dialog above (best-effort, never blocks).
-    if (db?.user?.uid) logLegalAcceptance(db.user.uid, db.user.email, id);
+    if (db?.user?.uid) logLegalAcceptance(db.user.uid, id);
     track('checkout_started', { plan: id, billing });
     try {
       const { url, error } = await createCheckoutSession(priceId);
