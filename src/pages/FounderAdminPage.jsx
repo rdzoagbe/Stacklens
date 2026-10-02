@@ -544,6 +544,16 @@ export function FounderAdminPage() {
                 <div key={i} className="text-xs bg-slate-950/50 border border-slate-800 rounded-lg px-3 py-2">
                   <div className="text-red-300 font-mono break-words">{e.message}</div>
                   <div className="text-slate-500 mt-0.5">{e.url || '—'} · {e.at ? new Date(e.at).toLocaleString() : ''}</div>
+                  {/* The report has always carried the stack and the browser;
+                      only the message was shown, which is rarely enough to
+                      tell our bundle from a browser extension. */}
+                  {(e.stack || e.ua) && (
+                    <details className="mt-1" data-testid="client-error-details">
+                      <summary className="cursor-pointer text-slate-400 hover:text-slate-200">Where it happened</summary>
+                      {e.ua && <div className="mt-1 text-slate-500 break-words">{e.ua}</div>}
+                      {e.stack && <pre className="mt-1 text-[11px] text-slate-400 whitespace-pre-wrap break-words font-mono">{e.stack}</pre>}
+                    </details>
+                  )}
                 </div>
               ))}
             </div>
