@@ -68,13 +68,31 @@ const over = (actual, expected) => actual - expected > Math.max(TOLERANCE_EUR, e
  * only matters for "billed after cancellation".
  */
 export function checkInvoices(db, { now = new Date() } = {}) {
-  const tools = db?.tools || [];
-  const records = (db?.invoice_records || [])
+  // The workspace is client-written: anything that is not a list is ignored
+  // rather than allowed to throw (one bad workspace stopped the whole monthly
+  // report run).
+  const tools = Array.isArray(db?.tools) ? db.tools : [];
+  const rejected = Array.isArray(db?.rejected_vendors) ? db.rejected_vendors : [];
+  const records = (Array.isArray(db?.invoice_records) ? db.invoice_records : [])
     .filter((r) => r && r.id && r.vendor && Number(r.amount) > 0)
+    // A vendor someone here said is not software (lib/toolReview.js) is not checked.
+    .filter((r) => !rejected.some((name) => vendorMatchesTool(r.vendor, name)))
     .map((r) => ({ ...r, _date: Date.parse(r.invoice_date || r.period_start || r.imported_at || '') || 0 }))
     .sort((a, b) => a._date - b._date);
 
-  const toolFor = (vendor) => tools.find((t) => vendorMatchesTool(vendor, t.name)) || null;
+  // The closest tool, not the first that matches: an "Adobe Sign" invoice must
+  // not be checked against the price agreed for "Adobe".
+  const toolFor = (vendor) => {
+    const v = invoiceVendorKey(vendor);
+    let best = null; let bestLen = -1;
+    for (const t of tools) {
+      if (!t || !vendorMatchesTool(vendor, t.name)) continue;
+      const k = invoiceVendorKey(t.name);
+      const len = k === v ? Infinity : k.length;
+      if (len > bestLen) { best = t; bestLen = len; }
+    }
+    return best;
+  };
   const findings = [];
   const flagged = new Set();
   const add = (f) => {
@@ -95,10 +113,14 @@ export function checkInvoices(db, { now = new Date() } = {}) {
     if (!when) continue;
     const k = `${invoiceVendorKey(r.vendor)}|${Number(r.amount).toFixed(2)}|${when}`;
     if (!seen.has(k)) { seen.set(k, r); continue; }
+    const first = seen.get(k);
+    // Not billed twice: two bank summaries of the same charge (a second sync
+    // before the next one), or the same document imported twice.
+    if ((r.source === 'bank' && first.source === 'bank') || (r.file && r.file === first.file)) continue;
     if (r.cleared) continue;
     const tool = toolFor(r.vendor);
     const monthly = monthlyTtc(r);
-    add({ ...base(r, tool), kind: 'duplicate', firstInvoiceId: seen.get(k).id,
+    add({ ...base(r, tool), kind: 'duplicate', firstInvoiceId: first.id,
       overMonthly: round2(monthly), overAnnual: round2(monthly ? monthly * 12 : Number(r.amount)) });
   }
 
@@ -114,6 +136,19 @@ export function checkInvoices(db, { now = new Date() } = {}) {
   }
 
   // 3. Above the agreed price; 4. above the previous invoice.
+  // One vendor billing several products (Jira and Confluence from Atlassian)
+  // shows two amounts in the same month; comparing them is not a price rise.
+  const amountsByMonth = new Map();
+  for (const r of records) {
+    if (!monthlyTtc(r)) continue;
+    const mk = `${invoiceVendorKey(r.vendor)}|${r.billing_cycle}|${String(r.invoice_date || r.period_start || '').slice(0, 7)}`;
+    if (!amountsByMonth.has(mk)) amountsByMonth.set(mk, new Set());
+    amountsByMonth.get(mk).add(Number(r.amount).toFixed(2));
+  }
+  const multiProduct = new Set([...amountsByMonth]
+    .filter(([, amounts]) => amounts.size > 1)
+    .map(([mk]) => mk.split('|').slice(0, 2).join('|')));
+
   const previous = new Map();
   for (const r of records) {
     const monthly = monthlyTtc(r);
@@ -141,7 +176,7 @@ export function checkInvoices(db, { now = new Date() } = {}) {
       continue;   // an agreed price settles it: a rise up to it is what was agreed
     }
 
-    if (prev) {
+    if (prev && !multiProduct.has(key)) {
       const before = monthlyTtc(prev);
       if (before > 0 && over(monthly, before)) {
         const diff = monthly - before;

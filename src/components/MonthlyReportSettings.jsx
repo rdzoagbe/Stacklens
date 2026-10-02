@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import toast from 'react-hot-toast';
 import { FileBarChart2, Send } from 'lucide-react';
-import { sendMonthlyReportNow, saveUserData } from '../firebase-config';
-import { loadDb, saveDb, seedDbIfEmpty } from '../lib/db';
+import { sendMonthlyReportNow } from '../firebase-config';
+import { loadDb, saveDb, seedDbIfEmpty, saveOwnWorkspaceNow, getSharedView } from '../lib/db';
 import { reportRecipients, canAddColleagues, MAX_EXTRA_RECIPIENTS } from '../lib/reportRecipients';
 import { track } from '../lib/analytics';
 
@@ -23,6 +23,10 @@ export function MonthlyReportSettings({ firebaseUser, qc, t, language }) {
   const [sending, setSending] = useState(false);
   const account = firebaseUser?.email || loadDb()?.user?.email || '';
 
+  // Inside a shared or client workspace these are the viewer's own account
+  // settings, not that workspace's: they are changed from the viewer's own.
+  const shared = getSharedView();
+
   const parsed = extra.split(/[,;\s]+/).map((e) => e.trim()).filter(Boolean);
   const { to, rejected } = reportRecipients(account, parsed);
   const colleagues = canAddColleagues(account);
@@ -31,7 +35,7 @@ export function MonthlyReportSettings({ firebaseUser, qc, t, language }) {
     const cur = loadDb() || seedDbIfEmpty();
     cur.user = { ...cur.user, monthly_report: next };
     saveDb(cur);
-    if (firebaseUser?.uid) saveUserData(firebaseUser.uid, cur).catch(() => {});
+    saveOwnWorkspaceNow(firebaseUser?.uid, cur).catch(() => {});
     qc?.invalidateQueries({ queryKey: ['db'] });
   };
   const current = (patch = {}) => ({
@@ -55,11 +59,22 @@ export function MonthlyReportSettings({ firebaseUser, qc, t, language }) {
       toast.success(t('mr_test_sent').replace('{email}', out.to || account));
       track('monthly_report_test_sent');
     } catch (err) {
-      toast.error(err.message === 'Not authenticated' ? t('mr_test_signin') : t('mr_test_failed'));
+      // Say why, when the server knows: "try again later" was false for both.
+      const why = { 'Not authenticated': 'mr_test_signin', no_email: 'mr_test_unverified', mail_not_configured: 'mr_test_mail_off' }[err.message];
+      toast.error(t(why || 'mr_test_failed'));
     } finally {
       setSending(false);
     }
   };
+
+  if (shared) {
+    return (
+      <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5 mb-6 text-sm text-slate-400" data-testid="monthly-report-settings">
+        <div className="font-semibold text-slate-200 mb-1">{t('mr_title')}</div>
+        {t('notif_shared_note')}
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-5 mb-6" data-testid="monthly-report-settings">

@@ -444,10 +444,15 @@ exports.syncuser = onRequest({ cors: true }, async (req, res) => {
 // Recipient for scheduled mail. /userdata is a client-written blob, so the
 // email inside it is attacker-controlled — a user could point Stacklens-branded
 // SendGrid mail at any third-party address. Firebase Auth is the authority.
+//
+// Verified, not just present: an email/password account exists before its
+// address is confirmed, so anyone could sign up as someone else's address and
+// have the scheduled emails (and, through reportRecipients, up to three of
+// that domain's colleagues) mailed there. Google accounts arrive verified.
 async function verifiedEmailForUid(uid) {
   try {
     const user = await getAuth().getUser(uid);
-    return user?.email || '';
+    return user?.emailVerified ? (user.email || '') : '';
   } catch { return ''; }
 }
 
@@ -2443,6 +2448,10 @@ exports.monthlyReport = onSchedule({
   timeZone: 'Europe/Paris',
   region: 'us-central1',
   secrets: [SENDGRID_API_KEY],
+  // Reads every workspace; the 60-second default would cut the run short and,
+  // with documents in a fixed order, skip the same accounts every month.
+  timeoutSeconds: 540,
+  memory: '512MiB',
 }, async () => {
   if (!mailConfigured(SENDGRID_API_KEY.value())) {
     console.log('monthlyReport: email is not configured — skipping, nothing sent.');
@@ -2454,20 +2463,25 @@ exports.monthlyReport = onSchedule({
   const snapshot = await db.collection('userdata').get();
   for (const docSnap of snapshot.docs) {
     const uid = docSnap.id;
-    const data = await assembleUserdata(docSnap);
-    const settings = data?.user?.monthly_report;
+    // The opt-in lives on the top-level document: check it before reading the
+    // workspace's chunks, which most accounts never need read for this.
+    const settings = docSnap.data()?.user?.monthly_report;
     if (!settings || settings.enabled !== true) continue;
-    const email = await verifiedEmailForUid(uid);
-    const { to } = reportRecipients(email, settings.recipients);
-    if (!to.length) continue;
-
-    const report = buildMonthlyReport(data, now);
-    const stateRef = db.collection('report_state').doc(uid);
-    const state = await stateRef.get();
-    if (state.exists && state.data().last_period === report.period) continue;
-
-    const { subject, html } = renderMonthlyReport(report, { lang: settings.lang === 'en' ? 'en' : 'fr', data, sender: to[0] });
+    // Everything per account inside the try: /userdata is client-written, and
+    // one malformed workspace used to throw out of the loop and leave every
+    // account after it without its report.
     try {
+      const email = await verifiedEmailForUid(uid);
+      const { to } = reportRecipients(email, settings.recipients);
+      if (!to.length) continue;
+      const data = await assembleUserdata(docSnap);
+
+      const report = buildMonthlyReport(data, now);
+      const stateRef = db.collection('report_state').doc(uid);
+      const state = await stateRef.get();
+      if (state.exists && state.data().last_period === report.period) continue;
+
+      const { subject, html } = renderMonthlyReport(report, { lang: settings.lang === 'en' ? 'en' : 'fr', data, sender: to[0] });
       const mail = await sendMail(SENDGRID_API_KEY.value(), {
         to, from: { email: 'hello@stacklens.fr', name: 'Stacklens' }, subject, html,
       });
@@ -2475,7 +2489,7 @@ exports.monthlyReport = onSchedule({
       await stateRef.set({ last_period: report.period, sent_at: now.toISOString(), recipients: to.length }, { merge: true });
       sent++;
     } catch (err) {
-      console.error('monthlyReport send failed for', uid, err?.message);
+      console.error('monthlyReport failed for', uid, err?.message);
     }
   }
   console.log('Monthly reports sent:', sent);

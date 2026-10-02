@@ -130,3 +130,39 @@ describe('the demo workspace', () => {
     expect(kinds).toEqual(['above_agreed:Notion', 'duplicate:Slack', 'price_rise:HubSpot']);
   });
 });
+
+describe('fewer false alarms', () => {
+  it('an invoice is checked against the closest tool, not the first that matches', () => {
+    const tools = [{ id: 'a', name: 'Adobe', status: 'decommissioned', agreed_monthly: 10, agreed_basis: 'ttc' }, { id: 's', name: 'Adobe Sign', agreed_monthly: 50, agreed_basis: 'ttc' }];
+    const f = check({ tools, invoice_records: [inv('Adobe Sign Inc', 50, '2026-09-10')] });
+    expect(f).toEqual([]);   // not "after cancellation" against Adobe, not above Adobe's €10
+  });
+
+  it('a vendor someone said is not software is not checked', () => {
+    const db = { tools: [], rejected_vendors: ['qonto abonnement'],
+      invoice_records: [inv('Qonto Abonnement', 29, '2026-09-01'), inv('Qonto Abonnement', 29, '2026-09-01'), inv('Qonto Abonnement', 39, '2026-10-01')] };
+    expect(check(db)).toEqual([]);
+  });
+
+  it('two bank summaries of one charge, or one document imported twice, are not billed twice', () => {
+    const bank = (d) => inv('Slack', 147, d, { source: 'bank' });
+    expect(check({ tools: [], invoice_records: [bank('2026-09-10'), bank('2026-09-10')] })).toEqual([]);
+    const pdf = () => inv('Slack', 147, '2026-09-10', { source: 'invoice', file: 'slack-sept.pdf' });
+    expect(check({ tools: [], invoice_records: [pdf(), pdf()] })).toEqual([]);
+    // …while two different documents for the same charge still are.
+    const two = check({ tools: [], invoice_records: [inv('Slack', 147, '2026-09-10', { file: 'a.pdf' }), inv('Slack', 147, '2026-09-10', { file: 'b.pdf' })] });
+    expect(two.map((x) => x.kind)).toEqual(['duplicate']);
+  });
+
+  it('several products from one vendor are not a price rise', () => {
+    const f = check({ tools: [], invoice_records: [
+      inv('Atlassian', 50, '2026-08-03'), inv('Atlassian', 200, '2026-08-03'),
+      inv('Atlassian', 50, '2026-09-03'), inv('Atlassian', 200, '2026-09-03'),
+    ] });
+    expect(f).toEqual([]);
+  });
+
+  it('a malformed workspace is read as empty rather than throwing', () => {
+    expect(check({ tools: 'x', invoice_records: { a: 1 }, rejected_vendors: 5 })).toEqual([]);
+  });
+});

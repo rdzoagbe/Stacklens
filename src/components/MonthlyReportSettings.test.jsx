@@ -81,6 +81,27 @@ describe('the monthly report setting', () => {
     expect(toast.success).toHaveBeenCalledWith('Example sent to daf@acme.fr.');
   });
 
+  it('says why when the server refuses: an unverified address, or email switched off', async () => {
+    sendMonthlyReportNow.mockRejectedValueOnce(new Error('no_email'));
+    await mount('daf@acme.fr', { enabled: true, recipients: [], lang: 'fr' });
+    await click(button('Send me an example now'));
+    expect(toast.error).toHaveBeenLastCalledWith('Confirm your email address first: the report is only sent to a verified address.');
+    sendMonthlyReportNow.mockRejectedValueOnce(new Error('mail_not_configured'));
+    await click(button('Send me an example now'));
+    expect(toast.error).toHaveBeenLastCalledWith(expect.stringContaining('Email sending is not switched on'));
+  });
+
+  it("inside someone else's workspace, it says these are your own account's settings and changes nothing", async () => {
+    localStorage.clear();
+    localStorage.setItem('accessguard_v1', JSON.stringify({ _shared_view: { owner_uid: 'o', role: 'editor' }, user: { email: 'owner@client.fr' }, tools: [] }));
+    const host = document.createElement('div'); document.body.appendChild(host);
+    root = createRoot(host);
+    await act(async () => { root.render(<MonthlyReportSettings firebaseUser={{ uid: 'u1', email: 'daf@acme.fr' }} qc={qc} t={t} language="fr" />); });
+    expect(panel().textContent).toContain("These are your own account's settings");
+    expect(panel().querySelector('[role="switch"]')).toBeNull();
+    expect(saveUserData).not.toHaveBeenCalled();
+  });
+
   it('a failed send says so', async () => {
     sendMonthlyReportNow.mockRejectedValueOnce(new Error('send_failed'));
     await mount('daf@acme.fr', { enabled: true, recipients: [], lang: 'fr' });

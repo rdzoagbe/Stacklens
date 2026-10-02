@@ -77,6 +77,46 @@ describe('what the report says', () => {
 
 const round = (n) => Math.round(n * 100) / 100;
 
+describe('the report on the 1st of January closes December', () => {
+  const ws = () => ({ ...workspace(), budgets: [
+    { year: 2026, department: 'sales', annual: 6000 }, { year: 2027, department: 'sales', annual: 20000 },
+  ] });
+
+  it('uses the budgets of the year it reports, counted through the end of December', () => {
+    const r = buildMonthlyReport(ws(), new Date('2027-01-01T07:00:00Z'));
+    expect(r.period).toBe('2026-12');
+    expect(r.budgets).toHaveLength(1);
+    expect(r.budgets[0]).toMatchObject({ department: 'sales', annual: 6000, status: 'over' });
+    expect(r.budgets[0].spent).toBeCloseTo((690 + 156) * 12, 0);   // twelve full months, no snapshots
+  });
+
+  it('a preview still reads the year it is sent in', () => {
+    const r = buildMonthlyReport(ws(), new Date('2027-01-20T10:00:00Z'), { preview: true });
+    expect(r.budgets[0].annual).toBe(20000);
+  });
+
+  it('the status follows the Budget tab: spent over budget but no longer heading over is fine', () => {
+    // Sales now costs 100/month (projected 1,200), but spent 1,000 a month Jan–Aug.
+    const data = { ...workspace(), tools: workspace().tools.map((t) => ({ ...t, cost_per_month: t.id === 't2' ? 100 : 0 })),
+      budgets: [{ year: 2026, department: 'sales', annual: 6000 }],
+      spend_history: Array.from({ length: 8 }, (_, i) => ({ month: `2026-0${i + 1}`, by_department: { sales: 1000 } })) };
+    const r = buildMonthlyReport(data, NOW);
+    expect(r.budgets[0].spent).toBeGreaterThan(6000);
+    expect(r.budgets[0]).toMatchObject({ status: 'ok' });
+  });
+});
+
+describe('a malformed workspace', () => {
+  it('builds a report instead of throwing, and drops dates that are not dates', () => {
+    // '2026-10-1x' sorts inside the 30-day window but is not a date: it used to print "dans NaN j".
+    const bad = { tools: [{ id: 'x', name: 'Odd', renewal_date: '2026-10-1x', cost_per_month: 10 }, null, 'str'],
+      budgets: 'x', invoice_records: { a: 1 }, spend_history: { a: 1 }, employees: 3, access: null };
+    const r = buildMonthlyReport(bad, NOW);
+    expect(r.renewals).toEqual([]);
+    expect(renderMonthlyReport(r, { sender: 'x@acme.fr' }).html).not.toContain('NaN');
+  });
+});
+
 describe('the email', () => {
   const r = buildMonthlyReport(workspace(), NOW);
 
@@ -140,8 +180,21 @@ describe('the scheduled send and the example keep their promises', () => {
   const monthly = src.slice(src.indexOf('exports.monthlyReport'), src.indexOf('exports.reportnow'));
   const example = src.slice(src.indexOf('exports.reportnow'));
 
-  it('only accounts that turned it on', () => {
-    expect(monthly).toMatch(/if \(!settings \|\| settings\.enabled !== true\) continue;/);
+  it('only accounts that turned it on, checked before their workspace is read', () => {
+    expect(monthly).toMatch(/const settings = docSnap\.data\(\)\?\.user\?\.monthly_report;\s*if \(!settings \|\| settings\.enabled !== true\) continue;/);
+    expect(monthly.indexOf('settings.enabled !== true')).toBeLessThan(monthly.indexOf('assembleUserdata('));
+  });
+
+  it('one account failing cannot stop the run, and the run has time to finish', () => {
+    const loop = monthly.slice(monthly.indexOf('for (const docSnap of snapshot.docs)'));
+    expect(loop.indexOf('try {')).toBeLessThan(loop.indexOf('buildMonthlyReport('));
+    expect(loop.indexOf('try {')).toBeLessThan(loop.indexOf('assembleUserdata('));
+    expect(monthly).toMatch(/timeoutSeconds: 540/);
+  });
+
+  it('only to a verified address', () => {
+    const fn = src.slice(src.indexOf('async function verifiedEmailForUid'), src.indexOf('async function verifiedEmailForUid') + 300);
+    expect(fn).toMatch(/return user\?\.emailVerified \? \(user\.email \|\| ''\) : '';/);
   });
 
   it('to the Auth address and the colleagues the rule accepts, never a raw stored list', () => {

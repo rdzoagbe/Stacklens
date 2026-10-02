@@ -741,7 +741,10 @@ function Report({ report, symbol, t, onReset, language, skipped, dateOrder, onFl
         <ClientReportPanel report={report} money={money} language={language} t={t} onClose={() => setShowClientReport(false)} counts={counts} format={format} defaultClient={clientName} />
       )}
 
-      {report.subscriptions.length > 0 && (
+      {/* Not inside a portfolio client's report: those subscriptions are the
+          client's, and the button would import them into the accountant's
+          own workspace, which the page promises never happens. */}
+      {report.subscriptions.length > 0 && !clientName && (
         <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-6 md:p-8" data-testid="audit-handoff">
           <h3 className="text-xl md:text-2xl font-bold mb-2">{t('audit_handoff_title')}</h3>
           <p className="text-slate-300 mb-5 max-w-xl">{fill(t('audit_handoff_body'), { n: report.subscriptions.length })}</p>

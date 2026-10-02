@@ -434,6 +434,24 @@ export function exitSharedView() {
   }
 }
 
+/**
+ * Write this account's OWN workspace to the cloud now, for settings the server
+ * reads on a schedule (monthly report, alerts, budget cap, currency) and for
+ * deletions that must not be resurrected by the next hydrate.
+ *
+ * Refuses, and returns false, while the browser holds a shared or client
+ * workspace: that copy belongs to someone else, and writing it to the viewer's
+ * own document used to overwrite their account with another company's data
+ * (which then outlived the membership, the client's deletion and its purge).
+ * saveDb already routes shared copies through the workspace endpoint, which
+ * never takes the owner's user record from a member.
+ */
+export async function saveOwnWorkspaceNow(uid, db) {
+  if (!uid || !db || db._shared_view || getSharedView()) return false;
+  await saveUserData(uid, db);
+  return true;
+}
+
 export function getSharedView() {
   try { return JSON.parse(localStorage.getItem(LS_KEY) || 'null')?._shared_view || null; } catch { return null; }
 }
@@ -723,10 +741,13 @@ export function buildSeedDb() {
   const invoice_records = [
     invoice('Notion Labs Inc', 120, 65, { amount_excl_tax: 100 }),
     invoice('Notion Labs Inc', 144, 35, { amount_excl_tax: 120 }),
-    invoice('HubSpot Inc', 575, 62),
-    invoice('HubSpot Inc', 690, 32),
-    invoice('Slack Technologies Limited', 312, 20, { amount_excl_tax: 260 }),
-    invoice('Slack Technologies Limited', 312, 20, { amount_excl_tax: 260 }),
+    // 35 days apart, so never in the same month (lib/invoiceCheck.js reads
+    // two amounts in one month as two products, not a rise).
+    invoice('HubSpot Inc', 575, 70),
+    invoice('HubSpot Inc', 690, 35),
+    // Two invoices for one charge, as a double billing arrives: two documents.
+    invoice('Slack Technologies Limited', 312, 20, { amount_excl_tax: 260, file: 'slack-F2026-0917.pdf' }),
+    invoice('Slack Technologies Limited', 312, 20, { amount_excl_tax: 260, file: 'slack-F2026-0918.pdf' }),
     invoice('Salesforce France', 520, 28, { amount_excl_tax: 433.33 }),
   ];
 
