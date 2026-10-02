@@ -189,7 +189,7 @@ export function EmployeesPage() {
   // Money goes through formatMoney so this page follows the same currency as
   // the rest of the app — it used to hardcode "€" and disagreed with the
   // Dashboard's getCurrency(language).
-  const money = (n) => formatMoney(n, null, language);
+  const money = (n) => formatMoney(n, language);
   const plural = (n, oneKey, manyKey) => `${n} ${n === 1 ? t(oneKey) : t(manyKey)}`;
   const fmtDate = (d) => (d ? new Date(d).toLocaleDateString(LOCALE_TAG[language] || 'en-GB') : '—');
   const statusLabel = (s) => t(STATUS_KEY[s] || 'st_active');

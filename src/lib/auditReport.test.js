@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { generateAuditReportHTML } from './auditReport';
+import { translations } from '../translations';
 import { computeToolDerivedStatus, computeToolDerivedRisk } from './dataUtils';
 
 // ── What the auditor reads has to be true ──────────────────────────────────
@@ -45,7 +46,9 @@ function derivedWorkspace({ tools = [], access = [], employees = [] } = {}) {
   };
 }
 
-const t = (key) => key;
+// The real English strings: the recommendations are sentences with numbers
+// in them, and the tests below read those numbers.
+const t = (key) => translations.en[key] || key;
 const render = (ws) => generateAuditReportHTML(ws, 'en', t);
 
 /** Every currency amount in a fragment, as numbers. */

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { todayISO } from '../lib/db';
 import { CATEGORIES, TOOL_STATUS, CRITICALITY, RISK_SCORE } from '../lib/constants';
-import { computeToolDerivedStatus, computeToolDerivedRisk, getRiskEvidence, getCurrency, displayAmount } from '../lib/dataUtils';
+import { computeToolDerivedStatus, computeToolDerivedRisk, getRiskEvidence, formatMoney } from '../lib/dataUtils';
 import { useDbQuery, useDbMutations } from '../hooks/useDbQuery';
 import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
@@ -384,8 +384,8 @@ export function ToolsPage() {
           </div>
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-emerald-500">
             <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t("kpi_monthly_spend")}</div>
-            <div className="text-3xl font-black text-emerald-400">{getCurrency(language)}{displayAmount(Math.round(totalCost)).toLocaleString()}</div>
-            <div className="text-sm text-slate-500">{getCurrency(language)}{displayAmount(Math.round(totalCost*12)).toLocaleString()}{t('lbl_per_year_short')}</div>
+            <div className="text-3xl font-black text-emerald-400">{formatMoney(Math.round(totalCost), language)}</div>
+            <div className="text-sm text-slate-500">{formatMoney(Math.round(totalCost*12), language)}{t('lbl_per_year_short')}</div>
           </div>
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-red-500 cursor-pointer hover:border-slate-700 transition-colors" onClick={() => setRisk('high')}>
             <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t("kpi_high_risk")}</div>
@@ -516,7 +516,7 @@ export function ToolsPage() {
                         <td className="py-3 px-4 text-center"><RiskBadge risk={tool.derived_risk} /></td>
                         <td className="py-3 px-4 text-center hidden sm:table-cell"><StatusBadge status={tool.derived_status} /></td>
                         <td className="py-3 px-4 text-right text-sm font-semibold text-white whitespace-nowrap">
-                          {getCurrency(language)}{displayAmount(tool.cost_per_month || 0).toLocaleString()}
+                          {formatMoney(tool.cost_per_month || 0, language)}
                         </td>
                         <td className="py-3 px-4 text-right">
                           <div className="flex gap-1 justify-end" onClick={(ev) => ev.stopPropagation()}>

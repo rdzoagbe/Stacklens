@@ -117,10 +117,30 @@ export function getCurrency() {
   return (BY_CODE[getCurrencyCode()] || BY_CODE[DEFAULT_CODE]).symbol;
 }
 
-/** Format an amount for display in the workspace currency. No conversion. */
-export function formatMoney(n) {
+const LOCALES = { en: 'en-GB', fr: 'fr-FR', de: 'de-DE', es: 'es-ES', pt: 'pt-PT' };
+function uiLanguage() {
+  try { return localStorage.getItem('language') || 'en'; } catch { return 'en'; }
+}
+
+/**
+ * Format an amount in the workspace currency, written the way the reader's
+ * language writes money: "5 364 €" in French, "€5,364" in English. It used to
+ * be the symbol glued to the front of the number everywhere, which is wrong
+ * in French, German, Spanish and Portuguese. No conversion; whole units
+ * unless `decimals` says otherwise.
+ */
+export function formatMoney(n, lang = uiLanguage(), { decimals = 0 } = {}) {
   const v = Number(n);
-  return getCurrency() + (Number.isFinite(v) ? Math.round(v) : 0).toLocaleString();
+  const amount = Number.isFinite(v) ? v : 0;
+  const code = BY_CODE[getCurrencyCode()] ? getCurrencyCode() : DEFAULT_CODE;
+  try {
+    return new Intl.NumberFormat(LOCALES[lang] || LOCALES.en, {
+      style: 'currency', currency: code, currencyDisplay: 'narrowSymbol',
+      minimumFractionDigits: decimals, maximumFractionDigits: decimals,
+    }).format(decimals ? amount : Math.round(amount));
+  } catch {
+    return getCurrency() + Math.round(amount).toLocaleString();
+  }
 }
 
 /**
@@ -130,4 +150,22 @@ export function formatMoney(n) {
 export function displayAmount(n) {
   const v = Number(n);
   return Number.isFinite(v) ? Math.round(v) : 0;
+}
+
+const CODE_FOR_SYMBOL = { '€': 'EUR', '£': 'GBP', '$': 'USD', 'CHF': 'CHF' };
+/**
+ * An amount in the currency a statement was written in (the free audit reads
+ * the symbol from the file), set out the way `lang` writes money. An unknown
+ * symbol is kept in front of the number, as before.
+ */
+export function formatInSymbol(n, symbol, lang = uiLanguage()) {
+  const v = Number(n);
+  const amount = Number.isFinite(v) ? Math.round(v) : 0;
+  const code = CODE_FOR_SYMBOL[String(symbol || '').trim()];
+  if (!code) return String(symbol || '') + amount.toLocaleString(lang);
+  try {
+    return new Intl.NumberFormat(LOCALES[lang] || LOCALES.en, { style: 'currency', currency: code, currencyDisplay: 'narrowSymbol', maximumFractionDigits: 0 }).format(amount);
+  } catch {
+    return String(symbol) + amount.toLocaleString(lang);
+  }
 }

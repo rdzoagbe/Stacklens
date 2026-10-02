@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import {
   displayAmount,
+  formatMoney,
   getCurrency,
 } from '../../lib/dataUtils';
 import { useDbQuery, useDbMutations } from '../../hooks/useDbQuery';
@@ -304,7 +305,7 @@ export function RenewalAlerts() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-blue-500">
           <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t('ren_annual_risk')}</div>
-          <div className="text-3xl font-black text-blue-400">{getCurrency(language)}{displayAmount(Math.round(totalAtRisk)).toLocaleString()}</div>
+          <div className="text-3xl font-black text-blue-400">{formatMoney(Math.round(totalAtRisk), language)}</div>
           <div className="text-sm text-slate-500 mt-1">{t('ren_next_90')}</div>
         </div>
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-red-500">
@@ -341,7 +342,7 @@ export function RenewalAlerts() {
                   <span className="text-red-400 font-semibold">{Math.abs(mostUrgent.daysUntil)} {t('ren_days_overdue')}</span>
                 ) : (
                   <>{t('ren_renews_in')} <span className="text-red-400 font-semibold">{mostUrgent.daysUntil} {t('days')}</span></>
-                )} · {getCurrency(language)}{displayAmount(Math.round(mostUrgent.annualCost)).toLocaleString()}/year
+                )} · {formatMoney(Math.round(mostUrgent.annualCost), language)}/year
                 {mostUrgent.autoRenew && <span className="ml-2 text-amber-400">· {t('ren_auto_renewing')}</span>}
               </div>
             </div>
@@ -375,7 +376,7 @@ export function RenewalAlerts() {
                   savings" — an assumption about how a negotiation would go,
                   presented as a figure. The contract value itself is a fact. */}
               <div className="text-xs text-slate-500 uppercase tracking-wider">{t('ren_up_for_renewal')}</div>
-              <div className="text-lg font-black text-white">{getCurrency(language)}{displayAmount(Math.round(totalAtRisk)).toLocaleString()}/yr</div>
+              <div className="text-lg font-black text-white">{formatMoney(Math.round(totalAtRisk), language)}/yr</div>
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -393,7 +394,7 @@ export function RenewalAlerts() {
                 <div className="mt-3 pt-3 border-t border-slate-800/50 space-y-1">
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-slate-500">{t('ren_annual')}</span>
-                    <span className="text-white font-semibold">{getCurrency(language)}{displayAmount(Math.round(opp.annualCost)).toLocaleString()}</span>
+                    <span className="text-white font-semibold">{formatMoney(Math.round(opp.annualCost), language)}</span>
                   </div>
 
                 </div>
@@ -494,7 +495,7 @@ export function RenewalAlerts() {
                         </span>
                       </td>
                       <td className="py-3 px-4 text-right text-sm font-semibold text-white whitespace-nowrap hidden lg:table-cell">
-                        {getCurrency(language)}{displayAmount(Math.round(r.annualCost)).toLocaleString()}
+                        {formatMoney(Math.round(r.annualCost), language)}
                       </td>
                       <td className="py-3 px-4 text-center hidden lg:table-cell">
                         {r.autoRenew ? (
@@ -544,7 +545,7 @@ export function RenewalAlerts() {
               <div key={month.key}>
                 <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-800">
                   <h3 className="text-sm font-bold text-white uppercase tracking-wider">{month.label}</h3>
-                  <span className="text-xs text-slate-500">{month.items.length} {month.items.length === 1 ? t('ren_renewal') : t('ren_renewals')} · {getCurrency(language)}{displayAmount(Math.round(month.total)).toLocaleString()}</span>
+                  <span className="text-xs text-slate-500">{month.items.length} {month.items.length === 1 ? t('ren_renewal') : t('ren_renewals')} · {formatMoney(Math.round(month.total), language)}</span>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                   {month.items.map(r => (
@@ -560,7 +561,7 @@ export function RenewalAlerts() {
                       </div>
                       <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-800/50">
                         <span className="text-xs text-slate-500">{t('ren_annual')}</span>
-                        <span className="text-sm font-semibold text-white">{getCurrency(language)}{displayAmount(Math.round(r.annualCost)).toLocaleString()}</span>
+                        <span className="text-sm font-semibold text-white">{formatMoney(Math.round(r.annualCost), language)}</span>
                       </div>
                       <button onClick={() => sendNegotiationEmail(r)}
                         className="mt-3 w-full px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 rounded-lg text-xs font-semibold text-blue-400 transition-colors">
@@ -821,16 +822,16 @@ function InvoiceManager() {
             <div className="bg-slate-900 rounded-3xl border border-white/10 p-8 max-w-lg w-full">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-2xl font-bold">Invoice {selectedInvoice.id}</h3>
-                <button onClick={() => setShowInvoiceDetail(false)} className="text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
+                <button onClick={() => setShowInvoiceDetail(false)} aria-label={t('close')} className="text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
               </div>
               <div className="space-y-3 mb-6">
                 {[
-                  ["Vendor", selectedInvoice.vendor],
-                  ["Category", selectedInvoice.category],
-                  ["Amount", getCurrency(language) + selectedInvoice.amount.toLocaleString()],
-                  ["Due Date", selectedInvoice.dueDate],
-                  ["Submitted By", selectedInvoice.submittedBy],
-                  ["Status", selectedInvoice.status.replace("_", " ")],
+                  [t('ren_vendor'), selectedInvoice.vendor],
+                  [t('exec_col_category'), selectedInvoice.category],
+                  [t('ren_amount'), formatMoney(selectedInvoice.amount, language)],
+                  [t('ren_due_date'), selectedInvoice.dueDate],
+                  [t('ren_submitted_by'), selectedInvoice.submittedBy],
+                  [t('col_status'), selectedInvoice.status.replace("_", " ")],
                 ].map(([label, value]) => (
                   <div key={label} className="flex justify-between py-2 border-b border-slate-800">
                     <span className="text-slate-400 text-sm">{label}</span>

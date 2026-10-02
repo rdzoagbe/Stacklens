@@ -13,6 +13,7 @@ import { AlertTriangle, Check } from 'lucide-react';
 export function AccessForm({ initial, tools, employees, onSubmit, onClose }) {
   const { language } = useLang();
   const t = useTranslation(language);
+  const enumLabel = useEnumLabel();
   const [form, setForm] = useState(
     initial || {
       tool_id: tools[0]?.id || "",
@@ -86,7 +87,7 @@ export function AccessForm({ initial, tools, employees, onSubmit, onClose }) {
           <Select value={form.access_level} onChange={(e) => setForm((f) => ({ ...f, access_level: e.target.value }))}>
             {ACCESS_LEVEL.map((a) => (
               <option key={a} value={a}>
-                {a}
+                {enumLabel(a)}
               </option>
             ))}
           </Select>
@@ -96,7 +97,7 @@ export function AccessForm({ initial, tools, employees, onSubmit, onClose }) {
           <Select value={form.status} onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}>
             {ACCESS_STATUS.map((s) => (
               <option key={s} value={s}>
-                {s}
+                {enumLabel(s)}
               </option>
             ))}
           </Select>
@@ -106,7 +107,7 @@ export function AccessForm({ initial, tools, employees, onSubmit, onClose }) {
           <Select value={form.risk_flag} onChange={(e) => setForm((f) => ({ ...f, risk_flag: e.target.value }))}>
             {RISK_FLAG.map((r) => (
               <option key={r} value={r}>
-                {r}
+                {enumLabel(r)}
               </option>
             ))}
           </Select>
@@ -151,6 +152,7 @@ export function AccessPage() {
   const [filterRisk, setFilterRisk] = useState('all');
   const [search, setSearch] = useState('');
 
+  const unknown = t('access_unknown');
   const derived = useMemo(() => {
     if (!db) return null;
     const employeesById = Object.fromEntries(db.employees.map(e => [e.id, e]));
@@ -167,8 +169,8 @@ export function AccessPage() {
     const matrix = {};
     const allTools = new Set();
     access.filter(a => a.status === 'active').forEach(a => {
-      const empName = a.employee?.full_name || a.employee_name || 'Unknown';
-      const toolName = a.tool?.name || a.tool_name || 'Unknown';
+      const empName = a.employee?.full_name || a.employee_name || unknown;
+      const toolName = a.tool?.name || a.tool_name || unknown;
       if (!matrix[empName]) matrix[empName] = { employee: a.employee, tools: {} };
       matrix[empName].tools[toolName] = { level: a.access_level, risk: a.risk, id: a.id };
       allTools.add(toolName);
@@ -176,13 +178,13 @@ export function AccessPage() {
 
     const toolMatrix = {};
     access.filter(a => a.status === 'active').forEach(a => {
-      const toolName = a.tool?.name || a.tool_name || 'Unknown';
+      const toolName = a.tool?.name || a.tool_name || unknown;
       if (!toolMatrix[toolName]) toolMatrix[toolName] = { tool: a.tool, employees: [] };
       toolMatrix[toolName].employees.push({ name: a.employee?.full_name || a.employee_name, level: a.access_level, risk: a.risk, dept: a.employee?.department, id: a.id });
     });
 
     return { access, highRisk, needsReview, matrix, toolMatrix, allTools: [...allTools].sort() };
-  }, [db]);
+  }, [db, unknown]);
 
   if (isLoading || !derived) return <div className="flex items-center justify-center h-screen"><div className="text-white">{t('loading')}</div></div>;
 
@@ -232,10 +234,10 @@ export function AccessPage() {
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <AlertTriangle className="h-5 w-5 text-red-400" />
-                <span className="text-base font-semibold text-white">Urgent: {derived.highRisk.length} high-risk access records</span>
+                <span className="text-base font-semibold text-white">{t('access_urgent').replace('{n}', derived.highRisk.length)}</span>
               </div>
               <Button variant="secondary" size="sm" onClick={() => {
-                if(window.confirm('Revoke all ' + derived.highRisk.length + ' high-risk access records?')) {
+                if(window.confirm(t('access_revoke_all_confirm').replace('{n}', derived.highRisk.length))) {
                   derived.highRisk.forEach(a => muts.updateAccess.mutate({ id: a.id, patch: { status: 'revoked' } }));
                   toast.success(t('all_high_risk_revoked'));
                 }
@@ -250,8 +252,8 @@ export function AccessPage() {
                     {(a.employee?.full_name || '?').charAt(0)}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-semibold text-white truncate">{a.employee?.full_name || 'Unknown'}</div>
-                    <div className="text-xs text-slate-500 truncate">{a.tool?.name || a.tool_name} · {a.access_level}</div>
+                    <div className="text-sm font-semibold text-white truncate">{a.employee?.full_name || unknown}</div>
+                    <div className="text-xs text-slate-500 truncate">{a.tool?.name || a.tool_name} · {enumLabel(a.access_level)}</div>
                   </div>
                   <button onClick={() => {
                     muts.updateAccess.mutate({ id: a.id, patch: { status: 'revoked' } }, { onSuccess: () => toast.success(t('revoked')) });
@@ -299,7 +301,7 @@ export function AccessPage() {
                 <h2 className="text-base font-semibold text-white">{t("access_map_label")}</h2>
                 <p className="text-sm text-slate-500">{t("access_map_sub")}</p>
               </div>
-              <span className="text-xs text-slate-500">{Object.keys(derived.matrix).length} employees · {derived.allTools.length} tools</span>
+              <span className="text-xs text-slate-500">{t('access_matrix_counts').replace('{e}', Object.keys(derived.matrix).length).replace('{n}', derived.allTools.length)}</span>
             </div>
 
             {/* Legend */}
@@ -348,9 +350,9 @@ export function AccessPage() {
                             return (
                               <div key={toolName} className="w-10 h-8 flex items-center justify-center flex-shrink-0">
                                 <div className={"w-4 h-4 rounded-full transition-all cursor-pointer hover:scale-125 " + color + (isRisk ? ' ring-2 ring-red-500 ring-offset-1 ring-offset-slate-950' : '')}
-                                  title={empName + ' → ' + toolName + ' (' + access.level + ')' + (isRisk ? ' ⚠️ RISK' : '')}
+                                  title={empName + ' → ' + toolName + ' (' + enumLabel(access.level) + ')' + (isRisk ? ' ⚠️ ' + t('access_risk') : '')}
                                   onClick={() => {
-                                    const action = window.prompt(empName + ' → ' + toolName + ' (' + access.level + ')\n\n1 = Change to Viewer\n2 = Change to Admin\n3 = Revoke\n\nEnter 1, 2, or 3:');
+                                    const action = window.prompt(`${t('act_manage')}: ${empName} → ${toolName} (${enumLabel(access.level)})\n\n1=${t('badge_viewer')}  2=${t('badge_admin')}  3=${t('dash_revoke')}`);
                                     if (action === '1') muts.updateAccess.mutate({ id: access.id, patch: { access_level: 'viewer' } }, { onSuccess: () => toast.success(t('changed_to_viewer')) });
                                     else if (action === '2') muts.updateAccess.mutate({ id: access.id, patch: { access_level: 'admin' } }, { onSuccess: () => toast.success(t('changed_to_admin')) });
                                     else if (action === '3') muts.updateAccess.mutate({ id: access.id, patch: { status: 'revoked' } }, { onSuccess: () => toast.success(t('revoked')) });
@@ -383,7 +385,7 @@ export function AccessPage() {
                 {(() => {
                   const privCount = {};
                   derived.access.filter(a => a.status === 'active' && a.access_level === 'admin').forEach(a => {
-                    const name = a.employee?.full_name || 'Unknown';
+                    const name = a.employee?.full_name || unknown;
                     if (!privCount[name]) privCount[name] = { count: 0, dept: a.employee?.department, employee: a.employee };
                     privCount[name].count++;
                   });
@@ -396,11 +398,11 @@ export function AccessPage() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-medium text-white truncate">{name}</div>
-                        <div className="text-xs text-slate-500 truncate">{data.dept || 'No department'}</div>
+                        <div className="text-xs text-slate-500 truncate">{data.dept || t('access_no_dept')}</div>
                       </div>
                       <div className="text-right">
                         <div className="text-sm font-bold text-purple-400">{data.count}</div>
-                        <div className="text-[10px] text-slate-500">admin</div>
+                        <div className="text-[10px] text-slate-500">{enumLabel('admin')}</div>
                       </div>
                     </div>
                   ));
@@ -418,7 +420,7 @@ export function AccessPage() {
                 {(() => {
                   const toolCount = {};
                   derived.access.filter(a => a.status === 'active').forEach(a => {
-                    const name = a.tool?.name || a.tool_name || 'Unknown';
+                    const name = a.tool?.name || a.tool_name || unknown;
                     if (!toolCount[name]) toolCount[name] = { count: 0, category: a.tool?.category };
                     toolCount[name].count++;
                   });
@@ -455,7 +457,7 @@ export function AccessPage() {
                 {(() => {
                   const deptCount = {};
                   derived.access.filter(a => a.status === 'active').forEach(a => {
-                    const dept = a.employee?.department || 'Unassigned';
+                    const dept = a.employee?.department || t('access_unassigned');
                     if (!deptCount[dept]) deptCount[dept] = 0;
                     deptCount[dept]++;
                   });
@@ -503,11 +505,11 @@ export function AccessPage() {
                   <div className="flex items-center justify-between mb-3">
                     <div>
                       <h3 className="text-sm font-semibold text-white">{toolName}</h3>
-                      <div className="text-xs text-slate-500">{tool?.category || 'Uncategorized'}</div>
+                      <div className="text-xs text-slate-500">{tool?.category || t('access_uncategorized')}</div>
                     </div>
                     <div className="flex items-center gap-2">
-                      {adminCount > 0 && <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400 font-semibold">{adminCount} admin</span>}
-                      <span className="text-xs text-slate-500">{employees.length} users</span>
+                      {adminCount > 0 && <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400 font-semibold">{t('access_n_admin').replace('{n}', adminCount)}</span>}
+                      <span className="text-xs text-slate-500">{t('access_n_users').replace('{n}', employees.length)}</span>
                     </div>
                   </div>
                   <div className="space-y-1.5">
@@ -521,11 +523,11 @@ export function AccessPage() {
                             </div>
                             <span className={"text-xs " + (isRisk ? 'text-red-300' : 'text-slate-300')}>{emp.name}</span>
                           </div>
-                          <span className={"text-[10px] font-semibold " + (emp.level === 'admin' ? 'text-purple-400' : 'text-slate-500')}>{emp.level}</span>
+                          <span className={"text-[10px] font-semibold " + (emp.level === 'admin' ? 'text-purple-400' : 'text-slate-500')}>{enumLabel(emp.level)}</span>
                         </div>
                       );
                     })}
-                    {employees.length > 5 && <div className="text-[10px] text-slate-500">+ {employees.length - 5} more</div>}
+                    {employees.length > 5 && <div className="text-[10px] text-slate-500">{t('access_n_more').replace('{n}', employees.length - 5)}</div>}
                   </div>
                 </div>
               );
@@ -557,7 +559,7 @@ export function AccessPage() {
                           {(a.employee?.full_name || '?').charAt(0)}
                         </div>
                         <div>
-                          <div className="text-sm font-medium text-white">{a.employee?.full_name || 'Unknown'}</div>
+                          <div className="text-sm font-medium text-white">{a.employee?.full_name || unknown}</div>
                           <div className="text-[10px] text-slate-500">{a.employee?.department}</div>
                         </div>
                       </div>
@@ -592,7 +594,7 @@ export function AccessPage() {
               </tbody>
             </table>
             </div>
-            {filteredAccess.length > 25 && <div className="text-center py-3 text-xs text-slate-500">Showing 25 of {filteredAccess.length} records</div>}
+            {filteredAccess.length > 25 && <div className="text-center py-3 text-xs text-slate-500">{t('access_showing_25').replace('{n}', filteredAccess.length)}</div>}
           </div>
         )}
 

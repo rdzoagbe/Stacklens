@@ -93,7 +93,7 @@ export function FinanceDashboard() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (db?.user?.budget_cap && db.user.budget_cap !== budgetCap) setBudgetCap(db.user.budget_cap);
   }, [db?.user?.budget_cap, budgetCap]);
-  const _financialData = {totalMonthlySpend:_totalSpend,budgetLimit:budgetCap||0,lastMonthSpend:previousMonthSpend(db),upcomingBills:_bills,byCategory:_byCategory,monthlyTrend:_trend,isReal:true,recoverable:computeWaste(db).recoverable,toolCount:_tools.filter(t=>t.status!=='archived').length};
+  const _financialData = {totalMonthlySpend:_totalSpend,budgetLimit:budgetCap||0,lastMonthSpend:previousMonthSpend(db),upcomingBills:_bills,byCategory:_byCategory,monthlyTrend:_trend,isReal:true,recoverable:computeWaste(db).recoverable,recoverableCount:computeWaste(db).unusedTools.length,toolCount:_tools.filter(t=>t.status!=='archived').length};
 
   // Record one spend snapshot per month so the Budget tab's "spent to date"
   // uses real recorded figures instead of run-rate estimates over time.

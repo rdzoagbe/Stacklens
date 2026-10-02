@@ -674,15 +674,15 @@ export function TrialPage() {
                   {!magicSent ? (
                     <>
                       <div>
-                        <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">{t("hc_work_email")}</label>
-                        <input type="email" value={authEmail} onChange={e => setAuthEmail(e.target.value)}
-                          placeholder="you@company.com"
+                        <label htmlFor="signin-email" className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">{t("hc_work_email")}</label>
+                        <input id="signin-email" type="email" autoComplete="email" value={authEmail} onChange={e => setAuthEmail(e.target.value)}
+                          placeholder={t('lp_email_ph')}
                           className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" />
                       </div>
                       <div>
-                        <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">{t('lp_password_label')}</label>
+                        <label htmlFor="signin-password" className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">{t('lp_password_label')}</label>
                         <div className="relative">
-                          <input type={showPassword ? 'text' : 'password'} value={authPassword} onChange={e => setAuthPassword(e.target.value)}
+                          <input id="signin-password" autoComplete="current-password" type={showPassword ? 'text' : 'password'} value={authPassword} onChange={e => setAuthPassword(e.target.value)}
                             placeholder="••••••••"
                             className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all pr-12" />
                           <button type="button" onClick={() => setShowPassword(v => !v)}
@@ -720,7 +720,7 @@ export function TrialPage() {
                       {/* Divider */}
                       <div className="flex items-center gap-3 my-1">
                         <div className="flex-1 h-px bg-slate-700" />
-                        <span className="text-xs text-slate-500">or</span>
+                        <span className="text-xs text-slate-500">{t('lp_or')}</span>
                         <div className="flex-1 h-px bg-slate-700" />
                       </div>
 
@@ -798,15 +798,15 @@ export function TrialPage() {
                   {!magicSent ? (
                     <>
                       <div>
-                        <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">{t("hc_full_name")}</label>
-                        <input type="text" value={authName} onChange={e => setAuthName(e.target.value)}
-                          placeholder="Jane Smith"
+                        <label htmlFor="signup-name" className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">{t("hc_full_name")}</label>
+                        <input id="signup-name" type="text" autoComplete="name" value={authName} onChange={e => setAuthName(e.target.value)}
+                          placeholder={t('lp_name_ph')}
                           className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" />
                       </div>
                       <div>
-                        <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">{t("hc_work_email")}</label>
-                        <input type="email" value={authEmail} onChange={e => setAuthEmail(e.target.value)}
-                          placeholder="you@company.com"
+                        <label htmlFor="signup-email" className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">{t("hc_work_email")}</label>
+                        <input id="signup-email" type="email" autoComplete="email" value={authEmail} onChange={e => setAuthEmail(e.target.value)}
+                          placeholder={t('lp_email_ph')}
                           className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" />
                       </div>
 
@@ -820,7 +820,7 @@ export function TrialPage() {
                           that does not say which of the two was wrong. */}
                       <div>
                         <div className="flex items-center justify-between mb-1.5">
-                          <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wide">{t('lp_password_label')}</label>
+                          <label htmlFor="signup-password" className="block text-xs font-semibold text-slate-400 uppercase tracking-wide">{t('lp_password_label')}</label>
                           {/* Hidden when the browser has no CSPRNG — see
                               suggestPassword: a weak password behind a "strong"
                               label is worse than no button at all. */}
@@ -841,7 +841,7 @@ export function TrialPage() {
                           )}
                         </div>
                         <div className="relative">
-                          <input type={showNewPassword ? 'text' : 'password'} value={authPassword}
+                          <input id="signup-password" autoComplete="new-password" type={showNewPassword ? 'text' : 'password'} value={authPassword}
                             onChange={e => { setAuthPassword(e.target.value); setSuggested(false); }}
                             placeholder={t('lp_min_chars')}
                             className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all pr-16" />
@@ -865,9 +865,9 @@ export function TrialPage() {
                       </div>
                       {/* Confirm password */}
                       <div>
-                        <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">{t('lp_confirm_password_label')}</label>
+                        <label htmlFor="signup-confirm" className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">{t('lp_confirm_password_label')}</label>
                         <div className="relative">
-                          <input type={showNewPassword ? 'text' : 'password'} value={authConfirm} onChange={e => setAuthConfirm(e.target.value)}
+                          <input id="signup-confirm" autoComplete="new-password" type={showNewPassword ? 'text' : 'password'} value={authConfirm} onChange={e => setAuthConfirm(e.target.value)}
                             placeholder={t('lp_confirm_password_ph')}
                             className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all pr-16" />
                           <button type="button" onClick={() => setShowNewPassword(v => !v)}
@@ -943,7 +943,7 @@ export function TrialPage() {
 
                       <p className="text-center text-[11px] text-slate-500 leading-relaxed">
                         {t('lp_terms_fine_print')}{' '}
-                        <Link to="/terms" className="text-slate-400 hover:text-white underline" onClick={() => setShowAuth(false)}>Terms</Link>
+                        <Link to="/terms" className="text-slate-400 hover:text-white underline" onClick={() => setShowAuth(false)}>{t('footer_terms')}</Link>
                         {' '}{t('lp_terms_and')}{' '}
                         <Link to="/privacy" className="text-slate-400 hover:text-white underline" onClick={() => setShowAuth(false)}>{t("hc_privacy_policy")}</Link>
                       </p>

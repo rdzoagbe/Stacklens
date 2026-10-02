@@ -4,6 +4,9 @@ import { Zap, RefreshCw, Copy } from 'lucide-react';
 import { Card, CardHeader, CardBody } from '../../components/ui';
 import { apiKeysList, apiKeysCreate, apiKeysRevoke, API_BASE_URL } from '../../firebase-config';
 
+// API_RATE_LIMIT in functions/index.js; claims.test.js holds the two equal.
+export const API_CALLS_PER_HOUR = 120;
+
 export function ApiKeysTab({ t }) {
   const [apiKeys, setApiKeys] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -39,7 +42,7 @@ export function ApiKeysTab({ t }) {
       setNewKeyName('');
       await refresh();
     } catch (err) {
-      toast.error(err.message);
+      toast.error(err?.message || t('api_error'));
     } finally {
       setBusy(false);
     }
@@ -50,10 +53,10 @@ export function ApiKeysTab({ t }) {
     setBusy(true);
     try {
       await apiKeysRevoke(k.keyId);
-      toast.success(`Revoked ${k.name}`);
+      toast.success(t('api_revoked').replace('{name}', k.name));
       await refresh();
     } catch (err) {
-      toast.error(err.message);
+      toast.error(err?.message || t('api_error'));
     } finally {
       setBusy(false);
     }
@@ -70,7 +73,7 @@ export function ApiKeysTab({ t }) {
           {showNewKey && (
             <div className="mb-4 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
               <div className="text-sm font-bold text-emerald-400 mb-1">✓ {t('set_api_new_msg')}</div>
-              <div className="text-xs text-amber-400 mb-2">This key is shown only once — copy it now.</div>
+              <div className="text-xs text-amber-400 mb-2">{t('api_shown_once')}</div>
               <div className="font-mono text-xs bg-slate-900 px-3 py-2 rounded-lg text-white break-all">{showNewKey}</div>
               <button onClick={() => { navigator.clipboard.writeText(showNewKey); toast.success(t('api_copied')); }} className="text-xs text-emerald-400 mt-2 hover:underline">{t('hc_copy_to_clipboard')}</button>
             </div>
@@ -78,7 +81,7 @@ export function ApiKeysTab({ t }) {
           {loading ? (
             <div className="flex justify-center py-8"><RefreshCw size={18} className="animate-spin text-slate-500" /></div>
           ) : apiKeys.length === 0 ? (
-            <div className="text-sm text-slate-500 py-4 text-center">No API keys yet — generate one below.</div>
+            <div className="text-sm text-slate-500 py-4 text-center">{t('api_no_keys')}</div>
           ) : (
             <div className="space-y-3">
               {apiKeys.map(k => (
@@ -116,23 +119,23 @@ export function ApiKeysTab({ t }) {
       </Card>
 
       <Card>
-        <CardHeader title={t('api_readonly_rest')} subtitle="Pull your Stacklens data into spreadsheets, BI tools, or scripts. Requires the Enterprise plan." />
+        <CardHeader title={t('api_readonly_rest')} subtitle={t('api_rest_sub')} />
         <CardBody>
           <div className="space-y-3 text-sm">
             <div>
               <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">{t('api_base_url')}</div>
               <div className="flex items-center gap-2">
                 <code className="font-mono text-xs bg-slate-900 px-3 py-2 rounded-lg text-emerald-300 break-all flex-1">{API_BASE_URL}</code>
-                <button onClick={() => { navigator.clipboard.writeText(API_BASE_URL); toast.success(t('api_copied')); }} className="p-2 text-slate-500 hover:text-white transition-colors"><Copy size={14} /></button>
+                <button onClick={() => { navigator.clipboard.writeText(API_BASE_URL); toast.success(t('api_copied')); }} aria-label={t('hc_copy_to_clipboard')} className="p-2 text-slate-500 hover:text-white transition-colors"><Copy size={14} /></button>
               </div>
             </div>
             <div>
               <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">{t('api_endpoints')}</div>
               <div className="space-y-1.5">
                 {[
-                  ['GET /tools', 'All SaaS tools with cost, status, owner, and risk'],
-                  ['GET /employees', 'All employees with department, role, and status'],
-                  ['GET /spend', 'Monthly & annual totals plus per-category breakdown'],
+                  ['GET /tools', t('api_ep_tools')],
+                  ['GET /employees', t('api_ep_employees')],
+                  ['GET /spend', t('api_ep_spend')],
                 ].map(([ep, desc]) => (
                   <div key={ep} className="flex items-baseline gap-3">
                     <code className="font-mono text-xs text-blue-300 whitespace-nowrap">{ep}</code>
@@ -145,7 +148,7 @@ export function ApiKeysTab({ t }) {
               <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">{t('api_example')}</div>
               <pre className="font-mono text-xs bg-slate-900 px-3 py-2 rounded-lg text-slate-300 overflow-x-auto whitespace-pre">{curlExample}</pre>
             </div>
-            <div className="text-xs text-slate-500">Rate limit: 120 requests/hour. Keys are stored hashed and can be revoked at any time.</div>
+            <div className="text-xs text-slate-500">{t('api_rate_note').replace('{n}', API_CALLS_PER_HOUR)}</div>
           </div>
         </CardBody>
       </Card>

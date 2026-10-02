@@ -193,6 +193,19 @@ export function Modal({ open, title, subtitle, onClose, children, footer }) {
   // Every pop-up in the app said "Close" in English, whatever the language.
   const { language } = useLang();
   const t = useTranslation(language);
+  // A dialog to assistive tech (role, modal, its title as its name), closed
+  // by Escape like every other dialog, and focused when it opens so the
+  // keyboard is inside it rather than on the page behind.
+  const titleId = React.useId();
+  const panelRef = React.useRef(null);
+  React.useEffect(() => {
+    if (!open) return undefined;
+    panelRef.current?.focus();
+    if (!dismissible) return undefined;
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [open, dismissible, onClose]);
   return (
     <AnimatePresence>
       {open ? (
@@ -203,7 +216,8 @@ export function Modal({ open, title, subtitle, onClose, children, footer }) {
           <div className="absolute inset-0 bg-slate-950/70 backdrop-blur"
             onClick={dismissible ? onClose : undefined} />
           <motion.div
-            className="relative z-10 w-[92vw] max-w-2xl max-h-[90vh] flex flex-col"
+            ref={panelRef} role="dialog" aria-modal="true" aria-labelledby={title ? titleId : undefined} tabIndex={-1}
+            className="relative z-10 w-[92vw] max-w-2xl max-h-[90vh] flex flex-col outline-none"
             initial={{ y: 16, opacity: 0, scale: 0.98 }}
             animate={{ y: 0, opacity: 1, scale: 1 }}
             exit={{ y: 16, opacity: 0, scale: 0.98 }}
@@ -211,7 +225,7 @@ export function Modal({ open, title, subtitle, onClose, children, footer }) {
             <Card className="overflow-hidden flex flex-col min-h-0">
               <div className="flex items-start justify-between gap-4 border-b border-slate-800 p-5 flex-shrink-0">
                 <div>
-                  <div className="text-lg font-semibold text-slate-100">{title}</div>
+                  <div id={titleId} className="text-lg font-semibold text-slate-100">{title}</div>
                   {subtitle ? <div className="mt-1 text-sm text-slate-400">{subtitle}</div> : null}
                 </div>
                 {dismissible ? (

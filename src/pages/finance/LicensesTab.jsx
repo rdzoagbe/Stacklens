@@ -5,8 +5,7 @@ import {
   Mail, Sparkles,
 } from 'lucide-react';
 import {
-  displayAmount,
-  getCurrency,
+  formatMoney,
   downloadText,
   toCsv,
 } from '../../lib/dataUtils';
@@ -95,21 +94,20 @@ export function LicenseManagement() {
 
   const topOpportunities = [...unused].sort((a, b) => b.cost - a.cost).slice(0, 3);
 
-  const money = (n) => getCurrency(language) + displayAmount(Math.round(n)).toLocaleString();
+  const money = (n) => formatMoney(n, language);
 
   const handleReclaimAll = () => {
     if (unused.length === 0) {
       toast(t('lic_nothing_to_reclaim'), { icon: '✅' });
       return;
     }
-    const userName = JSON.parse(localStorage.getItem('accessguard_v1') || '{}')?.user?.displayName || 'IT Admin';
-    const subject = encodeURIComponent('Review: ' + unused.length + ' tools with no active users');
-    const body = encodeURIComponent(
-      'Hi team,\n\nThese tools are being paid for and no one currently holds active access:\n\n' +
-      unused.map(a => '• ' + a.name + ': ' + money(a.cost) + '/mo').join('\n') +
-      '\n\nCombined: ' + money(recoverable) + '/mo (' + money(recoverable * 12) + '/year).\n' +
-      'Worth confirming whether each is still needed before the next renewal.\n\nBest,\n' + userName
-    );
+    const userName = JSON.parse(localStorage.getItem('accessguard_v1') || '{}')?.user?.displayName || '';
+    const subject = encodeURIComponent(t('lic_mail_subject').replace('{n}', unused.length));
+    const body = encodeURIComponent(t('lic_mail_body')
+      .replace('{list}', unused.map(a => '• ' + a.name + ': ' + money(a.cost) + t('per_mo_short')).join('\n'))
+      .replace('{monthly}', money(recoverable) + t('per_mo_short'))
+      .replace('{annual}', money(recoverable * 12) + t('per_year'))
+      .replace('{name}', userName));
     window.open('mailto:?subject=' + subject + '&body=' + body);
   };
 
@@ -150,7 +148,7 @@ export function LicenseManagement() {
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-red-500">
           <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t('lic_recoverable')}</div>
           <div className="text-3xl font-black text-red-400">{money(recoverable)}</div>
-          <div className="text-sm text-slate-500 mt-1">{money(recoverable * 12)}/year</div>
+          <div className="text-sm text-slate-500 mt-1">{money(recoverable * 12)}{t('per_year')}</div>
         </div>
       </div>
 
@@ -192,7 +190,7 @@ export function LicenseManagement() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-semibold text-white truncate">{opp.name}</div>
-                    <div className="text-xs text-slate-500">{money(opp.cost)}/mo · {t('lic_zero_users')}</div>
+                    <div className="text-xs text-slate-500">{money(opp.cost)}{t('per_mo_short')} · {t('lic_zero_users')}</div>
                   </div>
                 </div>
               ))}
@@ -214,7 +212,7 @@ export function LicenseManagement() {
             {[
               { key: 'ok', label: t('lic_f_ok'), color: 'bg-emerald-500', textColor: 'text-emerald-400' },
               { key: 'no-users', label: t('lic_f_no_users'), color: 'bg-amber-500', textColor: 'text-amber-400' },
-              { key: 'expensive', label: (t('lic_f_expensive')) + ' ' + getCurrency(language) + EXPENSIVE_PER_USER + ' ' + (t('lic_per_user')), color: 'bg-blue-500', textColor: 'text-blue-400' },
+              { key: 'expensive', label: (t('lic_f_expensive')) + ' ' + money(EXPENSIVE_PER_USER) + ' ' + (t('lic_per_user')), color: 'bg-blue-500', textColor: 'text-blue-400' },
             ].map(({ key, label, color, textColor }) => {
               const count = counts[key];
               const pct = apps.length > 0 ? (count / apps.length) * 100 : 0;
@@ -223,7 +221,7 @@ export function LicenseManagement() {
                   className="w-full text-left hover:bg-slate-800/30 -mx-2 px-2 py-1 rounded-lg transition-colors">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-sm text-slate-300">{label}</span>
-                    <span className={"text-sm font-semibold " + textColor}>{count} {count === 1 ? 'app' : 'apps'}</span>
+                    <span className={"text-sm font-semibold " + textColor}>{t(count === 1 ? 'lic_one_app' : 'lic_n_apps').replace('{n}', count)}</span>
                   </div>
                   <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
                     <div className={"h-full " + color + " transition-all"} style={{ width: pct + '%' }} />
@@ -241,7 +239,7 @@ export function LicenseManagement() {
           <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
             <div className="flex-1 min-w-0">
               <h3 className="text-base font-semibold text-white">{t("lic_all_licenses")}</h3>
-              <p className="text-xs text-slate-500">{filtered.length} {filtered.length === 1 ? 'app' : 'apps'} shown</p>
+              <p className="text-xs text-slate-500">{t(filtered.length === 1 ? 'lic_one_app_shown' : 'lic_n_apps_shown').replace('{n}', filtered.length)}</p>
             </div>
             <div className="flex gap-2 flex-wrap">
               <input type="text" value={search} onChange={e => setSearch(e.target.value)}
@@ -249,9 +247,9 @@ export function LicenseManagement() {
                 className="px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-slate-300 outline-none focus:border-blue-500 transition-colors w-40" />
               <select value={sortBy} onChange={e => setSortBy(e.target.value)}
                 className="px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-slate-300 outline-none">
-                <option value="cost">Sort: Cost</option>
-                <option value="per_user">Sort: Cost per user</option>
-                <option value="users">Sort: Active users</option>
+                <option value="cost">{t('sort_cost')}</option>
+                <option value="per_user">{t('sort_cost_per_user')}</option>
+                <option value="users">{t('sort_active_users')}</option>
               </select>
             </div>
           </div>
@@ -276,7 +274,7 @@ export function LicenseManagement() {
               <CreditCard className="h-6 w-6 text-slate-500" />
             </div>
             <h3 className="text-base font-semibold text-white mb-1">{t("lic_no_licenses")}</h3>
-            <p className="text-sm text-slate-500">{search || filter !== 'all' ? 'Try adjusting your filters.' : 'Import or add tools to see cost per tool.'}</p>
+            <p className="text-sm text-slate-500">{search || filter !== 'all' ? t('try_other_filter') : t('lic_empty_sub')}</p>
           </div>
         ) : (
           <>
@@ -332,19 +330,19 @@ export function LicenseManagement() {
             {totalPages > 1 && (
               <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-slate-800 bg-slate-950/30">
                 <span className="text-xs text-slate-500">
-                  Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, filtered.length)} of {filtered.length}
+                  {t('pg_showing').replace('{a}', page * PAGE_SIZE + 1).replace('{b}', Math.min((page + 1) * PAGE_SIZE, filtered.length)).replace('{n}', filtered.length)}
                 </span>
                 <div className="flex items-center gap-1">
                   <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}
                     className="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-400 text-xs hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
-                    ‹ Prev
+                    ‹ {t('pg_prev')}
                   </button>
                   <span className="px-3 py-1 text-xs text-slate-300 font-semibold">
-                    Page {page + 1} / {totalPages}
+                    {t('pg_page').replace('{p}', page + 1).replace('{n}', totalPages)}
                   </span>
                   <button onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1}
                     className="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-400 text-xs hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
-                    Next ›
+                    {t('pg_next')} ›
                   </button>
                 </div>
               </div>

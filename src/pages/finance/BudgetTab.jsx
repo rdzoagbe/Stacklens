@@ -6,7 +6,7 @@ import { buildBudgetCsv, buildBudgetPdfBlob, buildBudgetXlsxBlob, downloadBlob }
 import { useDbQuery, useDbMutations } from '../../hooks/useDbQuery';
 import { useLang } from '../../contexts/LangContext';
 import { useTranslation } from '../../translations';
-import { getCurrency, displayAmount } from '../../lib/currency';
+import { formatMoney } from '../../lib/currency';
 import { callAI, invoiceInboxAddress, invoiceInboxList, invoiceInboxAck, bankConnect, bankStatus, bankSync } from '../../firebase-config';
 import { Landmark, Lock } from 'lucide-react';
 import { hasModule, hasRole } from '../../components/gates';
@@ -33,7 +33,7 @@ export function BudgetTabContent() {
   const { setBudgets, importInvoices } = useDbMutations();
   const { language } = useLang();
   const t = useTranslation(language);
-  const cur = (n) => getCurrency(language) + Math.round(displayAmount(n)).toLocaleString();
+  const cur = (n) => formatMoney(n, language);
   const fileRef = useRef(null);
   const invoiceRef = useRef(null);
 
@@ -283,7 +283,7 @@ export function BudgetTabContent() {
       const blob = await buildBudgetPdfBlob({
         rows, totals, unallocated, year,
         cards: {
-          runRate: cur(runRateAnnual), runRateSub: cur(totals.monthly + unallocated) + '/mo',
+          runRate: cur(runRateAnnual), runRateSub: cur(totals.monthly + unallocated) + t('per_mo_short'),
           actuals: invoiceActuals12m > 0 ? cur(invoiceActuals12m) : '—', actualsSub: invoiceActuals12m > 0 ? t('budget_from_invoices') : '',
           nextYear: cur(suggestedNextYear), nextYearSub: t('budget_next_year_hint'),
         },
@@ -312,8 +312,8 @@ export function BudgetTabContent() {
           <h2 className="text-xl font-bold text-white">{t('budget_title')}</h2>
           <p className="text-sm text-slate-500">{t('budget_subtitle')}</p>
         </div>
-        <div className="flex items-center gap-2">
-          <select value={year} onChange={e => setYear(Number(e.target.value))}
+        <div className="flex flex-wrap items-center gap-2">
+          <select value={year} aria-label={t('budget_year')} onChange={e => setYear(Number(e.target.value))}
             className="bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white">
             {[nowYear - 1, nowYear, nowYear + 1].map(y => <option key={y} value={y}>{y}</option>)}
           </select>
@@ -382,7 +382,7 @@ export function BudgetTabContent() {
         <div className="rounded-2xl bg-slate-900/60 border border-slate-800 p-4">
           <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">{t('budget_run_rate')}</div>
           <div className="text-2xl font-black text-white">{cur(runRateAnnual)}</div>
-          <div className="text-xs text-slate-500 mt-0.5">{cur(totals.monthly + unallocated)}/mo</div>
+          <div className="text-xs text-slate-500 mt-0.5">{cur(totals.monthly + unallocated)}{t('per_mo_short')}</div>
         </div>
         <div className="rounded-2xl bg-slate-900/60 border border-slate-800 p-4">
           <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">{t('budget_actuals_12m')}</div>
@@ -473,7 +473,7 @@ export function BudgetTabContent() {
         <div className="rounded-2xl bg-amber-500/5 border border-amber-500/20 p-4 flex items-start gap-3">
           <AlertTriangle size={18} className="text-amber-400 shrink-0 mt-0.5" />
           <div className="text-sm">
-            <span className="font-semibold text-amber-300">{t('budget_unallocated')}: {cur(unallocated)}/mo</span>
+            <span className="font-semibold text-amber-300">{t('budget_unallocated')}: {cur(unallocated)}{t('per_mo_short')}</span>
             <span className="text-slate-400"> — {t('budget_unallocated_hint')}</span>
           </div>
         </div>
@@ -481,10 +481,11 @@ export function BudgetTabContent() {
 
       {importState && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur p-4">
-          <div className="w-full max-w-2xl rounded-2xl bg-slate-900 border border-slate-700 p-6 shadow-2xl max-h-[85vh] overflow-y-auto">
+          <div role="dialog" aria-modal="true" aria-labelledby="budget-import-title"
+            className="w-full max-w-2xl rounded-2xl bg-slate-900 border border-slate-700 p-6 shadow-2xl max-h-[85vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-white">{t('budget_import_invoices')}</h3>
-              <button onClick={() => setImportState(null)} className="text-slate-500 hover:text-white"><X size={18} /></button>
+              <h3 id="budget-import-title" className="text-lg font-bold text-white">{t('budget_import_invoices')}</h3>
+              <button onClick={() => setImportState(null)} aria-label={t('close')} className="text-slate-500 hover:text-white"><X size={18} /></button>
             </div>
             {importState.phase === 'working' ? (
               <div className="py-10 text-center">
@@ -522,7 +523,7 @@ export function BudgetTabContent() {
                             {isRejectedVendor(db, r.vendor) && <div className="text-xs text-amber-300/90 font-normal">{t('tool_review_rejected_before')}</div>}</td>
                           <td className="px-2 py-2 text-slate-300">{r.amount.toLocaleString()} {r.currency}</td>
                           <td className="px-2 py-2 text-slate-400">{r.billing_cycle}</td>
-                          <td className="px-2 py-2 text-slate-300">{r.monthly > 0 ? cur(r.monthly) + '/mo' : '—'}</td>
+                          <td className="px-2 py-2 text-slate-300">{r.monthly > 0 ? cur(r.monthly) + t('per_mo_short') : '—'}</td>
                         </tr>
                       ))}
                     </tbody>
