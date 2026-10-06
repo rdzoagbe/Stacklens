@@ -10,10 +10,12 @@ import { useDbQuery } from '../../hooks/useDbQuery';
 import { useLang } from '../../contexts/LangContext';
 import { useTranslation } from '../../translations';
 import { monthlySpend, billedToolCount } from '../../lib/waste';
+import { useCategoryLabel } from '../../components/ui';
 
 export function AnalyticsTabContent() {
   const { language } = useLang();
   const t = useTranslation(language);
+  const categoryLabel = useCategoryLabel();
   const { data: db } = useDbQuery();
 
   const uniqueTools = useMemo(() => {
@@ -122,17 +124,17 @@ export function AnalyticsTabContent() {
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-blue-500">
           <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t("an_active_tools")}</div>
           <div className="text-3xl font-black text-blue-400">{activeTools.length}</div>
-          <div className="text-sm text-slate-500 mt-1">{uniqueTools.length} total tracked</div>
+          <div className="text-sm text-slate-500 mt-1">{t('an_total_tracked').replace('{n}', uniqueTools.length)}</div>
         </div>
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-emerald-500">
           <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t("an_monthly_spend")}</div>
           <div className="text-3xl font-black text-emerald-400">{formatMoney(Math.round(totalSpend), language)}</div>
-          <div className="text-sm text-slate-500 mt-1">{formatMoney(Math.round(totalSpend * 12), language)}/year</div>
+          <div className="text-sm text-slate-500 mt-1">{formatMoney(Math.round(totalSpend * 12), language)}{t('per_year')}</div>
         </div>
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-teal-500">
           <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t("an_avg_cost_tool")}</div>
           <div className="text-3xl font-black text-teal-400">{formatMoney(Math.round(avgCostPerTool), language)}</div>
-          <div className="text-sm text-slate-500 mt-1">per month</div>
+          <div className="text-sm text-slate-500 mt-1">{t('an_per_month')}</div>
         </div>
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 border-l-4 border-l-amber-500">
           <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t("an_inactive_emps")}</div>
@@ -148,7 +150,7 @@ export function AnalyticsTabContent() {
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 lg:p-6">
           <div className="mb-4">
             <h3 className="text-base font-semibold text-white">{t("an_spend_by_cat")}</h3>
-            <p className="text-xs text-slate-500">Top {categorySpend.length} categories by monthly cost</p>
+            <p className="text-xs text-slate-500">{t('an_top_categories').replace('{n}', categorySpend.length)}</p>
           </div>
           {categorySpend.length === 0 ? (
             <div className="py-12 text-center">
@@ -165,9 +167,9 @@ export function AnalyticsTabContent() {
                 return (
                   <div key={cat.name}>
                     <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-sm font-semibold text-slate-200 capitalize truncate">{cat.name}</span>
+                      <span className="text-sm font-semibold text-slate-200 truncate">{categoryLabel(cat.name)}</span>
                       <div className="flex items-center gap-3 flex-shrink-0">
-                        <span className="text-xs text-slate-500">{cat.count} {cat.count === 1 ? 'tool' : 'tools'}</span>
+                        <span className="text-xs text-slate-500">{t(cat.count === 1 ? 'an_one_tool' : 'an_n_tools').replace('{n}', cat.count)}</span>
                         <span className="text-sm font-semibold text-white">{formatMoney(Math.round(cat.spend), language)}</span>
                       </div>
                     </div>
@@ -206,11 +208,11 @@ export function AnalyticsTabContent() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-semibold text-white truncate">{tool.name}</div>
-                    <div className="text-xs text-slate-500 capitalize truncate">{tool.category || '—'}</div>
+                    <div className="text-xs text-slate-500 truncate">{categoryLabel(tool.category)}</div>
                   </div>
                   <div className="text-right flex-shrink-0">
                     <div className="text-sm font-semibold text-white">{formatMoney(Math.round(tool.cost_per_month || 0), language)}</div>
-                    <div className="text-xs text-slate-500">/mo</div>
+                    <div className="text-xs text-slate-500">{t('per_mo_short')}</div>
                   </div>
                 </div>
               ))}
@@ -235,12 +237,12 @@ export function AnalyticsTabContent() {
                   <div className="flex items-baseline gap-3 mb-2">
                     <div>
                       <span className="text-lg font-bold text-emerald-400">{dept.active}</span>
-                      <span className="text-xs text-slate-500 ml-1">active</span>
+                      <span className="text-xs text-slate-500 ml-1">{t('an_active')}</span>
                     </div>
                     {dept.inactive > 0 && (
                       <div>
                         <span className="text-lg font-bold text-amber-400">{dept.inactive}</span>
-                        <span className="text-xs text-slate-500 ml-1">inactive</span>
+                        <span className="text-xs text-slate-500 ml-1">{t('an_inactive')}</span>
                       </div>
                     )}
                   </div>
@@ -248,7 +250,7 @@ export function AnalyticsTabContent() {
                     <div className="h-full bg-emerald-500 rounded-full transition-all" style={{width: activePct + '%'}} />
                   </div>
                   <div className="flex justify-end mt-1">
-                    <span className="text-[10px] text-slate-500">{activePct.toFixed(0)}% active</span>
+                    <span className="text-[10px] text-slate-500">{activePct.toFixed(0)} % {t('an_active')}</span>
                   </div>
                 </div>
               );

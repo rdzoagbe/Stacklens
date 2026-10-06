@@ -13,6 +13,7 @@ import { computeWaste, EXPENSIVE_PER_USER } from '../../lib/waste';
 import { useDbQuery } from '../../hooks/useDbQuery';
 import { useLang } from '../../contexts/LangContext';
 import { useTranslation } from '../../translations';
+import { useCategoryLabel } from '../../components/ui';
 
 // ── Only what the data actually says ───────────────────────────────────────
 //
@@ -95,6 +96,7 @@ export function LicenseManagement() {
   const topOpportunities = [...unused].sort((a, b) => b.cost - a.cost).slice(0, 3);
 
   const money = (n) => formatMoney(n, language);
+  const categoryLabel = useCategoryLabel();
 
   const handleReclaimAll = () => {
     if (unused.length === 0) {
@@ -294,7 +296,7 @@ export function LicenseManagement() {
                     <tr key={app.id} className="border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors">
                       <td className="py-3 px-4">
                         <div className="text-sm font-semibold text-white truncate">{app.name}</div>
-                        <div className="text-xs text-slate-500 capitalize truncate">{app.category || '—'}</div>
+                        <div className="text-xs text-slate-500 truncate">{categoryLabel(app.category)}</div>
                       </td>
                       <td className="py-3 px-4 text-right whitespace-nowrap">
                         <span className={"text-sm font-semibold " + (app.activeUsers === 0 ? 'text-amber-400' : 'text-white')}>

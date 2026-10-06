@@ -48,6 +48,7 @@ export function ContractComparisonPage() {
   const [contractB, setContractB] = useState({ name: '', party: '', text: '', type: 'MSA', fileName: '' });
   const [favors, setFavors] = useState('balanced'); // balanced | party-a | party-b
   const CONTRACT_TYPES = ['MSA', 'NDA', 'SaaS Agreement', 'SOW', 'Employment', 'Partnership', 'Other'];
+  const TYPE_LABEL = { 'SaaS Agreement': t('cc_type_saas'), Employment: t('cc_type_employment'), Partnership: t('cc_type_partnership'), Other: t('cc_type_other') };
 
   // ── Analysis results ────────────────────────────────────────
   const [analysis, setAnalysis] = useState(null);
@@ -233,7 +234,7 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
             {CONTRACT_TYPES.map(type => (
               <button key={type} onClick={() => { setContractA(a => ({...a, type})); setContractB(b => ({...b, type})); }}
                 className={'px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ' + (contractA.type === type ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white')}>
-                {type}
+                {TYPE_LABEL[type] || type}
               </button>
             ))}
           </div>
@@ -254,8 +255,8 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
       {/* ── Row 3: Two contract inputs side by side ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5">
         {[
-          { label: 'Contract A', accent: 'blue', state: contractA, setState: setContractA },
-          { label: 'Contract B', accent: 'emerald', state: contractB, setState: setContractB },
+          { label: t('cc_contract_a'), accent: 'blue', state: contractA, setState: setContractA },
+          { label: t('cc_contract_b'), accent: 'emerald', state: contractB, setState: setContractB },
         ].map(({ label, accent, state, setState }) => {
           const accentBorder = accent === 'blue' ? 'border-blue-500/30' : 'border-emerald-500/30';
           const accentDot = accent === 'blue' ? 'bg-blue-500' : 'bg-emerald-500';
@@ -265,7 +266,7 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
                 <div className={"w-2.5 h-2.5 rounded-full " + accentDot} />
                 <span className="text-white font-semibold text-sm">{label}</span>
                 <span className={"ml-auto text-xs " + (state.text.length > 50 ? 'text-emerald-400' : 'text-slate-500')}>
-                  {state.text.length > 50 ? '✓ Ready' : state.text.length + ' chars'}
+                  {state.text.length > 50 ? t('cc_ready') : t('cc_n_chars').replace('{n}', state.text.length)}
                 </span>
               </div>
               <input
@@ -283,7 +284,7 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
               <textarea
                 value={state.text}
                 onChange={e => setState(s => ({...s, text: e.target.value}))}
-                placeholder={"Paste " + label + " text here, or upload a file below..."}
+                placeholder={t('cc_paste_placeholder').replace('{label}', label)}
                 className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm placeholder-slate-500 outline-none focus:border-blue-500 transition-colors resize-none"
                 rows={10}
               />

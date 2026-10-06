@@ -7,7 +7,7 @@ import { computeToolDerivedStatus, computeToolDerivedRisk, getRiskEvidence, form
 import { useDbQuery, useDbMutations } from '../hooks/useDbQuery';
 import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
-import { Button, Input, Select, Textarea, Modal, SkeletonRow, EmptyState, CategoryIcon, RiskBadge, StatusBadge, useEnumLabel } from '../components/ui';
+import { Button, Input, Select, Textarea, Modal, SkeletonRow, EmptyState, CategoryIcon, RiskBadge, StatusBadge, useEnumLabel, useCategoryLabel } from '../components/ui';
 import { RoleGate, PlanLimitBanner } from '../components/gates';
 import { AppShell } from '../components/AppShell';
 import { Search, Plus, Pencil, Trash2, ChevronDown, AlertTriangle, Check, X, Boxes, RefreshCw } from 'lucide-react';
@@ -19,6 +19,7 @@ export function ToolForm({ initial, employees, onSubmit, onClose }) {
   const { language } = useLang();
   const t = useTranslation(language);
   const enumLabel = useEnumLabel();
+  const categoryLabel = useCategoryLabel();
   const [form, setForm] = useState(
     initial || {
       name: "",
@@ -80,7 +81,7 @@ export function ToolForm({ initial, employees, onSubmit, onClose }) {
           <Select value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}>
             {CATEGORIES.map((c) => (
               <option key={c} value={c}>
-                {c}
+                {categoryLabel(c)}
               </option>
             ))}
           </Select>
@@ -248,6 +249,7 @@ export function ToolsPage() {
   const enumLabel = useEnumLabel();
   const muts = useDbMutations();
 
+  const categoryLabel = useCategoryLabel();
   const [q, setQ] = useState("");
   const [cat, setCat] = useState("");
   const [status, setStatus] = useState("");
@@ -453,7 +455,7 @@ export function ToolsPage() {
               {catStats.map(([name, stats]) => (
                 <button key={name} onClick={() => setCat(name)}
                   className={"px-3 py-1.5 rounded-full text-xs font-semibold transition-all capitalize " + (cat === name ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700')}>
-                  {name} ({stats.count})
+                  {categoryLabel(name)} ({stats.count})
                 </button>
               ))}
             </div>
@@ -538,7 +540,7 @@ export function ToolsPage() {
                               ) : (
                                 <div className="text-sm font-semibold text-white truncate">{tool.name}</div>
                               )}
-                              <div className="text-xs text-slate-500 truncate capitalize">{tool.category || '—'}</div>
+                              <div className="text-xs text-slate-500 truncate">{categoryLabel(tool.category)}</div>
                             </div>
                             <ChevronDown className={`h-4 w-4 text-slate-500 transition-transform flex-shrink-0 ${expandedTool === tool.id ? 'rotate-180' : ''}`} />
                           </div>

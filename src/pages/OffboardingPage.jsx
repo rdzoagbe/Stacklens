@@ -250,8 +250,8 @@ export function OffboardingPage() {
             {/* Tab bar */}
             <div className="flex gap-1 rounded-xl border border-slate-800 bg-slate-900/60 p-1 w-fit">
               {[
-                { id: "queue",   label: `Queue (${upcoming.length})` },
-                { id: "history", label: `History (${offboarded.length})` },
+                { id: "queue",   label: `${t("offb_queue")} (${upcoming.length})` },
+                { id: "history", label: `${t("offb_history")} (${offboarded.length})` },
               ].map(({ id, label }) => (
                 <button key={id} onClick={() => setTab(id)}
                   className={"px-4 py-2 rounded-lg text-sm font-semibold transition-colors " + (tab === id ? "bg-blue-600 text-white" : "text-slate-400 hover:text-slate-200")}>

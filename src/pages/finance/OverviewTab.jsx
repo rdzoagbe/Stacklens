@@ -12,10 +12,13 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../hooks/useAuth';
 import { useLang } from '../../contexts/LangContext';
 import { useTranslation } from '../../translations';
+import { useCategoryLabel } from '../../components/ui';
+import { RENEWAL_SAVINGS_PCT } from '../../lib/constants';
 
 function SpendTrendChart({ monthlyTrend, byCategory }) {
   const { language } = useLang();
   const t = useTranslation(language);
+  const categoryLabel = useCategoryLabel();
   const money = (n) => formatMoney(n, language);
   // One point is this month and nothing to compare it with. A single bar
   // labelled "Last 6 months" reads as history, so say what it actually is.
@@ -106,7 +109,7 @@ function SpendTrendChart({ monthlyTrend, byCategory }) {
                 <div className="flex items-center justify-between mb-1.5">
                   <div className="flex items-center gap-2">
                     <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{background: colors[i]}} />
-                    <span className="text-sm font-medium text-slate-200 capitalize">{cat.name}</span>
+                    <span className="text-sm font-medium text-slate-200">{categoryLabel(cat.name)}</span>
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="text-sm font-semibold text-white">{money(cat.spend)}</span>
@@ -116,7 +119,7 @@ function SpendTrendChart({ monthlyTrend, byCategory }) {
                 <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
                   <div className="h-full rounded-full transition-all duration-500" style={{width: pct + '%', background: colors[i]}} />
                 </div>
-                <div className="text-xs text-slate-500 mt-1">{t('ov_cat_tools_avg').replace('{n}', cat.count).replace('{amount}', money(Math.round(cat.spend / Math.max(cat.count, 1))))}</div>
+                <div className="text-xs text-slate-500 mt-1">{t(cat.count === 1 ? 'ov_cat_tool_avg_one' : 'ov_cat_tools_avg').replace('{n}', cat.count).replace('{amount}', money(Math.round(cat.spend / Math.max(cat.count, 1))))}</div>
               </div>
             );
           })}
@@ -418,7 +421,7 @@ export function FinanceOverviewTab({ financialData, showBudgetModal, setShowBudg
             <div className="flex-1 min-w-0">
               <div className="text-sm font-semibold text-white mb-1">{t("finance_negotiate_renewals")}</div>
               <div className="text-xs text-slate-500 mb-2">{t('ov_renewing_soon').replace('{n}', financialData.upcomingBills.length)}</div>
-              <div className="text-xs text-amber-400 font-semibold">{t('fin_save_on_renewal')}</div>
+              <div className="text-xs text-amber-400 font-semibold">{t('fin_save_on_renewal').replace('{pct}', RENEWAL_SAVINGS_PCT)}</div>
             </div>
             <button onClick={() => setFinTab && setFinTab('renewals')} className="text-xs text-blue-400 hover:text-blue-300 font-semibold flex-shrink-0">{t('fin_view_arrow')}</button>
           </div>

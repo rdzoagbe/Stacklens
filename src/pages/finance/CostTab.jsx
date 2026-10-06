@@ -8,11 +8,13 @@ import { enrichToolCosts, EXPENSIVE_PER_USER } from '../../lib/waste';
 import { useDbQuery } from '../../hooks/useDbQuery';
 import { useLang } from '../../contexts/LangContext';
 import { useTranslation } from '../../translations';
+import { useCategoryLabel } from '../../components/ui';
 
 export function CostTabContent({ setFinTab }) {
   const { language } = useLang();
   const t = useTranslation(language);
   const money = (n) => formatMoney(n, language);
+  const categoryLabel = useCategoryLabel();
   const { data: db } = useDbQuery();
   const [sortBy, setSortBy] = useState('cost');
   const [filter, setFilter] = useState('all');
@@ -152,7 +154,7 @@ export function CostTabContent({ setFinTab }) {
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-semibold text-white truncate">{tool.name}</div>
-                    <div className="text-xs text-slate-500 capitalize truncate">{tool.category || '—'}</div>
+                    <div className="text-xs text-slate-500 truncate">{categoryLabel(tool.category)}</div>
                   </div>
                   <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 flex-shrink-0">
                     {tool.wasteReason === 'no-users' ? t('cost_badge_unused') : t('cost_badge_pricey')}
@@ -233,7 +235,7 @@ export function CostTabContent({ setFinTab }) {
                     <tr key={tool.id} className="border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors">
                       <td className="py-3 px-4">
                         <div className="text-sm font-semibold text-white truncate">{tool.name}</div>
-                        <div className="text-xs text-slate-500 capitalize truncate">{tool.category || '—'}</div>
+                        <div className="text-xs text-slate-500 truncate">{categoryLabel(tool.category)}</div>
                       </td>
                       <td className="py-3 px-4 text-right text-sm font-semibold text-white whitespace-nowrap">
                         {money(Math.round(tool.cost))}

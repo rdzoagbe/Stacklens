@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { formatMoney, formatInSymbol } from './currency';
 import { AUDIT_CATEGORY_LABELS, auditCategoryLabel } from './auditCategories';
+import { translations } from '../translations';
 
 // ── French screens read as French ──────────────────────────────────────────
 //
@@ -68,7 +69,15 @@ describe('English that was typed into French screens stays out', () => {
     'src/components/SlackNotifications.jsx': ["'Test Connection'", "'Save'"],
     'src/components/FloatingChatbot.jsx': ['> Online', "'Sorry, I could not respond"],
     'src/lib/auditReport.js': ['<h2>Recommendations</h2>', 'Schedule quarterly access reviews'],
-    'src/pages/TrialPage.jsx': ['placeholder="Jane Smith"', '>or</span>', '>Terms</Link>'],
+    'src/pages/TrialPage.jsx': ['placeholder="Jane Smith"', '>or</span>', '>Terms</Link>', "t('contact_sales')"],
+    // the walkthrough of 2026-10-06
+    'src/pages/DashboardPage.jsx': ['getCurrency(language)'],
+    'src/components/AppShell.jsx': ['"Logout"', '"Exit Demo"'],
+    'src/pages/settings/BillingTab.jsx': ["'Upgrade'", "`Save ${", "label: 'Tools'", '{used} / {max}</span>'],
+    'src/pages/OffboardingPage.jsx': ['`Queue (', '`History ('],
+    'src/pages/finance/AnalyticsTab.jsx': ['total tracked', '>per month<', '>/mo<', '>active<', '>inactive<', "'tool' : 'tools'", 'categories by monthly cost'],
+    'src/pages/finance/RenewalsTab.jsx': ['/yr</div>', '{r.renewalDate}'],
+    'src/pages/ContractComparisonPage.jsx': ["label: 'Contract A'", "' chars'", '"Paste " + label'],
   };
   for (const [file, strings] of Object.entries(gone)) {
     it(file, () => {
@@ -81,5 +90,44 @@ describe('English that was typed into French screens stays out', () => {
     const fn = read('functions/index.js');
     const server = Number(/const API_RATE_LIMIT = \{ maxCalls: (\d+)/.exec(fn)[1]);
     expect(read('src/pages/settings/ApiKeysTab.jsx')).toContain(`export const API_CALLS_PER_HOUR = ${server};`);
+  });
+});
+
+describe('the rest of the walkthrough of 2026-10-06', () => {
+  it('workspace categories have a label in every language', () => {
+    const ui = read('src/components/ui.jsx');
+    const keys = [...ui.matchAll(/'(cat_[a-z]+)'/g)].map((m) => m[1]);
+    expect(keys.length).toBeGreaterThan(10);
+    for (const lang of ['en', 'fr', 'de', 'es', 'pt']) for (const k of keys) expect(translations[lang][k], `${lang}.${k}`).toBeTruthy();
+    // …and the pages that show a category go through the hook.
+    for (const f of ['src/pages/ToolsPage.jsx', 'src/pages/finance/CostTab.jsx', 'src/pages/finance/LicensesTab.jsx', 'src/pages/finance/OverviewTab.jsx',
+      'src/pages/finance/AnalyticsTab.jsx', 'src/pages/finance/RenewalsTab.jsx', 'src/pages/finance/ExecutiveDashboard.jsx']) {
+      expect(read(f), f).toMatch(/categoryLabel\(/);
+      // shown as text (a `category={…}` prop handed to an icon is fine)
+      expect(read(f), f).not.toMatch(/>\{(tool|app|r|opp)\.category( \|\| '—')?\}|\{cat\.name\}<\/span>/);
+    }
+  });
+
+  it('one renewal-savings figure, quoted from one constant', () => {
+    for (const lang of ['en', 'fr']) {
+      expect(translations[lang].ren_neg_sub).toContain('{pct}');
+      expect(translations[lang].fin_save_on_renewal).toContain('{pct}');
+      expect(translations[lang].ren_neg_sub).not.toMatch(/\d/);
+    }
+    expect(read('src/pages/finance/OverviewTab.jsx')).toMatch(/RENEWAL_SAVINGS_PCT/);
+    expect(read('src/pages/finance/RenewalsTab.jsx')).toMatch(/RENEWAL_SAVINGS_PCT/);
+  });
+
+  it('the plan page sells every plan the same way, as the About page promises', () => {
+    expect(translations.fr.about_principle1_body).toMatch(/sans palier/);
+    expect(read('src/pages/TrialPage.jsx')).toMatch(/cta: c\.id === 'free' \? t\('start_free'\) : t\('start_trial'\)/);
+  });
+
+  it('SSO is not sold as an Enterprise feature, and the client-workspace page is named for what it is', () => {
+    expect(translations.fr.set_sso_desc).toMatch(/aucun plan/);
+    expect(translations.en.set_sso_desc).toMatch(/not available on any plan/);
+    expect(read('src/pages/settings/SecurityTab.jsx')).not.toMatch(/set_view_enterprise/);
+    expect(translations.fr.nav_clients).toBe('Espaces clients');
+    expect(translations.fr.dash_former_access_title).toMatch(/^accès/);
   });
 });

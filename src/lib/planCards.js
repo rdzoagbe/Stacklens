@@ -43,15 +43,15 @@ export function formatCount(n, lang = 'en') {
 
 const COUNTED = {
   en: { tools: (n) => `Up to ${n} SaaS tools`, employees: (n) => `Up to ${n} employees`,
-        team: (n) => `Share with up to ${n} teammates`, clients: (n) => `Up to ${n} client workspaces` },
+        team: (n) => `Share with up to ${n} teammates`, clients: (n) => `For firms: up to ${n} client workspaces` },
   fr: { tools: (n) => `Jusqu'à ${n} outils SaaS`, employees: (n) => `Jusqu'à ${n} employés`,
-        team: (n) => `Partage avec jusqu'à ${n} collaborateurs`, clients: (n) => `Jusqu'à ${n} espaces clients` },
+        team: (n) => `Partage avec jusqu'à ${n} collaborateurs`, clients: (n) => `Pour les cabinets : jusqu'à ${n} espaces clients` },
   de: { tools: (n) => `Bis zu ${n} SaaS-Tools`, employees: (n) => `Bis zu ${n} Mitarbeiter`,
-        team: (n) => `Mit bis zu ${n} Teammitgliedern teilen`, clients: (n) => `Bis zu ${n} Mandanten-Workspaces` },
+        team: (n) => `Mit bis zu ${n} Teammitgliedern teilen`, clients: (n) => `Für Kanzleien: bis zu ${n} Mandanten-Workspaces` },
   es: { tools: (n) => `Hasta ${n} herramientas SaaS`, employees: (n) => `Hasta ${n} empleados`,
-        team: (n) => `Comparte con hasta ${n} compañeros`, clients: (n) => `Hasta ${n} espacios de clientes` },
+        team: (n) => `Comparte con hasta ${n} compañeros`, clients: (n) => `Para despachos: hasta ${n} espacios de clientes` },
   pt: { tools: (n) => `Até ${n} ferramentas SaaS`, employees: (n) => `Até ${n} funcionários`,
-        team: (n) => `Partilhe com até ${n} colegas`, clients: (n) => `Até ${n} espaços de clientes` },
+        team: (n) => `Partilhe com até ${n} colegas`, clients: (n) => `Para escritórios: até ${n} espaços de clientes` },
 };
 
 export const PLAN_COPY = {

@@ -15,12 +15,16 @@ import { useDbQuery, useDbMutations } from '../../hooks/useDbQuery';
 import { useLang } from '../../contexts/LangContext';
 import { useTranslation } from '../../translations';
 import { submitContactForm } from '../../lib/contact';
-import { Card, Modal, Pill, Select } from '../../components/ui';
+import { Card, Modal, Pill, Select, useCategoryLabel } from '../../components/ui';
 import { ContractComparisonPage } from '../ContractComparisonPage';
+import { RENEWAL_SAVINGS_PCT } from '../../lib/constants';
 
 export function RenewalAlerts() {
   const { language } = useLang();
   const t = useTranslation(language);
+  const categoryLabel = useCategoryLabel();
+  // Renewal dates are stored as ISO strings; shown the way the language writes them.
+  const fmtDate = (d) => (d && !Number.isNaN(Date.parse(d)) ? new Date(d).toLocaleDateString(language, { day: 'numeric', month: 'short', year: 'numeric' }) : d || '—');
   const { data: db } = useDbQuery();
 
   const [view, setView] = useState('list'); // list | calendar
@@ -369,14 +373,14 @@ export function RenewalAlerts() {
                 <Sparkles className="h-4 w-4 text-emerald-400" />
                 <h2 className="text-base font-semibold text-white">{t("ren_neg_opportunities")}</h2>
               </div>
-              <p className="text-sm text-slate-500">{t("ren_neg_sub")}</p>
+              <p className="text-sm text-slate-500">{t("ren_neg_sub").replace('{pct}', RENEWAL_SAVINGS_PCT)}</p>
             </div>
             <div className="text-right">
               {/* Was 15% of the renewing contract value, labelled "potential
                   savings" — an assumption about how a negotiation would go,
                   presented as a figure. The contract value itself is a fact. */}
               <div className="text-xs text-slate-500 uppercase tracking-wider">{t('ren_up_for_renewal')}</div>
-              <div className="text-lg font-black text-white">{formatMoney(Math.round(totalAtRisk), language)}/yr</div>
+              <div className="text-lg font-black text-white">{formatMoney(Math.round(totalAtRisk), language)}{t('per_year')}</div>
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -385,7 +389,7 @@ export function RenewalAlerts() {
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-semibold text-white truncate">{opp.app}</div>
-                    <div className="text-xs text-slate-500 capitalize truncate">{opp.category}</div>
+                    <div className="text-xs text-slate-500 truncate">{categoryLabel(opp.category)}</div>
                   </div>
                   <span className={"text-[10px] font-bold uppercase px-1.5 py-0.5 rounded border " + getStatusColor(opp.status)}>
                     {getStatusLabel(opp.status, opp.daysUntil)}
@@ -484,10 +488,10 @@ export function RenewalAlerts() {
                     <tr key={r.id} className="border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors">
                       <td className="py-3 px-4">
                         <div className="text-sm font-semibold text-white truncate">{r.app}</div>
-                        <div className="text-xs text-slate-500 capitalize truncate">{r.category}</div>
+                        <div className="text-xs text-slate-500 truncate">{categoryLabel(r.category)}</div>
                       </td>
                       <td className="py-3 px-4 text-sm text-slate-300 hidden md:table-cell whitespace-nowrap">
-                        {r.renewalDate}
+                        {fmtDate(r.renewalDate)}
                       </td>
                       <td className="py-3 px-4 text-center">
                         <span className={"text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border whitespace-nowrap " + getStatusColor(r.status)}>
@@ -553,7 +557,7 @@ export function RenewalAlerts() {
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex-1 min-w-0">
                           <div className="text-sm font-semibold text-white truncate">{r.app}</div>
-                          <div className="text-xs text-slate-500">{r.renewalDate}</div>
+                          <div className="text-xs text-slate-500">{fmtDate(r.renewalDate)}</div>
                         </div>
                         <span className={"text-[10px] font-bold uppercase px-1.5 py-0.5 rounded border whitespace-nowrap " + getStatusColor(r.status)}>
                           {getStatusLabel(r.status, r.daysUntil)}
