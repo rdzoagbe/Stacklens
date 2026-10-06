@@ -9,6 +9,7 @@ import { useDbMutations } from '../hooks/useDbQuery';
 import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
 import { Card, CardHeader, CardBody, Pill } from './ui';
+import { normaliseCsvHeaders } from '../lib/csvHeaders';
 
 export function ImportWizard({ defaultKind = null, onDone = null }) {
   const { language } = useLang();
@@ -71,12 +72,7 @@ export function ImportWizard({ defaultKind = null, onDone = null }) {
         reader.readAsText(file);
       });
     }
-    setText(csv);
-    const detected = detectKind(csv);
-    if (detected) {
-      setKind(detected);
-      toast.success('Detected: ' + (KINDS[detected]?.label || detected));
-    }
+    adopt(csv);
     goTo(2);
   };
 
@@ -125,14 +121,21 @@ export function ImportWizard({ defaultKind = null, onDone = null }) {
     return best[1] > 0 ? best[0] : null;
   };
 
-  const handlePaste = (val) => {
-    setText(val);
-    const detected = detectKind(val);
+  // Headers people actually write ("Nom", "Coût / mois", "E-mail") become the
+  // template's names (lib/csvHeaders.js): for the kind chosen, else for the
+  // kind the file looks like once its headers are tidied.
+  const adopt = (raw) => {
+    const guess = kind || detectKind(normaliseCsvHeaders(raw, 'company').text) || detectKind(raw);
+    const { text: mapped, renamed } = normaliseCsvHeaders(raw, guess || 'tools');
+    const detected = detectKind(mapped) || guess;
+    setText(mapped);
     if (detected && detected !== kind) {
       setKind(detected);
-      toast.success('Detected type: ' + KINDS[detected].label + ' — smart detection!');
+      toast.success(t('import_detected').replace('{kind}', KINDS[detected].label));
     }
+    if (renamed.length) toast.success(t('import_columns_recognised').replace('{n}', renamed.length));
   };
+  const handlePaste = (val) => adopt(val);
 
   return (
     <div className="space-y-6">
@@ -183,7 +186,7 @@ export function ImportWizard({ defaultKind = null, onDone = null }) {
                   <div className="flex-1 min-w-0">
                     <div className="font-bold text-white text-lg">{meta.label}</div>
                     <div className="text-sm text-slate-400">{meta.desc}</div>
-                    <div className="text-xs text-slate-500 mt-0.5">e.g. {meta.example}</div>
+                    <div className="text-xs text-slate-500 mt-0.5">{t('eg_prefix')} {meta.example}</div>
                   </div>
                   <ChevronRight className="h-5 w-5 text-slate-500 flex-shrink-0" />
                 </button>
@@ -274,7 +277,7 @@ export function ImportWizard({ defaultKind = null, onDone = null }) {
           )}
 
           <Card className="p-4 md:p-6">
-            <h2 className="text-xl font-bold text-white mb-1">{t('upload')}</h2>
+            <h2 className="text-xl font-bold text-white mb-1">{t('upload_title')}</h2>
             <p className="text-slate-400 text-sm mb-5">{t('import_drag_and_drop_desc')}</p>
 
             <div
@@ -292,6 +295,7 @@ export function ImportWizard({ defaultKind = null, onDone = null }) {
               <div className="text-sm text-slate-500 mt-1">{t('import_click_browse')}</div>
               <div className="mt-4 flex items-center gap-2 text-xs text-slate-500">
                 <span className="px-2 py-0.5 bg-slate-800 rounded font-mono">CSV</span>
+                <span className="px-2 py-0.5 bg-slate-800 rounded font-mono">Excel</span>
                 <span className="px-2 py-0.5 bg-slate-800 rounded font-mono">TXT</span>
               </div>
             </div>
@@ -361,7 +365,7 @@ export function ImportWizard({ defaultKind = null, onDone = null }) {
                     className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 rounded-xl font-bold text-sm transition-all active:scale-[0.98]">
                     {importing
                       ? <><RefreshCw className="h-4 w-4 animate-spin" /> {t('importing')}</>
-                      : <><Upload className="h-4 w-4" /> {t('import_heading')} {validCount} record{validCount !== 1 ? 's' : ''}</>
+                      : <><Upload className="h-4 w-4" /> {t(validCount === 1 ? 'import_one_row' : 'import_n_rows').replace('{n}', validCount)}</>
                     }
                   </button>
                 </div>
@@ -377,7 +381,7 @@ export function ImportWizard({ defaultKind = null, onDone = null }) {
           <div className="text-3xl md:text-6xl mb-4 animate-bounce">🎉</div>
           <h2 className="text-2xl font-black text-white mb-2">{t("import_complete")}</h2>
           <p className="text-slate-400 mb-2">
-            <span className="text-emerald-400 font-bold">{imported.count} {KINDS[imported.kind]?.label}</span> {t('import_records_added')}
+            <span className="text-emerald-400 font-bold">{imported.count}</span> {t('import_rows_added')} <span className="text-slate-300">({KINDS[imported.kind]?.label})</span>
           </p>
           <p className="text-sm text-slate-500 mb-8">{t('import_risk_insights')}</p>
           <div className="grid sm:grid-cols-2 gap-3 max-w-sm mx-auto">

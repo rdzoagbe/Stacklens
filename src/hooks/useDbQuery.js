@@ -8,6 +8,7 @@ import { appendAudit, auditActor, changedKeys, describeChange } from '../lib/aud
 import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
 import { REVIEW_ORIGINS, isRejectedVendor, originOfRow, vendorKey } from '../lib/toolReview';
+import { csvAmount } from '../lib/csvHeaders';
 
 // The first time real data enters a workspace is when time-to-first-insight
 // starts. Demo data is not an arrival: nobody imported it.
@@ -537,9 +538,9 @@ export function useDbMutations() {
               toolMap[toolKey] = existing ? {
                 ...existing,
                 category:       r.tool_category    || existing.category,
-                cost_per_month: Number(r.tool_cost_monthly || existing.cost_per_month || 0),
-                cost_monthly:   Number(r.tool_cost_monthly || existing.cost_monthly   || 0),
-                cost:           Number(r.tool_cost_monthly || existing.cost            || 0),
+                cost_per_month: (r.tool_cost_monthly ? csvAmount(r.tool_cost_monthly) : (existing.cost_per_month || 0)),
+                cost_monthly:   (r.tool_cost_monthly ? csvAmount(r.tool_cost_monthly) : (existing.cost_monthly || 0)),
+                cost:           (r.tool_cost_monthly ? csvAmount(r.tool_cost_monthly) : (existing.cost || 0)),
                 renewal_date:   r.renewal_date      || existing.renewal_date,
                 criticality:    r.tool_criticality  || existing.criticality,
                 status:         r.tool_status       || existing.status,
@@ -558,9 +559,9 @@ export function useDbMutations() {
                 description:    '',
                 status:         r.tool_status      || 'active',
                 last_used_date: r.tool_last_used   || new Date().toISOString().slice(0, 10),
-                cost_per_month: Number(r.tool_cost_monthly || 0),
-                cost_monthly:   Number(r.tool_cost_monthly || 0),
-                cost:           Number(r.tool_cost_monthly || 0),
+                cost_per_month: csvAmount(r.tool_cost_monthly),
+                cost_monthly:   csvAmount(r.tool_cost_monthly),
+                cost:           csvAmount(r.tool_cost_monthly),
                 renewal_date:   r.renewal_date || '',
                 risk_score:     'low',
                 derived_risk:   'low',
@@ -622,9 +623,9 @@ export function useDbMutations() {
             description:    r.description     || '',
             status:         r.status          || 'active',
             last_used_date: r.last_used_date  || new Date().toISOString().slice(0, 10),
-            cost_per_month: Number(r.cost_per_month || 0),
-            cost_monthly:   Number(r.cost_per_month || 0),
-            cost:           Number(r.cost_per_month || 0),
+            cost_per_month: csvAmount(r.cost_per_month),
+            cost_monthly:   csvAmount(r.cost_per_month),
+            cost:           csvAmount(r.cost_per_month),
             renewal_date:   r.renewal_date    || '',
             risk_score:     r.risk_score      || 'low',
             derived_risk:   r.risk_score      || 'low',

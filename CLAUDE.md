@@ -119,7 +119,7 @@ its allowance indefinitely. `src/lib/plan-parity.test.js` keeps the two in step.
 
 | File | Purpose |
 |---|---|
-| `components/ImportWizard.jsx` | CSV/spreadsheet import flow |
+| `components/ImportWizard.jsx` | CSV/spreadsheet import flow. Headers people write ("Nom", "Coût / mois", "E-mail") are mapped to the template names by `lib/csvHeaders.js` (`normaliseCsvHeaders`, per kind; `csvAmount` reads "1 200,50" and "49.90 €"); `parseCsv` follows the header's delimiter (`;` from French Excel). The dashboard opens it on "what are you importing?". |
 | `components/SlackNotifications.jsx` | Slack webhook digests |
 | `google-workspace.js` | GWS OAuth + Directory API helpers |
 | `auth-redirect.js` | OAuth popup relay (Microsoft/Okta postMessage bridge) |
