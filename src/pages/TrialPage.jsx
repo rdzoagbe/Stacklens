@@ -419,7 +419,7 @@ export function TrialPage() {
               id: c.id, name: planText(language, 'plan_' + c.id), eur: c.monthly,
               sub: c.monthly === 0 ? t('forever') : t('per_month'),
               features: planFeatures(c.id, language),
-              cta: c.id === 'free' ? t('start_free') : c.id === 'enterprise' ? t('contact_sales') : t('start_trial'),
+              cta: c.id === 'free' ? t('start_free') : t('start_trial'),
               highlight: c.id === 'pro', badge: c.id === 'hr_finance' ? 'NEW' : null,
             })).map((p, i) => (
               <div

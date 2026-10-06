@@ -3,7 +3,7 @@ import {
   AlertTriangle, ArrowDown, ArrowUp, Boxes, DollarSign, Download, TrendingUp,
 } from 'lucide-react';
 import { formatMoney } from '../../lib/dataUtils';
-import { useEnumLabel } from '../../components/ui';
+import { useEnumLabel, useCategoryLabel } from '../../components/ui';
 import { computeWaste, monthlySpend } from '../../lib/waste';
 import { spendTrend } from '../../lib/budget';
 import { useLang } from '../../contexts/LangContext';
@@ -17,6 +17,7 @@ export function ExecutiveDashboard({ data }) {
   const { language } = useLang();
   const t = useTranslation(language);
   const enumLabel = useEnumLabel();
+  const categoryLabel = useCategoryLabel();
   const money = (n) => formatMoney(n, language);
   const totalSpend = monthlySpend(data);
   const annualSpend = totalSpend * 12;
@@ -100,7 +101,7 @@ export function ExecutiveDashboard({ data }) {
           <div className="recharts-wrapper-fix" style={{position:"relative",width:"100%",minWidth:"0",overflow:"hidden"}}>
           <ResponsiveContainer width="100%" height={250} minWidth={0}>
             <RPieChart>
-              <Pie data={categoryData} cx="50%" cy="50%" labelLine={false} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} outerRadius={100} dataKey="value">
+              <Pie data={categoryData} cx="50%" cy="50%" labelLine={false} label={({ name, percent }) => `${categoryLabel(name)} ${(percent * 100).toFixed(0)}%`} outerRadius={100} dataKey="value">
                 {categoryData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
               </Pie>
               <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }} formatter={val => [money(val) + t('per_mo_short'), '']} />
@@ -122,7 +123,7 @@ export function ExecutiveDashboard({ data }) {
             {topTools.map((tool, idx) => (
               <tr key={idx} className="border-b border-slate-800/50">
                 <td className="py-3 px-4 text-white font-medium">{tool.name}</td>
-                <td className="py-3 px-4 text-slate-400">{tool.category || t('exec_other')}</td>
+                <td className="py-3 px-4 text-slate-400">{categoryLabel(tool.category || 'other')}</td>
                 <td className="py-3 px-4 text-right text-white">{money(tool.cost_per_month || 0)}</td>
                 <td className="py-3 px-4 text-right text-emerald-400">{money((tool.cost_per_month || 0) * 12)}</td>
                 <td className="py-3 px-4 text-center">

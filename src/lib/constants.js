@@ -73,6 +73,10 @@ export const LEGAL_ENTITY = {
   city:      'Paris, France',
 };
 
+// Typical saving at a renegotiated renewal, quoted on the Finance overview and
+// the Renewals tab. Two pages used to say 20 % and 15 % for the same thing.
+export const RENEWAL_SAVINGS_PCT = 15;
+
 export const ROLES = {
   owner:  { level: 4, label: 'Owner' },
   admin:  { level: 3, label: 'Admin' },

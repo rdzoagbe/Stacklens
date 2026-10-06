@@ -205,6 +205,7 @@ Every imported invoice (`db.invoice_records`, from the PDF import, the email inb
 - **Spend**: every total comes from `billedTools()` / `monthlySpend()` in `lib/waste.js` (decommissioned tools bill nobody), including `FinancePage`, `lib/budget.js` and its server twin in `functions/monthly-report.js`. `employeeCostShares()` splits each tool's cost between the people holding it; the Employees page shows that share.
 - **Security score**: `computeMfaCoverage` is `null` until a tool says anything about MFA (the tool form's MFA field, or a `tool_mfa` / `mfa` CSV column via `csvToolExtras` in `useDbQuery.js`, which also reads `seats`, `billing_cycle`, `auto_renew`). The spend alert fires only above `db.user.budget_cap`. The customer's Security page carries no block about Stacklens's own certifications.
 - `smb-walkthrough.test.js` holds these.
+- **Workspace categories** (`CATEGORIES` in `lib/constants.js`) are shown through `useCategoryLabel()` in `components/ui.jsx` (`cat_*` keys in five languages); the stored value stays English. `RENEWAL_SAVINGS_PCT` (`lib/constants.js`) is the one renewal-savings figure both Finance tabs quote. Every plan card, Enterprise included, sells through the same trial CTA: the About page promises no "contact sales" tier, and the Billing tab already sold Enterprise through Stripe.
 
 ### Notification switches (`src/lib/notifications.js`)
 

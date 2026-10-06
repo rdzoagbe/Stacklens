@@ -376,6 +376,25 @@ export function useEnumLabel() {
   return (value) => (ENUM_LABEL_KEY[value] ? t(ENUM_LABEL_KEY[value]) : String(value || '—'));
 }
 
+// The workspace categories (lib/constants.js CATEGORIES) showed in English on
+// every French screen ("Sales", "Productivity"). A category typed by hand or
+// imported outside the list shows as written.
+const CATEGORY_LABEL_KEY = {
+  engineering: 'cat_engineering', design: 'cat_design', marketing: 'cat_marketing', sales: 'cat_sales',
+  finance: 'cat_finance', hr: 'cat_hr', operations: 'cat_operations', security: 'cat_security',
+  communication: 'cat_communication', other: 'cat_other', executive: 'cat_executive', productivity: 'cat_productivity',
+  storage: 'cat_storage',
+};
+// eslint-disable-next-line react-refresh/only-export-components -- a hook beside the components it serves, like useEnumLabel above
+export function useCategoryLabel() {
+  const { language } = useLang();
+  const t = useTranslation(language);
+  return (value) => {
+    const key = CATEGORY_LABEL_KEY[String(value || '').trim().toLowerCase()];
+    return key ? t(key) : String(value || '—');
+  };
+}
+
 export function StatusBadge({ status }) {
   const { language } = useLang();
   const t = useTranslation(language);

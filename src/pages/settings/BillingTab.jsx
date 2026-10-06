@@ -66,7 +66,7 @@ export function BillingPage({ noShell = false }) {
   const getSaving = (p) => {
     if (!p.monthly || !p.annual) return null;
     const saved = p.monthly * 12 - p.annual;
-    return saved > 0 ? `Save ${pricing.format(saved)}/yr` : null;
+    return saved > 0 ? t('billing_save_per_year').replace('{amount}', pricing.format(saved)) : null;
   };
 
   // Holds the id of the plan whose checkout is in flight (null when idle) so
@@ -259,7 +259,7 @@ export function BillingPage({ noShell = false }) {
               ) : (
                 <button onClick={() => upgrade(p.id)} disabled={!!upgrading}
                   className={"w-full py-2.5 rounded-xl font-bold transition-all text-xs text-white bg-gradient-to-r hover:opacity-90 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed " + p.color}>
-                  {upgrading === p.id ? '...' : (isTrial ? t('upgrade_now').split('—')[0].trim() : 'Upgrade')}
+                  {upgrading === p.id ? '...' : (isTrial ? t('upgrade_now').split('—')[0].trim() : t('upgrade_btn'))}
                 </button>
               )}
             </div>
@@ -325,15 +325,15 @@ export function BillingPage({ noShell = false }) {
           <h3 className="font-bold text-white mb-4">{t('plan_usage')}</h3>
           <div className="grid sm:grid-cols-2 gap-4">
             {[
-              { label: 'Tools', used: db?.tools?.length || 0, max: currentPlanObj.limits.tools },
-              { label: 'Employees', used: db?.employees?.length || 0, max: currentPlanObj.limits.employees },
+              { label: t('tools'), used: db?.tools?.length || 0, max: currentPlanObj.limits.tools },
+              { label: t('employees'), used: db?.employees?.length || 0, max: currentPlanObj.limits.employees },
             ].map(({ label, used, max }) => {
               const pct = Math.min((used / max) * 100, 100);
               return (
                 <div key={label}>
                   <div className="flex justify-between text-sm mb-1.5">
                     <span className="text-slate-400">{label}</span>
-                    <span className={"font-bold " + (pct > 80 ? 'text-amber-400' : 'text-white')}>{used} / {max}</span>
+                    <span className={"font-bold " + (pct > 80 ? 'text-amber-400' : 'text-white')}>{used} / {max >= 99999 ? t('unlimited') : max}</span>
                   </div>
                   <div className="w-full bg-slate-800 rounded-full h-2">
                     <div className={"h-2 rounded-full transition-all " + (pct > 90 ? 'bg-red-500' : pct > 70 ? 'bg-amber-500' : 'bg-emerald-500')} style={{width: pct + '%'}} />

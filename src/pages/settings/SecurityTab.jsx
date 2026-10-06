@@ -66,7 +66,9 @@ export function SecurityTab({ t }) {
             <div>
               <div className="font-bold text-white text-sm mb-1">{t('sso_enterprise')}</div>
               <p className="text-xs text-slate-400">{t('set_sso_desc')}</p>
-              <button onClick={() => { navigate('/settings'); setTimeout(() => { const el = document.querySelector('[data-tab="billing"]'); if(el) el.click(); }, 100); }} className="text-xs text-amber-400 font-semibold hover:underline mt-2 inline-block">{t('set_view_enterprise')}</button>
+              {/* This pointed at the Enterprise plan, which does not include
+                  SSO either: no plan does. Directory sync is in Integrations. */}
+              <button onClick={() => { navigate('/settings'); setTimeout(() => { const el = document.querySelector('[data-tab="integrations"]'); if(el) el.click(); }, 100); }} className="text-xs text-amber-400 font-semibold hover:underline mt-2 inline-block">{t('set_view_integrations')}</button>
             </div>
           </div>
         </CardBody>

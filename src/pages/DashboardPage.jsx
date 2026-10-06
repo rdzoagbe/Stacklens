@@ -10,7 +10,7 @@ import { noteFirstInsight, noteVisit, noteRecommendationActed, noteRecommendatio
 import {
   computeToolDerivedStatus, computeToolDerivedRisk,
   computeAccessDerivedRiskFlag, buildRiskAlerts, riskSeverityCounts,
-  getCurrency, displayAmount,
+  formatMoney,
   countOrphanedTools, computeMfaCoverage, computeSecurityScore,
 } from '../lib/dataUtils';
 import { useDbQuery, useDbMutations } from '../hooks/useDbQuery';
@@ -197,7 +197,7 @@ export function DashboardPage() {
   const { data: db } = useDbQuery();
   const muts = useDbMutations();
 
-  const money = (n) => `${getCurrency(language)}${displayAmount(Number(n) || 0).toLocaleString()}`;
+  const money = (n) => formatMoney(Number(n) || 0, language);
   const fmtDate = (d) => new Date(d).toLocaleDateString(LOCALE_TAG[language] || 'en-GB');
   const plural = (n, oneKey, manyKey) => `${n} ${n === 1 ? t(oneKey) : t(manyKey)}`;
 
@@ -272,7 +272,7 @@ export function DashboardPage() {
 
   return (
     <AppShell title={t('dashboard')} right={
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {/* Opens on "what are you importing?". It used to open pre-set to
               "SaaS tools" two steps in, so the company file took two clicks
               back. "Reset data" stood beside it, even on an empty account;

@@ -315,7 +315,7 @@ export function SidebarFooter({ collapsed }) {
             }}
           >
             <BadgeX className="h-4 w-4" />
-            {isDemo ? "Exit Demo" : "Logout"}
+            {isDemo ? t('exit_demo') : t('logout')}
           </Button>
           <Button variant="ghost" className="w-full" onClick={() => { navigate('/settings'); setTimeout(() => { const el = document.querySelector('[data-tab="billing"]'); if(el) el.click(); }, 100); }}>
               <ExternalLink className="h-4 w-4" />
