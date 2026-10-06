@@ -3,9 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
   Activity, AlertTriangle, BadgeCheck, Boxes,
-  GitMerge, RefreshCw, Sparkles, Upload, UserMinus,
+  GitMerge, Sparkles, Upload, UserMinus,
 } from 'lucide-react';
-import { resetDb } from '../lib/db';
 import { computeWaste, monthlySpend } from '../lib/waste';
 import { noteFirstInsight, noteVisit, noteRecommendationActed, noteRecommendationsShown } from '../lib/activation';
 import {
@@ -274,21 +273,20 @@ export function DashboardPage() {
   return (
     <AppShell title={t('dashboard')} right={
         <div className="flex items-center gap-2">
+          {/* Opens on "what are you importing?". It used to open pre-set to
+              "SaaS tools" two steps in, so the company file took two clicks
+              back. "Reset data" stood beside it, even on an empty account;
+              deleting lives in Settings → Data, behind its own confirms. */}
           <RoleGate requires="editor">
-            <Button variant="secondary" size="sm" onClick={() => { setImportKind('tools'); setShowImport(true); }}>
+            <Button variant="secondary" size="sm" onClick={() => { setImportKind(null); setShowImport(true); }}>
               <Upload className="h-3.5 w-3.5" />{t('dash_import_data')}
-            </Button>
-          </RoleGate>
-          <RoleGate requires="admin">
-            <Button variant="secondary" size="sm" onClick={async () => { if(window.confirm(t('dash_reset_confirm'))) { const ok = await resetDb(); if (ok) toast.success(t('dash_reset_done')); } }} title={t('dash_reset_title')}>
-              <RefreshCw className="h-3.5 w-3.5" /> {t('dash_reset_data')}
             </Button>
           </RoleGate>
         </div>
       }>
 
       {/* ── GETTING STARTED — shown to new real users only ── */}
-      {db && !db.user?.is_demo && db.user?.is_authenticated && (
+      {db && !db.user?.is_demo && db.user?.is_authenticated && derived.tools.length > 0 && (
         <GettingStartedChecklist db={db} />
       )}
 
@@ -710,7 +708,7 @@ export function DashboardPage() {
         </div>
       </div>
 
-      {showImport && importKind && (
+      {showImport && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur p-4" onClick={() => setShowImport(false)}>
           <div className="bg-slate-950 border border-slate-700 rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto relative" onClick={e => e.stopPropagation()}>
             <button onClick={() => setShowImport(false)} className="absolute top-4 right-4 z-10 w-8 h-8 bg-slate-800 border border-slate-700 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition-colors">✕</button>

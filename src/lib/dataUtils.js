@@ -240,19 +240,27 @@ export function toCsv(rows, columns) {
   return `${header}\n${body}\n`;
 }
 
+/** The delimiter a header line uses: French Excel writes semicolons. */
+export function csvDelimiter(headerLine) {
+  const semis = (headerLine.match(/;/g) || []).length;
+  const commas = (headerLine.match(/,/g) || []).length;
+  return semis > commas ? ';' : ',';
+}
+
 export function parseCsv(text) {
   const lines = text.split(/\r?\n/).filter((l) => l.trim().length);
   if (!lines.length) return [];
-  const headers = splitCsvLine(lines[0]).map((h) => h.trim());
+  const sep = csvDelimiter(lines[0]);
+  const headers = splitCsvLine(lines[0], sep).map((h) => h.trim());
   return lines.slice(1).map((line) => {
-    const vals = splitCsvLine(line);
+    const vals = splitCsvLine(line, sep);
     const obj  = {};
     for (let i = 0; i < headers.length; i++) obj[headers[i]] = vals[i] ?? '';
     return obj;
   });
 }
 
-export function splitCsvLine(line) {
+export function splitCsvLine(line, sep = ',') {
   const out = [];
   let cur = '';
   let inQ = false;
@@ -263,7 +271,7 @@ export function splitCsvLine(line) {
       else { inQ = !inQ; }
       continue;
     }
-    if (ch === ',' && !inQ) { out.push(cur); cur = ''; continue; }
+    if (ch === sep && !inQ) { out.push(cur); cur = ''; continue; }
     cur += ch;
   }
   out.push(cur);

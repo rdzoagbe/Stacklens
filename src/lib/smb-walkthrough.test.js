@@ -107,3 +107,25 @@ describe('Slack says what it does', () => {
     expect(read('functions/index.js')).not.toMatch(/hooks\.slack\.com|slack_webhook/);
   });
 });
+
+describe('the first import', () => {
+  it('the wizard recognises ordinary column names on upload and paste', () => {
+    const w = read('src/components/ImportWizard.jsx');
+    expect(w).toMatch(/import \{ normaliseCsvHeaders \} from '\.\.\/lib\/csvHeaders';/);
+    expect(w).toMatch(/const handlePaste = \(val\) => adopt\(val\);/);
+    expect(w).toMatch(/adopt\(csv\);\s+goTo\(2\);/);
+    expect(w).not.toMatch(/'Detected: '|smart detection|e\.g\. \{|record\{validCount/);
+    expect(w).toMatch(/>Excel</);
+  });
+
+  it('the dashboard opens the wizard on its first step, has no reset button, and shows one guide at a time', () => {
+    const d = read('src/pages/DashboardPage.jsx');
+    expect(d).toMatch(/setImportKind\(null\); setShowImport\(true\)/);
+    expect(d).toMatch(/\{showImport && \(/);
+    expect(d).not.toMatch(/showImport && importKind/);
+    expect(d).not.toMatch(/setImportKind\('tools'\)|resetDb|dash_reset_data/);
+    expect(d).toMatch(/db\.user\?\.is_authenticated && derived\.tools\.length > 0 && \(\s*<GettingStartedChecklist/);
+    expect(translations.fr.dash_upload_data).toBe('Importer mes données');
+    expect(translations.fr.dash_get_started).not.toMatch(/\d/);
+  });
+});
