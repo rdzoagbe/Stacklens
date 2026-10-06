@@ -5,7 +5,7 @@ import {
   buildRiskAlerts, computeToolDerivedRisk,
 } from '../lib/dataUtils';
 import { maybeSnapshotSpend, previousMonthSpend, spendTrend } from '../lib/budget';
-import { computeWaste } from '../lib/waste';
+import { computeWaste, billedTools } from '../lib/waste';
 import { useDbQuery } from '../hooks/useDbQuery';
 import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
@@ -40,7 +40,7 @@ export function ExecutivePageWrapper() {
     tools: db.tools.map(t => ({ ...t, derived_risk: computeToolDerivedRisk(t) })),
     employees: db.employees || [],
     access: db.access || [],
-    alerts: buildRiskAlerts({ tools: db.tools, access: db.access || [], employees: db.employees || [] }, t)
+    alerts: buildRiskAlerts({ ...db, tools: db.tools, access: db.access || [], employees: db.employees || [] }, t)
   };
   
   return (
@@ -73,7 +73,10 @@ export function FinanceDashboard() {
   // surface prospects actually evaluate, reported $47,850/mo on Finance while
   // the Dashboard and Tools pages reported $1,340 for the same stack.
   const _cost = (t) => Number(t.cost_per_month || t.cost_monthly || t.cost || 0);
-  const _tools = db?.tools || [];
+  // The tools still billing — the Dashboard, Tools and Cost tabs count the
+  // same set (lib/waste.js). This counted a decommissioned tool, so the
+  // Finance overview said 1 518 € where every other page said 1 506 €.
+  const _tools = billedTools(db);
   const _totalSpend = _tools.reduce((s, t) => s + _cost(t), 0);
   const _byCategory = Object.values(_tools.reduce((acc, tool) => {
     const cat = tool.category || 'Other';

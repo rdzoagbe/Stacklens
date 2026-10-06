@@ -33,6 +33,11 @@ export function ToolForm({ initial, employees, onSubmit, onClose }) {
       cost_per_month: 0,
       risk_score: "low",
       notes: "",
+      renewal_date: "",
+      billing_cycle: "monthly",
+      seats: "",
+      auto_renew: true,
+      mfa_enabled: undefined,
     }
   );
 
@@ -58,6 +63,9 @@ export function ToolForm({ initial, employees, onSubmit, onClose }) {
           cost_per_month: Math.max(0, Number(form.cost_per_month) || 0),
           agreed_monthly: Math.max(0, Number(form.agreed_monthly) || 0),
           agreed_basis: form.agreed_basis === 'ttc' ? 'ttc' : 'ht',
+          seats: Math.max(0, Math.round(Number(form.seats) || 0)) || undefined,
+          billing_cycle: ['monthly', 'quarterly', 'yearly'].includes(form.billing_cycle) ? form.billing_cycle : 'monthly',
+          auto_renew: form.auto_renew !== false,
         });
         onClose();
       }}
@@ -111,14 +119,45 @@ export function ToolForm({ initial, employees, onSubmit, onClose }) {
             ))}
           </Select>
         </div>
+        {/* The manual "risk score" dropdown stood here, beside a risk the app
+            works out itself from owner, use and criticality. Two answers to
+            one question; the computed one stays. */}
         <div>
-          <div className="mb-1 text-xs font-semibold text-slate-400">{t('risk_score')}</div>
-          <Select value={form.risk_score} onChange={(e) => setForm((f) => ({ ...f, risk_score: e.target.value }))}>
-            {RISK_SCORE.map((r) => (
-              <option key={r} value={r}>
-                {enumLabel(r)}
-              </option>
-            ))}
+          <div className="mb-1 text-xs font-semibold text-slate-400">{t('tool_mfa_label')}</div>
+          <Select value={form.mfa_enabled === true ? 'yes' : form.mfa_enabled === false ? 'no' : ''} aria-label={t('tool_mfa_label')}
+            onChange={(e) => setForm((f) => ({ ...f, mfa_enabled: e.target.value === '' ? undefined : e.target.value === 'yes' }))}>
+            <option value="">{t('tool_mfa_unknown')}</option>
+            <option value="yes">{t('tool_mfa_yes')}</option>
+            <option value="no">{t('tool_mfa_no')}</option>
+          </Select>
+        </div>
+      </div>
+
+      {/* The renewal: these only arrived by CSV, so after an import nobody
+          could add the contract they signed last week. */}
+      <div className="grid gap-3 md:grid-cols-4">
+        <div>
+          <div className="mb-1 text-xs font-semibold text-slate-400">{t('tool_renewal_date')}</div>
+          <Input type="date" value={form.renewal_date || ''} onChange={(e) => setForm((f) => ({ ...f, renewal_date: e.target.value }))} />
+        </div>
+        <div>
+          <div className="mb-1 text-xs font-semibold text-slate-400">{t('tool_billing_cycle')}</div>
+          <Select value={form.billing_cycle || 'monthly'} onChange={(e) => setForm((f) => ({ ...f, billing_cycle: e.target.value }))}>
+            <option value="monthly">{t('cycle_monthly')}</option>
+            <option value="quarterly">{t('cycle_quarterly')}</option>
+            <option value="yearly">{t('cycle_yearly')}</option>
+          </Select>
+        </div>
+        <div>
+          <div className="mb-1 text-xs font-semibold text-slate-400">{t('tool_seats')}</div>
+          <Input type="number" min="0" step="1" value={form.seats ?? ''} placeholder="—"
+            onChange={(e) => setForm((f) => ({ ...f, seats: e.target.value }))} />
+        </div>
+        <div>
+          <div className="mb-1 text-xs font-semibold text-slate-400">{t('tool_auto_renew')}</div>
+          <Select value={form.auto_renew === false ? 'no' : 'yes'} onChange={(e) => setForm((f) => ({ ...f, auto_renew: e.target.value === 'yes' }))}>
+            <option value="yes">{t('yes')}</option>
+            <option value="no">{t('no')}</option>
           </Select>
         </div>
       </div>
@@ -666,7 +705,7 @@ export function ToolsPage() {
         </div>
       </div>
 
-      <Modal open={open} title={editing ? "Edit tool" : t('add_tool_btn')} subtitle={t('tool_inventory_sub')} onClose={() => setOpen(false)}>
+      <Modal open={open} title={editing ? t('edit_tool_btn') : t('add_tool_btn')} subtitle={t('tool_inventory_sub')} onClose={() => setOpen(false)}>
         <ToolForm
           initial={editing}
           employees={employees}

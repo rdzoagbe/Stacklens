@@ -28,7 +28,7 @@ function allocSpendByDept(data) {
     seatsByTool[a.tool_id][dept] = (seatsByTool[a.tool_id][dept] || 0) + 1;
   });
   const byDept = {};
-  (data.tools || []).filter(t => t.status !== 'archived').forEach(tool => {
+  (data.tools || []).filter(t => t.status !== 'archived' && t.status !== 'decommissioned').forEach(tool => {
     const cost = Number(tool.cost_per_month || tool.cost_monthly || tool.cost || 0);
     if (!cost) return;
     const seats = seatsByTool[tool.id];

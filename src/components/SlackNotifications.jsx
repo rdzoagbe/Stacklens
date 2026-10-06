@@ -22,7 +22,7 @@ export function SlackNotifications() {
     try {
       await fetch(webhook, {
         method: 'POST',
-        body: JSON.stringify({ text: '✅ Stacklens connected! You will receive alerts for security risks, renewals and offboarding.' })
+        body: JSON.stringify({ text: t('slack_test_message') })
       });
       toast.success(t('slack_test_sent'));
     } catch {
@@ -62,13 +62,13 @@ export function SlackNotifications() {
             </button>
           )}
         </div>
+        {/* This used to promise alerts for risks, former employees, renewals
+            and departures. The webhook lives in this browser and nothing
+            scheduled posts to it: what reaches Slack is the test message and
+            the renewals digest sent by hand from Finance → Renewals. The
+            automatic alerts go by email (the switches above). */}
         <div className="pt-2 border-t border-slate-800">
-          <p className="text-xs text-slate-500 mb-2">{t('slack_you_will_receive')}</p>
-          <div className="grid grid-cols-2 gap-1">
-            {[`🚨 ${t('slack_alert_high_risk')}`, `👤 ${t('slack_alert_former')}`, `🔔 ${t('slack_alert_renewals')}`, `⚡ ${t('slack_alert_offboarding')}`].map(a => (
-              <div key={a} className="text-xs text-slate-400 flex items-center gap-1">{a}</div>
-            ))}
-          </div>
+          <p className="text-xs text-slate-500" data-testid="slack-what-it-does">{t('slack_what_it_does')}</p>
         </div>
       </div>
     </div>

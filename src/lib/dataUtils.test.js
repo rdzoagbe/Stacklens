@@ -154,9 +154,11 @@ describe('computeAccessDerivedRiskFlag', () => {
     expect(computeAccessDerivedRiskFlag(a, byEmp, byTool)).toBe('needs_review');
   });
 
-  it('returns excessive_admin for admin reviewed within 180 days', () => {
+  it('an admin right reviewed within 180 days is confirmed, not a risk', () => {
+    // It came back 'excessive_admin' (high risk) exactly when it had just
+    // been reviewed, which put every tool owner under "Urgent: revoke all".
     const a = makeAccess({ access_level: 'admin', last_reviewed_date: daysAgo(90) });
-    expect(computeAccessDerivedRiskFlag(a, byEmp, byTool)).toBe('excessive_admin');
+    expect(computeAccessDerivedRiskFlag(a, byEmp, byTool)).toBe('none');
   });
 
   it('returns needs_review for admin not reviewed in 180+ days', () => {
@@ -222,14 +224,15 @@ describe('buildRiskAlerts', () => {
     expect(alerts.some(a => a.id === 'tools_unused_90')).toBe(true);
   });
 
-  it('generates spend_watch alert when total spend > 1000', () => {
+  it('warns about spend only against the cap the customer set', () => {
     const tools = [
       makeTool({ id: 't1', cost_per_month: 600 }),
       makeTool({ id: 't2', cost_per_month: 500, owner_email: 'b@co.com' }),
     ];
-    const db = { ...emptyDb, tools };
-    const alerts = buildRiskAlerts(db);
-    expect(alerts.some(a => a.id === 'spend_watch')).toBe(true);
+    // No cap: 1 100 € a month is just what this company spends.
+    expect(buildRiskAlerts({ ...emptyDb, tools }).some(a => a.id === 'spend_watch')).toBe(false);
+    expect(buildRiskAlerts({ ...emptyDb, tools, user: { budget_cap: 1000 } }).some(a => a.id === 'spend_watch')).toBe(true);
+    expect(buildRiskAlerts({ ...emptyDb, tools, user: { budget_cap: 2000 } }).some(a => a.id === 'spend_watch')).toBe(false);
   });
 
   it('caps alerts at 7', () => {

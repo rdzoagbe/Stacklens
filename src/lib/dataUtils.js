@@ -29,7 +29,7 @@ export function getRiskEvidence(tool) {
   if (status === 'orphaned') reasons.push({ key: 'evidence_orphaned', fallback: 'No owner assigned — no one is responsible for this tool' });
   if (status === 'unused')   reasons.push({ key: 'evidence_unused',   fallback: 'Marked as unused — may be wasting spend' });
   if (!tool.owner_email)     reasons.push({ key: 'evidence_no_owner', fallback: 'No owner assigned' });
-  if (!tool.mfa_required && !tool.mfa_enabled) reasons.push({ key: 'evidence_no_mfa', fallback: 'MFA not enabled' });
+  if (tool.mfa_enabled === false && !tool.mfa_required) reasons.push({ key: 'evidence_no_mfa', fallback: 'MFA not enabled' });
   if (tool.last_used_date) {
     const days = Math.floor((Date.now() - new Date(tool.last_used_date).getTime()) / (1000 * 60 * 60 * 24));
     if (days > 90)      reasons.push({ key: 'evidence_not_used_days',  fallback: `Not used in ${days} days`, days });
@@ -54,10 +54,15 @@ export function computeAccessDerivedRiskFlag(accessRow, employeesById, toolsById
   if (ownerMissing)                  return 'orphaned';
   if (toolStatus === 'unused')       return 'unused';
 
+  // An admin right is a question, not a finding: unreviewed, or reviewed
+  // more than six months ago, it asks for a review. Reviewed recently, it is
+  // what someone confirmed. It used to come back 'excessive_admin' — high
+  // risk — precisely when it had just been reviewed, which put every tool
+  // owner's own admin right under "Urgent: revoke all".
   const lastReviewed = safeParseISO(accessRow.last_reviewed_date);
   if (accessRow.access_level === 'admin') {
     if (!lastReviewed) return 'needs_review';
-    return differenceInDays(new Date(), lastReviewed) >= 180 ? 'needs_review' : 'excessive_admin';
+    return differenceInDays(new Date(), lastReviewed) >= 180 ? 'needs_review' : 'none';
   }
   if (lastReviewed && differenceInDays(new Date(), lastReviewed) >= 365) return 'needs_review';
   return 'none';
@@ -126,12 +131,15 @@ export function buildRiskAlerts(db, t) {
     action: { label: tr('alert_review_action', 'Review Access'), to: '/access', icon: GitMerge },
   });
 
+  // Against the cap the customer set, not a 1 000 € typed into the code,
+  // which fired for every company bigger than a handful of people.
   const spend = monthlySpend(db);
-  if (spend > 1000) alerts.push({
+  const cap = Number(db?.user?.budget_cap) || 0;
+  if (cap > 0 && spend > cap) alerts.push({
     id: 'spend_watch', severity: 'medium',
-    title: tr('alert_spend_title', 'Monthly spend exceeds threshold'),
-    body: tr('alert_spend_body', 'Current tool spend is {amount} / month.')
-      .replace('{amount}', formatMoney(spend)),
+    title: tr('alert_spend_title', 'Monthly spend exceeds your budget cap'),
+    body: tr('alert_spend_body', 'Current tool spend is {amount} / month, against a cap of {cap}.')
+      .replace('{amount}', formatMoney(spend)).replace('{cap}', formatMoney(cap)),
     action: { label: tr('alert_spend_action', 'Tools'), to: '/tools', icon: Boxes },
   });
 
@@ -160,8 +168,15 @@ export function countOrphanedTools(tools = []) {
  * Returns null when there are no tools, so callers can render "—" rather
  * than an unearned 100%.
  */
+/**
+ * MFA coverage, or null until someone has said anything about MFA. A CSV
+ * without an MFA column used to read "0 % — 0 of 14 tools secured", a figure
+ * nobody could change: the tool form had no MFA field.
+ */
 export function computeMfaCoverage(tools = []) {
   if (!tools.length) return null;
+  const declared = tools.filter(t => t.mfa_required !== undefined || t.mfa_enabled !== undefined);
+  if (!declared.length) return null;
   const secured = tools.filter(t => t.mfa_required || t.mfa_enabled).length;
   return { percent: Math.round((secured / tools.length) * 100), secured, total: tools.length };
 }
