@@ -39,6 +39,24 @@ export function useDbQuery() {
   });
 }
 
+// Optional CSV columns for a tool (prefixed `tool_` in the company file):
+// mfa (yes/no), seats (a count), billing_cycle (monthly/quarterly/yearly),
+// auto_renew (yes/no). Absent columns set nothing, so an older file leaves
+// MFA unknown rather than "off".
+const YES = /^(1|true|yes|oui|y|o)$/i; const NO = /^(0|false|no|non|n)$/i;
+function csvToolExtras(r, prefix) {
+  const out = {};
+  const mfa = String(r[prefix + 'mfa'] ?? r[prefix + 'mfa_enabled'] ?? '').trim();
+  if (YES.test(mfa)) out.mfa_enabled = true; else if (NO.test(mfa)) out.mfa_enabled = false;
+  const seats = Math.round(Number(r[prefix + 'seats']));
+  if (seats > 0) out.seats = seats;
+  const cycle = String(r[prefix + 'billing_cycle'] || '').trim().toLowerCase();
+  if (['monthly', 'quarterly', 'yearly'].includes(cycle)) out.billing_cycle = cycle;
+  const auto = String(r[prefix + 'auto_renew'] ?? '').trim();
+  if (YES.test(auto)) out.auto_renew = true; else if (NO.test(auto)) out.auto_renew = false;
+  return out;
+}
+
 export function useDbMutations() {
   const qc = useQueryClient();
   const { language } = useLang();
@@ -525,6 +543,7 @@ export function useDbMutations() {
                 renewal_date:   r.renewal_date      || existing.renewal_date,
                 criticality:    r.tool_criticality  || existing.criticality,
                 status:         r.tool_status       || existing.status,
+                ...csvToolExtras(r, 'tool_'),
               } : {
                 id:             uid('tool'),
                 name:           r.tool_name        || '',
@@ -546,6 +565,7 @@ export function useDbMutations() {
                 risk_score:     'low',
                 derived_risk:   'low',
                 notes:          '',
+                ...csvToolExtras(r, 'tool_'),
               };
             }
             if (email && toolName) {
@@ -609,6 +629,7 @@ export function useDbMutations() {
             risk_score:     r.risk_score      || 'low',
             derived_risk:   r.risk_score      || 'low',
             notes:          r.notes           || '',
+            ...csvToolExtras(r, ''),
             // Set by the app's own discovery paths, never by a CSV column
             // someone could fill with anything.
             ...(REVIEW_ORIGINS.includes(r.origin) ? { origin: r.origin } : {}),

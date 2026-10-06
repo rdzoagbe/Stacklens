@@ -163,7 +163,9 @@ export function AccessPage() {
       tool: toolsById[a.tool_id],
       risk: computeAccessDerivedRiskFlag(a, employeesById, toolsById)
     }));
-    const highRisk = access.filter(a => a.risk === 'former_employee' || a.risk === 'excessive_admin');
+    // High risk is access held by someone who left. A reviewed admin right
+    // used to count too, which listed every tool owner under "Urgent".
+    const highRisk = access.filter(a => a.risk === 'former_employee');
     const needsReview = access.filter(a => a.risk === 'needs_review');
 
     const matrix = {};
@@ -189,7 +191,7 @@ export function AccessPage() {
   if (isLoading || !derived) return <div className="flex items-center justify-center h-screen"><div className="text-white">{t('loading')}</div></div>;
 
   const filteredAccess = derived.access.filter(a => {
-    if (filterRisk === 'high' && a.risk !== 'former_employee' && a.risk !== 'excessive_admin') return false;
+    if (filterRisk === 'high' && a.risk !== 'former_employee') return false;
     if (filterRisk === 'review' && a.risk !== 'needs_review') return false;
     if (filterRisk === 'clean' && a.risk !== 'none') return false;
     if (search) {
@@ -237,7 +239,10 @@ export function AccessPage() {
                 <span className="text-base font-semibold text-white">{t('access_urgent').replace('{n}', derived.highRisk.length)}</span>
               </div>
               <Button variant="secondary" size="sm" onClick={() => {
-                if(window.confirm(t('access_revoke_all_confirm').replace('{n}', derived.highRisk.length))) {
+                // Say exactly what will be revoked, by name, before doing it.
+                const lines = derived.highRisk.slice(0, 12).map(a => `• ${a.employee?.full_name || unknown} → ${a.tool?.name || a.tool_name || unknown}`);
+                if (derived.highRisk.length > 12) lines.push(`… +${derived.highRisk.length - 12}`);
+                if(window.confirm(t('access_revoke_all_confirm').replace('{n}', derived.highRisk.length) + '\n\n' + lines.join('\n'))) {
                   derived.highRisk.forEach(a => muts.updateAccess.mutate({ id: a.id, patch: { status: 'revoked' } }));
                   toast.success(t('all_high_risk_revoked'));
                 }
@@ -329,7 +334,7 @@ export function AccessPage() {
                     .filter(([name]) => !search || name.toLowerCase().includes(search.toLowerCase()))
                     .slice(0, 20)
                     .map(([empName, { employee, tools }]) => {
-                    const hasRisk = Object.values(tools).some(t => t.risk === 'former_employee' || t.risk === 'excessive_admin');
+                    const hasRisk = Object.values(tools).some(t => t.risk === 'former_employee');
                     return (
                       <div key={empName} className={"flex items-center gap-0 py-1.5 px-2 rounded-lg " + (hasRisk ? 'bg-red-500/5 border border-red-500/10' : 'hover:bg-slate-800/30')}>
                         <div className="w-32 flex-shrink-0 flex items-center gap-2">
@@ -345,7 +350,7 @@ export function AccessPage() {
                           {derived.allTools.slice(0, 12).map(toolName => {
                             const access = tools[toolName];
                             if (!access) return <div key={toolName} className="w-10 h-8 flex items-center justify-center flex-shrink-0"><div className="w-2 h-2 rounded-full bg-slate-800/50" /></div>;
-                            const isRisk = access.risk === 'former_employee' || access.risk === 'excessive_admin';
+                            const isRisk = access.risk === 'former_employee';
                             const color = access.level === 'admin' ? 'bg-purple-500' : access.level === 'viewer' ? 'bg-slate-500' : 'bg-blue-500';
                             return (
                               <div key={toolName} className="w-10 h-8 flex items-center justify-center flex-shrink-0">
@@ -498,7 +503,7 @@ export function AccessPage() {
               .filter(([name]) => !search || name.toLowerCase().includes(search.toLowerCase()))
               .sort((a, b) => b[1].employees.length - a[1].employees.length)
               .map(([toolName, { tool, employees }]) => {
-              const hasRisk = employees.some(e => e.risk === 'former_employee' || e.risk === 'excessive_admin');
+              const hasRisk = employees.some(e => e.risk === 'former_employee');
               const adminCount = employees.filter(e => e.level === 'admin').length;
               return (
                 <div key={toolName} className={"rounded-2xl border p-5 " + (hasRisk ? 'border-red-500/20 bg-red-500/5' : 'border-slate-800 bg-slate-900/60')}>
@@ -514,7 +519,7 @@ export function AccessPage() {
                   </div>
                   <div className="space-y-1.5">
                     {employees.slice(0, 5).map((emp, idx) => {
-                      const isRisk = emp.risk === 'former_employee' || emp.risk === 'excessive_admin';
+                      const isRisk = emp.risk === 'former_employee';
                       return (
                         <div key={idx} className="flex items-center justify-between py-1">
                           <div className="flex items-center gap-2">
@@ -573,7 +578,7 @@ export function AccessPage() {
                     </td>
                     <td className="py-3 px-4">
                       {a.risk !== 'none' ? (
-                        <span className={"px-2 py-0.5 rounded-full text-[10px] font-semibold " + (a.risk === 'former_employee' || a.risk === 'excessive_admin' ? 'bg-red-500/20 text-red-400' : 'bg-amber-500/20 text-amber-400')}>{enumLabel(a.risk)}</span>
+                        <span className={"px-2 py-0.5 rounded-full text-[10px] font-semibold " + (a.risk === 'former_employee' ? 'bg-red-500/20 text-red-400' : 'bg-amber-500/20 text-amber-400')}>{enumLabel(a.risk)}</span>
                       ) : <span className="text-[10px] text-slate-500">—</span>}
                     </td>
                     <td className="py-3 px-4 text-right">

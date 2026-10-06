@@ -358,9 +358,11 @@ export function DashboardPage() {
         const labelBg = score === null ? 'bg-slate-700/40 text-slate-400' : score >= 80 ? 'bg-emerald-500/20 text-emerald-400' : score >= 60 ? 'bg-amber-500/20 text-amber-400' : 'bg-red-500/20 text-red-400';
         const mfa = computeMfaCoverage(derived.tools);
         const mfaCoverage = mfa ? mfa.percent : null;
-        // eslint-disable-next-line react-hooks/purity
-        const ninetyDaysAgo = Date.now() - 90 * 24 * 60 * 60 * 1000;
-        const overdueReviews = derived.access.filter(a => !a.last_reviewed_date || new Date(a.last_reviewed_date).getTime() < ninetyDaysAgo).length;
+        // The same rule as the Access page (needs_review): an admin right
+        // unreviewed or reviewed over six months ago, any right over a year.
+        // Every record with no review date used to count, so a fresh import
+        // opened on "76 reviews overdue".
+        const overdueReviews = derived.access.filter(a => a.derived_risk_flag === 'needs_review').length;
         // Was a flat percentage of total spend, which produced a waste
         // figure for a workspace with nothing wrong with it and moved when
         // spend moved rather than when waste did. Now the real cost of

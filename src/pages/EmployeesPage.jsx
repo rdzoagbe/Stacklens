@@ -4,6 +4,7 @@ import { todayISO } from '../lib/db';
 import { EMP_DEPARTMENTS } from '../lib/constants';
 import { computeToolDerivedRisk, getRiskEvidence } from '../lib/dataUtils';
 import { formatMoney } from '../lib/currency';
+import { employeeCostShares } from '../lib/waste';
 import { useDbQuery, useDbMutations } from '../hooks/useDbQuery';
 import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
@@ -203,13 +204,11 @@ export function EmployeesPage() {
     return m;
   }, [db]);
 
-  const employeeCost = useMemo(() => {
+  // Each tool's cost split between the people who hold it (lib/waste.js).
+  const employeeCost = useMemo(() => employeeCostShares(db), [db]);
+  const holdersByTool = useMemo(() => {
     const m = new Map();
-    (db?.access || []).filter(a => a.status === 'active').forEach(a => {
-      const tool = (db?.tools || []).find(t => t.id === a.tool_id || t.name === a.tool_name);
-      const cost = tool?.cost_per_month || 0;
-      m.set(a.employee_id, (m.get(a.employee_id) || 0) + cost);
-    });
+    (db?.access || []).filter(a => a.status === 'active').forEach(a => m.set(a.tool_id, (m.get(a.tool_id) || 0) + 1));
     return m;
   }, [db]);
 
@@ -220,7 +219,10 @@ export function EmployeesPage() {
       return {
         ...a,
         tool_name: a.tool_name || tool?.name || t('lbl_unknown'),
-        cost: tool?.cost_per_month || 0,
+        // This person's share of the tool, and how many share it.
+        cost: (tool?.cost_per_month || 0) / Math.max(1, holdersByTool.get(tool?.id) || 1),
+        holders: holdersByTool.get(tool?.id) || 1,
+        tool_cost: tool?.cost_per_month || 0,
         risk: tool?.derived_risk || computeToolDerivedRisk(tool || {}),
         last_used: tool?.last_used_date || a.last_used_date || null,
         mfa: tool?.mfa_required || tool?.mfa_enabled || false,
@@ -513,6 +515,7 @@ export function EmployeesPage() {
                   <span className="text-xs text-slate-500">
                     {plural(selectedTools.length, 'lbl_app_one', 'lbl_app_many')}
                     {(employeeCost.get(selected.id) || 0) > 0 && ` · ${money(employeeCost.get(selected.id))}${t('per_mo_short')}`}
+                    {(employeeCost.get(selected.id) || 0) > 0 && <span className="block text-[10px] text-slate-500 mt-0.5">{t('emp_cost_share_hint')}</span>}
                   </span>
                 </div>
 
@@ -546,7 +549,7 @@ export function EmployeesPage() {
                               </div>
                               <div className="text-xs text-slate-500 mt-0.5 flex items-center gap-2 flex-wrap">
                                 <span>{tool.last_used ? `${t('col_last_used')}: ${fmtDate(tool.last_used)}` : t('lbl_no_usage_data')}</span>
-                                {tool.cost > 0 && <><span>·</span><span>{money(tool.cost)}{t('per_mo_short')}</span></>}
+                                {tool.cost > 0 && <><span>·</span><span>{money(tool.cost)}{t('per_mo_short')}{tool.holders > 1 ? ` (${t('emp_shared_by').replace('{n}', tool.holders)})` : ''}</span></>}
                               </div>
                             </div>
                             <div className="flex-shrink-0">

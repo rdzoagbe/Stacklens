@@ -66,9 +66,31 @@ export const NOT_BILLED_STATUS = 'decommissioned';
  * blank page rather than a wrong number. The cross-implementation test caught
  * this in the client version while the server version already guarded it.
  */
-function billedTools(db) {
+export function billedTools(db) {
   const tools = db && Array.isArray(db.tools) ? db.tools : [];
   return tools.filter(t => t && t.status !== NOT_BILLED_STATUS);
+}
+
+/**
+ * What each person costs per month: every tool they hold an active access to,
+ * its cost split between the people who hold one. The Employees page used to
+ * charge each person the whole bill of each tool, so a marketing manager on
+ * five tools "cost" 1 047 € a month in a company whose software bill was 1 506 €.
+ */
+export function employeeCostShares(db) {
+  const active = (db?.access || []).filter(a => a && a.status === 'active');
+  const byTool = {};
+  for (const t of billedTools(db)) byTool[t.id] = t;
+  const holders = {};
+  for (const a of active) holders[a.tool_id] = (holders[a.tool_id] || 0) + 1;
+  const shares = new Map();
+  for (const a of active) {
+    const tool = byTool[a.tool_id];
+    if (!tool) continue;
+    const share = (Number(tool.cost_per_month) || 0) / holders[a.tool_id];
+    shares.set(a.employee_id, (shares.get(a.employee_id) || 0) + share);
+  }
+  return shares;
 }
 
 /** What this workspace pays per month, across every tool still billing. */

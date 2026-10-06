@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { AlertTriangle, BadgeCheck, Boxes, Shield, UserMinus, X } from 'lucide-react';
+import { AlertTriangle, BadgeCheck, Boxes, Shield, UserMinus } from 'lucide-react';
 import {
   buildRiskAlerts, computeToolDerivedRisk,
   countOrphanedTools, computeMfaCoverage, countFormerEmployeeAccess, computeSecurityScore,
@@ -66,7 +66,7 @@ function SecurityTabContent() {
   const scoreColor = securityScore >= 80 ? '#10b981' : securityScore >= 60 ? '#f59e0b' : '#ef4444';
   const scoreLabel = securityScore >= 80 ? t('sec_score_good') : securityScore >= 60 ? t('sec_score_work') : t('sec_score_critical');
 
-  const alerts = buildRiskAlerts({ tools, access, employees }, t);
+  const alerts = buildRiskAlerts({ ...db, tools, access, employees }, t);
   const criticalAlerts = alerts.filter(a => a.severity === 'critical');
   const highAlerts = alerts.filter(a => a.severity === 'high');
   const mediumAlerts = alerts.filter(a => a.severity === 'medium');
@@ -226,42 +226,10 @@ function SecurityTabContent() {
       {/* ── Row 3: Compliance + Tool Security Breakdown ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5">
 
-        {/* Compliance Status */}
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 lg:p-6">
-          <h2 className="text-base font-semibold text-white mb-4">{t("security_compliance")}</h2>
-          <div className="space-y-3">
-            {[
-              { name: 'GDPR', status: 'compliant', desc: t('sec_gdpr_desc') },
-              { name: 'SOC 2 Type II', status: 'review', desc: t('sec_roadmap_cert') },
-              { name: 'ISO 27001', status: 'review', desc: t('sec_roadmap_cert') },
-              { name: 'HIPAA', status: 'non-compliant', desc: t('sec_not_supported') },
-            ].map((c) => (
-              <div key={c.name} className="flex items-center justify-between p-3.5 rounded-xl border border-slate-800 bg-slate-950/30">
-                <div>
-                  <div className="text-sm font-semibold text-white">{c.name}</div>
-                  <div className="text-xs text-slate-500">{c.desc}</div>
-                </div>
-                {c.status === 'compliant' ? (
-                  <div className="flex items-center gap-1.5 text-emerald-400">
-                    <BadgeCheck className="h-4 w-4" />
-                    <span className="text-xs font-semibold">{t('sec_compliant')}</span>
-                  </div>
-                ) : c.status === 'review' ? (
-                  <div className="flex items-center gap-1.5 text-amber-400">
-                    <AlertTriangle className="h-4 w-4" />
-                    <span className="text-xs font-semibold">{t('sec_review_needed')}</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-1.5 text-red-400">
-                    <X className="h-4 w-4" />
-                    <span className="text-xs font-semibold">{t('sec_non_compliant')}</span>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-
+        {/* The block that stood here listed four certifications with
+            "compliant" and "non-compliant" badges. It described
+            Stacklens, not the customer's company, and read as a verdict on
+            theirs. Stacklens's own posture is on /security-info. */}
         {/* Tool Security Breakdown */}
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 lg:p-6">
           <h2 className="text-base font-semibold text-white mb-4">{t("security_tool_breakdown")}</h2>

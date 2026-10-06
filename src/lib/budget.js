@@ -24,7 +24,8 @@ export function allocateSpendByDepartment({ tools = [], employees = [], access =
   });
 
   const monthlyByDept = {};
-  tools.filter(t => t.status !== 'archived').forEach(tool => {
+  // Archived and decommissioned tools bill nobody (lib/waste.js NOT_BILLED_STATUS).
+  tools.filter(t => t.status !== 'archived' && t.status !== 'decommissioned').forEach(tool => {
     const cost = Number(tool.cost_per_month || tool.cost_monthly || tool.cost || 0);
     if (!cost) return;
     const seats = seatsByTool[tool.id];
