@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { sendMail, mailConfigured, classifyKey, toBrevoPayload, BREVO_SEND_URL } from './mailer.js';
+import { sendMail, mailConfigured, classifyKey, describeKey, toBrevoPayload, BREVO_SEND_URL } from './mailer.js';
 
 // ── Nothing reaches the email provider unless a key is configured ──────────
 //
@@ -15,6 +15,28 @@ const read = (p) => readFileSync(resolve(__dirname, '..', p), 'utf8');
 const index = () => read('functions/index.js');
 
 afterEach(() => vi.restoreAllMocks());
+
+// The founder's Test email once printed "Brevo refused it: undefined" because
+// a skipped send carried no mail_error. The button now says which key is wrong.
+describe('describeKey names the problem without repeating the key', () => {
+  it('tells an empty secret from an SMTP key from a SendGrid key', () => {
+    expect(describeKey('')).toMatch(/empty|redeploy/i);
+    expect(describeKey('xsmtpsib-' + 'a'.repeat(40))).toMatch(/SMTP key.*API key/);
+    expect(describeKey('SG.' + 'x'.repeat(40))).toMatch(/previous provider/);
+    expect(describeKey('some-other-long-secret-value-here')).toMatch(/does not start with "xkeysib-"/);
+  });
+
+  it('never contains the secret itself', () => {
+    const secret = 'xsmtpsib-SECRETVALUE1234567890';
+    expect(describeKey(secret)).not.toContain('SECRETVALUE');
+    expect(describeKey('whatever-SECRETVALUE-long-enough-1234')).not.toContain('SECRETVALUE');
+  });
+
+  it('the founder test answers a skipped send with that sentence, not an empty mail_error', () => {
+    const src = index();
+    expect(src).toMatch(/error: `\$\{describeKey\(BREVO_API_KEY\.value\(\)\)\}/);
+  });
+});
 
 describe('the key is classified without being used', () => {
   it('treats nothing as absent, which is the expected state while email is off', () => {

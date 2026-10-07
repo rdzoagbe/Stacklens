@@ -334,7 +334,9 @@ export function FounderAdminPage() {
       if (r.ok) {
         toast.success(`Test email sent to ${r.sent_to} — check your inbox (and spam).`, { duration: 8000 });
       } else {
-        toast.error(`Brevo refused it: ${r.mail_error}`, { duration: 12000 });
+        // Two different failures: the server never contacted Brevo (no usable
+        // key: `error` says which), or Brevo was reached and refused (`mail_error`).
+        toast.error(r.mail_error ? `Brevo refused it: ${r.mail_error}` : (r.error || 'Test email failed'), { duration: 15000 });
       }
     } catch (err) {
       toast.error('Test email failed: ' + err.message, { duration: 10000 });
@@ -511,16 +513,19 @@ export function FounderAdminPage() {
           {bankCfg.configured && <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400">Configured</span>}
         </div>
         <p className="text-xs text-slate-500 mb-3">Paste your Bridge <b>Client ID</b> and <b>Client Secret</b> here to enable the Budget-tab bank connection. Stored server-side, never shown again.</p>
-        <div className="flex flex-wrap gap-2">
-          <input type="text" value={bankCfg.id} onChange={e => setBankCfg(c => ({ ...c, id: e.target.value }))}
+        {/* A <form> so the browser stops warning about a password field outside
+            one — a warning that prints the field's value, secret included, into
+            the console — and autoComplete off so it is never offered for saving. */}
+        <form className="flex flex-wrap gap-2" autoComplete="off" onSubmit={e => { e.preventDefault(); if (!bankCfg.saving && bankCfg.id.trim() && bankCfg.secret.trim()) saveBankCreds(); }}>
+          <input type="text" autoComplete="off" value={bankCfg.id} onChange={e => setBankCfg(c => ({ ...c, id: e.target.value }))}
             placeholder="Bridge Client ID" className="flex-1 min-w-[180px] bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-indigo-500" />
-          <input type="password" value={bankCfg.secret} onChange={e => setBankCfg(c => ({ ...c, secret: e.target.value }))}
+          <input type="password" autoComplete="new-password" value={bankCfg.secret} onChange={e => setBankCfg(c => ({ ...c, secret: e.target.value }))}
             placeholder="Bridge Client Secret" className="flex-1 min-w-[180px] bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-indigo-500" />
-          <button onClick={saveBankCreds} disabled={bankCfg.saving || !bankCfg.id.trim() || !bankCfg.secret.trim()}
+          <button type="submit" disabled={bankCfg.saving || !bankCfg.id.trim() || !bankCfg.secret.trim()}
             className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition-colors disabled:opacity-50">
             {bankCfg.saving ? 'Saving…' : 'Save'}
           </button>
-        </div>
+        </form>
       </div>
 
       <div className="rounded-xl border border-slate-700/50 bg-slate-900/40 p-4">
