@@ -971,7 +971,7 @@ export async function founderTestEmail(to) {
     body: JSON.stringify({ action: 'testEmail', to }),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok && !data.sendgrid_error) throw new Error(data.error || 'Test email failed');
+  if (!res.ok && !data.mail_error) throw new Error(data.error || 'Test email failed');
   return data;
 }
 

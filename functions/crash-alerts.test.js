@@ -210,7 +210,7 @@ describe('the crash endpoint alerts, and never at the expense of the record', ()
   });
 
   it('has the mail secret bound, or it could never send', () => {
-    expect(body).toMatch(/secrets:\s*\[SENDGRID_API_KEY\]/);
+    expect(body).toMatch(/secrets:\s*\[BREVO_API_KEY\]/);
   });
 
   it('cannot let a failed alert lose the crash report', () => {

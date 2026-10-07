@@ -235,7 +235,7 @@ Granting it: **Early access** button on `/founder-admin` → `founderGrantPlan` 
 - **Cancelling** a subscription moves the account to `free` and deletes nothing.
 - **Deleting** the account (Settings → Data) calls the `workspace` function's `deleteaccount`, which purges everything via `purgeAccount`. It refuses with 409 `subscription_active` while Stripe can still bill (`subscriptionBlocksDeletion` in `functions/purge-account.js`), because purging `/users` removes the only link from the Stripe customer back to the account.
 
-Secrets (ANTHROPIC_API_KEY, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, SENDGRID_API_KEY) are in GCP Secret Manager — deploying functions requires billing enabled on the GCP project.
+Secrets (ANTHROPIC_API_KEY, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, BREVO_API_KEY) are in GCP Secret Manager — deploying functions requires billing enabled on the GCP project. Email is sent through Brevo by `functions/mailer.js` (one HTTPS request, nothing contacted without a `xkeysib-` key); SendGrid remains only as the inbound door for forwarded invoices (Inbound Parse → `invoiceInbound`).
 
 ### Firestore security rules
 

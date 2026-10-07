@@ -473,10 +473,12 @@ exports.refreshClaims = onRequest({ cors: true }, async (req, res) => {
 });
 
 // ── /sendInvite — email a team invite link via SendGrid ───────────────────
-const SENDGRID_API_KEY = defineSecret('SENDGRID_API_KEY'); // rotated 2026-07-21 — redeploy binds the new version
+// Brevo since 2026-10-07 (SendGrid before: its free allowance ran out). The
+// secret must exist in Secret Manager before the functions deploy.
+const BREVO_API_KEY = defineSecret('BREVO_API_KEY'); // redeploy binds the new version
 const { sendMail, mailConfigured } = require('./mailer');
 
-exports.sendInvite = onRequest({ cors: true, secrets: [SENDGRID_API_KEY] }, async (req, res) => {
+exports.sendInvite = onRequest({ cors: true, secrets: [BREVO_API_KEY] }, async (req, res) => {
   cors(req, res, async () => {
     if (req.method === 'OPTIONS') return res.status(204).send('');
     if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
@@ -497,7 +499,7 @@ exports.sendInvite = onRequest({ cors: true, secrets: [SENDGRID_API_KEY] }, asyn
       const from = esc(inviterName || decoded.name || 'Your team');
       const org  = esc(orgName || 'Stacklens');
 
-      const mail = await sendMail(SENDGRID_API_KEY.value(), {
+      const mail = await sendMail(BREVO_API_KEY.value(), {
         to: inviteeEmail,
         from: { email: 'hello@stacklens.fr', name: 'Stacklens' },
         subject: `${from} invited you to join ${org} on Stacklens`,
@@ -550,7 +552,7 @@ const VALID_PLANS = ['free', 'trial', 'starter', 'hr_finance', 'pro', 'enterpris
 const FOUNDER_UIDS   = ['bxIYrZ76z1QKo5ZMpGvEG8GGbNM2'];
 const FOUNDER_EMAILS = ['rolanddzoagbe@gmail.com'];
 
-exports.founderops = onRequest({ cors: true, timeoutSeconds: 30, secrets: [SENDGRID_API_KEY] }, async (req, res) => {
+exports.founderops = onRequest({ cors: true, timeoutSeconds: 30, secrets: [BREVO_API_KEY] }, async (req, res) => {
   cors(req, res, async () => {
     if (req.method === 'OPTIONS') return res.status(204).send('');
     if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
@@ -573,14 +575,14 @@ exports.founderops = onRequest({ cors: true, timeoutSeconds: 30, secrets: [SENDG
     const { action, targetUid, plan, extraDays, to } = req.body;
 
     try {
-      // Diagnostic: send a real email through SendGrid right now and report the
+      // Diagnostic: send a real email through Brevo right now and report the
       // exact provider response, so email-delivery problems can be isolated
       // from "the scheduled job hasn't fired / found nothing to send".
       if (action === 'testEmail') {
         const dest = String(to || FOUNDER_EMAILS[0] || '').trim();
         if (!dest) return res.status(400).json({ error: 'No destination email' });
         try {
-          const mail = await sendMail(SENDGRID_API_KEY.value(), {
+          const mail = await sendMail(BREVO_API_KEY.value(), {
             to: dest,
             from: { email: 'hello@stacklens.fr', name: 'Stacklens' },
             subject: '✅ Stacklens test email',
@@ -593,18 +595,11 @@ exports.founderops = onRequest({ cors: true, timeoutSeconds: 30, secrets: [SENDG
               error: 'Email sending is not configured — no request was made.' });
           }
           if (!mail.sent) {
-            return res.json({ ok: false, sent_to: dest, sendgrid_error: mail.error });
+            return res.json({ ok: false, sent_to: dest, mail_error: mail.error });
           }
           return res.json({ ok: true, sent_to: dest, status: mail.status });
         } catch (mailErr) {
-          // SendGrid attaches the useful detail on err.response.body
-          const body = mailErr?.response?.body;
-          return res.status(200).json({
-            ok: false,
-            sent_to: dest,
-            sendgrid_status: mailErr?.code || null,
-            sendgrid_error: body?.errors?.map(e => e.message).join('; ') || mailErr?.message || 'Unknown SendGrid error',
-          });
+          return res.status(200).json({ ok: false, sent_to: dest, mail_error: mailErr?.message || 'Unknown mail error' });
         }
       }
       // Backfill displayName/email on /users docs from Firebase Auth. Accounts
@@ -742,7 +737,7 @@ exports.clientErrors = onRequest({
   // Needed to mail the founder when the live site starts crashing. Without
   // this the crashes were recorded and nobody was told, which is the same as
   // not recording them.
-  secrets: [SENDGRID_API_KEY],
+  secrets: [BREVO_API_KEY],
 }, async (req, res) => {
   cors(req, res, async () => {
     if (req.method === 'OPTIONS') return res.status(204).send('');
@@ -781,7 +776,7 @@ exports.clientErrors = onRequest({
         });
 
         if (decision.alert) {
-          const mail = await sendMail(SENDGRID_API_KEY.value(), {
+          const mail = await sendMail(BREVO_API_KEY.value(), {
             to: FOUNDER_EMAILS[0],
             from: { email: 'hello@stacklens.fr', name: 'Stacklens' },
             subject: `Stacklens crash: ${doc.message.slice(0, 80)}`,
@@ -1723,7 +1718,8 @@ exports.workspace = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, re
 
 // ── Invoice email inbox ──────────────────────────────────────────────────
 // Each user gets a unique address invoices-{token}@in.stacklens.fr. SendGrid
-// Inbound Parse posts incoming mail to invoiceInbound; PDF attachments are
+// Inbound Parse posts incoming mail to invoiceInbound (receiving stays on
+// SendGrid; sending moved to Brevo, see mailer.js); PDF attachments are
 // text-extracted and AI-parsed server-side, then staged in /inbox_invoices
 // for review in the Budget tab. Nothing touches the user's data blob until
 // they apply the rows client-side (client remains the blob's only writer).
@@ -2059,13 +2055,13 @@ exports.dailyAlerts = onSchedule({
   schedule: 'every day 08:30',
   timeZone: 'Europe/Paris',
   region: 'us-central1',
-  secrets: [SENDGRID_API_KEY],
+  secrets: [BREVO_API_KEY],
 }, async () => {
   // Checked once, before the collection scan. Without this the job reads every
   // userdata document, assembles each one, and then fails per user on a send
   // that was never going to happen — a daily bill and a daily pile of errors
   // for nothing.
-  if (!mailConfigured(SENDGRID_API_KEY.value())) {
+  if (!mailConfigured(BREVO_API_KEY.value())) {
     console.log('dailyAlerts: email is not configured — skipping, nothing sent.');
     return;
   }
@@ -2177,7 +2173,7 @@ exports.dailyAlerts = onSchedule({
       : `🔔 ${alerts.renewals[0].name} renews in ${alerts.renewals[0].days} days`;
 
     try {
-      const mail = await sendMail(SENDGRID_API_KEY.value(), {
+      const mail = await sendMail(BREVO_API_KEY.value(), {
         to: email,
         from: { email: 'hello@stacklens.fr', name: 'Stacklens' },
         subject: total > 1 ? `${worst} (+${total - 1} more)` : worst,
@@ -2234,10 +2230,10 @@ exports.weeklySummary = onSchedule({
   schedule: 'every monday 09:00',
   timeZone: 'Europe/Paris',
   region: 'us-central1',
-  secrets: [SENDGRID_API_KEY, ANTHROPIC_API_KEY],
+  secrets: [BREVO_API_KEY, ANTHROPIC_API_KEY],
 }, async () => {
   // Same as dailyAlerts: decide before the scan, not per recipient.
-  if (!mailConfigured(SENDGRID_API_KEY.value())) {
+  if (!mailConfigured(BREVO_API_KEY.value())) {
     console.log('weeklySummary: email is not configured — skipping, nothing sent.');
     return;
   }
@@ -2419,7 +2415,7 @@ exports.weeklySummary = onSchedule({
 </div>`;
 
     try {
-      const mail = await sendMail(SENDGRID_API_KEY.value(), {
+      const mail = await sendMail(BREVO_API_KEY.value(), {
         to: email,
         from: { email: 'hello@stacklens.fr', name: 'Stacklens' },
         subject: idleMonthly > 0
@@ -2450,13 +2446,13 @@ exports.monthlyReport = onSchedule({
   schedule: '0 8 1 * *',
   timeZone: 'Europe/Paris',
   region: 'us-central1',
-  secrets: [SENDGRID_API_KEY],
+  secrets: [BREVO_API_KEY],
   // Reads every workspace; the 60-second default would cut the run short and,
   // with documents in a fixed order, skip the same accounts every month.
   timeoutSeconds: 540,
   memory: '512MiB',
 }, async () => {
-  if (!mailConfigured(SENDGRID_API_KEY.value())) {
+  if (!mailConfigured(BREVO_API_KEY.value())) {
     console.log('monthlyReport: email is not configured — skipping, nothing sent.');
     return;
   }
@@ -2485,7 +2481,7 @@ exports.monthlyReport = onSchedule({
       if (state.exists && state.data().last_period === report.period) continue;
 
       const { subject, html } = renderMonthlyReport(report, { lang: settings.lang === 'en' ? 'en' : 'fr', data, sender: to[0] });
-      const mail = await sendMail(SENDGRID_API_KEY.value(), {
+      const mail = await sendMail(BREVO_API_KEY.value(), {
         to, from: { email: 'hello@stacklens.fr', name: 'Stacklens' }, subject, html,
       });
       if (!mail.sent) { console.error('monthlyReport send failed for', uid, mail.error || mail.skipped); continue; }
@@ -2502,12 +2498,12 @@ exports.monthlyReport = onSchedule({
 // from the workspace as last saved to the cloud, to the caller's own Auth
 // email only — never the extra recipients — three times an hour at most.
 const REPORT_TEST_LIMIT = { maxCalls: 3, windowMs: 60 * 60 * 1000 };
-exports.reportnow = onRequest({ cors: true, timeoutSeconds: 60, secrets: [SENDGRID_API_KEY] }, async (req, res) => {
+exports.reportnow = onRequest({ cors: true, timeoutSeconds: 60, secrets: [BREVO_API_KEY] }, async (req, res) => {
   cors(req, res, async () => {
     if (req.method === 'OPTIONS') return res.status(204).send('');
     if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
     const decoded = await verifyAuth(req, res); if (!decoded) return;
-    if (!mailConfigured(SENDGRID_API_KEY.value())) return res.status(503).json({ error: 'mail_not_configured' });
+    if (!mailConfigured(BREVO_API_KEY.value())) return res.status(503).json({ error: 'mail_not_configured' });
     if (!(await checkRateLimit(decoded.uid, res, REPORT_TEST_LIMIT, 'reportnow'))) return;
     try {
       const snap = await getFirestore().collection('userdata').doc(decoded.uid).get();
@@ -2518,7 +2514,7 @@ exports.reportnow = onRequest({ cors: true, timeoutSeconds: 60, secrets: [SENDGR
       const lang = req.body?.lang === 'en' ? 'en' : 'fr';
       const report = buildMonthlyReport(data, new Date(), { preview: true });
       const { subject, html } = renderMonthlyReport(report, { lang, data, sender: to[0] });
-      const mail = await sendMail(SENDGRID_API_KEY.value(), {
+      const mail = await sendMail(BREVO_API_KEY.value(), {
         to, from: { email: 'hello@stacklens.fr', name: 'Stacklens' }, subject, html,
       });
       if (!mail.sent) return res.status(502).json({ error: 'send_failed' });

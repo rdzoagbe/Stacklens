@@ -366,6 +366,7 @@ export function SubProcessorsPage() {
     { name: 'Google Cloud Platform', purpose: t('subproc_gcp_purpose'), location: 'EU / USA', link: 'https://cloud.google.com/privacy', transfer: t('subproc_gcp_transfer') },
     { name: 'Stripe', purpose: t('subproc_stripe_purpose'), location: 'EU (Irlande / Ireland)', link: 'https://stripe.com/privacy', transfer: t('subproc_stripe_transfer') },
     { name: 'Anthropic (Claude AI)', purpose: t('subproc_anthropic_purpose'), location: 'USA', link: 'https://www.anthropic.com/privacy', transfer: t('subproc_anthropic_transfer') },
+    { name: 'Brevo (Sendinblue SAS)', purpose: t('subproc_brevo_purpose'), location: 'EU (France)', link: 'https://www.brevo.com/legal/privacypolicy/', transfer: t('subproc_brevo_transfer') },
     { name: 'Twilio SendGrid', purpose: t('subproc_sendgrid_purpose'), location: 'USA', link: 'https://www.twilio.com/en-us/legal/privacy', transfer: t('subproc_sendgrid_transfer') },
     { name: 'Bridge (Bridgeapi SAS)', purpose: t('subproc_bridge_purpose'), location: 'EU (France)', link: 'https://www.bridgeapi.io/privacy-policy', transfer: t('subproc_bridge_transfer') },
     { name: 'Web3Forms', purpose: t('subproc_web3forms_purpose'), location: 'USA', link: 'https://web3forms.com/privacy', transfer: t('subproc_web3forms_transfer') },
@@ -664,6 +665,7 @@ export function PrivacyPage() {
                   <tr className="border-b border-slate-800"><td className="py-2 pr-4">Google Cloud Platform</td><td className="py-2 pr-4">{t('privacy_s3_gcp_purpose')}</td><td className="py-2">EU / USA</td></tr>
                   <tr className="border-b border-slate-800"><td className="py-2 pr-4">Stripe</td><td className="py-2 pr-4">{t('privacy_s3_stripe_purpose')}</td><td className="py-2">EU (Ireland)</td></tr>
                   <tr className="border-b border-slate-800"><td className="py-2 pr-4">Anthropic (Claude AI)</td><td className="py-2 pr-4">{t('privacy_s3_anthropic_purpose')}</td><td className="py-2">USA</td></tr>
+                  <tr className="border-b border-slate-800"><td className="py-2 pr-4">Brevo (Sendinblue SAS)</td><td className="py-2 pr-4">{t('privacy_s3_brevo_purpose')}</td><td className="py-2">EU (France)</td></tr>
                   <tr className="border-b border-slate-800"><td className="py-2 pr-4">Twilio SendGrid</td><td className="py-2 pr-4">{t('privacy_s3_sendgrid_purpose')}</td><td className="py-2">USA</td></tr>
                   <tr className="border-b border-slate-800"><td className="py-2 pr-4">Bridge (Bridgeapi SAS)</td><td className="py-2 pr-4">{t('privacy_s3_bridge_purpose')}</td><td className="py-2">EU (France)</td></tr>
                   <tr className="border-b border-slate-800"><td className="py-2 pr-4">Google Analytics</td><td className="py-2 pr-4">{t('privacy_s3_ga_purpose')}</td><td className="py-2">EU</td></tr>
