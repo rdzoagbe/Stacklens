@@ -334,7 +334,7 @@ export function FounderAdminPage() {
       if (r.ok) {
         toast.success(`Test email sent to ${r.sent_to} — check your inbox (and spam).`, { duration: 8000 });
       } else {
-        toast.error(`SendGrid refused it: ${r.sendgrid_error}`, { duration: 12000 });
+        toast.error(`Brevo refused it: ${r.mail_error}`, { duration: 12000 });
       }
     } catch (err) {
       toast.error('Test email failed: ' + err.message, { duration: 10000 });

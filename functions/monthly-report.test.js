@@ -199,7 +199,7 @@ describe('the scheduled send and the example keep their promises', () => {
 
   it('to the Auth address and the colleagues the rule accepts, never a raw stored list', () => {
     expect(monthly).toMatch(/const email = await verifiedEmailForUid\(uid\);\s*const \{ to \} = reportRecipients\(email, settings\.recipients\);/);
-    expect(monthly).toMatch(/sendMail\(SENDGRID_API_KEY\.value\(\), \{\s*to, from/);
+    expect(monthly).toMatch(/sendMail\(BREVO_API_KEY\.value\(\), \{\s*to, from/);
   });
 
   it('once per month, remembered only after a delivered send', () => {

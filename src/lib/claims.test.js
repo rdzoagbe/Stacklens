@@ -521,9 +521,14 @@ describe('the AI disclosures name every feature', () => {
 });
 
 describe('the email provider and the invoice inbox', () => {
-  it('SendGrid is listed for the mail it receives, not only what it sends', () => {
+  it('Brevo is listed for the mail it sends, SendGrid for the mail it receives', () => {
+    const mailer = read('functions/mailer.js');
+    expect(mailer).toContain("'https://api.brevo.com/v3/smtp/email'");
+    expect(mailer).not.toMatch(/sendgrid\.net|@sendgrid\/mail/);
     expect(functionsSrc).toMatch(/SendGrid\s*\n?\s*\/\/\s*Inbound Parse posts incoming mail to invoiceInbound/);
+    expect(copy('en', 'subproc_brevo_purpose')).toMatch(/sending invitations, alerts and reports/);
     expect(copy('en', 'subproc_sendgrid_purpose')).toMatch(/receiving the invoices you forward/);
+    expect(copy('en', 'subproc_sendgrid_purpose')).not.toMatch(/sending/);
     expect(copy('fr', 'subproc_sendgrid_purpose')).toMatch(/réception des factures/);
   });
 

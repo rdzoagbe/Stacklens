@@ -13,7 +13,6 @@
   },
   "main": "index.js",
   "dependencies": {
-    "@sendgrid/mail": "^8.1.6",
     "busboy": "^1.6.0",
     "cors": "^2.8.5",
     "firebase-admin": "^14.4.0",

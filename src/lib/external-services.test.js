@@ -58,6 +58,9 @@ const SERVICES = [
 
   // ── Payments, mail, AI ──
   { id: 'stripe',      hosts: ['stripe.com'],            where: 'redirect', personalData: true, published: 'Stripe' },
+  // Brevo sends (functions/mailer.js); SendGrid only receives, through
+  // Inbound Parse posting to invoiceInbound, so no code contacts its host.
+  { id: 'brevo',       hosts: ['api.brevo.com'],         where: 'server',  personalData: true,  published: 'Brevo (Sendinblue SAS)' },
   { id: 'sendgrid',    hosts: ['sendgrid.net'],          where: 'server',  personalData: true,  published: 'Twilio SendGrid' },
   { id: 'anthropic',   hosts: ['api.anthropic.com'],     where: 'server',  personalData: true,  published: 'Anthropic (Claude AI)' },
   { id: 'web3forms',   hosts: ['api.web3forms.com'],     where: 'browser', personalData: true,  published: 'Web3Forms' },
