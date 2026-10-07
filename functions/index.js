@@ -476,7 +476,7 @@ exports.refreshClaims = onRequest({ cors: true }, async (req, res) => {
 // Brevo since 2026-10-07 (SendGrid before: its free allowance ran out). The
 // secret must exist in Secret Manager before the functions deploy.
 const BREVO_API_KEY = defineSecret('BREVO_API_KEY'); // redeploy binds the new version
-const { sendMail, mailConfigured } = require('./mailer');
+const { sendMail, mailConfigured, describeKey } = require('./mailer');
 
 exports.sendInvite = onRequest({ cors: true, secrets: [BREVO_API_KEY] }, async (req, res) => {
   cors(req, res, async () => {
@@ -592,7 +592,7 @@ exports.founderops = onRequest({ cors: true, timeoutSeconds: 30, secrets: [BREVO
           // the entire reason a founder presses this button.
           if (mail.skipped) {
             return res.json({ ok: false, skipped: mail.skipped, sent_to: dest,
-              error: 'Email sending is not configured — no request was made.' });
+              error: `${describeKey(BREVO_API_KEY.value())} Nothing was sent to Brevo.` });
           }
           if (!mail.sent) {
             return res.json({ ok: false, sent_to: dest, mail_error: mail.error });

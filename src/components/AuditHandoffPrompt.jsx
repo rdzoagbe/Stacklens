@@ -7,6 +7,7 @@ import { useTranslation } from '../translations';
 import { useDbQuery, useDbMutations } from '../hooks/useDbQuery';
 import { useAuth } from '../hooks/useAuth';
 import { loadHandoff, clearHandoff, planHandoffImport } from '../lib/auditHandoff';
+import { getPlanLimits, resolvePlan } from '../lib/plan';
 import { RoleGate } from './gates';
 
 // ── "Import the subscriptions from your free audit?" ───────────────────────
@@ -28,11 +29,21 @@ export function AuditHandoffPrompt() {
   const { importAuditTools } = useDbMutations();
   const [handoff, setHandoff] = useState(() => (closedThisPage ? null : loadHandoff()));
   const plan = useMemo(() => (handoff && db ? planHandoffImport(handoff, db) : null), [handoff, db]);
-  const [unticked, setUnticked] = useState(() => new Set());
+  // null until the reader touches a box: then the plan's room decides which
+  // lines start ticked (the costliest), instead of the import silently
+  // dropping the tail and saying so afterwards.
+  const [manual, setManual] = useState(null);
 
   if (!handoff || !plan || isDemo || db?.user?.is_demo) return null;
 
-  const chosen = plan.toAdd.filter((r) => !unticked.has(r.name));
+  const limit = getPlanLimits(resolvePlan(db?.user)).tools;
+  const room = Math.max(0, (Number.isFinite(limit) ? limit : Infinity) - (db?.tools?.length || 0));
+  const byCost = [...plan.toAdd].sort((a, b) => b.cost_per_month - a.cost_per_month);
+  const fits = new Set(byCost.slice(0, room).map((r) => r.name));
+  const unticked = manual ?? new Set(plan.toAdd.filter((r) => !fits.has(r.name)).map((r) => r.name));
+  const doesNotFit = plan.toAdd.length > room;
+  // What is imported is what is ticked, costliest first, up to the room.
+  const chosen = byCost.filter((r) => !unticked.has(r.name)).slice(0, room);
   const close = () => { closedThisPage = true; setHandoff(null); };
   const ignore = () => { clearHandoff(); setHandoff(null); };
   const importNow = () => {
@@ -46,8 +57,8 @@ export function AuditHandoffPrompt() {
       },
     });
   };
-  const toggle = (name) => setUnticked((s) => {
-    const n = new Set(s);
+  const toggle = (name) => setManual(() => {
+    const n = new Set(unticked);
     if (n.has(name)) n.delete(name); else n.add(name);
     return n;
   });
@@ -70,6 +81,11 @@ export function AuditHandoffPrompt() {
         </div>
       }
     >
+      {doesNotFit && (
+        <p className="mb-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200" data-testid="handoff-room">
+          {t('handoff_room').replace('{room}', room).replace('{n}', plan.toAdd.length)}
+        </p>
+      )}
       <ul className="space-y-1.5 text-sm" data-testid="handoff-list">
         {plan.toAdd.map((r) => (
           <li key={r.name} className="flex items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-900/40 px-3 py-2">

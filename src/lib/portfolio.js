@@ -47,7 +47,7 @@ export function readClientFile({ name, fileName, text, forceOrder }) {
     format: fec ? 'fec' : 'bank',
     symbol: fec ? '€' : detectSymbol(text),
     transactions: parsed.transactions,
-    entries: parsed.entries, skipped: parsed.skipped, dateOrder: parsed.dateOrder,
+    entries: parsed.entries, skipped: parsed.skipped, credits: parsed.credits || 0, unreadable: parsed.unreadable || [], dateOrder: parsed.dateOrder,
     verdicts: {},
   };
 }
@@ -77,6 +77,11 @@ export function portfolioRow(client) {
 /** Totals across the portfolio. Amounts in different currencies are not added up. */
 export function portfolioTotals(rows) {
   const symbols = new Set(rows.map((r) => r.symbol));
+  // A ledger (FEC) is before tax; a bank statement is what left the account,
+  // tax included. The total still adds them (an accountant wants one figure),
+  // but says so, because the sum is then neither all-HT nor all-TTC.
+  const mixedTax = new Set(rows.map((r) => r.format === 'fec')).size > 1;
+  const additive = symbols.size === 1;
   const round2 = (n) => Math.round(n * 100) / 100;
   return {
     clients: rows.length,
@@ -84,25 +89,29 @@ export function portfolioTotals(rows) {
     flagged: rows.reduce((s, r) => s + r.flagged, 0),
     subscriptions: rows.reduce((s, r) => s + r.subscriptions, 0),
     mixedCurrencies: symbols.size > 1,
-    monthly: symbols.size > 1 ? null : round2(rows.reduce((s, r) => s + r.monthly, 0)),
-    annual: symbols.size > 1 ? null : round2(rows.reduce((s, r) => s + r.annual, 0)),
+    mixedTax,
+    monthly: additive ? round2(rows.reduce((s, r) => s + r.monthly, 0)) : null,
+    annual: additive ? round2(rows.reduce((s, r) => s + r.annual, 0)) : null,
   };
 }
 
 /** The portfolio as a CSV, one line per client: figures and counts, never a bank line. */
-export function portfolioCsv(rows) {
+export function portfolioCsv(rows, style = { sep: ',', decimal: '.' }) {
+  const { sep, decimal } = style;
   const cols = ['client', 'source', 'subscriptions', 'monthly_software', 'annualised', 'points_to_check',
     'duplicates', 'price_increases', 'renewals_within_60_days', 'stopped', 'currency', 'statement_up_to'];
   const esc = (v) => {
-    const s = v == null ? '' : String(v);
-    return /[",\n;]/.test(s) ? `"${s.replaceAll('"', '""')}"` : s;
+    let s = v == null ? '' : String(v);
+    if (typeof v === 'number' && decimal !== '.') s = s.replace('.', decimal);
+    const quote = s.includes('"') || s.includes('\n') || s.includes(sep) || (sep === ',' && s.includes(';'));
+    return quote ? `"${s.replaceAll('"', '""')}"` : s;
   };
   const lines = rows.map((r) => [
     r.name, r.format === 'fec' ? 'FEC' : 'bank', r.subscriptions, r.monthly, r.annual, r.flagged,
     r.duplicates, r.priceIncreases, r.renewalsSoon, r.stopped, r.symbol.trim(),
     r.asOf instanceof Date ? r.asOf.toISOString().slice(0, 10) : '',
-  ].map(esc).join(','));
-  return [cols.join(','), ...lines].join('\n') + '\n';
+  ].map(esc).join(sep));
+  return [cols.join(sep), ...lines].join('\n') + '\n';
 }
 
 // A third, smaller client for the sample portfolio: a design studio paying

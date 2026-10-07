@@ -64,6 +64,21 @@ describe('the portfolio', () => {
     expect(mixed).toMatchObject({ mixedCurrencies: true, monthly: null, annual: null });
   });
 
+  it('flags a total that adds ledgers (before tax) to bank statements (tax included)', () => {
+    const t = portfolioTotals(rows);
+    expect(rows.some((r) => r.format === 'fec') && rows.some((r) => r.format === 'bank')).toBe(true);
+    expect(t.mixedTax).toBe(true);
+    expect(portfolioTotals(rows.filter((r) => r.format === 'bank')).mixedTax).toBe(false);
+  });
+
+  it('the CSV opens in French Excel: semicolons and decimal commas', () => {
+    const csv = portfolioCsv(rows, { sep: ';', decimal: ',' });
+    const lines = csv.trim().split('\n');
+    expect(lines[0].split(';')).toHaveLength(12);
+    expect(lines[1].split(';')).toHaveLength(12);
+    expect(lines.slice(1).some((l) => /;\d+,\d+;/.test(l))).toBe(true);
+  });
+
   it('the CSV has one line per client, figures only, never a bank label', () => {
     const csv = portfolioCsv(rows);
     const lines = csv.trim().split('\n');

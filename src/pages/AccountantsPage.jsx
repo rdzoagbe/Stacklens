@@ -73,7 +73,19 @@ function EarlyAccess({ t }) {
   const [form, setForm] = useState({ name: '', email: '', firm: '', clients: '', role: '', message: '', consent: false });
   const [state, setState] = useState('idle'); // idle | sending | done
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }));
-  const ready = form.name.trim() && /\S+@\S+\.\S+/.test(form.email) && form.firm.trim() && form.clients && form.role && form.consent;
+  const emailOk = /\S+@\S+\.\S+/.test(form.email);
+  // What stands between the reader and the button, in words. A disabled button
+  // that says nothing looks broken; this appears once they have started.
+  const missing = [
+    !form.name.trim() && t('ea_form_name'),
+    !emailOk && (form.email ? t('ea_need_email') : t('ea_form_email')),
+    !form.firm.trim() && t('ea_form_firm'),
+    !form.clients && t('ea_form_clients'),
+    !form.role && t('ea_form_role'),
+    !form.consent && t('ea_need_consent'),
+  ].filter(Boolean);
+  const ready = missing.length === 0;
+  const started = !!(form.name || form.email || form.firm || form.clients || form.role || form.consent);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -176,6 +188,11 @@ function EarlyAccess({ t }) {
           <p className="text-xs text-slate-500 mb-5">
             {t('ea_form_privacy')} <Link to="/privacy" className="underline hover:text-slate-300">{t('ea_form_privacy_link')}</Link>
           </p>
+          {!ready && started && (
+            <p className="text-xs text-amber-300 mb-3" data-testid="ea-missing">
+              {t('ea_missing').replace('{fields}', missing.map((m) => String(m).toLowerCase()).join(', '))}
+            </p>
+          )}
           <button type="submit" disabled={!ready || state === 'sending'}
             className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-blue-600">
             {state === 'sending' ? t('ea_form_sending') : t('ea_form_submit')} <ArrowRight className="w-4 h-4" />

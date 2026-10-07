@@ -4,6 +4,7 @@ import { Boxes, UserMinus, GitMerge, Download } from 'lucide-react';
 import { safeParseISO } from './db';
 import { formatMoney } from './currency';
 import { monthlySpend } from './waste';
+import { needsReview } from './toolReview';
 
 // ── Tool/access derived-state computations ─────────────────────────────────
 
@@ -17,6 +18,11 @@ export function computeToolDerivedStatus(tool) {
 
 export function computeToolDerivedRisk(tool) {
   const status = computeToolDerivedStatus(tool);
+  // A tool the app added itself (audit, invoice, bank, Google Workspace) has no
+  // owner because nobody has been asked yet. It carries "To check" until an
+  // editor confirms it; calling it high risk meanwhile made the first screen
+  // after an import a wall of red for a list the person had just chosen.
+  if (status === 'orphaned' && needsReview(tool)) return 'low';
   if (status === 'orphaned') return 'high';
   if (status === 'unused') return 'high';
   if (tool.criticality === 'high' && status === 'active') return 'medium';

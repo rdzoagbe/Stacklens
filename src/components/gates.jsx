@@ -208,6 +208,9 @@ export function PlanLimitBanner({ resource = 'tools' }) {
   if (!isNear && !isFull) return null;
 
   const tone = isFull ? 'red' : 'amber';
+  // The noun is translated like the rest: the sentence used to carry the raw
+  // resource key ("tools") and the English word "plan" into every language.
+  const noun = resource === 'employees' ? t('plan_res_employees') : t('plan_res_tools');
   return (
     <div className={'rounded-2xl border p-4 lg:p-5 flex items-center gap-4 ' + (tone === 'red' ? 'border-red-500/30 bg-red-500/5' : 'border-amber-500/30 bg-amber-500/5')}>
       <div className={'p-2 rounded-lg flex-shrink-0 ' + (tone === 'red' ? 'bg-red-500/10' : 'bg-amber-500/10')}>
@@ -216,12 +219,12 @@ export function PlanLimitBanner({ resource = 'tools' }) {
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
           <span className={'text-sm font-semibold ' + (tone === 'red' ? 'text-red-400' : 'text-amber-400')}>
-            {isFull ? `${resource} ${t('plan_limit_reached')}` : `${t('plan_limit_approaching')} ${resource} ${t('plan_limit_reached')}`}
+            {t(isFull ? 'plan_limit_full_title' : 'plan_limit_near_title').replace('{res}', noun.charAt(0).toUpperCase() + noun.slice(1))}
           </span>
-          <span className="text-xs text-slate-500">— {limits.label} plan</span>
+          <span className="text-xs text-slate-500">— {t('plan_name_label').replace('{label}', limits.label)}</span>
         </div>
         <div className="text-xs text-slate-400 mb-2">
-          {t('plan_limit_using')} <span className="font-semibold text-white">{usageNum}</span> {t('gate_of')} <span className="font-semibold text-white">{limitNum}</span> {resource}
+          {t('plan_limit_using')} <span className="font-semibold text-white">{usageNum}</span> {t('gate_of')} <span className="font-semibold text-white">{limitNum}</span> {noun}
           {isFull ? `. ${t('plan_limit_upgrade_msg')}` : `. ${limitNum - usageNum} ${t('plan_limit_remaining')}.`}
         </div>
         <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden max-w-md">

@@ -53,4 +53,9 @@
   body.printing-report > *:not(#print-report) { display: none !important; }
   body.printing-report #print-report { display: block !important; }
   #print-report * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  /* A client with a long list runs onto a second page: never cut a row or a
+     findings block in half, and repeat the column titles on the next page. */
+  #print-report tr, #print-report h2, #print-report h3 { break-inside: avoid; }
+  #print-report h2, #print-report h3 { break-after: avoid; }
+  #print-report thead { display: table-header-group; }
 }

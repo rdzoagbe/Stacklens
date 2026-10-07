@@ -241,8 +241,10 @@ function mk(y, mo, d) {
 
 // ── 5. Parsing the whole export ─────────────────────────────────────────────
 
+const MAX_UNREADABLE_SAMPLES = 5;
+
 /**
- * Text → { transactions, skipped, columns, delimiter, dateOrder }.
+ * Text → { transactions, skipped, credits, unreadable, columns, delimiter, dateOrder }.
  * `forceOrder` ('dmy' | 'mdy') overrides what the dates themselves suggest.
  * A transaction is { date, label, amount, raw } with amount POSITIVE for money
  * going out. Credits are dropped: nothing about a refund tells us about a
@@ -279,24 +281,40 @@ export function parseBankExport(text, forceOrder) {
     : detected;
 
   const transactions = [];
-  let skipped = headerAt;
+  // Money coming in is left out on purpose and counted apart: a statement
+  // where one line in nine is a payment received used to report "73 lines
+  // could not be read", which an accountant takes for 73 lost transactions.
+  // `skipped` is only what could not be read as a dated, labelled amount;
+  // `unreadable` keeps the first few so the reader can see which.
+  let skipped = 0;
+  let credits = 0;
+  const unreadable = [];
   for (const line of body) {
     const f = splitLine(line, delimiter);
     const date = parseDate(f[columns.date], dateOrder.order);
     let amount;
+    let isCredit;
     if (columns.amount >= 0) {
       const a = parseAmount(f[columns.amount]);
       amount = a < 0 ? -a : NaN;          // only money out
+      isCredit = a > 0;
     } else {
       const d = parseAmount(f[columns.debit]);
       amount = Number.isFinite(d) && d !== 0 ? Math.abs(d) : NaN;
+      const c = columns.credit >= 0 ? parseAmount(f[columns.credit]) : NaN;
+      isCredit = !Number.isFinite(amount) && Number.isFinite(c) && c > 0;
     }
     const label = String(f[columns.label] ?? '').trim();
-    if (!date || !Number.isFinite(amount) || amount <= 0 || !label) { skipped++; continue; }
+    if (date && label && isCredit) { credits++; continue; }
+    if (!date || !Number.isFinite(amount) || amount <= 0 || !label) {
+      skipped++;
+      if (unreadable.length < MAX_UNREADABLE_SAMPLES) unreadable.push(line.slice(0, 160));
+      continue;
+    }
     transactions.push({ date, label, amount, raw: line });
   }
   transactions.sort((a, b) => a.date - b.date);
-  return { transactions, skipped, columns, delimiter, dateOrder };
+  return { transactions, skipped, credits, unreadable, columns, delimiter, dateOrder };
 }
 
 // ── 6. Labels ───────────────────────────────────────────────────────────────
@@ -769,12 +787,28 @@ export function correctionsMailto(verdicts, opts) {
 
 const fmtDate = (d) => d instanceof Date ? d.toISOString().slice(0, 10) : '';
 
-export function reportToCsv(report) {
+// French-language Excel opens a comma-separated file as one column and reads
+// "672.3" as text. Readers outside English get what their spreadsheet expects:
+// semicolons, decimal commas and, for the download, a byte-order mark so the
+// accents survive. English keeps the plain comma file.
+export const CSV_BOM = '\uFEFF';
+// In the order of the columns below.
+const CSV_HEADERS_FR = ['fournisseur', 'catégorie', 'fiabilité', 'périodicité', 'prélèvements', 'premier', 'dernier',
+  'montant_moyen', 'equivalent_mensuel', 'annualisé', 'libellé_bancaire', 'revue', 'statut'];
+export function csvStyleFor(language) {
+  if (!language || language === 'en') return { sep: ',', decimal: '.', headers: null };
+  return { sep: ';', decimal: ',', headers: language === 'fr' ? CSV_HEADERS_FR : null };
+}
+
+export function reportToCsv(report, style = csvStyleFor('en')) {
+  const { sep, decimal, headers } = style;
   const cols = ['vendor', 'category', 'confidence', 'cadence', 'charges', 'first', 'last',
     'avg_amount', 'monthly_equivalent', 'annualised', 'bank_label', 'review', 'status'];
   const esc = (v) => {
-    const s = v == null ? '' : String(v);
-    return /[",\n;]/.test(s) ? `"${s.replaceAll('"', '""')}"` : s;
+    let s = v == null ? '' : String(v);
+    if (typeof v === 'number' && decimal !== '.') s = s.replace('.', decimal);
+    const quote = s.includes('"') || s.includes('\n') || s.includes(sep) || (sep === ',' && s.includes(';'));
+    return quote ? `"${s.replaceAll('"', '""')}"` : s;
   };
   // Stopped subscriptions are in the file, marked, so a spreadsheet total over
   // the 'active' rows gives the page's figure.
@@ -783,7 +817,8 @@ export function reportToCsv(report) {
     s.avgAmount, s.monthlyEquivalent ?? '', s.monthlyEquivalent == null ? '' : round2(s.monthlyEquivalent * 12),
     s.key, s.reviewed || '', s.stopped ? 'stopped' : (s.saas ? 'active' : ''),
   ]);
-  return [cols.join(','), ...rows.map(r => r.map(esc).join(','))].join('\n') + '\n';
+  const head = headers || cols;
+  return [head.join(sep), ...rows.map(r => r.map(esc).join(sep))].join('\n') + '\n';
 }
 
 // ── 11. Sample data ─────────────────────────────────────────────────────────

@@ -40,6 +40,22 @@ function classifyKey(raw) {
   return 'ok';
 }
 
+/**
+ * Says what is wrong with the configured key, in words, WITHOUT repeating any
+ * of it (only its length and the shape of its prefix). The founder's Test
+ * email button shows this, so "off" and "wrong kind of key" read differently.
+ * Brevo issues two look-alike secrets: API keys ("xkeysib-") and SMTP keys
+ * ("xsmtpsib-"); only the first works on the REST endpoint used here.
+ */
+function describeKey(raw) {
+  const key = String(raw || '').trim();
+  if (!key) return 'BREVO_API_KEY is empty or was not available to this function. If you just created or changed the secret, redeploy the functions so they pick up the new version.';
+  if (key.startsWith('xsmtpsib-')) return 'BREVO_API_KEY holds an SMTP key ("xsmtpsib-…"). Stacklens needs an API key ("xkeysib-…"): Brevo → SMTP & API → API Keys tab.';
+  if (key.startsWith('SG.')) return 'BREVO_API_KEY still holds the previous provider key ("SG.…"). Put the Brevo API key ("xkeysib-…") in that secret.';
+  if (!key.startsWith(BREVO_KEY_PREFIX)) return `BREVO_API_KEY (${key.length} characters) does not start with "${BREVO_KEY_PREFIX}", so it is not a Brevo API key.`;
+  return `BREVO_API_KEY is only ${key.length} characters, too short for a Brevo API key.`;
+}
+
 /** True only when a send would actually be attempted. */
 function mailConfigured(raw) {
   return classifyKey(raw) === 'ok';
@@ -103,4 +119,4 @@ async function sendMail(raw, message) {
   }
 }
 
-module.exports = { sendMail, mailConfigured, classifyKey, toBrevoPayload, BREVO_KEY_PREFIX, MIN_KEY_LENGTH, BREVO_SEND_URL };
+module.exports = { sendMail, mailConfigured, classifyKey, describeKey, toBrevoPayload, BREVO_KEY_PREFIX, MIN_KEY_LENGTH, BREVO_SEND_URL };

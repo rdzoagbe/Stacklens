@@ -11,12 +11,12 @@ import { useTranslation } from '../translations';
 import { PublicNav } from '../components/PublicNav';
 import { EARLY_ACCESS } from '../lib/earlyAccess';
 import { loadFirmName, saveFirmName, forgetFirmName } from '../lib/auditPrefs';
-import { saveHandoff, HANDOFF_TTL_HOURS, HANDOFF_MAX_LINES } from '../lib/auditHandoff';
+import { saveHandoff, handoffToolCount, HANDOFF_TTL_HOURS } from '../lib/auditHandoff';
 import { auditCategoryLabel } from '../lib/auditCategories';
 import { formatInSymbol } from '../lib/currency';
 import { track } from '../lib/analytics';
 import {
-  decodeBankFile, parseBankExport, auditSaas, reportToCsv, sampleBankExport,
+  decodeBankFile, parseBankExport, auditSaas, reportToCsv, csvStyleFor, CSV_BOM, sampleBankExport,
   correctionsMailto, reviewCounts,
 } from '../lib/saasAudit';
 import { isFec, parseFec, sampleFec } from '../lib/fec';
@@ -98,7 +98,7 @@ export function SaasAuditPage() {
     setState({
       phase: 'done', transactions: parsed.transactions, symbol: fec ? '€' : detectSymbol(text),
       format: fec ? 'fec' : 'bank', entries: parsed.entries,
-      skipped: parsed.skipped, dateOrder: parsed.dateOrder, text,
+      skipped: parsed.skipped, credits: parsed.credits || 0, unreadable: parsed.unreadable || [], dateOrder: parsed.dateOrder, text,
     });
   }, []);
 
@@ -114,7 +114,7 @@ export function SaasAuditPage() {
       if (!parsed.transactions.length) return prev;
       return {
         ...prev, transactions: parsed.transactions,
-        skipped: parsed.skipped, dateOrder: parsed.dateOrder,
+        skipped: parsed.skipped, credits: parsed.credits || 0, unreadable: parsed.unreadable || [], dateOrder: parsed.dateOrder,
       };
     });
   }, []);
@@ -185,7 +185,7 @@ export function SaasAuditPage() {
             flipClientOrder={(i) => updateClient(i, (c) => {
               if (c.format === 'fec') return {};
               const parsed = parseBankExport(c.text, c.dateOrder?.order === 'mdy' ? 'dmy' : 'mdy');
-              return parsed.transactions.length ? { transactions: parsed.transactions, skipped: parsed.skipped, dateOrder: parsed.dateOrder } : {};
+              return parsed.transactions.length ? { transactions: parsed.transactions, skipped: parsed.skipped, credits: parsed.credits || 0, unreadable: parsed.unreadable || [], dateOrder: parsed.dateOrder } : {};
             })} />
         )}
 
@@ -253,7 +253,7 @@ export function SaasAuditPage() {
         )}
 
         {!portfolio && state.phase === 'done' && report && <Report report={report} symbol={state.symbol} t={t} onReset={reset} language={language}
-          skipped={state.skipped} dateOrder={state.dateOrder} onFlipDateOrder={flipDateOrder}
+          skipped={state.skipped} credits={state.credits} unreadable={state.unreadable} dateOrder={state.dateOrder} onFlipDateOrder={flipDateOrder}
           format={state.format} entries={state.entries}
           verdicts={verdicts} setVerdict={setVerdict} />}
       </div>
@@ -278,7 +278,7 @@ function PortfolioClient({ client, index, t, language, onBack, setClientVerdict,
       <h2 className="text-2xl font-bold mb-4">{client.name}</h2>
       <Report report={report} symbol={client.symbol} t={t} language={language}
         onReset={onBack} resetLabel={t('audit_pf_back')}
-        skipped={client.skipped} dateOrder={client.dateOrder} onFlipDateOrder={() => flipClientOrder(index)}
+        skipped={client.skipped} credits={client.credits} unreadable={client.unreadable} dateOrder={client.dateOrder} onFlipDateOrder={() => flipClientOrder(index)}
         format={client.format} entries={client.entries}
         verdicts={client.verdicts} setVerdict={setVerdict} clientName={client.name} />
     </div>
@@ -300,7 +300,7 @@ function PortfolioView({ portfolio, t, language, onClose, onOpen, onBack, onRena
   }
 
   const download = () => {
-    const blob = new Blob([portfolioCsv(rows)], { type: 'text/csv;charset=utf-8' });
+    const blob = new Blob([(language === 'en' ? '' : CSV_BOM) + portfolioCsv(rows, csvStyleFor(language))], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = 'stacklens-portefeuille.csv'; a.click();
@@ -332,6 +332,7 @@ function PortfolioView({ portfolio, t, language, onClose, onOpen, onBack, onRena
         </div>
       )}
       {totals.mixedCurrencies && <p className="text-xs text-slate-500">{t('audit_pf_mixed')}</p>}
+      {totals.mixedTax && !totals.mixedCurrencies && <p className="text-xs text-slate-500">{t('audit_pf_mixed_tax')}</p>}
 
       {rows.length > 0 && (
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 overflow-x-auto">
@@ -483,7 +484,36 @@ function RenameField({ initial, t, onSave, onCancel }) {
   );
 }
 
-function Report({ report, symbol, t, onReset, language, skipped, dateOrder, onFlipDateOrder, verdicts, setVerdict, format, entries, clientName = '', resetLabel }) {
+/**
+ * What the file held that is not in the totals. Money received is left out on
+ * purpose and said so in plain words; only a line that could not be read as a
+ * dated, labelled amount counts as unreadable, and the first few are shown so
+ * the reader can tell a stray footer from a lost transaction.
+ */
+function ReadNotes({ skipped, credits, unreadable, t }) {
+  return (
+    <>
+      {credits > 0 && <span>· {fill(t('audit_credits'), { n: credits })}</span>}
+      {skipped > 0 && (
+        <details className="inline">
+          <summary className="inline cursor-pointer underline decoration-dotted hover:text-slate-300">
+            {fill(t('audit_skipped'), { n: skipped })}
+          </summary>
+          {unreadable.length > 0 && (
+            <div className="mt-1 w-full">
+              <p className="text-slate-500">{t('audit_unreadable_intro')}</p>
+              <ul className="mt-1 space-y-0.5 font-mono text-[11px] text-slate-400 break-all">
+                {unreadable.map((l, i) => <li key={i}>{l}</li>)}
+              </ul>
+            </div>
+          )}
+        </details>
+      )}
+    </>
+  );
+}
+
+function Report({ report, symbol, t, onReset, language, skipped, credits = 0, unreadable = [], dateOrder, onFlipDateOrder, verdicts, setVerdict, format, entries, clientName = '', resetLabel }) {
   const money = useCallback((n) => formatInSymbol(n ?? 0, symbol, language), [symbol, language]);
   const date = (d) => d instanceof Date ? d.toLocaleDateString(language, { day: 'numeric', month: 'short', year: 'numeric' }) : '';
   const f = report.findings;
@@ -512,9 +542,10 @@ function Report({ report, symbol, t, onReset, language, skipped, dateOrder, onFl
     setRenaming(null);
   };
 
-  const csv = useMemo(() => reportToCsv(report), [report]);
+  const csv = useMemo(() => reportToCsv(report, csvStyleFor(language)), [report, language]);
   const download = () => {
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    // The byte-order mark is for Excel opening the file; the clipboard copy has none.
+    const blob = new Blob([language === 'en' ? csv : CSV_BOM + csv], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = 'stacklens-saas-audit.csv'; a.click();
@@ -562,7 +593,7 @@ function Report({ report, symbol, t, onReset, language, skipped, dateOrder, onFl
           <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-400">
             <span className="px-2 py-0.5 rounded-full border border-amber-500/30 bg-amber-500/10 text-amber-300 font-semibold">{t('audit_fec_beta')}</span>
             <span>{fill(t('audit_fec_read'), { n: entries ?? report.transactionCount })}</span>
-            {skipped > 0 && <span>· {fill(t('audit_skipped'), { n: skipped })}</span>}
+            <ReadNotes skipped={skipped} credits={0} unreadable={unreadable} t={t} />
           </div>
         ) : (
         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
@@ -576,7 +607,7 @@ function Report({ report, symbol, t, onReset, language, skipped, dateOrder, onFl
           <button onClick={onFlipDateOrder} className="underline decoration-dotted hover:text-slate-300 transition-colors">
             {t('audit_dates_flip')}
           </button>
-          {skipped > 0 && <span>· {fill(t('audit_skipped'), { n: skipped })}</span>}
+          <ReadNotes skipped={skipped} credits={credits} unreadable={unreadable} t={t} />
         </div>
         )}
       </div>
@@ -749,10 +780,10 @@ function Report({ report, symbol, t, onReset, language, skipped, dateOrder, onFl
       {report.subscriptions.length > 0 && !clientName && (
         <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-6 md:p-8" data-testid="audit-handoff">
           <h3 className="text-xl md:text-2xl font-bold mb-2">{t('audit_handoff_title')}</h3>
-          <p className="text-slate-300 mb-5 max-w-xl">{fill(t('audit_handoff_body'), { n: Math.min(report.subscriptions.length, HANDOFF_MAX_LINES) })}</p>
+          <p className="text-slate-300 mb-5 max-w-xl">{fill(t('audit_handoff_body'), { n: handoffToolCount(report) })}</p>
           <button onClick={startWorkspace}
             className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-semibold text-sm transition-colors">
-            {fill(t('audit_handoff_btn'), { n: Math.min(report.subscriptions.length, HANDOFF_MAX_LINES) })} <ArrowRight className="w-4 h-4" />
+            {fill(t('audit_handoff_btn'), { n: handoffToolCount(report) })} <ArrowRight className="w-4 h-4" />
           </button>
           <p className="text-xs text-slate-500 mt-3 max-w-2xl">{fill(t('audit_handoff_fine'), { hours: HANDOFF_TTL_HOURS })}</p>
         </div>
