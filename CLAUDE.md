@@ -210,6 +210,10 @@ Every imported invoice (`db.invoice_records`, from the PDF import, the email inb
 - `smb-walkthrough.test.js` holds these.
 - **Workspace categories** (`CATEGORIES` in `lib/constants.js`) are shown through `useCategoryLabel()` in `components/ui.jsx` (`cat_*` keys in five languages); the stored value stays English. `RENEWAL_SAVINGS_PCT` (`lib/constants.js`) is the one renewal-savings figure both Finance tabs quote. Every plan card, Enterprise included, sells through the same trial CTA: the About page promises no "contact sales" tier, and the Billing tab already sold Enterprise through Stripe.
 
+### Screen protection (`lib/screenProtection.js`, `components/ScreenProtection.jsx`)
+
+A **deterrent, not a lock**: a web page cannot stop the system's screenshot or recording, or a camera, and nothing here may claim it can (`screenProtection.test.js` refuses copy that says so; the Settings card carries the limits sentence). Off by default; an owner or admin turns it on in Settings → Security (`db.user.screen_protection`, so it also applies to team members opening that workspace). While on, for everyone except the founder (`is_founder` or a `FOUNDER_EMAILS` address) and the demo: a faint watermark of the **viewer's own** email (`firebaseUser.email`, never the owner's) and the time; the app blurs when the window loses focus; copy, cut, right-click, drag and print are refused outside text fields (the free audit's client report keeps printing: `body.printing-report`); Print Screen and the macOS/Windows capture shortcuts blur briefly and empty the clipboard. Mounted once in `AppShell`, never on public pages. It makes no request and stores nothing.
+
 ### Notification switches (`src/lib/notifications.js`)
 
 Settings → Notifications shows only switches that change an email: each entry in `NOTIFICATION_SWITCHES` names the `db.user` field `dailyAlerts` / `weeklySummary` check (`renewal_alerts`, `budget_alerts`, `access_alerts`, `weekly_summary`). `notifications.test.jsx` fails if a switch has no server reader or a daily alert kind has no switch. Never add a switch for an email that does not exist.

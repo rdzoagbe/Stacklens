@@ -194,7 +194,7 @@ export function SettingsPage() {
 
           {activeTab === 'notifications' && <NotificationsTab firebaseUser={firebaseUser} qc={qc} t={t} />}
 
-          {activeTab === 'security' && <SecurityTab t={t} />}
+          {activeTab === 'security' && <SecurityTab t={t} firebaseUser={firebaseUser} qc={qc} />}
 
           {activeTab === 'api' && <ModuleGate module="api" _feature={t('settings_api')}><ApiKeysTab t={t} /></ModuleGate>}
 
