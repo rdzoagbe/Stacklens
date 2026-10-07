@@ -391,6 +391,20 @@ describe('every feature that sends data to Anthropic is disclosed', () => {
       .toEqual([...callers].sort());
   });
 
+  it('the browser sends AI requests to the ai function only', async () => {
+    // A second route (a Cloudflare Worker, tried first when VITE_WORKER_URL
+    // was set) bundled a secret into the public site, had no per-user rate
+    // limit, and was not on the sub-processors page. Removed 2026-10-07.
+    const cfg = read('src/firebase-config.js');
+    const fn = cfg.slice(cfg.indexOf('export async function callAI'), cfg.indexOf('// FIRESTORE DATA LAYER'));
+    expect(fn.match(/fetch\(/g)).toHaveLength(1);
+    expect(fn).toContain('`${FUNCTIONS_BASE}/ai`');
+    expect(cfg).not.toMatch(/VITE_WORKER|workerUrl/);
+    expect(read('.github/workflows/build.yml')).not.toMatch(/VITE_WORKER/);
+    const { existsSync } = await import('node:fs');
+    expect(existsSync(resolve(root, 'workers'))).toBe(false);
+  });
+
   it('the server senders are exactly the known ones', () => {
     const hits = [...functionsSrc.matchAll(/api\.anthropic\.com/g)].length;
     expect(hits, 'a new server-side Anthropic call: disclose it').toBe(3);

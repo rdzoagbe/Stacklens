@@ -190,8 +190,15 @@ async function getToken() {
 }
 
 // ============================================================================
-// AI PROXY — Cloudflare Worker (preferred) or GCP Cloud Function fallback
+// AI PROXY — the `ai` Cloud Function, and nothing else
 // ============================================================================
+//
+// There used to be a second route, a Cloudflare Worker tried first when a
+// worker URL was set at build time. It bundled the worker's secret into the
+// public site, had no per-user rate limit, and Cloudflare was not on the
+// sub-processors page. Removed 2026-10-07 with the GitHub secrets; the
+// function keeps the key server-side and limits each user to 20 calls an hour.
+// claims.test.js fails if a second endpoint comes back.
 export async function callAI({ messages, system, max_tokens = 2000 }) {
   const token = await getToken();
   if (!token) throw new Error('Not authenticated');
@@ -199,24 +206,15 @@ export async function callAI({ messages, system, max_tokens = 2000 }) {
   const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
   const payload = JSON.stringify({ messages, system, max_tokens });
 
-  // Try the Cloudflare Worker first (if configured), then fall back to the
-  // Firebase Cloud Function so the AI keeps working if the Worker is down or
-  // misconfigured. Both verify the Firebase ID token and proxy to Anthropic.
-  const workerUrl = import.meta.env.VITE_WORKER_URL;
-  const endpoints = workerUrl ? [workerUrl, `${FUNCTIONS_BASE}/ai`] : [`${FUNCTIONS_BASE}/ai`];
-
-  let lastError = 'AI call failed';
-  for (const url of endpoints) {
-    try {
-      const res = await fetch(url, { method: 'POST', headers, body: payload });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok) return data;
-      lastError = data.error || `AI error (${res.status})`;
-    } catch (err) {
-      lastError = err?.message || 'AI network error';
-    }
+  let data;
+  try {
+    const res = await fetch(`${FUNCTIONS_BASE}/ai`, { method: 'POST', headers, body: payload });
+    data = await res.json().catch(() => ({}));
+    if (res.ok) return data;
+  } catch (err) {
+    throw new Error(err?.message || 'AI network error', { cause: err });
   }
-  throw new Error(lastError);
+  throw new Error(data?.error || 'AI call failed');
 }
 
 // ============================================================================
