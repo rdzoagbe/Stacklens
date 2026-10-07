@@ -85,6 +85,12 @@ describe('computeToolDerivedRisk', () => {
     expect(computeToolDerivedRisk(makeTool({ last_used_date: daysAgo(100) }))).toBe('high');
   });
 
+  it('an ownerless tool the app added itself is not high risk until it has been looked at', () => {
+    expect(computeToolDerivedRisk(makeTool({ owner_email: '', origin: 'audit' }))).toBe('low');
+    expect(computeToolDerivedRisk(makeTool({ owner_email: '', origin: 'audit', reviewed: 'confirmed' }))).toBe('high');
+    expect(computeToolDerivedRisk(makeTool({ owner_email: '', origin: 'bank', last_used_date: daysAgo(100) }))).toBe('low');
+  });
+
   it('medium risk for active high-criticality tool', () => {
     expect(computeToolDerivedRisk(makeTool({ criticality: 'high' }))).toBe('medium');
   });

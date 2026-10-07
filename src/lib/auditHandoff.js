@@ -37,6 +37,15 @@ export function handoffFromReport(report, now = new Date()) {
   return { v: 1, created_at: now.toISOString(), subscriptions };
 }
 
+/**
+ * How many tools the import will offer: one per vendor, since two bank lines
+ * of one vendor become one tool. The audit page quotes this, so the button
+ * and the prompt behind it never disagree.
+ */
+export function handoffToolCount(report) {
+  return planHandoffImport(handoffFromReport(report), {}).toAdd.length;
+}
+
 export function saveHandoff(report, now = new Date()) {
   const payload = handoffFromReport(report, now);
   try {

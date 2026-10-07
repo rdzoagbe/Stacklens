@@ -279,7 +279,7 @@ describe('an FEC instead of a bank statement', () => {
     await click(button('Try with a sample FEC'));
     const text = document.body.textContent;
     expect(text).toContain('FEC · beta');
-    expect(text).toContain('Amounts exclude VAT');
+    expect(text).toContain('amounts before tax');
     // Dates in an FEC are unambiguous: no day/month flip to offer.
     expect(button('Read them the other way')).toBeFalsy();
     const rows = [...document.querySelectorAll('tbody tr')].map((r) => r.textContent);

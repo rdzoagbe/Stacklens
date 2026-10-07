@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { parseBankExport, auditSaas, sampleBankExport } from './saasAudit';
 import {
-  HANDOFF_KEY, handoffFromReport, saveHandoff, loadHandoff, clearHandoff, planHandoffImport, appCategory,
+  HANDOFF_KEY, handoffFromReport, handoffToolCount, saveHandoff, loadHandoff, clearHandoff, planHandoffImport, appCategory,
 } from './auditHandoff';
 
 // ── The free audit hands its list to the app, and nothing more ─────────────
@@ -63,6 +63,18 @@ describe('the list waits in this browser, briefly', () => {
     saveHandoff(report(), NOW);
     clearHandoff();
     expect(localStorage.getItem(HANDOFF_KEY)).toBeNull();
+  });
+});
+
+describe('the count on the audit page', () => {
+  it('is the number of tools the import offers: one per vendor', () => {
+    const report = { subscriptions: [
+      { vendor: 'Notion', category: 'Productivity', cadence: 'monthly', monthlyEquivalent: 96, last: new Date('2026-09-05'), charges: 16 },
+      { vendor: 'notion', category: 'Productivity', cadence: 'monthly', monthlyEquivalent: 12, last: new Date('2026-09-17'), charges: 9 },
+      { vendor: 'Slack', category: 'Communication', cadence: 'monthly', monthlyEquivalent: 50, last: new Date('2026-09-10'), charges: 9 },
+    ] };
+    expect(handoffFromReport(report).subscriptions).toHaveLength(3);
+    expect(handoffToolCount(report)).toBe(2);
   });
 });
 

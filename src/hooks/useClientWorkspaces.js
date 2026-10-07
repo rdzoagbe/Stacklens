@@ -87,20 +87,25 @@ export function useClientWorkspaces() {
     if (r.retention_days) setRetentionDays(r.retention_days);
   }, []);
 
+  /** Returns true once the workspace is open, so a caller can go somewhere. */
   const openWorkspace = useCallback(async (w) => {
-    if (busy) return;
+    if (busy) return false;
     setBusy(true);
     try {
       // Trust the role the server returns with the data over the one listed
       // earlier: `mine` may have been cached before the owner changed it.
       const { data, role } = await workspaceRead(w.owner_uid);
+      const effective = role || w.role;
       enterSharedView(data, {
-        owner_uid: w.owner_uid, owner_email: w.owner_email, role: role || w.role,
+        owner_uid: w.owner_uid, owner_email: w.owner_email, role: effective,
       });
       qc.invalidateQueries({ queryKey: ['db'] });
-      toast.success(t('ws_opened'));
+      // Only a viewer reads; an editor (a client you manage, always) saves.
+      toast.success(effective === 'editor' ? t('ws_opened_edit') : t('ws_opened'));
+      return true;
     } catch (err) {
       toast.error(t('ws_open_failed') + ': ' + (err.message || ''));
+      return false;
     } finally { setBusy(false); }
   }, [busy, qc, t]);
 
@@ -108,9 +113,10 @@ export function useClientWorkspaces() {
   const openClient = useCallback((org) =>
     openWorkspace({ owner_uid: org.org_id, owner_email: org.name }), [openWorkspace]);
 
-  const addClient = useCallback(async () => {
-    const name = window.prompt(t('ws_client_prompt'));
-    if (!name || busy) return;
+  /** Creates a client workspace. The page asks for the name, in its own dialog. */
+  const addClient = useCallback(async (rawName) => {
+    const name = String(rawName || '').trim();
+    if (!name || busy) return false;
     setBusy(true);
     try {
       const { org } = await workspaceCreateOrg(name);
@@ -119,8 +125,10 @@ export function useClientWorkspaces() {
       setOrgs(o => [...o, org]);
       invalidateWorkspaceCaches();
       toast.success(t('ws_client_created'));
+      return true;
     } catch (err) {
       toast.error(err.message || t('ws_client_failed'));
+      return false;
     } finally { setBusy(false); }
   }, [busy, orgs.length, t]);
 
@@ -142,20 +150,19 @@ export function useClientWorkspaces() {
     } finally { setBusy(false); }
   }, [busy, t]);
 
+  /** Deletes (softly). The page confirms first, naming the client and the window. */
   const deleteClient = useCallback(async (org) => {
-    if (busy) return;
-    const msg = t('ws_delete_confirm')
-      .replace('{name}', org.name)
-      .replace('{days}', String(retentionDays));
-    if (!window.confirm(msg)) return;
+    if (busy) return false;
     setBusy(true);
     try {
       const r = await workspaceDeleteOrg(org.org_id);
       track('client_workspace_deleted');
       await refresh();
       toast.success(t('ws_deleted_kept').replace('{days}', String(r?.days_left ?? retentionDays)));
+      return true;
     } catch (err) {
       toast.error(err.message || t('ws_delete_failed'));
+      return false;
     } finally { setBusy(false); }
   }, [busy, refresh, retentionDays, t]);
 

@@ -1,9 +1,12 @@
 import React, { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Building2, Download, Plus, RotateCcw, Trash2 } from 'lucide-react';
 import { useClientWorkspaces } from '../hooks/useClientWorkspaces';
 import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
 import { AppShell } from '../components/AppShell';
+import { Modal, Button, Input } from '../components/ui';
+import { formatInSymbol } from '../lib/currency';
 
 // ── Clients ────────────────────────────────────────────────────────────────
 //
@@ -30,7 +33,27 @@ export function ClientsPage() {
     orgs, deletedOrgs, retentionDays, busy, loaded, canManageClients,
     openClient, addClient, exportClient, deleteClient, restoreClient,
   } = useClientWorkspaces();
+  const navigate = useNavigate();
   const [query, setQuery] = useState('');
+  // The browser's own prompt and confirm gave no room to explain, could be
+  // blocked, and looked nothing like the rest of the app. Two dialogs instead.
+  const [adding, setAdding] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [toDelete, setToDelete] = useState(null);
+
+  const submitNew = async (e) => {
+    e?.preventDefault();
+    if (!newName.trim()) return;
+    if (await addClient(newName)) { setNewName(''); setAdding(false); }
+  };
+  const confirmDelete = async () => {
+    const org = toDelete;
+    setToDelete(null);
+    if (org) await deleteClient(org);
+  };
+  // Opening a client is "go work on them": leave the list for their dashboard
+  // instead of stranding the reader on it with a thin banner as the only sign.
+  const goToClient = async (org) => { if (await openClient(org)) navigate('/dashboard'); };
 
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -63,7 +86,7 @@ export function ClientsPage() {
             )}
           </p>
           {canManageClients && (
-            <button onClick={addClient} disabled={busy}
+            <button onClick={() => setAdding(true)} disabled={busy}
               className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-xl font-semibold text-sm text-white transition-colors flex items-center gap-2 disabled:opacity-50">
               <Plus className="h-4 w-4" /> {t('ws_add_client')}
             </button>
@@ -108,7 +131,7 @@ export function ClientsPage() {
                       {o.summary ? (
                         <>
                           <span className="text-slate-300 font-semibold">
-                            {o.summary.currency}{Math.round(o.summary.monthly_spend).toLocaleString()}
+                            {formatInSymbol(o.summary.monthly_spend, o.summary.currency, language)}
                           </span>
                           {t('ws_per_month')}
                           <span className="mx-1.5 text-slate-500">·</span>
@@ -126,7 +149,7 @@ export function ClientsPage() {
                     </span>
                   </span>
                   <span className="flex items-center gap-2">
-                    <button onClick={() => openClient(o)} disabled={busy}
+                    <button onClick={() => goToClient(o)} disabled={busy}
                       className="px-3 py-1.5 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-200 text-xs font-semibold transition-colors disabled:opacity-50">
                       {t('ws_open')}
                     </button>
@@ -148,7 +171,7 @@ export function ClientsPage() {
                         anything. The confirmation dialog, which names the
                         client and the retention window, is what actually
                         guards the action. */}
-                    <button onClick={() => deleteClient(o)} disabled={busy}
+                    <button onClick={() => setToDelete(o)} disabled={busy}
                       className="px-3 py-1.5 rounded-lg text-red-400 hover:bg-red-500/10 hover:text-red-300 text-xs font-semibold transition-colors disabled:opacity-50 flex items-center gap-1.5">
                       <Trash2 className="h-3.5 w-3.5" /> {t('ws_delete')}
                     </button>
@@ -195,6 +218,32 @@ export function ClientsPage() {
           </section>
         )}
       </div>
+
+      <Modal open={adding} title={t('ws_add_client')} subtitle={t('ws_name_hint')}
+        onClose={() => { setAdding(false); setNewName(''); }}
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => { setAdding(false); setNewName(''); }}>{t('ws_cancel')}</Button>
+            <Button onClick={submitNew} disabled={!newName.trim() || busy}>{t('ws_create')}</Button>
+          </div>
+        }>
+        <form onSubmit={submitNew}>
+          <label className="block text-xs font-semibold text-slate-400 mb-1.5" htmlFor="new-client-name">{t('ws_name_label')}</label>
+          <Input id="new-client-name" autoFocus value={newName} maxLength={120} onChange={(e) => setNewName(e.target.value)} />
+        </form>
+      </Modal>
+
+      <Modal open={!!toDelete} title={t('ws_delete_title')} onClose={() => setToDelete(null)}
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setToDelete(null)}>{t('ws_cancel')}</Button>
+            <Button variant="danger" onClick={confirmDelete}>{t('ws_delete')}</Button>
+          </div>
+        }>
+        <p className="text-sm text-slate-300">
+          {toDelete && t('ws_delete_confirm').replace('{name}', toDelete.name).replace('{days}', String(retentionDays))}
+        </p>
+      </Modal>
     </AppShell>
   );
 }

@@ -85,6 +85,19 @@ describe('the early-access offer', () => {
     expect(submitButton().disabled).toBe(false);
   });
 
+  it('says what is still missing once the reader has started, and nothing before', async () => {
+    expect(document.querySelector('[data-testid="ea-missing"]')).toBeNull();
+    const [name] = section().querySelectorAll('input:not([type="checkbox"])');
+    await type(name, 'Claire Martin');
+    const hint = document.querySelector('[data-testid="ea-missing"]');
+    expect(hint.textContent).toMatch(/still needed:/);
+    expect(hint.textContent).toMatch(/email/i);
+    expect(hint.textContent).toMatch(/agreement to be contacted/);
+    expect(hint.textContent).not.toMatch(/full name/i);   // the name is done
+    await fill();
+    expect(document.querySelector('[data-testid="ea-missing"]')).toBeNull();
+  });
+
   it('sends the application to the founder and says so', async () => {
     submitContactForm.mockResolvedValue(undefined);
     await fill();

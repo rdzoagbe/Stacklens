@@ -103,14 +103,27 @@ describe('the import offered after sign-up', () => {
     expect(document.querySelector('[data-testid="handoff-list"]')).toBeNull();
   });
 
-  it('stays within the plan\'s tool allowance and says how many were left out', async () => {
+  it('starts with the costliest ticked up to the plan\'s room, and says so before importing', async () => {
     seed({ user: { plan: 'free', trial_started_at: null }, tools: Array.from({ length: 9 }, (_, i) => ({ id: `t${i}`, name: `Tool ${i}` })) });
     await mount();
     const { getPlanLimits } = await import('../lib/plan');
     expect(getPlanLimits('free').tools, 'the free allowance this test assumes').toBe(10);
-    await click(byText('Import 3 tool(s)'));
+    const room = document.querySelector('[data-testid="handoff-room"]');
+    expect(room.textContent).toContain('room for 1 more tool(s) and this list has 3');
+    const ticked = [...document.querySelectorAll('[data-testid="handoff-list"] input')].map((i) => i.checked);
+    expect(ticked).toEqual([true, false, false]);            // Slack, the costliest
+    await click(byText('Import 1 tool(s)'));
     expect(loadDb().tools).toHaveLength(10);
-    expect(toast.success.mock.calls[0][0]).toContain('1 tool(s) imported from the free audit. 2 more did not fit');
+    expect(loadDb().tools.some((t) => t.name === 'Slack')).toBe(true);
+    expect(toast.success.mock.calls[0][0]).not.toContain('did not fit');
+  });
+
+  it('even if more boxes are ticked, never imports past the room', async () => {
+    seed({ user: { plan: 'free', trial_started_at: null }, tools: Array.from({ length: 9 }, (_, i) => ({ id: `t${i}`, name: `Tool ${i}` })) });
+    await mount();
+    for (const box of [...document.querySelectorAll('[data-testid="handoff-list"] input')].filter((i) => !i.checked)) await click(box);
+    await click(byText('Import 1 tool(s)'));
+    expect(loadDb().tools).toHaveLength(10);
   });
 
   it('never in the demo, and not for an expired list', async () => {

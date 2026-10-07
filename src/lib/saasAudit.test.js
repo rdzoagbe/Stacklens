@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   decodeBankFile, sniffDelimiter, detectColumns, parseAmount, parseDate,
   parseBankExport, normaliseLabel, identifyVendor, detectRecurring, auditSaas,
-  reportToCsv, detectDateOrder, isStopped,
+  reportToCsv, csvStyleFor, CSV_BOM, sampleBankExport, detectDateOrder, isStopped,
 } from './saasAudit';
 
 // ── The public audit has to work on a real French bank export ─────────────
@@ -160,7 +160,24 @@ describe('a single signed Montant column', () => {
 
   it('drops the credits rather than counting them', () => {
     expect(r.transactions.some(t => /SALAIRE|REMBOURSEMENT/.test(t.label))).toBe(false);
-    expect(r.skipped).toBe(2);
+    // Money received is counted apart, not as unreadable.
+    expect(r.credits).toBe(2);
+    expect(r.skipped).toBe(0);
+  });
+
+  it('counts only a line that cannot be read as unreadable, and keeps it to show', () => {
+    const withJunk = signed + '\nTotal des mouvements;;\n99/99/2026;MYSTERY;-5,00';
+    const p = parseBankExport(withJunk);
+    expect(p.skipped).toBe(2);
+    expect(p.unreadable).toHaveLength(2);
+    expect(p.unreadable[0]).toContain('Total des mouvements');
+  });
+
+  it('counts credits in a debit/credit layout too', () => {
+    const p = parseBankExport('Date;Libellé;Débit;Crédit\n05/01/2026;CB NOTION;12,00;\n06/01/2026;VIR CLIENT;;500,00');
+    expect(p.transactions).toHaveLength(1);
+    expect(p.credits).toBe(1);
+    expect(p.skipped).toBe(0);
   });
 });
 
@@ -419,6 +436,26 @@ describe('exporting the report', () => {
     expect(lines).toHaveLength(1 + 3);
     expect(csv).toContain('Slack');
     expect(csv).toContain('Notion');
+  });
+
+  it('for a French reader: semicolons, decimal commas and French headers, so Excel opens columns and numbers', () => {
+    const report = auditSaas(parseBankExport(FR_EXPORT).transactions);
+    const csv = reportToCsv(report, csvStyleFor('fr'));
+    const lines = csv.trim().split('\n');
+    expect(lines[0]).toMatch(/^fournisseur;catégorie;fiabilité;périodicité;prélèvements;/);
+    const slack = lines.find((l) => l.startsWith('Slack'));
+    expect(slack.split(';')).toHaveLength(13);
+    expect(slack).toMatch(/;1250;/);                       // whole numbers stay whole
+    const sample = reportToCsv(auditSaas(parseBankExport(sampleBankExport()).transactions), csvStyleFor('fr')).split('\n');
+    const google = sample.find((l) => l.startsWith('Google'));
+    expect(google).toMatch(/;345,6;/);                       // a decimal comma, unquoted
+    expect(google).not.toContain('"');
+    expect(CSV_BOM).toBe('\uFEFF');
+  });
+
+  it('English keeps the plain comma file, and other languages get semicolons with English headers', () => {
+    expect(csvStyleFor('en')).toMatchObject({ sep: ',', decimal: '.', headers: null });
+    expect(csvStyleFor('de')).toMatchObject({ sep: ';', decimal: ',', headers: null });
   });
 });
 
