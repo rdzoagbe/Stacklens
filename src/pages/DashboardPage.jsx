@@ -23,6 +23,7 @@ import { RoleGate } from '../components/gates';
 import { AppShell } from '../components/AppShell';
 import { ImportWizard } from '../components/ImportWizard';
 import { invoiceCheckSummary } from '../lib/invoiceCheck';
+import { openPeopleChanges } from '../lib/peopleChanges';
 import { canInviteTeam } from '../lib/plan';
 
 // Re-export for lazy-loading in App.jsx
@@ -562,6 +563,20 @@ export function DashboardPage() {
             title: t('inv_check_dash_title').replace('{n}', _invoiceCheck.count),
             reason: t('inv_check_dash_reason').replace('{amount}', money(_invoiceCheck.annualAtStake)),
             action: t('review'), link: '/finance?tab=budget',
+          });
+        }
+
+        // Joiners and movers whose licences the eligibility rules say to sort
+        // out (lib/peopleChanges.js). One line for all of them.
+        const _people = openPeopleChanges(db).filter((c) => c.pending > 0);
+        if (_people.length > 0) {
+          actions.push({
+            id: 'people-changes', kind: 'people_changes', severity: 'high', icon: '🧭',
+            title: t('jm_dash_title').replace('{n}', _people.length),
+            reason: t('jm_dash_reason')
+              .replace('{grant}', _people.reduce((s, c) => s + c.grants.length, 0))
+              .replace('{remove}', _people.reduce((s, c) => s + c.removals.length, 0)),
+            action: t('review'), link: '/access?view=eligibility',
           });
         }
 

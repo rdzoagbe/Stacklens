@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { act } from 'react';
+import { act, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
@@ -10,7 +10,7 @@ vi.mock('../lib/analytics', () => ({ track: vi.fn() }));
 vi.mock('react-hot-toast', () => ({ default: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }) }));
 
 import { loadDb } from '../lib/db';
-import { useDbQuery } from '../hooks/useDbQuery';
+import { useDbQuery, useDbMutations } from '../hooks/useDbQuery';
 import { LanguageContext } from '../contexts/LangContext';
 import { EligibilityView } from './EligibilityView';
 
@@ -19,8 +19,12 @@ import { EligibilityView } from './EligibilityView';
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 let root;
 
-function Host() {
+// The test drives the same mutations the app's forms and syncs use.
+const handle = {};
+function Host({ expose }) {
   const { data } = useDbQuery();
+  const muts = useDbMutations();
+  useEffect(() => { expose(muts); });
   return data ? <EligibilityView db={data} /> : null;
 }
 
@@ -43,7 +47,7 @@ async function mount({ role = 'owner', rule = null, access = [], language = 'en'
   document.body.appendChild(host);
   root = createRoot(host);
   await act(async () => {
-    root.render(<LanguageContext.Provider value={{ language, setLanguage: () => {} }}><QueryClientProvider client={new QueryClient()}><Host /></QueryClientProvider></LanguageContext.Provider>);
+    root.render(<LanguageContext.Provider value={{ language, setLanguage: () => {} }}><QueryClientProvider client={new QueryClient()}><Host expose={(m) => { handle.muts = m; }} /></QueryClientProvider></LanguageContext.Provider>);
   });
   await settle();
 }
@@ -152,5 +156,53 @@ describe('the two lists and what the buttons record', () => {
     await mount({ rule, language: 'fr' });
     expect(document.body.textContent).toContain('Qui doit avoir chaque outil');
     expect(document.body.textContent).toContain('2 à attribuer');
+  });
+});
+
+describe('joiners and movers, through the real write path', () => {
+  const rule = { mode: 'match', departments: ['engineering'] };
+  const changes = () => [...document.querySelectorAll('[data-testid="people-change"]')];
+
+  it('nothing shows until somebody joins or moves', async () => {
+    await mount({ rule });
+    expect(document.querySelector('[data-testid="people-changes"]')).toBeNull();
+  });
+
+  it('a person moved by an edit gets a to-do: grant the new team\'s tool, then Done closes it', async () => {
+    await mount({ rule });
+    await act(async () => { handle.muts.updateEmployee.mutate({ id: 'ana', patch: { department: 'engineering' } }); });
+    await settle();
+    expect(loadDb().employees.find((e) => e.id === 'ana').people_change).toMatchObject({ kind: 'mover', from: { department: 'marketing' }, to: { department: 'engineering' } });
+    expect(changes()).toHaveLength(1);
+    const card = changes()[0];
+    expect(card.textContent).toContain('Ana Lopez');
+    expect(card.textContent).toContain('Changed role');
+    expect(card.textContent).toMatch(/Marketing → Engineering/);
+    expect(card.textContent).toContain('Should get Gemini');
+    await click(button(/^Mark as granted$/, card));
+    expect(loadDb().access.some((a) => a.employee_id === 'ana' && a.tool_id === 'gem' && a.status === 'active')).toBe(true);
+    expect(changes()[0].textContent).toContain('Nothing left for the rules to ask.');
+    await click(button(/^Done$/, changes()[0]));
+    expect(loadDb().employees.find((e) => e.id === 'ana').people_change.done_at).toBeTruthy();
+    expect(document.querySelector('[data-testid="people-changes"]')).toBeNull();
+  });
+
+  it('a joiner added by hand appears, and moving out of the rule asks to take the licence back', async () => {
+    await mount({ rule, access: [{ id: 'x', tool_id: 'gem', employee_id: 'ben', status: 'active' }] });
+    await act(async () => { handle.muts.createEmployee.mutate({ full_name: 'Zoé Martin', email: 'zoe@acme.fr', department: 'engineering', role: 'Dev', status: 'active' }); });
+    await act(async () => { handle.muts.updateEmployee.mutate({ id: 'ben', patch: { department: 'sales' } }); });
+    await settle();
+    const text = changes().map((c) => c.textContent).join(' | ');
+    expect(text).toMatch(/Zoé Martin.*Joined.*Should get Gemini/);
+    expect(text).toMatch(/Ben Roy.*Changed role.*No longer covered for Gemini/);
+  });
+
+  it('a viewer sees the to-dos without buttons', async () => {
+    await mount({ role: 'viewer', rule });
+    await act(async () => { handle.muts.updateEmployee.mutate({ id: 'ana', patch: { department: 'engineering' } }); });
+    await settle();
+    expect(changes()).toHaveLength(1);
+    expect(button(/^Mark as granted$/, changes()[0])).toBeUndefined();
+    expect(button(/^Done$/, changes()[0])).toBeUndefined();
   });
 });
