@@ -118,12 +118,14 @@ describe('the first import', () => {
     expect(w).toMatch(/>Excel</);
   });
 
-  it('the dashboard opens the wizard on its first step, has no reset button, and shows one guide at a time', () => {
+  it('the dashboard opens the wizard on its first step, clears data only through the guarded button, and shows one guide at a time', () => {
     const d = read('src/pages/DashboardPage.jsx');
     expect(d).toMatch(/setImportKind\(null\); setShowImport\(true\)/);
     expect(d).toMatch(/\{showImport && \(/);
     expect(d).not.toMatch(/showImport && importKind/);
     expect(d).not.toMatch(/setImportKind\('tools'\)|resetDb|dash_reset_data/);
+    // Clear data is back, but only as ClearDataButton (owner/admin, own workspace, a dialog).
+    expect(d).toMatch(/<ClearDataButton db=\{db\} uid=\{firebaseUser\?\.uid\} t=\{t\} \/>/);
     expect(d).toMatch(/db\.user\?\.is_authenticated && derived\.tools\.length > 0 && \(\s*<GettingStartedChecklist/);
     expect(translations.fr.dash_upload_data).toBe('Importer mes données');
     expect(translations.fr.dash_get_started).not.toMatch(/\d/);
