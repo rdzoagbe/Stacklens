@@ -11,6 +11,7 @@ import {
   cleanRule, parseTitleWords, eligibilityGaps, departmentsInUse, isEligible, jobTitleOf,
 } from '../lib/eligibility';
 import { openPeopleChanges } from '../lib/peopleChanges';
+import { GoogleLicencesCard } from './GoogleLicencesCard';
 
 // ── Access → Eligibility ───────────────────────────────────────────────────
 //
@@ -237,6 +238,7 @@ export function EligibilityView({ db }) {
   return (
     <div className="space-y-4" data-testid="eligibility-view">
       <PeopleChanges db={db} canEdit={canEdit} actions={actions} t={t} label={label} language={language} />
+      <GoogleLicencesCard db={db} canEdit={canEdit} t={t} />
       <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
         <h2 className="text-base font-semibold text-white">{t('elig_title')}</h2>
         <p className="mt-1 text-sm text-slate-400 max-w-3xl">{t('elig_intro')}</p>
