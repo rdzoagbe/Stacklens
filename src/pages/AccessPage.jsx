@@ -9,6 +9,7 @@ import { useTranslation } from '../translations';
 import { Button, Input, Select, useEnumLabel } from '../components/ui';
 import { AppShell } from '../components/AppShell';
 import { AlertTriangle, Check } from 'lucide-react';
+import { EligibilityView } from '../components/EligibilityView';
 
 export function AccessForm({ initial, tools, employees, onSubmit, onClose }) {
   const { language } = useLang();
@@ -148,7 +149,10 @@ export function AccessPage() {
   const { language } = useLang();
   const t = useTranslation(language);
   const enumLabel = useEnumLabel();
-  const [viewMode, setViewMode] = useState('map');
+  // ?view=eligibility opens the rules directly (a link from elsewhere in the app).
+  const [viewMode, setViewMode] = useState(() => {
+    try { return new URLSearchParams(window.location.search).get('view') === 'eligibility' ? 'eligibility' : 'map'; } catch { return 'map'; }
+  });
   const [filterRisk, setFilterRisk] = useState('all');
   const [search, setSearch] = useState('');
 
@@ -273,11 +277,12 @@ export function AccessPage() {
 
         {/* ── Row 3: View Switcher + Search + Filter ── */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-          <div className="flex gap-1 p-1 bg-slate-900 rounded-xl border border-slate-800">
+          <div className="flex flex-wrap gap-1 p-1 bg-slate-900 rounded-xl border border-slate-800">
             {[
               { id: 'map', label: t('access_map_label') },
               { id: 'table', label: t('access_table_view') },
               { id: 'by-tool', label: t('access_by_tool') },
+              { id: 'eligibility', label: t('elig_tab') },
             ].map(v => (
               <button key={v.id} onClick={() => setViewMode(v.id)}
                 className={"px-3 py-1.5 rounded-lg text-sm font-semibold transition-all " + (viewMode === v.id ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white')}>
@@ -285,6 +290,7 @@ export function AccessPage() {
               </button>
             ))}
           </div>
+          {viewMode !== 'eligibility' && <>
           <div className="flex-1 min-w-0">
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t("search_placeholder_access")}
               className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 text-sm text-white placeholder-slate-500 outline-none focus:border-blue-500 transition-colors" />
@@ -296,7 +302,10 @@ export function AccessPage() {
             <option value="review">{t("needs_review_filter")}</option>
             <option value="clean">{t("clean_only")}</option>
           </select>
+          </>}
         </div>
+
+        {viewMode === 'eligibility' && <EligibilityView db={db} />}
 
         {/* ── View: Access Map (Employee → Tools grid) ── */}
         {viewMode === 'map' && (
