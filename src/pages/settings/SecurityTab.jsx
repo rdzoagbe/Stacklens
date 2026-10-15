@@ -1,6 +1,10 @@
 import { useNavigate } from 'react-router-dom';
 import { AlertTriangle, Check } from 'lucide-react';
 import { Card, CardHeader, CardBody } from '../../components/ui';
+import { useDbQuery } from '../../hooks/useDbQuery';
+import { loadDb, saveDb, seedDbIfEmpty, saveOwnWorkspaceNow, getSharedView } from '../../lib/db';
+import { hasRole } from '../../components/gates';
+import { PROTECTION_FIELD } from '../../lib/screenProtection';
 
 // ── Settings → Security ────────────────────────────────────────────────────
 //
@@ -25,7 +29,46 @@ import { Card, CardHeader, CardBody } from '../../components/ui';
 // quotes a test count: a number in customer-facing copy goes stale silently,
 // which is the drift plan-claims.test.js exists to catch in the README.
 
-export function SecurityTab({ t }) {
+// The one switch here that does something, and it says what: a deterrent that
+// makes a leak traceable, not a lock (a page cannot stop a screenshot).
+function ScreenProtectionCard({ firebaseUser, qc, t }) {
+  const { data: db } = useDbQuery();
+  const shared = !!getSharedView();
+  const on = db?.user?.[PROTECTION_FIELD] === true;
+  // Owners and admins set it; in someone else's workspace it is theirs to set.
+  const canChange = hasRole('admin') && !shared;
+  const set = (value) => {
+    const cur = loadDb() || seedDbIfEmpty();
+    cur.user = { ...cur.user, [PROTECTION_FIELD]: value };
+    saveDb(cur);
+    saveOwnWorkspaceNow(firebaseUser?.uid, cur).catch(() => {});
+    qc?.invalidateQueries({ queryKey: ['db'] });
+  };
+  return (
+    <div data-testid="screen-protection-card"><Card>
+      <CardHeader title={t('screen_prot_title')} subtitle={t('screen_prot_sub')} />
+      <CardBody>
+        <div className="flex items-start justify-between gap-4">
+          <ul className="space-y-1.5 text-sm text-slate-300">
+            <li>• {t('screen_prot_l1')}</li>
+            <li>• {t('screen_prot_l2')}</li>
+            <li>• {t('screen_prot_l3')}</li>
+            <li>• {t('screen_prot_l4')}</li>
+          </ul>
+          <button type="button" role="switch" aria-checked={on} aria-label={t('screen_prot_title')}
+            disabled={!canChange} onClick={() => set(!on)}
+            className={'relative w-11 h-6 rounded-full transition-colors flex-shrink-0 disabled:opacity-40 ' + (on ? 'bg-emerald-500' : 'bg-slate-700')}>
+            <div className={'absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ' + (on ? 'translate-x-5' : 'translate-x-0.5')} />
+          </button>
+        </div>
+        <p className="mt-4 text-xs text-amber-300/90" data-testid="screen-protection-limits">{t('screen_prot_limits')}</p>
+        {!canChange && <p className="mt-2 text-xs text-slate-500">{t(shared ? 'screen_prot_shared' : 'screen_prot_admins')}</p>}
+      </CardBody>
+    </Card></div>
+  );
+}
+
+export function SecurityTab({ t, firebaseUser, qc }) {
   const navigate = useNavigate();
 
   const enforced = [
@@ -37,6 +80,7 @@ export function SecurityTab({ t }) {
 
   return (
     <div className="space-y-4">
+      <ScreenProtectionCard firebaseUser={firebaseUser} qc={qc} t={t} />
       <Card>
         <CardHeader title={t('sec_real_title')} subtitle={t('sec_real_sub')} />
         <CardBody>

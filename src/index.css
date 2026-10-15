@@ -42,6 +42,22 @@
   img, video, iframe { max-width: 100%; height: auto; }
 }
 
+/* ── Screen protection (components/ScreenProtection.jsx, off by default) ──
+   A deterrent only: see lib/screenProtection.js. The watermark is drawn by the
+   component; this is the blur, the text selection and the print refusal. */
+body.screen-protected { -webkit-user-select: none; user-select: none; }
+body.screen-protected input, body.screen-protected textarea, body.screen-protected select,
+body.screen-protected [contenteditable="true"] { -webkit-user-select: text; user-select: text; }
+body.screen-protected.screen-blurred #root { filter: blur(18px); transition: filter 60ms linear; }
+@media print {
+  /* The client report is the one page meant to leave: it keeps its own
+     printing-report rules. Anything else prints a notice instead of the page. */
+  body.screen-protected:not(.printing-report) > * { display: none !important; }
+  body.screen-protected:not(.printing-report)::before {
+    content: attr(data-print-notice); display: block; padding: 24mm 12mm; font: 600 16px/1.4 sans-serif; color: #111;
+  }
+}
+
 /* ── Client report printing (SaasAuditPage → ClientReportPanel) ──
    The report is portalled into #print-report on <body>. Only while the panel
    is open does <body> carry .printing-report, so printing any other page is

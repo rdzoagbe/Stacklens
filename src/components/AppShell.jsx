@@ -15,6 +15,7 @@ import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
 import { RDLogo, Button, Modal } from '../components/ui';
 import { AuditHandoffPrompt } from './AuditHandoffPrompt';
+import { ScreenProtection } from './ScreenProtection';
 import {
   LayoutDashboard, Boxes, Users, GitMerge, UserMinus, Shield, BarChart3, Settings,
   ChevronDown, BadgeX, ExternalLink, Languages, Building2,
@@ -919,6 +920,7 @@ export function AppShell({ _subtitle, title, right, children }) {
       <SharedWorkspaceBanner />
       <TrialExpiredBanner />
       <AuditHandoffPrompt />
+      <ScreenProtection />
       <div className="flex flex-col md:flex-row w-full overflow-x-hidden md:h-screen">
         <div className="hidden md:block flex-shrink-0">
           <Sidebar collapsed={collapsed} setCollapsed={setCollapsed} />
