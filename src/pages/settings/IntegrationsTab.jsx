@@ -10,6 +10,7 @@ import { track } from '../../lib/analytics';
 import { noteDataArrived } from '../../lib/activation';
 import { integrationCall } from '../../firebase-config';
 import { purgeLegacyCredentials } from '../../lib/legacyCredentials';
+import { directoryPatch } from '../../lib/peopleChanges';
 
 // ── Google Workspace OAuth + Directory API ────────────────────────────────
 const GWS_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
@@ -1176,12 +1177,10 @@ export function IntegrationConnectors() {
         if (!existing) {
           toAdd.push(u);
         } else {
-          // Only update fields that came from GWS previously (don't overwrite manual edits to other fields)
-          const patch = {};
-          if (u.full_name && u.full_name !== existing.full_name) patch.full_name = u.full_name;
-          if (u.department && !existing.department) patch.department = u.department;
-          if (u.role && !existing.role) patch.role = u.role;
-          if (u.status !== existing.status) patch.status = u.status;
+          // The directory updates what it gave last time, never a value someone
+          // edited by hand since (lib/peopleChanges.js): a move in the
+          // directory becomes a mover's to-do here.
+          const patch = directoryPatch(existing, u);
           if (Object.keys(patch).length > 0) toUpdate.push({ id: existing.id, patch });
           else skipped++;
         }
@@ -1252,12 +1251,7 @@ export function IntegrationConnectors() {
     for (const u of incoming) {
       const existing = existingByEmail[u.email.toLowerCase()];
       if (!existing) { toAdd.push(u); continue; }
-      const patch = {};
-      if (u.full_name && u.full_name !== existing.full_name) patch.full_name = u.full_name;
-      if (u.department && !existing.department) patch.department = u.department;
-      if (u.role && !existing.role) patch.role = u.role;
-      if (u.status && u.status !== existing.status) patch.status = u.status;
-      if (u.start_date && !existing.start_date) patch.start_date = u.start_date;
+      const patch = directoryPatch(existing, u);
       if (Object.keys(patch).length > 0) toUpdate.push({ id: existing.id, patch });
       else skipped++;
     }
@@ -1381,11 +1375,7 @@ export function IntegrationConnectors() {
         if (!existing) {
           toAdd.push(u);
         } else {
-          const patch = {};
-          if (u.full_name && u.full_name !== existing.full_name) patch.full_name = u.full_name;
-          if (u.department && !existing.department) patch.department = u.department;
-          if (u.role && !existing.role) patch.role = u.role;
-          if (u.status !== existing.status) patch.status = u.status;
+          const patch = directoryPatch(existing, u);
           if (Object.keys(patch).length > 0) toUpdate.push({ id: existing.id, patch });
           else skipped++;
         }

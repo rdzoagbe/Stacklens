@@ -9,6 +9,7 @@ import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
 import { REVIEW_ORIGINS, isRejectedVendor, originOfRow, vendorKey } from '../lib/toolReview';
 import { csvAmount } from '../lib/csvHeaders';
+import { annotatePeopleChanges } from '../lib/peopleChanges';
 
 // The first time real data enters a workspace is when time-to-first-insight
 // starts. Demo data is not an arrival: nobody imported it.
@@ -84,6 +85,9 @@ export function useDbMutations() {
   const setDb = (updater, describe) => {
     const cur = seedDbIfEmpty();
     const next = typeof updater === 'function' ? updater(clone(cur)) : updater;
+    // Joiners and movers, from whichever path changed the people (a form, an
+    // import, a directory sync): lib/peopleChanges.js.
+    try { annotatePeopleChanges(cur, next); } catch { /* never worth losing the edit for */ }
     if (typeof describe === 'function') {
       try {
         const entry = describe(next, cur);

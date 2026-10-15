@@ -40,10 +40,15 @@ export function parseTitleWords(text) {
   return [...new Set(String(text || '').split(/[,;\n]/).map((s) => s.trim()).filter(Boolean))];
 }
 
-const jobTitle = (emp) => emp?.job_title || emp?.title || emp?.role || '';
 // The Google Workspace import writes "admin" / "user" into `role`: that is an
 // account type, not a job, and must never match a title word.
 const ACCOUNT_TYPES = new Set(['admin', 'user']);
+
+/** The person's job title, or '' when all the record has is an account type. */
+export function jobTitleOf(emp) {
+  const title = emp?.job_title || emp?.title || emp?.role || '';
+  return ACCOUNT_TYPES.has(norm(title)) ? '' : title;
+}
 
 /** Does the rule give this person a licence? Only people still here count. */
 export function isEligible(emp, rawRule) {
@@ -52,8 +57,8 @@ export function isEligible(emp, rawRule) {
   if (rule.mode === 'all') return true;
   const dept = norm(emp.department);
   if (dept && rule.departments.some((d) => norm(d) === dept)) return true;
-  const title = norm(jobTitle(emp));
-  if (!title || ACCOUNT_TYPES.has(title)) return false;
+  const title = norm(jobTitleOf(emp));
+  if (!title) return false;
   return rule.titles.some((w) => norm(w) && title.includes(norm(w)));
 }
 
