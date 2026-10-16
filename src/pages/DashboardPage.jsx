@@ -22,6 +22,7 @@ import { Button, Pill } from '../components/ui';
 import { RoleGate } from '../components/gates';
 import { AppShell } from '../components/AppShell';
 import { ImportWizard } from '../components/ImportWizard';
+import { ClearDataButton } from '../components/ClearDataButton';
 import { invoiceCheckSummary } from '../lib/invoiceCheck';
 import { openPeopleChanges } from '../lib/peopleChanges';
 import { canInviteTeam } from '../lib/plan';
@@ -276,13 +277,14 @@ export function DashboardPage() {
         <div className="flex flex-wrap items-center gap-2">
           {/* Opens on "what are you importing?". It used to open pre-set to
               "SaaS tools" two steps in, so the company file took two clicks
-              back. "Reset data" stood beside it, even on an empty account;
-              deleting lives in Settings → Data, behind its own confirms. */}
+              back. Clear data sits beside it only for an owner or admin, in
+              their own workspace, when there is data (ClearDataButton). */}
           <RoleGate requires="editor">
             <Button variant="secondary" size="sm" onClick={() => { setImportKind(null); setShowImport(true); }}>
               <Upload className="h-3.5 w-3.5" />{t('dash_import_data')}
             </Button>
           </RoleGate>
+          {db && <ClearDataButton db={db} uid={firebaseUser?.uid} t={t} />}
         </div>
       }>
 

@@ -53,14 +53,18 @@ describe('no screen writes the browser\'s workspace to the account directly', ()
 describe('the Data tab bulk deletes', () => {
   const tab = () => readFileSync(resolve(process.cwd(), 'src/pages/settings/DataTab.jsx'), 'utf8');
   it('are written to the audit log, which promises every change to tools, people and access', () => {
-    expect(tab().match(/appendAudit\(cur, \{ action: 'data\.deleted'/g)).toHaveLength(2);
+    // Both deletes, and the dashboard's Clear data, go through lib/clearData.js.
+    expect(tab().match(/clearWorkspaceData\(\{ uid: firebaseUser\?\.uid, scope: '(all|people)' \}\)/g)).toHaveLength(2);
+    const helper = readFileSync(resolve(process.cwd(), 'src/lib/clearData.js'), 'utf8');
+    expect(helper).toMatch(/cur\.audit_log = appendAudit\(cur, \{ action: 'data\.deleted'/);
+    expect(helper).toMatch(/saveOwnWorkspaceNow\(uid, cur\)/);
   });
   it("refuse a viewer of someone else's workspace before touching anything", () => {
     const src = tab();
     const guards = src.match(/if \(getSharedView\(\) && getSharedView\(\)\.role !== 'editor'\) \{ toast\.error\(t\('set_shared_readonly'\)\); return; \}/g);
     expect(guards).toHaveLength(2);
     for (const at of [...src.matchAll(/set_shared_readonly/g)].map((m) => m.index)) {
-      expect(src.indexOf('cur.tools = []', at) === -1 || src.indexOf('cur.employees = []', at) > at).toBe(true);
+      expect(src.indexOf('clearWorkspaceData(', at)).toBeGreaterThan(at);
     }
   });
 });
