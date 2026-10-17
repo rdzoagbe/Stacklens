@@ -31,6 +31,9 @@ const MEMBER_ROLES = ['viewer', 'editor'];
 /** The only keys a member may modify. Everything else is preserved verbatim. */
 const MEMBER_WRITABLE_KEYS = [
   'tools', 'employees', 'access', 'contracts', 'invoices', 'licenses', 'audit_log',
+  // The hardware register (src/lib/assets.js): an editor records who holds
+  // which device and marks one returned, as they record access.
+  'assets',
 ];
 
 /**

@@ -25,6 +25,7 @@ const EmployeesPage        = React.lazy(() => import('./pages/EmployeesPage').th
 const AccessPage           = React.lazy(() => import('./pages/AccessPage').then(m => ({ default: m.AccessPage })));
 const ClientsPage          = React.lazy(() => import('./pages/ClientsPage').then(m => ({ default: m.ClientsPage })));
 const OffboardingPage      = React.lazy(() => import('./pages/OffboardingPage').then(m => ({ default: m.OffboardingPage })));
+const DevicesPage          = React.lazy(() => import('./pages/DevicesPage').then(m => ({ default: m.DevicesPage })));
 const SecurityCompliancePage = React.lazy(() => import('./pages/SecurityCompliancePage').then(m => ({ default: m.SecurityCompliancePage })));
 const SettingsPage         = React.lazy(() => import('./pages/SettingsPage').then(m => ({ default: m.SettingsPage })));
 const FinanceDashboard     = React.lazy(() => import('./pages/FinancePage').then(m => ({ default: m.FinanceDashboard })));
@@ -351,6 +352,10 @@ export default function App() {
           <Route
             path="/offboarding"
             element={<RequireAuth><ModuleGate module="people" feature="Offboarding"><OffboardingPage /></ModuleGate></RequireAuth>}
+          />
+          <Route
+            path="/devices"
+            element={<RequireAuth><ModuleGate module="people" feature="Devices"><DevicesPage /></ModuleGate></RequireAuth>}
           />
           <Route
             path="/audit"

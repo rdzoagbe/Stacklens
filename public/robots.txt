@@ -2,6 +2,7 @@ User-agent: *
 Disallow: /dashboard
 Disallow: /tools
 Disallow: /employees
+Disallow: /devices
 Disallow: /access
 Disallow: /offboarding
 Disallow: /audit

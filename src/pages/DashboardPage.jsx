@@ -25,6 +25,7 @@ import { ImportWizard } from '../components/ImportWizard';
 import { ClearDataButton } from '../components/ClearDataButton';
 import { invoiceCheckSummary } from '../lib/invoiceCheck';
 import { openPeopleChanges } from '../lib/peopleChanges';
+import { coverageEnding, devicesToReturn, COVERAGE_SOON_DAYS } from '../lib/assets';
 import { canInviteTeam } from '../lib/plan';
 
 // Re-export for lazy-loading in App.jsx
@@ -582,6 +583,19 @@ export function DashboardPage() {
           });
         }
 
+        // Devices still with people who are leaving or have left
+        // (lib/assets.js). One line for all of them.
+        const _toReturn = devicesToReturn(db);
+        if (_toReturn.length > 0) {
+          const _who = [...new Set(_toReturn.map((r) => r.employee.full_name || r.employee.email))];
+          actions.push({
+            id: 'device-return', kind: 'device_return', severity: 'high', icon: '💻',
+            title: t('dev_dash_return_title').replace('{n}', _toReturn.length),
+            reason: _who.slice(0, 3).join(', ') + (_who.length > 3 ? ` +${_who.length - 3}` : ''),
+            action: t('review'), link: '/devices',
+          });
+        }
+
         (derived.tools || []).filter(tool => !tool.owner_email).slice(0, 4).forEach(tool => {
           actions.push({
             id: 'noowner-' + tool.id, kind: 'no_owner', severity: 'high', icon: '🟡',
@@ -610,6 +624,17 @@ export function DashboardPage() {
             title: `${pct}% ${t('dash_budget_exceeded')}`,
             reason: `${t('lbl_cap')}: ${money(_budgetCap)}${t('per_mo_short')} · ${t('lbl_current')}: ${money(derived.spend)}`,
             action: t('nav_finance'), link: '/finance',
+          });
+        }
+
+        // Warranties and leases ending within the month (lib/assets.js).
+        const _ending = coverageEnding(db);
+        if (_ending.length > 0) {
+          actions.push({
+            id: 'device-coverage', kind: 'device_coverage', severity: 'medium', icon: '🗓️',
+            title: t('dev_dash_coverage_title').replace('{n}', _ending.length).replace('{days}', COVERAGE_SOON_DAYS),
+            reason: `${_ending[0].name || _ending[0].serial} · ${fmtDate(_ending[0].coverage_end)}`,
+            action: t('review'), link: '/devices',
           });
         }
 

@@ -90,7 +90,7 @@ describe('paths that are not public pages are left alone', () => {
 
   it('robots.txt disallows the routes with no metadata', () => {
     const robots = readRepo('public/robots.txt');
-    for (const path of ['/dashboard', '/settings', '/finance', '/tools', '/employees']) {
+    for (const path of ['/dashboard', '/settings', '/finance', '/tools', '/employees', '/devices']) {
       expect(robots, `${path} is neither indexable nor disallowed`).toContain(`Disallow: ${path}`);
     }
   });
