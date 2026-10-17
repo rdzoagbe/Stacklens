@@ -75,6 +75,7 @@ const { shouldAlert, recordAlert, MAX_PER_HOUR } = require('./crash-alerts.js');
 const {
   allocSpendByDept, spentToDateByDept, reportRecipients, buildMonthlyReport, renderMonthlyReport,
 } = require('./monthly-report.js');
+const { deviceCoverageAlerts, deviceAlertLine } = require('./device-alerts.js');
 
 // Explicitly allow stacklens.fr and Firebase preview domains
 const ALLOWED_ORIGINS = [
@@ -2086,7 +2087,7 @@ exports.dailyAlerts = onSchedule({
     const stateSnap = await stateRef.get();
     const sentKeys = stateSnap.exists ? (stateSnap.data().sent || {}) : {};
     const newKeys = {};
-    const alerts = { renewals: [], budgets: [], security: [] };
+    const alerts = { renewals: [], budgets: [], security: [], devices: [] };
 
     // 1) Renewals crossing the 30-day and 7-day thresholds (once each).
     if (data?.user?.renewal_alerts !== false) {
@@ -2146,7 +2147,13 @@ exports.dailyAlerts = onSchedule({
       alerts.security.push({ name: emp.full_name || emp.email, count });
     });
 
-    const total = alerts.renewals.length + alerts.budgets.length + alerts.security.length;
+    // 4) Warranty and lease ends in the hardware register, at 30 and 7 days
+    // (functions/device-alerts.js, the twin of src/lib/assets.js).
+    if (data?.user?.device_alerts !== false) {
+      for (const d of deviceCoverageAlerts(data.assets, todayStr, sentKeys, newKeys)) alerts.devices.push(d);
+    }
+
+    const total = alerts.renewals.length + alerts.budgets.length + alerts.security.length + alerts.devices.length;
     if (!total) continue;
 
     const section = (title, rows) => rows.length ? `
@@ -2163,6 +2170,7 @@ exports.dailyAlerts = onSchedule({
         ${section('Upcoming renewals', alerts.renewals.map(r => line(r.name, `renews ${r.date} (${r.days} days)` + (r.annual ? ` · ${cur}${fmt(r.annual)}/yr` : ''), r.days <= 7 ? '#ef4444' : '#f59e0b')))}
         ${section('Budget thresholds', alerts.budgets.map(b => line(b.department, `${b.pct}% of annual budget consumed (${cur}${fmt(b.spent)} of ${cur}${fmt(b.budget)})`, b.pct >= 100 ? '#ef4444' : '#f59e0b')))}
         ${section('Access security', alerts.security.map(s => line(s.name, `no longer active but still holds ${s.count} access grant${s.count > 1 ? 's' : ''}`, '#ef4444')))}
+        ${section('Warranties and leases', alerts.devices.map(d => line(...deviceAlertLine(d), d.days <= 7 ? '#ef4444' : '#f59e0b')))}
         <div style="text-align:center;margin-top:24px"><a href="https://stacklens.fr/dashboard" style="background:#3b82f6;color:white;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block">Open Stacklens →</a></div>
       </div>
       <div style="padding:16px;text-align:center;border-top:1px solid #1e293b"><p style="color:#475569;font-size:12px;margin:0">Stacklens · <a href="https://stacklens.fr/settings" style="color:#475569">Manage notifications</a></p></div>
@@ -2170,7 +2178,8 @@ exports.dailyAlerts = onSchedule({
 
     const worst = alerts.security.length ? `🚨 ${alerts.security[0].name} still has access`
       : alerts.budgets.length ? `⚠️ ${alerts.budgets[0].department} budget at ${alerts.budgets[0].pct}%`
-      : `🔔 ${alerts.renewals[0].name} renews in ${alerts.renewals[0].days} days`;
+      : alerts.renewals.length ? `🔔 ${alerts.renewals[0].name} renews in ${alerts.renewals[0].days} days`
+      : `🗓️ ${alerts.devices[0].name}: ${alerts.devices[0].type || 'warranty or lease'} ends in ${alerts.devices[0].days} days`;
 
     try {
       const mail = await sendMail(BREVO_API_KEY.value(), {
