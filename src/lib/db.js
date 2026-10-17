@@ -768,8 +768,12 @@ export function buildSeedDb() {
     device('laptop',  'MacBook Pro 14 M3',  'C02DEMO0001', 'noah.petit@acme.com',    { purchase_date: d(700), purchase_cost: 2399, coverage_type: 'warranty', coverage_end: r(30 + 365) }),
     device('phone',   'iPhone 15',          'F2LDEMO0002', 'noah.petit@acme.com',    { purchase_date: d(380), purchase_cost: 969,  coverage_type: 'lease',    coverage_end: r(350) }),
     device('laptop',  'ThinkPad T14 Gen 4', 'PF4DEMO0003', 'chloe.bernard@acme.com', { purchase_date: d(690), purchase_cost: 1349, coverage_type: 'warranty', coverage_end: r(40) }),
-    device('laptop',  'MacBook Air 13 M2',  'C02DEMO0004', 'sofia.rossi@acme.com',   { purchase_date: d(1080), purchase_cost: 1499, coverage_type: 'warranty', coverage_end: r(12) }),
-    device('laptop',  'MacBook Pro 16 M3',  'C02DEMO0005', 'lucas.martin@acme.com',  { purchase_date: d(200), purchase_cost: 2899, coverage_type: 'warranty', coverage_end: r(895) }),
+    // An example of what a read from Microsoft Intune leaves (lib/intuneDevices.js):
+    // one device failing a policy and unencrypted, one in order.
+    device('laptop',  'MacBook Air 13 M2',  'C02DEMO0004', 'sofia.rossi@acme.com',   { purchase_date: d(1080), purchase_cost: 1499, coverage_type: 'warranty', coverage_end: r(12),
+      origin: 'intune', mdm: { source: 'intune', id: 'demo-intune-0004', compliance: 'noncompliant', encrypted: false, os: 'macOS', os_version: '13.6', last_sync: d(2), read_at: d(1) } }),
+    device('laptop',  'MacBook Pro 16 M3',  'C02DEMO0005', 'lucas.martin@acme.com',  { purchase_date: d(200), purchase_cost: 2899, coverage_type: 'warranty', coverage_end: r(895),
+      origin: 'intune', mdm: { source: 'intune', id: 'demo-intune-0005', compliance: 'compliant', encrypted: true, os: 'macOS', os_version: '15.1', last_sync: d(0), read_at: d(1) } }),
     device('monitor', 'Dell U2723QE',       'CN0DEMO0006', 'emma.girard@acme.com',   { purchase_date: d(250), purchase_cost: 579,  coverage_type: 'warranty', coverage_end: r(845) }),
     device('phone',   'Pixel 8',            'GA0DEMO0007', 'karim.benali@acme.com',  { purchase_date: d(340), purchase_cost: 699,  coverage_type: 'lease',    coverage_end: r(21) }),
     device('laptop',  'MacBook Air 13 M3',  'C02DEMO0008', '',                       { purchase_date: d(60),  purchase_cost: 1299, coverage_type: 'warranty', coverage_end: r(670), notes: 'Spare for the next joiner' }),

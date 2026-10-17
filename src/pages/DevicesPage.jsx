@@ -12,10 +12,11 @@ import { formatMoney } from '../lib/currency';
 import { downloadText, parseCsv } from '../lib/dataUtils';
 import {
   ASSET_KINDS, ASSET_STATUSES, COVERAGE_TYPES, COVERAGE_SOON_DAYS, ASSET_CSV_TEMPLATE,
-  assetSummary, assetsFromCsv, coverageEnding, coverageState, devicesToReturn, holderFields, holderOf,
+  assetSummary, assetsFromCsv, coverageEnding, coverageState, devicesToReturn, holderFields, holderOf, mdmConcerns,
 } from '../lib/assets';
 import { Button, Input, Modal, Select, SkeletonRow, Textarea } from '../components/ui';
-import { RoleGate } from '../components/gates';
+import { RoleGate, hasRole } from '../components/gates';
+import { IntuneDevicesCard } from '../components/IntuneDevicesCard';
 import { AppShell } from '../components/AppShell';
 
 // The hardware register (lib/assets.js). It records who holds which device,
@@ -200,6 +201,8 @@ export function DevicesPage() {
   const summary = useMemo(() => assetSummary(db), [db]);
   const toReturn = useMemo(() => devicesToReturn(db), [db]);
   const ending = useMemo(() => coverageEnding(db), [db]);
+  // Devices the last Intune read flagged (lib/assets.js mdmConcerns).
+  const attention = useMemo(() => assets.filter((a) => mdmConcerns(a).length > 0), [assets]);
 
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('');
@@ -336,17 +339,35 @@ export function DevicesPage() {
           </section>
         )}
 
+        {attention.length > 0 && (
+          <section className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-5" data-testid="itn-attention">
+            <h2 className="text-base font-semibold text-amber-300">{t('itn_attention_title').replace('{n}', attention.length)}</h2>
+            <p className="text-sm text-slate-400 mt-1 mb-3">{t('itn_attention_body')}</p>
+            <ul className="space-y-1 text-sm">
+              {attention.map((a) => (
+                <li key={a.id} className="flex flex-wrap gap-x-2 text-slate-300">
+                  <span className="font-semibold text-white">{a.name || a.serial}</span>
+                  <span className="text-amber-300">{mdmConcerns(a).map((c) => t(`itn_concern_${c}`)).join(' · ')}</span>
+                  {holderLabel(a) && <span className="text-slate-500">· {holderLabel(a)}</span>}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {db && <IntuneDevicesCard db={db} canEdit={hasRole('editor')} t={t} />}
+
         <section className="rounded-2xl border border-slate-800 bg-slate-900/60 overflow-hidden">
           <div className="flex flex-wrap items-center gap-3 border-b border-slate-800 p-4">
             <div className="relative flex-1 min-w-[200px]">
               <Search className="h-4 w-4 text-slate-500 absolute left-3 top-3" />
               <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t('dev_search')} className="pl-9" aria-label={t('dev_search')} />
             </div>
-            <Select value={status} onChange={(e) => setStatus(e.target.value)} className="w-auto" aria-label={t('dev_fld_status')}>
+            <Select value={status} onChange={(e) => setStatus(e.target.value)} className="sm:w-48" aria-label={t('dev_fld_status')}>
               <option value="">{t('dev_all_statuses')}</option>
               {ASSET_STATUSES.map((s) => <option key={s} value={s}>{t(`dev_st_${s}`)}</option>)}
             </Select>
-            <Select value={kind} onChange={(e) => setKind(e.target.value)} className="w-auto" aria-label={t('dev_fld_kind')}>
+            <Select value={kind} onChange={(e) => setKind(e.target.value)} className="sm:w-48" aria-label={t('dev_fld_kind')}>
               <option value="">{t('dev_all_kinds')}</option>
               {ASSET_KINDS.map((k) => <option key={k} value={k}>{t(`dev_kind_${k}`)}</option>)}
             </Select>
@@ -377,6 +398,14 @@ export function DevicesPage() {
                       <div className="text-xs text-slate-500 truncate">
                         {t(`dev_kind_${a.kind}`)}{a.serial ? ` · ${a.serial}` : ''}{a.purchase_cost > 0 ? ` · ${money(a.purchase_cost)}` : ''}
                       </div>
+                      {a.mdm && (
+                        <div className="text-[11px] text-slate-500 truncate" data-testid="device-mdm">
+                          {t('itn_row').replace('{os}', [a.mdm.os, a.mdm.os_version].filter(Boolean).join(' ') || '—').replace('{date}', fmtDate(a.mdm.last_sync))}
+                          {mdmConcerns(a).map((c) => (
+                            <span key={c} className="ml-2 text-amber-300 font-semibold">{t(`itn_concern_${c}`)}</span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     <div className="w-44 min-w-0 text-xs">
                       <div className="text-slate-300 truncate">{who || <span className="text-slate-500">{t('dev_nobody')}</span>}</div>
