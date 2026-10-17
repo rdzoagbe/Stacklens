@@ -10,6 +10,7 @@ import { useTranslation } from '../translations';
 import { REVIEW_ORIGINS, isRejectedVendor, originOfRow, vendorKey } from '../lib/toolReview';
 import { csvAmount } from '../lib/csvHeaders';
 import { annotatePeopleChanges } from '../lib/peopleChanges';
+import { cleanAsset, mergeAssets } from '../lib/assets';
 
 // The first time real data enters a workspace is when time-to-first-insight
 // starts. Demo data is not an arrival: nobody imported it.
@@ -224,6 +225,14 @@ export function useDbMutations() {
               ? { ...t, owner_name: after?.full_name || t.owner_name }
               : t
           );
+        }
+
+        // The devices this person holds carry their name and email, as
+        // access rows do (lib/assets.js).
+        if (Array.isArray(db.assets)) {
+          db.assets = db.assets.map((a) => (a.assigned_to === id
+            ? { ...a, assigned_name: after?.full_name || a.assigned_name, assigned_email: after?.email || a.assigned_email }
+            : a));
         }
 
         return db;
@@ -811,10 +820,109 @@ export function useDbMutations() {
     onError: () => toast.error(t('err_update_tool')),
   });
 
+  // ── The hardware register (lib/assets.js) ────────────────────────────────
+  // Every row goes through cleanAsset, so status and holder always agree.
+  // These record what happened to a device; none of them reaches a device.
+  const assetLabel = (a) => `${a?.name || a?.serial || '?'}${a?.serial && a?.name ? ` (${a.serial})` : ''}`;
+
+  const createAsset = useMutation({
+    mutationFn: async (input) => {
+      setDb((db) => {
+        db.assets = [{ ...cleanAsset(input), id: uid('asset') }, ...(db.assets || [])];
+        return db;
+      }, (after) => {
+        const a = after.assets[0];
+        return { action: 'asset.created', details: `${assetLabel(a)}${a.assigned_name ? ` → ${a.assigned_name}` : ''}` };
+      });
+    },
+    onSuccess: () => { invalidate(); track('asset_added'); },
+    onError: () => toast.error(t('dev_err_save')),
+  });
+
+  const updateAsset = useMutation({
+    mutationFn: async ({ id, patch }) => {
+      setDb((db) => {
+        db.assets = (db.assets || []).map((a) => {
+          if (a.id !== id) return a;
+          const next = cleanAsset({ ...a, ...patch });
+          return { ...next, id, ...(next.returned_at || !a.returned_at ? {} : { returned_at: a.returned_at }) };
+        });
+        return db;
+      }, (after, before) => {
+        const was = (before.assets || []).find((a) => a.id === id);
+        const now = (after.assets || []).find((a) => a.id === id);
+        if (!was || !now) return null;
+        const keys = changedKeys(was, now);
+        if (!keys.length) return null;
+        if (was.assigned_to !== now.assigned_to || was.assigned_email !== now.assigned_email) {
+          return { action: 'asset.assigned', details: `${assetLabel(now)}: ${was.assigned_name || was.assigned_email || '—'} → ${now.assigned_name || now.assigned_email || '—'}` };
+        }
+        if (was.status !== now.status) {
+          return { action: 'asset.status_changed', details: `${assetLabel(now)} → ${now.status}` };
+        }
+        return { action: 'asset.updated', details: describeChange(assetLabel(now), keys) };
+      });
+    },
+    onSuccess: invalidate,
+    onError: () => toast.error(t('dev_err_save')),
+  });
+
+  // The device is back: in stock, nobody holds it, and the day it came back.
+  const returnAsset = useMutation({
+    mutationFn: async (id) => {
+      setDb((db) => {
+        db.assets = (db.assets || []).map((a) => (a.id === id
+          ? { ...cleanAsset({ ...a, status: 'in_stock', returned_at: new Date().toISOString().slice(0, 10) }), id }
+          : a));
+        return db;
+      }, (after, before) => {
+        const was = (before.assets || []).find((a) => a.id === id);
+        return was ? { action: 'asset.returned', details: `${assetLabel(was)} ← ${was.assigned_name || was.assigned_email || '—'}` } : null;
+      });
+    },
+    onSuccess: () => { invalidate(); track('asset_returned'); },
+    onError: () => toast.error(t('dev_err_save')),
+  });
+
+  const deleteAsset = useMutation({
+    mutationFn: async (id) => {
+      setDb((db) => {
+        db.assets = (db.assets || []).filter((a) => a.id !== id);
+        return db;
+      }, (after, before) => {
+        const was = (before.assets || []).find((a) => a.id === id);
+        return was ? { action: 'asset.deleted', details: assetLabel(was) } : null;
+      });
+    },
+    onSuccess: invalidate,
+    onError: () => toast.error(t('dev_err_save')),
+  });
+
+  // Records from lib/assets.js assetsFromCsv. A serial number already in the
+  // register updates that device; everything else is added.
+  const importAssets = useMutation({
+    mutationFn: async (records) => {
+      let result = { created: 0, updated: 0 };
+      setDb((db) => {
+        const merged = mergeAssets(db.assets || [], records || [], () => uid('asset'));
+        result = { created: merged.created, updated: merged.updated };
+        db.assets = merged.assets;
+        return db;
+      }, () => ((result.created || result.updated) ? {
+        action: 'import.assets',
+        details: `${result.created} device(s) added, ${result.updated} updated`,
+      } : null));
+      return result;
+    },
+    onSuccess: (result) => { invalidate(); track('asset_import_completed', { created: result?.created, updated: result?.updated }); },
+    onError: () => toast.error(t('dev_err_save')),
+  });
+
   return {
     createTool, updateTool, deleteTool, reviewTool, importAuditTools, clearInvoiceFinding,
     createEmployee, updateEmployee, deleteEmployee,
     createAccess, updateAccess, deleteAccess,
+    createAsset, updateAsset, returnAsset, deleteAsset, importAssets,
     setPlan, setAuth, setBudgets, importInvoices, addUploadedInvoices, bulkImport,
   };
 }

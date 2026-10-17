@@ -195,6 +195,13 @@ describe('what of a member payload is trusted', () => {
     expect(MEMBER_WRITABLE_KEYS).toContain('employees');
     expect(MEMBER_WRITABLE_KEYS).toContain('access');
   });
+
+  it('an editor can save the hardware register, and its absence keeps the owner\'s', () => {
+    expect(MEMBER_WRITABLE_KEYS).toContain('assets');
+    const devices = [{ id: 'asset_1', name: 'MacBook', status: 'in_stock' }];
+    expect(buildSafeUpdate(owner(), { assets: devices }).assets).toEqual(devices);
+    expect(buildSafeUpdate({ ...owner(), assets: devices }, { tools: [] }).assets).toEqual(devices);
+  });
 });
 
 // ── Client workspaces owned by an agency (Phase 2) ──────────────────────────

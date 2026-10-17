@@ -18,7 +18,7 @@ import { AuditHandoffPrompt } from './AuditHandoffPrompt';
 import { ScreenProtection } from './ScreenProtection';
 import {
   LayoutDashboard, Boxes, Users, GitMerge, UserMinus, Shield, BarChart3, Settings,
-  ChevronDown, BadgeX, ExternalLink, Languages, Building2,
+  ChevronDown, BadgeX, ExternalLink, Languages, Building2, Laptop,
 } from 'lucide-react';
 
 export const NAV = [
@@ -32,6 +32,7 @@ export const NAV = [
   { separator: true,     tKey: "nav_access_identity" },
   { to: "/tools",        tKey: "nav_tools",         icon: Boxes },
   { to: "/employees",    tKey: "nav_employees",      icon: Users },
+  { to: "/devices",      tKey: "nav_devices",        icon: Laptop },
   { to: "/access",       tKey: "nav_access",         icon: GitMerge },
   { to: "/offboarding",  tKey: "nav_offboarding",    icon: UserMinus },
   { separator: true,     tKey: "nav_security" },

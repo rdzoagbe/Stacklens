@@ -89,6 +89,7 @@ its allowance indefinitely. `src/lib/plan-parity.test.js` keeps the two in step.
 | `SecurityCompliancePage.jsx` | `/security` |
 | `AccessPage.jsx` | `/access` |
 | `OffboardingPage.jsx` | `/offboarding` |
+| `DevicesPage.jsx` | `/devices` — the hardware register (see below) |
 | `SettingsPage.jsx` | `/settings` (shell; tabs below) |
 | `SecurityCompliancePage.jsx` | `/audit` (same page as `/security`) |
 | `OnboardingPage.jsx` | `/onboarding` |
@@ -221,6 +222,10 @@ On Access → Eligibility, an editor clicks **Read the licences from Google**: a
 ### Joiners and movers (`lib/peopleChanges.js`)
 
 `setDb` in `useDbQuery.js` runs `annotatePeopleChanges` on every write, so any path that changes people (a form, a CSV import, a directory sync) is covered. A new active person is a **joiner**, except in a first import or a write adding more than `BULK_LIMIT` (25) people at once (a directory being loaded), where only a start date within 30 days counts; someone back after leaving is a joiner too. An active person whose department or job title changed is a **mover**; filling an empty value, a change of case or accents, and the `admin`/`user` account type are not. The change is stored on the person (`employee.people_change = { kind, at, from, to, done_at }`), never in a list of its own, because a teammate in a shared or client workspace may only write `MEMBER_WRITABLE_KEYS`. `openPeopleChanges` reads what each open change asks for from the eligibility rules every time (grants, removals, and for a mover the tools no rule covers), so the to-do follows rule edits and recorded grants. Shown at the top of Access → Eligibility and as one dashboard action (`people_changes`); open until Done, or for `OPEN_DAYS` (90). Leavers stay the Offboarding page's. Directory syncs go through `directoryPatch`: department and title follow the directory while they still equal the last value it gave (`dir_department`, `dir_role`), so a move in the directory arrives without overwriting a hand edit.
+
+### Hardware register (`lib/assets.js`, `pages/DevicesPage.jsx`)
+
+`/devices` (module `people`, like Employees and Offboarding) records the company's devices in `db.assets`: kind, model, serial, holder (`assigned_to` employee id, with `assigned_name` / `assigned_email` beside it so a device still says who had it after that person is deleted), status (`in_use` / `in_stock` / `in_repair` / `retired` / `lost`), purchase date and price, warranty or lease end. **A register, not a remote control**: nothing locks, wipes, locates or installs anything, and the page says so in its first banner; Mark returned only records it (`in_stock`, holder cleared, `returned_at`). Every row goes through `cleanAsset`, which keeps status and holder consistent. `devicesToReturn` lists devices still held by someone `offboarding` or `offboarded`: shown on the Devices page, on the leaver's Offboarding panel and as the dashboard action `device_return`; `coverageEnding` (within `COVERAGE_SOON_DAYS`, 30) is the action `device_coverage`. CSV import (`assetsFromCsv`, French and English headers, `;` files) matches holders by email, and a serial already in the register updates that device with only the columns the file filled (`mergeAssets`). Editors write, viewers read; `assets` is in `MEMBER_WRITABLE_KEYS` so a team editor's changes are kept (needs the functions deployed). Phase 2 (reading devices from Microsoft Intune, read-only) is not built.
 
 ### Screen protection (`lib/screenProtection.js`, `components/ScreenProtection.jsx`)
 

@@ -5,6 +5,7 @@ import { EMP_DEPARTMENTS } from '../lib/constants';
 import { computeToolDerivedRisk, getRiskEvidence } from '../lib/dataUtils';
 import { formatMoney } from '../lib/currency';
 import { employeeCostShares } from '../lib/waste';
+import { assetsHeldBy } from '../lib/assets';
 import { useDbQuery, useDbMutations } from '../hooks/useDbQuery';
 import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
@@ -270,6 +271,8 @@ export function EmployeesPage() {
 
   const selected = employees.find(e => e.id === selectedId) || null;
   const selectedTools = selected ? getEmployeeTools(selected.id) : [];
+  // The devices the register says this person holds (lib/assets.js).
+  const selectedDevices = selected ? assetsHeldBy(db, selected) : [];
 
   const tenure = (emp) => {
     if (!emp?.start_date) return null;
@@ -506,6 +509,14 @@ export function EmployeesPage() {
                     </div>
                   </div>
                 </div>
+
+                {selectedDevices.length > 0 && (
+                  <div className="mt-3 text-xs text-slate-400" data-testid="employee-devices">
+                    <span className="font-semibold text-slate-300">{t('dev_emp_holds').replace('{n}', selectedDevices.length)}</span>{' '}
+                    {selectedDevices.map((a) => a.name || a.serial).join(', ')}
+                    {' · '}<Link to="/devices" className="text-blue-400 hover:text-blue-300">{t('nav_devices')}</Link>
+                  </div>
+                )}
               </div>
 
               {/* Apps section */}

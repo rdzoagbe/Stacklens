@@ -1,13 +1,15 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { AlertTriangle, BadgeX, CheckCircle, ChevronLeft, Info, UserMinus, Users } from 'lucide-react';
+import { AlertTriangle, BadgeX, CheckCircle, ChevronLeft, Info, Laptop, PackageCheck, UserMinus, Users } from 'lucide-react';
 import { todayISO } from '../lib/db';
 import { useDbQuery, useDbMutations } from '../hooks/useDbQuery';
 import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
 import { Button, SkeletonRow, useEnumLabel } from '../components/ui';
 import { blockGraphUserSignIn, GRAPH_WRITE_SCOPES } from '../lib/m365-writeback';
+import { assetsHeldBy } from '../lib/assets';
+import { RoleGate } from '../components/gates';
 import { AppShell } from '../components/AppShell';
 
 // The seven checklist strings all had cl_* translation keys already; this
@@ -72,6 +74,13 @@ export function OffboardingPage() {
 
   const employee = employees.find((e) => e.id === employeeId);
   const activeRecords = access.filter((a) => a.employee_id === employeeId && a.status === "active");
+  // Devices this person still holds (lib/assets.js): the laptop, phone and
+  // screen to get back. Marking one returned only records it.
+  const heldDevices = useMemo(() => assetsHeldBy(db, employee), [db, employee]);
+  const markReturned = (asset) => {
+    if (!window.confirm(t('dev_return_confirm').replace('{name}', asset.name || asset.serial).replace('{who}', employee?.full_name || employee?.email || ''))) return;
+    muts.returnAsset.mutate(asset.id, { onSuccess: () => toast.success(t('dev_returned_toast')) });
+  };
 
   const revokeOne = (id) => {
     muts.updateAccess.mutate({ id, patch: { status: "revoked" } }, { onSuccess: () => toast.success(t('revoked')) });
@@ -485,6 +494,35 @@ export function OffboardingPage() {
                     </>
                   )}
                 </div>
+
+                {/* Devices to get back: only when the register says this
+                    person holds any. */}
+                {heldDevices.length > 0 && (
+                  <div className="p-5 border-t border-slate-800" data-testid="offb-devices">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                        <Laptop className="h-3.5 w-3.5" /> {t('dev_offb_title').replace('{n}', heldDevices.length)}
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      {heldDevices.map((a) => (
+                        <div key={a.id} className="flex items-center gap-3 p-3 rounded-xl border border-slate-800 bg-slate-950/40">
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-semibold text-white truncate">{a.name || a.serial}</div>
+                            <div className="text-[10px] text-slate-500 truncate">{t(`dev_kind_${a.kind}`)}{a.serial ? ` · ${a.serial}` : ''}</div>
+                          </div>
+                          <RoleGate requires="editor">
+                            <button onClick={() => markReturned(a)}
+                              className="px-2.5 py-1 bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-300 rounded-lg text-xs font-semibold transition-colors flex-shrink-0 inline-flex items-center gap-1">
+                              <PackageCheck className="h-3.5 w-3.5" /> {t('dev_mark_returned')}
+                            </button>
+                          </RoleGate>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-[10px] text-slate-500 mt-2">{t('dev_offb_hint')}</p>
+                  </div>
+                )}
 
                 {/* Best practices checklist */}
                 <div className="p-5 border-t border-slate-800 bg-slate-950/30">
