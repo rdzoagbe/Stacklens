@@ -11,6 +11,7 @@ import { REVIEW_ORIGINS, isRejectedVendor, originOfRow, vendorKey } from '../lib
 import { csvAmount } from '../lib/csvHeaders';
 import { annotatePeopleChanges } from '../lib/peopleChanges';
 import { cleanAsset, mergeAssets } from '../lib/assets';
+import { applyIntune } from '../lib/intuneDevices';
 
 // The first time real data enters a workspace is when time-to-first-insight
 // starts. Demo data is not an arrival: nobody imported it.
@@ -918,11 +919,34 @@ export function useDbMutations() {
     onError: () => toast.error(t('dev_err_save')),
   });
 
+  // Intune's device list, recorded on an editor's click (lib/intuneDevices.js):
+  // new devices added, known ones given Intune's snapshot. Holders already
+  // recorded are left as they are.
+  const recordIntuneDevices = useMutation({
+    mutationFn: async (devices) => {
+      let result = { created: 0, updated: 0 };
+      setDb((db) => {
+        const merged = applyIntune(db.assets || [], devices || [], db.employees || [], {
+          makeId: () => uid('asset'), today: new Date().toISOString().slice(0, 10),
+        });
+        result = { created: merged.created, updated: merged.updated };
+        db.assets = merged.assets;
+        return db;
+      }, () => ((result.created || result.updated) ? {
+        action: 'import.intune',
+        details: `${result.created} device(s) added, ${result.updated} updated from Microsoft Intune`,
+      } : null));
+      return result;
+    },
+    onSuccess: (result) => { invalidate(); track('intune_devices_recorded', { created: result?.created, updated: result?.updated }); },
+    onError: () => toast.error(t('dev_err_save')),
+  });
+
   return {
     createTool, updateTool, deleteTool, reviewTool, importAuditTools, clearInvoiceFinding,
     createEmployee, updateEmployee, deleteEmployee,
     createAccess, updateAccess, deleteAccess,
-    createAsset, updateAsset, returnAsset, deleteAsset, importAssets,
+    createAsset, updateAsset, returnAsset, deleteAsset, importAssets, recordIntuneDevices,
     setPlan, setAuth, setBudgets, importInvoices, addUploadedInvoices, bulkImport,
   };
 }

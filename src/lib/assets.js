@@ -11,7 +11,8 @@
 //     assigned_to, assigned_name, assigned_email,   // the holder, if any
 //     purchase_date, purchase_cost,
 //     coverage_type, coverage_end,                  // warranty or lease end
-//     notes, returned_at }
+//     notes, returned_at,
+//     origin, mdm }                                 // set when read from Intune
 //
 // The holder is stored by employee id, with the name and email beside it (as
 // access rows do), so a device still says who had it after that person was
@@ -22,6 +23,30 @@ import { csvAmount } from './csvHeaders';
 export const ASSET_KINDS = ['laptop', 'desktop', 'phone', 'tablet', 'monitor', 'accessory', 'other'];
 export const ASSET_STATUSES = ['in_use', 'in_stock', 'in_repair', 'retired', 'lost'];
 export const COVERAGE_TYPES = ['warranty', 'lease'];
+
+/** Where a device came from when the app recorded it by itself (lib/intuneDevices.js). */
+export const ASSET_ORIGINS = ['intune'];
+const COMPLIANCE = ['unknown', 'compliant', 'noncompliant', 'conflict', 'error', 'inGracePeriod', 'configManager'];
+
+/**
+ * The snapshot a device-management read leaves on a device, or null. Only
+ * these fields, so nothing else Microsoft returns can ride along into the
+ * workspace.
+ */
+export function cleanMdm(mdm) {
+  if (!mdm || typeof mdm !== 'object' || mdm.source !== 'intune') return null;
+  const s = (v, n = 80) => String(v ?? '').trim().slice(0, n);
+  return {
+    source: 'intune',
+    id: s(mdm.id, 64),
+    compliance: COMPLIANCE.includes(mdm.compliance) ? mdm.compliance : 'unknown',
+    encrypted: typeof mdm.encrypted === 'boolean' ? mdm.encrypted : null,
+    os: s(mdm.os, 40),
+    os_version: s(mdm.os_version, 40),
+    last_sync: isoDate(mdm.last_sync),
+    read_at: isoDate(mdm.read_at),
+  };
+}
 
 /** How far ahead a warranty or lease end counts as coming up. */
 export const COVERAGE_SOON_DAYS = 30;
@@ -90,6 +115,8 @@ export function cleanAsset(input = {}) {
     coverage_end: isoDate(input.coverage_end),
     notes: str(input.notes),
     ...(isoDate(input.returned_at) ? { returned_at: isoDate(input.returned_at) } : {}),
+    ...(ASSET_ORIGINS.includes(input.origin) ? { origin: input.origin } : {}),
+    ...(cleanMdm(input.mdm) ? { mdm: cleanMdm(input.mdm) } : {}),
   };
 }
 
@@ -159,6 +186,21 @@ export function coverageEnding(db, { now = Date.now(), days = COVERAGE_SOON_DAYS
   return (db?.assets || [])
     .filter((a) => coverageState(a, { now, days }) === 'soon')
     .sort((a, b) => (a.coverage_end < b.coverage_end ? -1 : 1));
+}
+
+/** Compliance states Microsoft reports for a device that fails a policy or could not be judged. */
+export const MDM_CONCERN_STATES = ['noncompliant', 'inGracePeriod', 'conflict', 'error'];
+
+/**
+ * What the last device-management read said needs a look on a device still in
+ * service: [] when nothing, else any of 'noncompliant' / 'not_encrypted'.
+ */
+export function mdmConcerns(asset) {
+  if (!asset?.mdm || GONE.includes(asset.status)) return [];
+  const out = [];
+  if (MDM_CONCERN_STATES.includes(asset.mdm.compliance)) out.push('noncompliant');
+  if (asset.mdm.encrypted === false) out.push('not_encrypted');
+  return out;
 }
 
 /** Counts for the register's summary row. */
