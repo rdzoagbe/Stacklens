@@ -61,7 +61,7 @@ export function FinanceLeadsPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white">
-      <PublicNav t={t} right={<Link to="/audit-saas" className="hidden sm:inline text-slate-300 hover:text-white transition-colors">{t('fin_nav_audit')}</Link>} />
+      <PublicNav t={t} />
 
       <div className="max-w-5xl mx-auto px-6 py-20">
         {/* Hero */}

@@ -158,7 +158,7 @@ export function SaasAuditPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white">
-      <PublicNav t={t} right={<Link to="/experts-comptables" className="hidden sm:inline text-slate-300 hover:text-white transition-colors">{t('audit_nav_accountants')}</Link>} />
+      <PublicNav t={t} />
 
       <div className="max-w-4xl mx-auto px-6 py-16">
         <div className="mb-10">

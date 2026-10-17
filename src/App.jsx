@@ -2,7 +2,6 @@ import React, { useEffect, useState, Suspense } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { resendEmailVerification, refreshEmailVerified } from './firebase-config';
 import { useAuth } from './hooks/useAuth';
-import { TourProvider } from './contexts/TourContext';
 import { LanguageProvider, useLang } from './contexts/LangContext';
 import { CurrencyProvider } from './contexts/CurrencyContext';
 import { ModuleGate } from './components/gates';
@@ -298,7 +297,6 @@ export default function App() {
         <ErrorBoundary><BrowserRouter>
         <SeoHead />
         <CookieBanner />
-          <TourProvider>
           <Suspense fallback={<PageLoader />}>
           <PageBoundary>
           <Routes>
@@ -389,7 +387,6 @@ export default function App() {
           </PageBoundary>
           </Suspense>
         <FloatingChatbotGated />
-        </TourProvider>
         </BrowserRouter></ErrorBoundary>
         </CurrencyProvider></LanguageProvider>
     </QueryClientProvider>
