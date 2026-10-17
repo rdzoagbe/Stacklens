@@ -5,7 +5,6 @@ import { AlertTriangle } from 'lucide-react';
 import { useDbQuery } from '../hooks/useDbQuery';
 import { useAuth } from '../hooks/useAuth';
 import { useLang } from '../contexts/LangContext';
-import { useTour } from '../contexts/TourContext';
 import { useTranslation } from '../translations';
 import { resolvePlan, getPlanLimits, PLAN_TIERS } from '../lib/plan';
 import { PLAN_CARDS, planText } from '../lib/planCards';
@@ -241,46 +240,3 @@ export function PlanLimitBanner({ resource = 'tools' }) {
   );
 }
 
-// ── Tour helpers ───────────────────────────────────────────────────────────
-
-export function TourEmptyState({ icon, title, subtitle, action, onAction }) {
-  return (
-    <div className="flex flex-col items-center justify-center py-20 text-center">
-      <div style={{ fontSize: 56, marginBottom: 16, filter: 'drop-shadow(0 0 20px rgba(99,102,241,0.4))' }}>{icon}</div>
-      <h3 className="text-xl font-bold text-white mb-2">{title}</h3>
-      <p className="text-slate-400 text-sm max-w-xs mb-6">{subtitle}</p>
-      {action && (
-        <button
-          onClick={onAction}
-          style={{ padding: '10px 24px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)', color: 'white', cursor: 'pointer', fontSize: 14, fontWeight: 600 }}
-        >
-          {action}
-        </button>
-      )}
-    </div>
-  );
-}
-
-export function TourLaunchButton() {
-  const { language } = useLang();
-  const t = useTranslation(language);
-  const { startTour } = useTour();
-  return (
-    <button
-      onClick={startTour}
-      style={{
-        display: 'flex', alignItems: 'center', gap: 8,
-        padding: '8px 16px', borderRadius: 10,
-        background: 'linear-gradient(135deg, #7c3aed, #4f46e5)',
-        border: 'none', color: 'white', cursor: 'pointer',
-        fontSize: 13, fontWeight: 700,
-        boxShadow: '0 0 20px rgba(124,58,237,0.4)', transition: 'all 0.2s',
-      }}
-      onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
-      onMouseLeave={e => e.currentTarget.style.transform = 'none'}
-    >
-      <span style={{ fontSize: 16 }}>✨</span>
-      {t('gate_take_tour')}
-    </button>
-  );
-}

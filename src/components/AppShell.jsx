@@ -16,6 +16,8 @@ import { useTranslation } from '../translations';
 import { RDLogo, Button, Modal } from '../components/ui';
 import { AuditHandoffPrompt } from './AuditHandoffPrompt';
 import { ScreenProtection } from './ScreenProtection';
+import { HelpPanel } from './HelpPanel';
+import { pageHelpKey } from '../lib/pageHelp';
 import {
   LayoutDashboard, Boxes, Users, GitMerge, UserMinus, Shield, BarChart3, Settings,
   ChevronDown, BadgeX, ExternalLink, Languages, Building2, Laptop,
@@ -385,6 +387,9 @@ export function useRenewalAlerts() {
 export function TopBar({ title, right }) {
   const { language } = useLang();
   const t = useTranslation(language);
+  // What this page is for, in one sentence (lib/pageHelp.js); the generic line
+  // only where a page has none.
+  const helpKey = pageHelpKey(useLocation().pathname);
   const _db = JSON.parse(localStorage.getItem("accessguard_v1") || "{}");
   const userName = _db?.user?.displayName || _db?.user?.email?.split("@")[0] || "Stacklens";
   return (
@@ -392,9 +397,10 @@ export function TopBar({ title, right }) {
       <div className="flex items-center justify-between gap-4 px-5 pt-4 pb-3">
         <div>
           <div className="text-xl font-semibold text-slate-100">{title}</div>
-          <div className="mt-0.5 text-sm text-slate-500">{t('topbar_subtitle')}</div>
+          <div className="mt-0.5 text-sm text-slate-500 max-w-3xl" data-testid="page-help">{t(helpKey || 'topbar_subtitle')}</div>
         </div>
-        <div className="hidden sm:flex items-center gap-2 text-sm text-slate-300 flex-shrink-0">
+        <div className="hidden sm:flex items-center gap-3 text-sm text-slate-300 flex-shrink-0">
+          <HelpPanel />
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600/20 text-blue-300 font-medium">
             {userName.charAt(0).toUpperCase()}
           </div>
@@ -909,6 +915,7 @@ export function AppShell({ _subtitle, title, right, children }) {
   const { showClients } = useClientWorkspaces();
   const navCtx = { showClients };
 
+  const mobileHelpKey = pageHelpKey(useLocation().pathname);
   const mobileDisplayName = firebaseUser?.displayName || user?.email?.split('@')[0] || 'You';
   const mobileEmail = user?.email || firebaseUser?.email || '';
   const mobilePhotoURL = firebaseUser?.photoURL;
@@ -936,7 +943,10 @@ export function AppShell({ _subtitle, title, right, children }) {
               <RDLogo size="sm" />
               <div className="text-sm font-bold text-white">Stacklens</div>
             </Link>
-            <LangSelectorCompact />
+            <div className="flex items-center gap-2">
+              <HelpPanel compact />
+              <LangSelectorCompact />
+            </div>
           </div>
           <Modal
             open={mobileOpen}
@@ -1001,6 +1011,7 @@ export function AppShell({ _subtitle, title, right, children }) {
               <div className="text-base font-bold text-white">{title}</div>
               {right && <div className="flex-shrink-0">{right}</div>}
             </div>
+            {mobileHelpKey && <div className="mt-1 text-xs text-slate-500">{t(mobileHelpKey)}</div>}
           </div>
           <div className="p-3 md:p-6 lg:p-8 w-full max-w-full overflow-x-hidden min-w-0">{children}</div>
           <footer className="border-t border-slate-800/60 bg-slate-950/40 px-4 md:px-6 py-4 mt-auto">

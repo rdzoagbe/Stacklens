@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { Check, ChevronDown, ChevronRight, Lock, Mail, Play, Shield } from 'lucide-react';
+import {
+  BarChart3, Boxes, Check, ChevronDown, ChevronRight, FileSearch, GitMerge, LayoutDashboard, Laptop, Lock, Mail, Play,
+  Shield, UserMinus, Users,
+} from 'lucide-react';
 import { sendMagicLink, signInWithMicrosoft, signInWithEmail, resetPassword, registerWithEmail, authErrorKey } from '../firebase-config';
 import { saveDb, seedDbIfEmpty } from '../lib/db';
 import { track } from '../lib/analytics';
@@ -9,11 +12,12 @@ import { useAuth } from '../hooks/useAuth';
 import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
 import { RDLogo, ScrollToTop } from '../components/ui';
-import { LangSelectorCompact, _openCookieBanner } from '../components/AppShell';
+import { _openCookieBanner } from '../components/AppShell';
 import { usePlanPricing } from '../contexts/CurrencyContext';
 import { PLAN_CARDS, planFeatures, planText } from '../lib/planCards';
 import { EARLY_ACCESS } from '../lib/earlyAccess';
 import { Testimonials } from '../components/Testimonials';
+import { PublicMenu } from '../components/PublicMenu';
 import { passwordProblem, suggestPassword } from '../lib/password';
 
 // Signup consent copy. Authored in all five languages rather than routed
@@ -26,6 +30,21 @@ const SIGNUP_CONSENT = {
   es: { pre: 'Acepto los ', terms: 'Términos del servicio', and: ' y la ', privacy: 'Política de privacidad' },
   pt: { pre: 'Aceito os ', terms: 'Termos de Serviço', and: ' e a ', privacy: 'Política de Privacidade' },
 };
+
+// The parts of the app the "What's inside" section names, in the sidebar's
+// order and under the sidebar's own labels (`name`), so the page and the app
+// never call one screen two things. `${key}_body` is the line in translations.js.
+const LANDING_MODULES = [
+  { key: 'lp_mod_dashboard', name: 'nav_dashboard', icon: LayoutDashboard },
+  { key: 'lp_mod_tools', name: 'nav_tools', icon: Boxes },
+  { key: 'lp_mod_people', name: 'nav_employees', icon: Users },
+  { key: 'lp_mod_devices', name: 'nav_devices', icon: Laptop },
+  { key: 'lp_mod_access', name: 'nav_access', icon: GitMerge },
+  { key: 'lp_mod_offboarding', name: 'nav_offboarding', icon: UserMinus },
+  { key: 'lp_mod_security', name: 'nav_security', icon: Shield },
+  { key: 'lp_mod_finance', name: 'nav_finance', icon: BarChart3 },
+  { key: 'lp_mod_audit', name: 'pm_audit', icon: FileSearch },
+];
 
 export function TrialPage() {
   const navigate = useNavigate();
@@ -52,8 +71,20 @@ export function TrialPage() {
   // Links from the free audit, the accountants page and the demo banner end
   // in ?signup=true: they mean "open the account form", so it opens, on the
   // create-account tab.
-  const wantsSignup = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('signup') === 'true';
-  const [showAuth, setShowAuth] = useState(wantsSignup);
+  // The menu on the other public pages (PublicMenu) sends ?signin=true to open
+  // the sign-in form and ?demo=true to start the demo.
+  const arrival = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
+  const wantsSignup = arrival.get('signup') === 'true';
+  const wantsSignin = arrival.get('signin') === 'true';
+  const [showAuth, setShowAuth] = useState(wantsSignup || wantsSignin);
+  useEffect(() => {
+    if (arrival.get('demo') !== 'true') return;
+    track('cta_click', { location: 'menu_demo' });
+    startDemo();
+    navigate('/dashboard', { replace: true });
+  // Only on arrival.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [, setShowEmailForm] = useState(false);
   const [authTab, setAuthTab] = useState(wantsSignup ? 'create' : 'signin');
   const [authEmail, setAuthEmail] = useState('');
@@ -121,32 +152,16 @@ export function TrialPage() {
 
       {/* ── NAV ── */}
       <nav className="relative z-50 border-b border-slate-800/60 bg-slate-950/80 backdrop-blur-xl sticky top-0">
-        <div className="max-w-6xl mx-auto px-6 py-4">
+        <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <RDLogo size="md" onClick={() => window.location.href = "/"} />
               <div className="text-xl font-bold text-white">Stacklens</div>
             </div>
-            <div className="hidden md:flex items-center gap-8">
-              <a href="#pricing" className="text-sm text-slate-400 hover:text-white transition-colors">{t('lp_nav_pricing')}</a>
-              <a href="#faq" className="text-sm text-slate-400 hover:text-white transition-colors">{t('lp_nav_faq')}</a>
-              <LangSelectorCompact />
-              <button
-                onClick={() => setShowAuth(true)}
-                className="text-sm text-slate-400 hover:text-white transition-colors">
-                {t('lp_nav_sign_in')}
-              </button>
-              <button
-                onClick={() => { track('cta_click', { location: 'nav' }); setShowAuth(true); }}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-semibold text-white transition-colors">
-                {t('lp_nav_start_free')}
-              </button>
-            </div>
-            <button
-              onClick={() => setShowAuth(true)}
-              className="md:hidden px-4 py-2 bg-blue-600 rounded-lg text-sm font-semibold">
-              {t('lp_nav_start_free')}
-            </button>
+            <PublicMenu t={t} landing
+              onSignIn={() => { setAuthTab('signin'); setShowAuth(true); }}
+              onStart={() => { track('cta_click', { location: 'nav' }); setAuthTab('create'); setShowAuth(true); }}
+              onDemo={() => { track('cta_click', { location: 'nav_demo' }); startDemo(); navigate('/dashboard'); }} />
           </div>
         </div>
       </nav>
@@ -196,11 +211,29 @@ export function TrialPage() {
       </section>
 
       {/* ── WHO IT'S FOR ── two buyers, named. The homepage used to speak only
-          to the second; the first is where one conversation is fifty. */}
-      <section className="relative z-10 px-6 pb-16">
+          to the second; the first is where one conversation is fifty.
+          It is also "where do you want to start": one card per reason to be
+          here, so nobody has to scroll to the footer to find their page. The
+          SMB card stays last (homepage-pitch.test.js reads from it on). */}
+      <section className="relative z-10 px-6 pb-16" id="start" data-testid="lp-start">
         <div className="max-w-5xl mx-auto">
-          <p className="text-center text-xs font-semibold uppercase tracking-wider text-slate-500 mb-6">{t('lp_who_title')}</p>
+          <h2 className="text-center text-2xl md:text-3xl font-bold text-white mb-2">{t('lp_start_title')}</h2>
+          <p className="text-center text-sm text-slate-500 mb-8">{t('lp_start_sub')}</p>
           <div className="grid md:grid-cols-2 gap-4">
+            <Link to="/audit-saas" onClick={() => track('cta_click', { location: 'start_audit' })}
+              className="group rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-6 hover:border-emerald-400/50 transition-colors">
+              <div className="text-xs font-semibold uppercase tracking-wider text-emerald-400 mb-2">{t('lp_start_audit_eyebrow')}</div>
+              <div className="text-xl font-bold text-white mb-2">{t('lp_start_audit_title')}</div>
+              <p className="text-sm text-slate-400 leading-relaxed mb-4">{t('lp_start_audit_body')}</p>
+              <span className="text-sm font-semibold text-emerald-300 group-hover:text-emerald-200">{t('lp_start_audit_cta')} →</span>
+            </Link>
+            <Link to="/direction-financiere" onClick={() => track('cta_click', { location: 'start_finance' })}
+              className="group rounded-2xl border border-slate-800 bg-slate-900/40 p-6 hover:border-slate-700 transition-colors">
+              <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{t('lp_start_fin_eyebrow')}</div>
+              <div className="text-xl font-bold text-white mb-2">{t('lp_start_fin_title')}</div>
+              <p className="text-sm text-slate-400 leading-relaxed mb-4">{t('lp_start_fin_body')}</p>
+              <span className="text-sm font-semibold text-slate-300 group-hover:text-white">{t('lp_start_fin_cta')} →</span>
+            </Link>
             <Link to="/experts-comptables" onClick={() => track('cta_click', { location: 'who_accountants' })}
               className="group rounded-2xl border border-blue-500/30 bg-gradient-to-br from-blue-500/10 to-indigo-500/10 p-6 hover:border-blue-400/50 transition-colors">
               <div className="text-xs font-semibold uppercase tracking-wider text-blue-400 mb-2">{t('lp_who_acct_eyebrow')}</div>
@@ -216,6 +249,11 @@ export function TrialPage() {
               <span className="text-sm font-semibold text-slate-300 group-hover:text-white">{t('lp_who_smb_cta')} →</span>
             </button>
           </div>
+          <p className="text-center text-sm text-slate-500 mt-6">
+            {t('lp_start_demo_q')}{' '}
+            <button onClick={() => { track('cta_click', { location: 'start_demo' }); startDemo(); navigate('/dashboard'); }}
+              className="font-semibold text-blue-300 hover:text-blue-200">{t('lp_start_demo_cta')} →</button>
+          </p>
         </div>
       </section>
 
@@ -283,6 +321,29 @@ export function TrialPage() {
                 <h3 className="text-xl font-bold text-white mb-2">{s.title}</h3>
                 <p className="text-sm text-slate-400 mb-4 leading-relaxed">{s.desc}</p>
                 <p className="text-xs text-slate-500 italic">{s.detail}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── WHAT'S INSIDE ── one line per part of the app, named as the menu
+          names it, so a visitor knows where each thing lives before signing
+          up. Every line describes a screen that exists (CLAUDE.md). */}
+      <section className="relative z-10 py-20 px-6 border-t border-slate-900" id="inside" data-testid="lp-inside">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold text-white mb-3">{t('lp_inside_title')}</h2>
+            <p className="text-slate-500 max-w-2xl mx-auto">{t('lp_inside_sub')}</p>
+          </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {LANDING_MODULES.map((m) => (
+              <div key={m.key} className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
+                <div className="flex items-center gap-2 mb-2">
+                  <m.icon className="h-4 w-4 text-blue-400" />
+                  <h3 className="text-base font-semibold text-white">{t(m.name)}</h3>
+                </div>
+                <p className="text-sm text-slate-400 leading-relaxed">{t(`${m.key}_body`)}</p>
               </div>
             ))}
           </div>
