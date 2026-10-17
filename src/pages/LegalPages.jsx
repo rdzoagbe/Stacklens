@@ -13,7 +13,7 @@ import { LEGAL_ENTITY } from '../lib/constants';
 // in substance. They used to print "July 2026", "May 2026" and "April 17,
 // 2026" as literals: stale after the September corrections, and English
 // inside the French page. Change this when any of them changes.
-export const LEGAL_UPDATED = '2026-09-24';
+export const LEGAL_UPDATED = '2026-10-17';
 const LOCALE_OF = { en: 'en-GB', fr: 'fr-FR', de: 'de-DE', es: 'es-ES', pt: 'pt-PT' };
 // The legal notice (mentions légales) last changed in May 2026; only the month
 // is known, so only the month is shown.
@@ -195,7 +195,7 @@ export function DpaPage() {
       <PublicNav t={t} />
       <div className="max-w-3xl mx-auto px-6 py-16">
         <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">{t('dpa_title')}</h1>
-        <p className="text-slate-400 text-sm mb-2">{t('dpa_subtitle')} · {t('dpa_version')} 1.2 · {t('dpa_effective')} {t('dpa_effective_date')}</p>
+        <p className="text-slate-400 text-sm mb-2">{t('dpa_subtitle')} · {t('dpa_version')} 1.3 · {t('dpa_effective')} {t('dpa_effective_date')}</p>
         <p className="text-slate-400 text-sm mb-10">{t('dpa_auto_accepted')}</p>
 
         <div className="space-y-8 text-sm text-slate-300 leading-relaxed">
@@ -218,6 +218,7 @@ export function DpaPage() {
               <li>{t('dpa_s3_item3')}</li>
               <li>{t('dpa_s3_item4')}</li>
               <li>{t('dpa_s3_item5')}</li>
+              <li>{t('dpa_s3_item6')}</li>
             </ul>
           </section>
 
@@ -229,6 +230,7 @@ export function DpaPage() {
               <li>{t('dpa_s4_item3')}</li>
               <li>{t('dpa_s4_item4')}</li>
               <li>{t('dpa_s4_item5')}</li>
+              <li>{t('dpa_s4_item6')}</li>
             </ul>
           </section>
 

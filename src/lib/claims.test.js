@@ -564,3 +564,44 @@ describe('a legal acceptance names nobody once the account is gone', () => {
     expect(read('firestore.rules')).toMatch(/match \/legal_acceptances\/\{logId\}[\s\S]*?hasOnly\(\['uid', 'accepted_at', 'documents', 'plan_id'\]\)/);
   });
 });
+
+// ── §12 Devices and Microsoft Intune, as the DPA and privacy policy say ────
+//
+// DPA 1.3 (sections 3 and 4) and the privacy policy name what the hardware
+// register keeps and the one permission the Intune read asks for. The
+// permission is the code's own constant, and every field the Intune snapshot
+// keeps (lib/assets.js cleanMdm) must be named in the DPA's list.
+describe('§12 the DPA and privacy policy describe devices and Intune as the code does', () => {
+  const intune = read('src/lib/intuneDevices.js');
+  const assets = read('src/lib/assets.js');
+
+  it('names the read-only permission the code requests, and says nothing is sent to devices', () => {
+    const scope = /INTUNE_SCOPE = 'https:\/\/graph\.microsoft\.com\/([A-Za-z.]+)'/.exec(intune)[1];
+    expect(scope).toBe('DeviceManagementManagedDevices.Read.All');
+    for (const lang of ['en', 'fr']) {
+      expect(copy(lang, 'dpa_s3_item6'), lang).toContain(scope);
+    }
+    expect(copy('en', 'dpa_s3_item6')).toMatch(/sends nothing to devices and changes nothing in Intune/);
+    expect(copy('fr', 'dpa_s3_item6')).toMatch(/n'envoie rien aux appareils et ne modifie rien dans Intune/);
+  });
+
+  it('lists every field the Intune snapshot keeps', () => {
+    const fields = [...assets.slice(assets.indexOf('export function cleanMdm'), assets.indexOf('/** How far ahead'))
+      .matchAll(/^\s{4}([a-z_]+):/gm)].map((m) => m[1]);
+    expect(fields).toEqual(['source', 'id', 'compliance', 'encrypted', 'os', 'os_version', 'last_sync', 'read_at']);
+    const words = {
+      en: { id: 'device identifier', compliance: 'compliance', encrypted: 'encryption', os: 'operating system', os_version: 'version', last_sync: 'last check-in' },
+      fr: { id: "identifiant Intune de l'appareil", compliance: 'conformité', encrypted: 'chiffrement', os: "système d'exploitation", os_version: 'version', last_sync: 'dernière synchronisation' },
+    };
+    for (const [lang, map] of Object.entries(words)) {
+      for (const w of Object.values(map)) expect(copy(lang, 'dpa_s4_item6'), `${lang}: ${w}`).toContain(w);
+    }
+  });
+
+  it('the DPA is version 1.3, and the privacy policy mentions devices and Intune', () => {
+    expect(read('src/pages/LegalPages.jsx')).toMatch(/\{t\('dpa_version'\)\} 1\.3 ·/);
+    expect(copy('en', 'privacy_s2_saas_body')).toMatch(/devices \(model, serial number/);
+    expect(copy('en', 'privacy_s2_saas_body')).toMatch(/Microsoft Intune with a read-only permission/);
+    expect(copy('fr', 'privacy_s2_saas_body')).toMatch(/Microsoft Intune avec une autorisation en lecture seule/);
+  });
+});
