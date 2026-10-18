@@ -81,6 +81,7 @@ export const translations = {
     hf_billing: "Change plan or billing details",
     hf_notifications: "Choose the email alerts and the monthly report",
     hf_export: "Export or delete our data",
+    hf_clear: "Clear the data or the people and start again",
     hf_audit_log: "Download the audit log",
     hf_free_audit: "Find subscriptions in a bank statement (free, no account)",
     // Devices → Microsoft Intune (src/lib/intuneDevices.js, components/IntuneDevicesCard.jsx)
@@ -4021,6 +4022,7 @@ export const translations = {
     hf_billing: "Changer d’offre ou de moyen de paiement",
     hf_notifications: "Choisir les alertes par e-mail et le rapport mensuel",
     hf_export: "Exporter ou supprimer nos données",
+    hf_clear: "Effacer les données ou les personnes et repartir de zéro",
     hf_audit_log: "Télécharger le journal d’audit",
     hf_free_audit: "Trouver les abonnements dans un relevé bancaire (gratuit, sans compte)",
     // Devices → Microsoft Intune (src/lib/intuneDevices.js, components/IntuneDevicesCard.jsx)
@@ -8089,6 +8091,7 @@ export const translations = {
     hf_billing: "Tarif oder Zahlungsdaten ändern",
     hf_notifications: "E-Mail-Warnungen und den Monatsbericht wählen",
     hf_export: "Unsere Daten exportieren oder löschen",
+    hf_clear: "Daten oder Personen löschen und neu beginnen",
     hf_audit_log: "Das Audit-Protokoll herunterladen",
     hf_free_audit: "Abos in einem Kontoauszug finden (kostenlos, ohne Konto)",
     // Devices → Microsoft Intune (src/lib/intuneDevices.js, components/IntuneDevicesCard.jsx)
@@ -9903,6 +9906,7 @@ export const translations = {
     hf_billing: "Cambiar de plan o de datos de pago",
     hf_notifications: "Elegir las alertas por correo y el informe mensual",
     hf_export: "Exportar o eliminar nuestros datos",
+    hf_clear: "Borrar los datos o las personas y empezar de nuevo",
     hf_audit_log: "Descargar el registro de auditoría",
     hf_free_audit: "Encontrar suscripciones en un extracto bancario (gratis, sin cuenta)",
     // Devices → Microsoft Intune (src/lib/intuneDevices.js, components/IntuneDevicesCard.jsx)
@@ -11861,6 +11865,7 @@ export const translations = {
     hf_billing: "Mudar de plano ou de dados de pagamento",
     hf_notifications: "Escolher os alertas por e-mail e o relatório mensal",
     hf_export: "Exportar ou eliminar os nossos dados",
+    hf_clear: "Apagar os dados ou as pessoas e recomeçar",
     hf_audit_log: "Descarregar o registo de auditoria",
     hf_free_audit: "Encontrar subscrições num extrato bancário (grátis, sem conta)",
     // Devices → Microsoft Intune (src/lib/intuneDevices.js, components/IntuneDevicesCard.jsx)

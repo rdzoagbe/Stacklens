@@ -74,6 +74,14 @@ describe('searching the help', () => {
     expect(searchHelp('budget service', t).map((x) => x.key)).toEqual(['hf_budget']);
     expect(searchHelp('zzzz', t)).toEqual([]);
   });
+  it('finds the clear-data buttons by their own name, in every language', () => {
+    const find = (lang, q) => searchHelp(q, (k) => translations[lang][k]).map((x) => x.key);
+    expect(find('en', 'clear')).toContain('hf_clear');
+    expect(find('fr', 'effacer')).toContain('hf_clear');
+    expect(find('de', 'personen')).toContain('hf_clear');
+    expect(find('es', 'borrar')).toContain('hf_clear');
+    expect(find('pt', 'apagar')).toContain('hf_clear');
+  });
   it('finds a task by the screen\'s name too', () => {
     expect(searchHelp('matériel', t).map((x) => x.key)).toContain('hf_device_intune');
   });
