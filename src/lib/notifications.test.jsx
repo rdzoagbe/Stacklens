@@ -37,7 +37,7 @@ describe('each switch is read by the server', () => {
 
   it('each kind of daily alert sits behind its own switch', () => {
     const daily = functionsSrc.slice(functionsSrc.indexOf('exports.dailyAlerts'), functionsSrc.indexOf('const total = alerts.renewals.length'));
-    expect(daily).toMatch(/renewal_alerts !== false\) \{\s*\(data\.tools/);
+    expect(daily).toMatch(/renewal_alerts !== false\) \{[\s\S]{0,200}?for \(const r of renewalAlerts\(data\.tools/);
     expect(daily).toMatch(/budget_alerts === false \? \[\]\s*: \(data\.budgets/);
     expect(daily).toMatch(/access_alerts === false \? \[\] : \(data\.access/);
     expect(daily).toMatch(/device_alerts !== false\) \{\s*for \(const d of deviceCoverageAlerts\(data\.assets/);

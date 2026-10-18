@@ -76,6 +76,7 @@ const {
   allocSpendByDept, spentToDateByDept, reportRecipients, buildMonthlyReport, renderMonthlyReport,
 } = require('./monthly-report.js');
 const { deviceCoverageAlerts, deviceAlertLine } = require('./device-alerts.js');
+const { renewalAlerts } = require('./renewal-alerts.js');
 
 // Explicitly allow stacklens.fr and Firebase preview domains
 const ALLOWED_ORIGINS = [
@@ -2091,19 +2092,9 @@ exports.dailyAlerts = onSchedule({
 
     // 1) Renewals crossing the 30-day and 7-day thresholds (once each).
     if (data?.user?.renewal_alerts !== false) {
-      (data.tools || []).forEach(t => {
-        if (!t.renewal_date || t.renewal_date < todayStr) return;
-        const days = Math.floor((new Date(t.renewal_date) - now) / 86400000);
-        const idBase = `renewal_${t.id || t.name}_${t.renewal_date}`;
-        for (const threshold of [30, 7]) {
-          const key = `${idBase}_${threshold}`;
-          if (days <= threshold && !sentKeys[key] && !newKeys[key]) {
-            newKeys[key] = todayStr;
-            alerts.renewals.push({ name: t.name, date: t.renewal_date, days, annual: (Number(t.cost_per_month) || 0) * 12 });
-            break; // one line per tool per run — the tighter threshold wins
-          }
-        }
-      });
+      // The tightest threshold that applies is sent and settles the looser
+      // one (functions/renewal-alerts.js): one email per renewal per threshold.
+      for (const r of renewalAlerts(data.tools, todayStr, sentKeys, newKeys)) alerts.renewals.push(r);
     }
 
     // 2) Department budgets crossing 80% / 100% consumption (once each per year).

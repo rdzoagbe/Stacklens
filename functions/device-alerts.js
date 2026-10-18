@@ -7,17 +7,12 @@
 // functions/ deploys on its own and cannot import src/, so
 // src/lib/device-alerts-parity.test.js runs both copies on the same devices.
 
+const { THRESHOLDS, daysUntil, dueReminder } = require('./threshold-alerts.js');
+
 /** Days ahead a warranty or lease end is mentioned: 30, then 7. */
-const COVERAGE_THRESHOLDS = [30, 7];
+const COVERAGE_THRESHOLDS = THRESHOLDS;
 /** A device written off or missing needs no reminder (GONE in src/lib/assets.js). */
 const GONE_STATUSES = ['retired', 'lost'];
-
-const DAY_MS = 86400000;
-
-/** Whole days from today (YYYY-MM-DD) to an end date (YYYY-MM-DD). */
-function daysUntil(todayStr, endStr) {
-  return Math.round((Date.parse(`${endStr}T00:00:00Z`) - Date.parse(`${todayStr}T00:00:00Z`)) / DAY_MS);
-}
 
 /** Escape text written into the email's HTML: names and models are typed by people. */
 function escapeHtml(s) {
@@ -36,15 +31,9 @@ function deviceCoverageAlerts(assets, todayStr, sentKeys = {}, newKeys = {}) {
     const end = String(a.coverage_end).slice(0, 10);
     if (end < todayStr) continue;
     const days = daysUntil(todayStr, end);
-    const idBase = `coverage_${a.id || a.serial || a.name}_${end}`;
-    // The tightest threshold that applies today. Sending it also settles the
-    // looser ones: a device first seen 3 days out gets one email, not a
-    // 30-day one today and a 7-day one tomorrow.
-    const applies = [...COVERAGE_THRESHOLDS].sort((x, y) => x - y).find((t) => days <= t);
-    if (applies === undefined) continue;
-    const key = `${idBase}_${applies}`;
-    if (sentKeys[key] || newKeys[key]) continue;
-    for (const t of COVERAGE_THRESHOLDS) if (t >= applies) newKeys[`${idBase}_${t}`] = todayStr;
+    // One line per device per run, for the tightest threshold that applies
+    // (threshold-alerts.js).
+    if (!dueReminder(`coverage_${a.id || a.serial || a.name}_${end}`, days, sentKeys, newKeys, todayStr)) continue;
     out.push({
       name: a.name || a.serial || 'Device',
       type: a.coverage_type === 'lease' ? 'lease' : a.coverage_type === 'warranty' ? 'warranty' : '',
