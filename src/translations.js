@@ -7,6 +7,11 @@ export const translations = {
   en: {
     notif_devices: "Device warranty or lease ending",
     notif_devices_sub: "A laptop, phone or screen whose warranty or lease ends in 30 days, then 7 — sent by email",
+    emp_clear_people: "Clear people",
+    emp_clear_title: "Delete all people?",
+    emp_clear_body: "This deletes {people} person(s) and {access} access record(s), in this browser and in your Stacklens account. It cannot be undone. Tools, devices (with the name of who held them), your plan, settings and audit log are kept.",
+    emp_clear_confirm: "Delete all people",
+    emp_clear_done: "All people and their access deleted",
     // Finding your way: public menu (PublicMenu), landing start cards and modules, page explanations and help (lib/pageHelp.js)
     pm_audit: "Free audit",
     pm_accountants: "Accountants",
@@ -3942,6 +3947,11 @@ export const translations = {
   fr: {
     notif_devices: "Fin de garantie ou de location d’un appareil",
     notif_devices_sub: "Un ordinateur, téléphone ou écran dont la garantie ou la location se termine dans 30 jours, puis 7 — envoyé par e-mail",
+    emp_clear_people: "Effacer les personnes",
+    emp_clear_title: "Supprimer toutes les personnes ?",
+    emp_clear_body: "Cela supprime {people} personne(s) et {access} accès, dans ce navigateur et dans votre compte Stacklens. C'est définitif. Les outils, les appareils (avec le nom de qui les détenait), votre forfait, vos réglages et le journal d'audit sont conservés.",
+    emp_clear_confirm: "Supprimer toutes les personnes",
+    emp_clear_done: "Toutes les personnes et leurs accès ont été supprimés",
     // Finding your way: public menu (PublicMenu), landing start cards and modules, page explanations and help (lib/pageHelp.js)
     pm_audit: "Audit gratuit",
     pm_accountants: "Experts-comptables",
@@ -8005,6 +8015,11 @@ export const translations = {
   de: {
     notif_devices: "Garantie- oder Leasingende eines Geräts",
     notif_devices_sub: "Ein Laptop, Telefon oder Bildschirm, dessen Garantie oder Leasing in 30 Tagen, dann in 7 endet — per E-Mail gesendet",
+    emp_clear_people: "Personen löschen",
+    emp_clear_title: "Alle Personen löschen?",
+    emp_clear_body: "Dies löscht {people} Person(en) und {access} Zugriff(e), in diesem Browser und in Ihrem Stacklens-Konto. Das kann nicht rückgängig gemacht werden. Tools, Geräte (mit dem Namen der Person, die sie hatte), Ihr Tarif, Ihre Einstellungen und das Audit-Protokoll bleiben erhalten.",
+    emp_clear_confirm: "Alle Personen löschen",
+    emp_clear_done: "Alle Personen und ihre Zugriffe wurden gelöscht",
     // Finding your way: public menu (PublicMenu), landing start cards and modules, page explanations and help (lib/pageHelp.js)
     pm_audit: "Kostenloses Audit",
     pm_accountants: "Steuerberater",
@@ -9814,6 +9829,11 @@ export const translations = {
   es: {
     notif_devices: "Fin de garantía o arrendamiento de un dispositivo",
     notif_devices_sub: "Un portátil, teléfono o pantalla cuya garantía o arrendamiento termina en 30 días, luego en 7 — enviado por correo",
+    emp_clear_people: "Borrar personas",
+    emp_clear_title: "¿Eliminar todas las personas?",
+    emp_clear_body: "Esto elimina {people} persona(s) y {access} acceso(s), en este navegador y en su cuenta de Stacklens. No se puede deshacer. Se conservan las herramientas, los dispositivos (con el nombre de quien los tenía), su plan, sus ajustes y el registro de auditoría.",
+    emp_clear_confirm: "Eliminar todas las personas",
+    emp_clear_done: "Se eliminaron todas las personas y sus accesos",
     // Finding your way: public menu (PublicMenu), landing start cards and modules, page explanations and help (lib/pageHelp.js)
     pm_audit: "Auditoría gratuita",
     pm_accountants: "Asesores contables",
@@ -11767,6 +11787,11 @@ export const translations = {
   pt: {
     notif_devices: "Fim de garantia ou aluguer de um dispositivo",
     notif_devices_sub: "Um portátil, telemóvel ou ecrã cuja garantia ou aluguer termina em 30 dias, depois em 7 — enviado por e-mail",
+    emp_clear_people: "Apagar pessoas",
+    emp_clear_title: "Eliminar todas as pessoas?",
+    emp_clear_body: "Isto elimina {people} pessoa(s) e {access} acesso(s), neste navegador e na sua conta Stacklens. Não pode ser anulado. As ferramentas, os dispositivos (com o nome de quem os tinha), o seu plano, as definições e o registo de auditoria são mantidos.",
+    emp_clear_confirm: "Eliminar todas as pessoas",
+    emp_clear_done: "Todas as pessoas e os seus acessos foram eliminados",
     // Finding your way: public menu (PublicMenu), landing start cards and modules, page explanations and help (lib/pageHelp.js)
     pm_audit: "Auditoria gratuita",
     pm_accountants: "Contabilistas",

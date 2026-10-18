@@ -23,7 +23,7 @@ let root;
 
 const full = { tools: [{ id: 't1', name: 'Slack' }, { id: 't2', name: 'Notion' }], employees: [{ id: 'e1', full_name: 'Ana' }], access: [{ id: 'a1' }, { id: 'a2' }, { id: 'a3' }] };
 
-async function mount({ role = 'owner', demo = false, data = full, shared = null } = {}) {
+async function mount({ role = 'owner', demo = false, data = full, shared = null, scope } = {}) {
   const db = { user: { is_authenticated: true, is_demo: demo, plan: 'pro', role, budget_cap: 900 }, audit_log: [], ...data, ...(shared ? { _shared_view: shared } : {}) };
   localStorage.clear();
   localStorage.setItem('accessguard_v1', JSON.stringify(db));
@@ -31,7 +31,7 @@ async function mount({ role = 'owner', demo = false, data = full, shared = null 
   document.body.appendChild(host);
   root = createRoot(host);
   await act(async () => {
-    root.render(<QueryClientProvider client={new QueryClient()}><MemoryRouter><ClearDataButton db={db} uid="u1" t={t} /></MemoryRouter></QueryClientProvider>);
+    root.render(<QueryClientProvider client={new QueryClient()}><MemoryRouter><ClearDataButton db={db} uid="u1" t={t} scope={scope} /></MemoryRouter></QueryClientProvider>);
   });
 }
 const settle = async () => { for (let i = 0; i < 20; i++) await act(async () => { await new Promise((r) => setTimeout(r, 0)); }); };
@@ -96,5 +96,48 @@ describe('Clear data on the dashboard', () => {
 
   it('reads in French', async () => {
     expect(translations.fr.dash_clear_data).toBe('Effacer les données');
+  });
+});
+
+// ── Employees → Clear people ───────────────────────────────────────────────
+
+describe('Clear people on the Employees page', () => {
+  it('asks first, counting people and access only', async () => {
+    await mount({ scope: 'people' });
+    await click(button(/^Clear people$/));
+    const dialog = document.querySelector('[data-testid="clear-data-dialog"]');
+    expect(dialog.textContent).toContain('1 person(s) and 3 access record(s)');
+    expect(dialog.textContent).toMatch(/Tools, devices/);
+    expect(loadDb().employees).toHaveLength(1);
+  });
+
+  it('deletes people and access, keeps tools and devices, logs it and saves to the cloud', async () => {
+    await mount({ scope: 'people', data: { ...full, assets: [{ id: 'd1', name: 'Mac', assigned_name: 'Ana' }] } });
+    await click(button(/^Clear people$/));
+    await click(button(/^Delete all people$/));
+    const db = loadDb();
+    expect(db.employees).toEqual([]);
+    expect(db.access).toEqual([]);
+    expect(db.tools).toHaveLength(2);
+    expect(db.assets).toHaveLength(1);
+    expect(db.audit_log.at(-1)).toMatchObject({ action: 'data.deleted' });
+    expect(saveUserData).toHaveBeenCalledWith('u1', expect.objectContaining({ employees: [], tools: full.tools }));
+    expect(toast.success).toHaveBeenCalledWith('All people and their access deleted');
+  });
+
+  it('not offered with no people and no access, even when there are tools, nor to an editor', async () => {
+    for (const opts of [{ data: { tools: full.tools, employees: [], access: [] } }, { role: 'editor' }]) {
+      await mount({ scope: 'people', ...opts });
+      expect(button(/^Clear people$/), JSON.stringify(opts)).toBeUndefined();
+      await act(async () => root.unmount()); root = null; document.body.innerHTML = '';
+    }
+  });
+
+  it('is on the Employees page, and every language has its words', async () => {
+    const { readFileSync } = await import('node:fs');
+    expect(readFileSync('src/pages/EmployeesPage.jsx', 'utf8')).toMatch(/<ClearDataButton db=\{db\} uid=\{firebaseUser\?\.uid\} t=\{t\} scope="people" \/>/);
+    for (const lang of ['en', 'fr', 'de', 'es', 'pt']) {
+      for (const k of ['emp_clear_people', 'emp_clear_title', 'emp_clear_body', 'emp_clear_confirm', 'emp_clear_done']) expect(translations[lang][k], `${lang}.${k}`).toBeTruthy();
+    }
   });
 });

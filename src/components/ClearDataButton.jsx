@@ -15,39 +15,48 @@ import { clearCounts, clearWorkspaceData } from '../lib/clearData';
 // admin), in their own workspace, when there is something to delete, behind a
 // dialog that says what goes and offers the export first. The deletion itself
 // is Settings → Data's (lib/clearData.js): audit entry, cloud copy awaited.
+//
+// The Employees page shows the same button with scope="people" ("Clear
+// people"): people and their access go, tools stay, as in Settings → Data.
 
-export function ClearDataButton({ db, uid, t }) {
+const WORDS = {
+  all: { button: 'dash_clear_data', title: 'dash_clear_title', body: 'dash_clear_body', confirm: 'dash_clear_confirm', done: 'dash_clear_done' },
+  people: { button: 'emp_clear_people', title: 'emp_clear_title', body: 'emp_clear_body', confirm: 'emp_clear_confirm', done: 'emp_clear_done' },
+};
+
+export function ClearDataButton({ db, uid, t, scope = 'all' }) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
-  const counts = clearCounts(db, 'all');
-  const total = counts.tools + counts.employees + counts.access;
+  const words = WORDS[scope];
+  const counts = clearCounts(db, scope);
+  const total = Object.values(counts).reduce((a, b) => a + b, 0);
   if (db?.user?.is_demo || getSharedView() || !hasRole('admin') || total === 0) return null;
 
   const clear = async () => {
     setBusy(true);
-    const r = await clearWorkspaceData({ uid, scope: 'all' });
+    const r = await clearWorkspaceData({ uid, scope });
     qc.invalidateQueries({ queryKey: ['db'] });
     setBusy(false);
     setOpen(false);
     if (r.cloudFailed) toast.error(t('set_del_cloud_error'), { duration: 8000 });
-    else toast.success(t('dash_clear_done'));
+    else toast.success(t(words.done));
   };
 
   return (
     <>
       <Button variant="secondary" size="sm" onClick={() => setOpen(true)}>
-        <Trash2 className="h-3.5 w-3.5" />{t('dash_clear_data')}
+        <Trash2 className="h-3.5 w-3.5" />{t(words.button)}
       </Button>
-      <Modal open={open} title={t('dash_clear_title')} onClose={() => !busy && setOpen(false)}
+      <Modal open={open} title={t(words.title)} onClose={() => !busy && setOpen(false)}
         footer={
           <div className="flex flex-wrap justify-end gap-2">
             <Button variant="secondary" onClick={() => setOpen(false)} disabled={busy}>{t('ws_cancel')}</Button>
-            <Button variant="danger" onClick={clear} disabled={busy}>{busy ? t('dash_clear_busy') : t('dash_clear_confirm')}</Button>
+            <Button variant="danger" onClick={clear} disabled={busy}>{busy ? t('dash_clear_busy') : t(words.confirm)}</Button>
           </div>
         }>
         <div className="space-y-3 text-sm text-slate-300" data-testid="clear-data-dialog">
-          <p>{t('dash_clear_body').replace('{tools}', counts.tools).replace('{people}', counts.employees).replace('{access}', counts.access)}</p>
+          <p>{t(words.body).replace('{tools}', counts.tools).replace('{people}', counts.employees).replace('{access}', counts.access)}</p>
           <p className="text-xs text-slate-400">
             {t('dash_clear_export')}{' '}
             <Link to="/settings?tab=data" className="underline text-blue-300 hover:text-blue-200" onClick={() => setOpen(false)}>{t('dash_clear_export_link')}</Link>
