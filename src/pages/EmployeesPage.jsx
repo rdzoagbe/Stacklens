@@ -12,6 +12,8 @@ import { useTranslation } from '../translations';
 import { Button, Input, Select, Modal } from '../components/ui';
 import { RoleGate } from '../components/gates';
 import { AppShell } from '../components/AppShell';
+import { ClearDataButton } from '../components/ClearDataButton';
+import { useAuth } from '../hooks/useAuth';
 import { ArrowLeft, Search, Plus, Pencil, Trash2, Check, Users, UserMinus, X } from 'lucide-react';
 
 // ── Directory Sync Banner ─────────────────────────────────────────────────────
@@ -174,6 +176,7 @@ const STATUS_KEY = { active: 'st_active', offboarding: 'st_offboarding', offboar
 
 export function EmployeesPage() {
   const { data: db, isLoading } = useDbQuery();
+  const { firebaseUser } = useAuth();
   const { language } = useLang();
   const t = useTranslation(language);
   const muts = useDbMutations();
@@ -289,6 +292,8 @@ export function EmployeesPage() {
       title={t('nav_employees')}
       right={
         <div className="flex gap-2">
+          {/* Owner or admin, own workspace, outside the demo, when there are people (ClearDataButton). */}
+          {db && <ClearDataButton db={db} uid={firebaseUser?.uid} t={t} scope="people" />}
           <RoleGate requires="editor">
             <Button variant="secondary" onClick={() => { setEditing(null); setOpen(true); }}>
               <Plus className="h-4 w-4" />{t('add_employee')}
