@@ -241,7 +241,7 @@ A **deterrent, not a lock**: a web page cannot stop the system's screenshot or r
 
 ### Notification switches (`src/lib/notifications.js`)
 
-Settings → Notifications shows only switches that change an email: each entry in `NOTIFICATION_SWITCHES` names the `db.user` field `dailyAlerts` / `weeklySummary` check (`renewal_alerts`, `budget_alerts`, `access_alerts`, `weekly_summary`). `notifications.test.jsx` fails if a switch has no server reader or a daily alert kind has no switch. Never add a switch for an email that does not exist.
+Settings → Notifications shows only switches that change an email: each entry in `NOTIFICATION_SWITCHES` names the `db.user` field `dailyAlerts` / `weeklySummary` check (`renewal_alerts`, `budget_alerts`, `access_alerts`, `weekly_summary`, `device_alerts`). `device_alerts` mails warranty and lease ends from the hardware register at 30 and 7 days (`functions/device-alerts.js`, the server twin of `coverageEnding`; `device-alerts-parity.test.js` runs both on the same devices): one email per threshold, and a device first seen inside 7 days gets one email, not two. `notifications.test.jsx` fails if a switch has no server reader or a daily alert kind has no switch. Never add a switch for an email that does not exist.
 
 ### Monthly report to management (`functions/monthly-report.js`)
 

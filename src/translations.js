@@ -5,6 +5,8 @@
 
 export const translations = {
   en: {
+    notif_devices: "Device warranty or lease ending",
+    notif_devices_sub: "A laptop, phone or screen whose warranty or lease ends in 30 days, then 7 — sent by email",
     // Finding your way: public menu (PublicMenu), landing start cards and modules, page explanations and help (lib/pageHelp.js)
     pm_audit: "Free audit",
     pm_accountants: "Accountants",
@@ -3938,6 +3940,8 @@ export const translations = {
     privacy_s3_brevo_purpose: "Email delivery (optional feature, only when configured)",
   },
   fr: {
+    notif_devices: "Fin de garantie ou de location d’un appareil",
+    notif_devices_sub: "Un ordinateur, téléphone ou écran dont la garantie ou la location se termine dans 30 jours, puis 7 — envoyé par e-mail",
     // Finding your way: public menu (PublicMenu), landing start cards and modules, page explanations and help (lib/pageHelp.js)
     pm_audit: "Audit gratuit",
     pm_accountants: "Experts-comptables",
@@ -7999,6 +8003,8 @@ export const translations = {
     privacy_s3_brevo_purpose: "Envoi d'e-mails (fonction optionnelle, uniquement si configuré)",
   },
   de: {
+    notif_devices: "Garantie- oder Leasingende eines Geräts",
+    notif_devices_sub: "Ein Laptop, Telefon oder Bildschirm, dessen Garantie oder Leasing in 30 Tagen, dann in 7 endet — per E-Mail gesendet",
     // Finding your way: public menu (PublicMenu), landing start cards and modules, page explanations and help (lib/pageHelp.js)
     pm_audit: "Kostenloses Audit",
     pm_accountants: "Steuerberater",
@@ -9806,6 +9812,8 @@ export const translations = {
     exit_demo: "Demo verlassen",
   },
   es: {
+    notif_devices: "Fin de garantía o arrendamiento de un dispositivo",
+    notif_devices_sub: "Un portátil, teléfono o pantalla cuya garantía o arrendamiento termina en 30 días, luego en 7 — enviado por correo",
     // Finding your way: public menu (PublicMenu), landing start cards and modules, page explanations and help (lib/pageHelp.js)
     pm_audit: "Auditoría gratuita",
     pm_accountants: "Asesores contables",
@@ -11757,6 +11765,8 @@ export const translations = {
     exit_demo: "Salir de la demo",
   },
   pt: {
+    notif_devices: "Fim de garantia ou aluguer de um dispositivo",
+    notif_devices_sub: "Um portátil, telemóvel ou ecrã cuja garantia ou aluguer termina em 30 dias, depois em 7 — enviado por e-mail",
     // Finding your way: public menu (PublicMenu), landing start cards and modules, page explanations and help (lib/pageHelp.js)
     pm_audit: "Auditoria gratuita",
     pm_accountants: "Contabilistas",

@@ -40,8 +40,9 @@ describe('each switch is read by the server', () => {
     expect(daily).toMatch(/renewal_alerts !== false\) \{\s*\(data\.tools/);
     expect(daily).toMatch(/budget_alerts === false \? \[\]\s*: \(data\.budgets/);
     expect(daily).toMatch(/access_alerts === false \? \[\] : \(data\.access/);
-    // Three kinds of alert, three pushes, nothing else sent.
-    expect([...daily.matchAll(/alerts\.(\w+)\.push/g)].map((m) => m[1]).sort()).toEqual(['budgets', 'renewals', 'security']);
+    expect(daily).toMatch(/device_alerts !== false\) \{\s*for \(const d of deviceCoverageAlerts\(data\.assets/);
+    // Four kinds of alert, four pushes, nothing else sent.
+    expect([...daily.matchAll(/alerts\.(\w+)\.push/g)].map((m) => m[1]).sort()).toEqual(['budgets', 'devices', 'renewals', 'security']);
   });
 
   it('every switch has its words in English and French', () => {
