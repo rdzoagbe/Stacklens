@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   cleanAsset, isoDate, serialKey, holderOf, holderFields, assetsHeldBy, devicesToReturn,
   coverageState, coverageEnding, assetSummary, assetsFromCsv, mergeAssets,
+  assetsToCsv, assetsCsvFile, ASSET_EXPORT_COLUMNS, ASSET_CSV_BOM,
   ASSET_CSV_TEMPLATE, ASSET_KINDS, ASSET_STATUSES,
 } from './assets';
 import { parseCsv } from './dataUtils';
@@ -219,5 +220,51 @@ describe('merging an import into the register', () => {
     const before = JSON.stringify(existing);
     mergeAssets(existing, assetsFromCsv(parseCsv('serial,status\nC02XK1,retired\n'), people).records, makeId);
     expect(JSON.stringify(existing)).toBe(before);
+  });
+});
+
+// ── CSV export: the register as a spreadsheet, and back ────────────────────
+
+describe('exporting the register', () => {
+  const people = [{ id: 'e1', full_name: 'Jane Doe', email: 'jane@company.com' }];
+  const register = [
+    cleanAsset({ name: 'MacBook Air 13, M3', kind: 'laptop', serial: 'C02XK1', assigned_to: 'e1', assigned_name: 'Jane Doe', assigned_email: 'jane@company.com', purchase_date: '2025-02-10', purchase_cost: 1299.5, coverage_type: 'warranty', coverage_end: '2027-02-10', notes: 'Said "fragile"; keep the box' }),
+    cleanAsset({ name: 'iPhone 15', kind: 'phone', serial: 'F2LXK9', status: 'in_stock', purchase_cost: 969, coverage_type: 'lease', coverage_end: '2026-09-20' }),
+    cleanAsset({ name: 'Old tablet', kind: 'tablet', serial: 'T1', status: 'retired' }),
+  ];
+  // The fields the import reads back: everything but the record's id.
+  const comparable = (a) => ({ name: a.name, kind: a.kind, serial: a.serial, status: a.status, assigned_to: a.assigned_to,
+    assigned_email: a.assigned_email, purchase_date: a.purchase_date, purchase_cost: a.purchase_cost,
+    coverage_type: a.coverage_type, coverage_end: a.coverage_end, notes: a.notes });
+
+  it.each(['en', 'fr', 'de'])('an exported file (%s) imports back to the same devices', (lang) => {
+    const { text } = assetsCsvFile(register, lang, '2026-10-19');
+    const { records, skipped, unmatched } = assetsFromCsv(parseCsv(text), people);
+    expect([skipped, unmatched]).toEqual([0, 0]);
+    expect(records.map(comparable)).toEqual(register.map(comparable));
+  });
+
+  it('English: commas and points; elsewhere: semicolons, decimal commas and the byte-order mark', () => {
+    const en = assetsToCsv(register, 'en').split('\n');
+    expect(en[0]).toBe(ASSET_EXPORT_COLUMNS.join(','));
+    expect(en[1]).toContain(',1299.5,');
+    expect(en[1]).toContain('"MacBook Air 13, M3"');
+    const fr = assetsCsvFile(register, 'fr', '2026-10-19');
+    expect(fr.filename).toBe('stacklens_devices_2026-10-19.csv');
+    expect(fr.text.startsWith(ASSET_CSV_BOM)).toBe(true);
+    expect(fr.text.split('\n')[1]).toContain(';1299,5;');
+    expect(assetsCsvFile(register, 'en', 'x').text.startsWith(ASSET_CSV_BOM)).toBe(false);
+  });
+
+  it('a name that would run as a spreadsheet formula is written as text', () => {
+    const csv = assetsToCsv([cleanAsset({ name: '=HYPERLINK("http://x","y")', serial: '+1', notes: '@sum' })], 'en');
+    const row = parseCsv(csv)[0];
+    expect(row.name).toBe('\'=HYPERLINK("http://x","y")');
+    expect(row.serial).toBe("'+1");
+    expect(row.notes).toBe("'@sum");
+  });
+
+  it('an empty register is a header and nothing else', () => {
+    expect(assetsToCsv([], 'en')).toBe(`${ASSET_EXPORT_COLUMNS.join(',')}\n`);
   });
 });

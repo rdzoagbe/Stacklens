@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import toast from 'react-hot-toast';
-import { Boxes, Download, FileJson, Users } from 'lucide-react';
+import { Boxes, Download, FileJson, Laptop, Users } from 'lucide-react';
 import { deleteAccount, signOutUser, createBillingPortal } from '../../firebase-config';
 import { todayISO, getSharedView } from '../../lib/db';
 import { toCsv, downloadText } from '../../lib/dataUtils';
 import { downloadWorkspaceExport } from '../../lib/workspace-export';
+import { assetsCsvFile } from '../../lib/assets';
+import { useLang } from '../../contexts/LangContext';
 import { clearWorkspaceData } from '../../lib/clearData';
 import { track } from '../../lib/analytics';
 import { Card, CardHeader, CardBody, Modal, Button, Input } from '../../components/ui';
@@ -87,6 +89,7 @@ function DeleteAccountModal({ open, onClose, email, t }) {
 }
 
 export function DataTab({ db, firebaseUser, isDemo, qc, t }) {
+  const { language } = useLang();
   const [deleting, setDeleting] = useState(false);
   return (
     <div className="space-y-4">
@@ -133,6 +136,18 @@ export function DataTab({ db, firebaseUser, isDemo, qc, t }) {
                   )), 300);
                   toast.success(t('set_emp_exported'));
                   track('report_exported', { type: 'employees_access' });
+                },
+              },
+              {
+                // The hardware register, in the same columns its import reads.
+                label: t('set_devices'),
+                desc: t('set_devices_desc'),
+                icon: Laptop,
+                onClick: () => {
+                  const { filename, text } = assetsCsvFile(db?.assets || [], language, todayISO());
+                  downloadText(filename, text);
+                  toast.success(t('dev_exported').replace('{n}', (db?.assets || []).length));
+                  track('report_exported', { type: 'devices' });
                 },
               },
               {
