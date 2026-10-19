@@ -58,6 +58,7 @@ export const HELP_TASKS = [
   { key: 'hf_billing', to: '/settings?tab=billing', page: 'nav_settings' },
   { key: 'hf_notifications', to: '/settings?tab=notifications', page: 'nav_settings' },
   { key: 'hf_export', to: '/settings?tab=data', page: 'nav_settings' },
+  { key: 'hf_clear', to: '/settings?tab=data', page: 'nav_settings' },
   { key: 'hf_audit_log', to: '/settings?tab=data', page: 'nav_settings' },
   { key: 'hf_free_audit', to: '/audit-saas', page: 'pm_audit' },
 ];
