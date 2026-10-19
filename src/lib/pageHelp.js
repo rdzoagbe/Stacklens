@@ -52,6 +52,7 @@ export const HELP_TASKS = [
   { key: 'hf_device_return', to: '/devices', page: 'nav_devices' },
   { key: 'hf_device_intune', to: '/devices', page: 'nav_devices' },
   { key: 'hf_device_warranty', to: '/devices', page: 'nav_devices' },
+  { key: 'hf_device_export', to: '/devices', page: 'nav_devices' },
   { key: 'hf_security', to: '/security', page: 'nav_security' },
   { key: 'hf_integrations', to: '/settings?tab=integrations', page: 'nav_settings' },
   { key: 'hf_invite', to: '/settings?tab=team', page: 'nav_settings' },

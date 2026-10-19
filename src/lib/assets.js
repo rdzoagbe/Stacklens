@@ -349,6 +349,50 @@ export function mergeAssets(existing = [], records = [], makeId) {
   return { assets: out, created, updated };
 }
 
+// ── CSV export ──────────────────────────────────────────────────────────────
+//
+// The register as a spreadsheet, for the fixed-asset register, the insurer or
+// the auditor. The columns are the import template's, plus the holder's name
+// for whoever reads it; the import ignores that one and finds the holder by
+// email, so an exported file goes back in unchanged (assets.test.js).
+
+/** The export's columns, in order. */
+export const ASSET_EXPORT_COLUMNS = ['name', 'kind', 'serial', 'assigned_email', 'assigned_name', 'status',
+  'purchase_date', 'purchase_cost', 'coverage_type', 'coverage_end', 'notes'];
+
+/** Byte-order mark: French Excel needs it to read the accents of a semicolon file. */
+export const ASSET_CSV_BOM = '﻿';
+
+/**
+ * The register as CSV. English keeps commas and decimal points; any other
+ * language gets semicolons and decimal commas, which French Excel opens as
+ * columns and numbers (the import reads both). Text a person or Intune typed
+ * that begins with = + - @ is prefixed with ' so a spreadsheet shows it
+ * instead of running it as a formula.
+ */
+export function assetsToCsv(assets = [], language = 'en') {
+  const sep = !language || language === 'en' ? ',' : ';';
+  const esc = (v, field) => {
+    let s;
+    if (field === 'purchase_cost') {
+      s = Number(v) > 0 ? String(Math.round(Number(v) * 100) / 100) : '';
+      if (sep === ';') s = s.replace('.', ',');
+    } else {
+      s = str(v);
+      if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
+    }
+    return /["\n\r]/.test(s) || s.includes(sep) || (sep === ',' && s.includes(';')) ? `"${s.replaceAll('"', '""')}"` : s;
+  };
+  const rows = (assets || []).filter(Boolean).map((a) => ASSET_EXPORT_COLUMNS.map((c) => esc(a[c], c)).join(sep));
+  return `${[ASSET_EXPORT_COLUMNS.join(sep), ...rows].join('\n')}\n`;
+}
+
+/** The file to download: name and content (with the mark outside English). */
+export function assetsCsvFile(assets, language, today) {
+  const text = assetsToCsv(assets, language);
+  return { filename: `stacklens_devices_${today}.csv`, text: !language || language === 'en' ? text : ASSET_CSV_BOM + text };
+}
+
 /** The CSV template the import offers, every column optional but one of name/serial. */
 export const ASSET_CSV_TEMPLATE =
   'name,kind,serial,assigned_email,status,purchase_date,purchase_cost,coverage_type,coverage_end,notes\n'

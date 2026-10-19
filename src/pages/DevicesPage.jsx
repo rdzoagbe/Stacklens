@@ -9,10 +9,11 @@ import { useDbQuery, useDbMutations } from '../hooks/useDbQuery';
 import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
 import { formatMoney } from '../lib/currency';
+import { todayISO } from '../lib/db';
 import { downloadText, parseCsv } from '../lib/dataUtils';
 import {
   ASSET_KINDS, ASSET_STATUSES, COVERAGE_TYPES, COVERAGE_SOON_DAYS, ASSET_CSV_TEMPLATE,
-  assetSummary, assetsFromCsv, coverageEnding, coverageState, devicesToReturn, holderFields, holderOf, mdmConcerns,
+  assetSummary, assetsCsvFile, assetsFromCsv, coverageEnding, coverageState, devicesToReturn, holderFields, holderOf, mdmConcerns,
 } from '../lib/assets';
 import { Button, Input, Modal, Select, SkeletonRow, Textarea } from '../components/ui';
 import { RoleGate, hasRole } from '../components/gates';
@@ -212,6 +213,11 @@ export function DevicesPage() {
   const [importOpen, setImportOpen] = useState(false);
 
   const money = (n) => formatMoney(n, language);
+  const exportCsv = () => {
+    const { filename, text } = assetsCsvFile(assets, language, todayISO());
+    downloadText(filename, text);
+    toast.success(t('dev_exported').replace('{n}', assets.length));
+  };
   const fmtDate = (d) => (d ? new Date(`${d}T00:00:00`).toLocaleDateString(LOCALE_TAG[language] || 'en-GB') : '—');
   const holderLabel = (a) => {
     const p = holderOf(a, employees);
@@ -265,16 +271,24 @@ export function DevicesPage() {
     <AppShell
       title={t('nav_devices')}
       right={(
-        <RoleGate requires="editor">
-          <div className="flex gap-2">
-            <Button variant="secondary" onClick={() => setImportOpen(true)}>
-              <Upload className="h-4 w-4" /> {t('dev_import')}
+        <div className="flex gap-2">
+          {/* Everyone who can read the register can take it away as a spreadsheet. */}
+          {assets.length > 0 && (
+            <Button variant="secondary" onClick={exportCsv}>
+              <Download className="h-4 w-4" /> {t('dev_export')}
             </Button>
-            <Button onClick={openNew}>
-              <Plus className="h-4 w-4" /> {t('dev_add')}
-            </Button>
-          </div>
-        </RoleGate>
+          )}
+          <RoleGate requires="editor">
+            <div className="flex gap-2">
+              <Button variant="secondary" onClick={() => setImportOpen(true)}>
+                <Upload className="h-4 w-4" /> {t('dev_import')}
+              </Button>
+              <Button onClick={openNew}>
+                <Plus className="h-4 w-4" /> {t('dev_add')}
+              </Button>
+            </div>
+          </RoleGate>
+        </div>
       )}
     >
       <div className="space-y-6">

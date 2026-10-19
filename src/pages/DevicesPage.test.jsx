@@ -10,10 +10,12 @@ vi.mock('../firebase-config', () => ({
   workspaceWrite: vi.fn().mockResolvedValue({ ok: true }), workspaceRead: vi.fn().mockResolvedValue({ data: {} }),
 }));
 vi.mock('../lib/analytics', () => ({ track: vi.fn() }));
+vi.mock('../lib/dataUtils', async (importOriginal) => ({ ...(await importOriginal()), downloadText: vi.fn() }));
 vi.mock('react-hot-toast', () => ({ default: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }) }));
 vi.mock('../components/AppShell', () => ({ AppShell: ({ children, right }) => <div>{right}{children}</div> }));
 
 import { loadDb } from '../lib/db';
+import { downloadText, parseCsv } from '../lib/dataUtils';
 import { DevicesPage } from './DevicesPage';
 import { OffboardingPage } from './OffboardingPage';
 
@@ -139,6 +141,19 @@ describe('the Devices page', () => {
     expect(byText('Add a device')).toBeUndefined();
     expect(byText('Import CSV')).toBeUndefined();
     expect(byText('Mark returned')).toBeUndefined();
+  });
+
+  it('anyone who reads the register can export it, and the file holds every device', async () => {
+    seed({ role: 'viewer' }); await mount(<DevicesPage />);
+    await click(byText('Export CSV'));
+    const [filename, text] = downloadText.mock.calls.at(-1);
+    expect(filename).toMatch(/^stacklens_devices_\d{4}-\d{2}-\d{2}\.csv$/);
+    expect(parseCsv(text).map((r) => r.serial).sort()).toEqual(stored().map((a) => a.serial).sort());
+  });
+
+  it('no export button while the register is empty', async () => {
+    seed({ assets: [] }); await mount(<DevicesPage />);
+    expect(byText('Export CSV')).toBeUndefined();
   });
 });
 
