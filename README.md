@@ -118,7 +118,7 @@ Read this section before changing `firestore.rules` or `functions/index.js`.
 
 **The rules are the entire multi-tenant boundary.** Everything separating one
 customer's employee directory from another's is in that one file. It is covered
-by 49 tests (`npm run test:rules`) which run in CI, and those tests have been
+by 53 tests (`npm run test:rules`) which run in CI, and those tests have been
 verified to fail against deliberately broken rules — they are not decorative.
 
 - `/userdata/{uid}` and its `chunks` subcollection — owner only. Rules do not
@@ -229,8 +229,8 @@ Two things that will bite you:
 
 ## Status
 
-Early access. The product works end to end and the codebase is covered by 147
-unit tests plus 40 security-rules tests in CI, but there is no paying customer
+Early access. The product works end to end and the codebase is covered by a
+unit-test suite and the security-rules tests (see above) in CI, but there is no paying customer
 yet, and directory sync for Google Workspace is pending Google's OAuth
 verification (Restricted scopes, which require a CASA assessment).
 

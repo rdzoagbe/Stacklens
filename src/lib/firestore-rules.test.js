@@ -404,6 +404,35 @@ describe('a new signup can start their trial', () => {
 // sign-in has no email claim. So the one account the UID fallback was written
 // for is the account whose token makes the check before it throw — and an
 // error short-circuits the `||` before the fallback is ever reached.
+// The founder's email address opens the user list and plan writes, so it counts
+// only when Firebase has verified it. Without the check, someone who signs up
+// with email and password under that address, and never proves the mailbox,
+// would carry the same email claim as the founder.
+describe('the founder email must be verified', () => {
+  const OTHER = 'uid_someone_else';
+  const asEmail = (verified) => testEnv.authenticatedContext(OTHER, { email: FOUNDER_EMAIL, email_verified: verified }).firestore();
+
+  it('an unverified account with the founder\u2019s address is not the founder', async () => {
+    await assertFails(getDocs(collection(asEmail(false), 'users')));
+    await admin((db) => setDoc(doc(db, 'users', ALICE), { plan: 'free' }));
+    await assertFails(updateDoc(doc(asEmail(false), 'users', ALICE), { plan: 'enterprise' }));
+  });
+
+  it('a token with no email_verified claim at all is not the founder either', async () => {
+    const noClaim = testEnv.authenticatedContext(OTHER, { email: FOUNDER_EMAIL }).firestore();
+    await assertFails(getDocs(collection(noClaim, 'users')));
+  });
+
+  it('a verified account with the founder\u2019s address is', async () => {
+    await assertSucceeds(getDocs(collection(asEmail(true), 'users')));
+  });
+
+  it('the founder by uid is unaffected, verified or not', async () => {
+    const byUid = testEnv.authenticatedContext(FOUNDER_UID, { email: FOUNDER_EMAIL, email_verified: false }).firestore();
+    await assertSucceeds(getDocs(collection(byUid, 'users')));
+  });
+});
+
 describe('rules survive a token with no email claim', () => {
   const noEmail = () => testEnv.authenticatedContext('uid_no_email').firestore();
 

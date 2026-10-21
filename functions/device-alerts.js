@@ -8,16 +8,12 @@
 // src/lib/device-alerts-parity.test.js runs both copies on the same devices.
 
 const { THRESHOLDS, daysUntil, dueReminder } = require('./threshold-alerts.js');
+const { escapeHtml } = require('./html-escape.js');
 
 /** Days ahead a warranty or lease end is mentioned: 30, then 7. */
 const COVERAGE_THRESHOLDS = THRESHOLDS;
 /** A device written off or missing needs no reminder (GONE in src/lib/assets.js). */
 const GONE_STATUSES = ['retired', 'lost'];
-
-/** Escape text written into the email's HTML: names and models are typed by people. */
-function escapeHtml(s) {
-  return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-}
 
 /**
  * The devices to mention today. `sentKeys` is what earlier emails already said
