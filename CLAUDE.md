@@ -150,7 +150,9 @@ All routes are in `src/App.jsx`. Public routes: `/` and legal pages (`/privacy`,
 
 **There are no `/pricing` or `/features` routes** — unknown paths hit `<NotFound>` which redirects to `/`.
 
-Redirects: `/integrations` → `/settings`, `/billing` → `/settings`, `/analytics` → `/finance`, `/licenses` → `/finance`, `/renewals` → `/finance`, `/invoices` → `/finance`, `/contracts` → `/finance`.
+Redirects: `/integrations` → `/settings?tab=integrations`, `/billing` → `/settings?tab=billing`, `/analytics` → `/finance`, `/licenses` → `/finance`, `/renewals` → `/finance`, `/invoices` → `/finance`, `/contracts` → `/finance`.
+
+**A button that opens a Settings tab links to `/settings?tab=…`** (`VALID_TABS` in `SettingsPage.jsx`), never navigates and then clicks the tab on a timer: Settings is loaded on demand, so the timer fired before the page existed and people landed on General. `settings-links.test.js` fails on a timer click, on a bare `/settings` link and on a tab Settings does not have.
 
 Also routed and previously undocumented: `/cost`, `/executive`, `/import`, `/founder-admin`.
 
