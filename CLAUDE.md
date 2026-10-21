@@ -171,6 +171,8 @@ The root cause of both outages was the reCAPTCHA **secret** field in Firebase Co
 
 **Rollback if sign-in breaks:** set the flag to `false` and `firebase deploy --only hosting`. That is the whole undo.
 
+**A failed sign-in says why.** Every sign-in function in `firebase-config.js` returns `authFail(provider, error)`, which logs `[sign-in] <provider> failed: <code> <reason>` to the console (emails and long tokens scrubbed; a closed popup is not logged) and keeps the provider's explanation (an `AADSTS…` number or an OAuth2 error word) with the message. `authErrorMessage(raw, t, { sso })` builds the sentence the sign-in screen shows: the generic one, and for the Google and Microsoft buttons "Wrong email or password." too, carry `(code · reason)`; every other named failure keeps its own sentence. That is how an expired Azure client secret (stored in Firebase Console, not in the repo) is told from a wrong password. `auth-diagnostics.test.js` holds it, including that no sign-in function returns the bare message and that the screen never calls `t(authErrorKey(…))` by hand.
+
 **Enforcement is a separate switch**, per service, under Firebase Console → App Check → APIs. The flag only makes the client *send* tokens; nothing is rejected for lacking one until enforcement is turned on there. Watch the verified/unverified split first.
 
 ### Cloud Functions

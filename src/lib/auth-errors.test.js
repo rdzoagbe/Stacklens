@@ -122,7 +122,7 @@ describe('a failed Google sign-in releases the button', () => {
     const at = page().indexOf("if (provider.id === 'google')");
     const branch = page().slice(at, page().indexOf("provider.id === 'microsoft'"));
     expect(branch, 'Google must use the same mapper as Microsoft — one screen, ' +
-      'one behaviour').toMatch(/authErrorKey\(error\)/);
+      'one behaviour (authErrorMessage maps through authErrorKey)').toMatch(/authErrorMessage\(error, t/);
   });
 
   it('login no longer builds a message it cannot translate', () => {
@@ -143,7 +143,7 @@ describe('a failed Google sign-in releases the button', () => {
     const google = src.slice(googleAt, msAt);
     const ms = src.slice(msAt, src.indexOf("provider.id === 'magic'"));
     for (const [name, branch] of [['google', google], ['microsoft', ms]]) {
-      expect(branch, `the ${name} branch must map its error`).toMatch(/authErrorKey/);
+      expect(branch, `the ${name} branch must map its error`).toMatch(/authErrorMessage/);
       expect(branch, `the ${name} branch must clear loading`).toMatch(/setLoading\(false\)/);
     }
   });
