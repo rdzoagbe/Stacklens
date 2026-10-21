@@ -397,8 +397,67 @@ export async function signInWithGoogleWorkspace() {
     const credential = GoogleAuthProvider.credentialFromResult(result);
     return { accessToken: credential?.accessToken || null, error: null };
   } catch (error) {
-    return { accessToken: null, error: error.message };
+    return { accessToken: null, error: authFail('google-workspace', error) };
   }
+}
+
+// ── What a failed sign-in tells you ─────────────────────────────────────────
+//
+// Every failure the table in authErrorKey does not name used to become one
+// sentence, "Sign-in failed. Please try again.", and nothing was logged: when
+// Microsoft sign-in broke because the secret stored in Firebase had expired,
+// the only clue was a 400 in the network tab. A failed sign-in now leaves its
+// Firebase code, and the reason Firebase's server gave, in the console, and the
+// generic sentence carries them in brackets, so "it does not work" arrives as
+// "(auth/internal-error · INVALID_IDP_RESPONSE)". Nothing personal goes in
+// either: a code and an upper-case reason word, and a console line with email
+// addresses and long tokens removed.
+
+const SERVER_REASON = /^[A-Z][A-Z0-9_]{3,}/;
+// Where Firebase's SDK puts the provider's explanation: in the error's
+// message ("Firebase: <what the provider said> (auth/invalid-credential)"),
+// not in a field. Two public, non-personal kinds of word name the cause at a
+// glance: Microsoft's AADSTS numbers (AADSTS7000222 is an expired client
+// secret) and the OAuth 2 error words.
+const PROVIDER_REASON = /\bAADSTS\d{4,}\b|\b(?:invalid_client|invalid_grant|invalid_request|unauthorized_client|access_denied|redirect_uri_mismatch|invalid_scope)\b/;
+
+/** `{ code, reason }` of a sign-in failure, from an Error or from the string a sign-in function returned. */
+export function authErrorDetail(raw) {
+  const text = String(raw?.code || raw?.message || raw || '');
+  const code = (text.match(/auth\/[\w-]+/) || [])[0] || '';
+  const message = String(raw?.message || (typeof raw === 'string' ? raw : ''));
+  const server = String(raw?.customData?._serverResponse?.error?.message || '');
+  const tagged = (message.match(/\[([A-Z][A-Z0-9_]{3,})\]/) || [])[1] || '';
+  const reason = (server.match(SERVER_REASON) || [])[0] || tagged
+    || (`${message} ${server}`.match(PROVIDER_REASON) || [])[0] || '';
+  return { code, reason };
+}
+
+/** A line safe to print: no email address, no long token, not long. */
+function scrubForLog(text) {
+  return String(text || '')
+    .replace(/[^\s@]+@[^\s@]+\.[^\s@]+/g, '<email>')
+    .replace(/[A-Za-z0-9_\-.~+/=]{40,}/g, '<token>')
+    .slice(0, 400);
+}
+
+const DISMISSED = /auth\/(popup-closed-by-user|cancelled-popup-request|user-cancelled)/;
+
+/**
+ * Logs a failed sign-in and returns the string the sign-in functions hand
+ * back: Firebase's message, with the server's reason in brackets when it gave
+ * one (authErrorKey still finds the auth/… code in it). A person closing the
+ * popup is not a failure and is not logged.
+ */
+export function authFail(provider, error) {
+  const { code, reason } = authErrorDetail(error);
+  const base = String(error?.message || error || '');
+  if (!DISMISSED.test(code)) {
+    // The message is where the provider's own explanation is (see above).
+    console.warn('[sign-in]', provider, 'failed:', code || '(no code)', reason || '',
+      scrubForLog(base), scrubForLog(error?.customData?._serverResponse?.error?.message));
+  }
+  return reason && !base.includes(reason) ? `${base} [${reason}]` : base;
 }
 
 // Maps a raw Firebase auth error (message string or Error) to a translation key
@@ -443,12 +502,30 @@ export function authErrorKey(raw) {
   }
 }
 
+/**
+ * The sentence for the sign-in screen, or '' to stay silent. The generic
+ * sentence carries the failure's code and reason in brackets (authFail); every
+ * failure the table names keeps its own plain sentence, unchanged. `sso` is for
+ * the Google and Microsoft buttons, where "Wrong email or password" (the
+ * sentence for auth/invalid-credential) would hide what the provider refused,
+ * so that sentence carries them too.
+ */
+export function authErrorMessage(raw, t, { sso = false } = {}) {
+  const key = authErrorKey(raw);
+  if (!key) return '';
+  const text = t(key);
+  if (key !== 'err_auth_generic' && !(sso && key === 'err_auth_bad_creds')) return text;
+  const { code, reason } = authErrorDetail(raw);
+  const hint = [code, reason].filter(Boolean).join(' \u00b7 ');
+  return hint ? `${text} (${hint})` : text;
+}
+
 export async function signInWithGoogle() {
   try {
     const result = await signInWithPopup(auth, googleProvider);
     return { user: result.user, error: null };
   } catch (error) {
-    return { user: null, error: error.message };
+    return { user: null, error: authFail('google', error) };
   }
 }
 
@@ -457,7 +534,7 @@ export async function signInWithMicrosoft() {
     const result = await signInWithPopup(auth, microsoftProvider);
     return { user: result.user, error: null };
   } catch (error) {
-    return { user: null, error: error.message };
+    return { user: null, error: authFail('microsoft', error) };
   }
 }
 
@@ -501,7 +578,7 @@ export async function sendMagicLink(email) {
     window.localStorage.setItem('emailForSignIn', email);
     return { error: null };
   } catch (error) {
-    return { error: error.message };
+    return { error: authFail('magic-link', error) };
   }
 }
 
@@ -516,7 +593,7 @@ export async function completeMagicLinkSignIn() {
       window.localStorage.removeItem('emailForSignIn');
       return { user: result.user, error: null };
     } catch (error) {
-      return { user: null, error: error.message };
+      return { user: null, error: authFail('magic-link', error) };
     }
   }
   return { user: null, error: 'Invalid sign-in link' };
@@ -625,7 +702,7 @@ export async function registerWithEmail(email, password, displayName) {
     await sendEmailVerification(result.user, { url: window.location.origin + '/dashboard' });
     return { user: result.user, error: null };
   } catch (error) {
-    return { user: null, error: error.message };
+    return { user: null, error: authFail('register', error) };
   }
 }
 
@@ -635,7 +712,7 @@ export async function signInWithEmail(email, password) {
     const result = await signInWithEmailAndPassword(auth, email, password);
     return { user: result.user, error: null };
   } catch (error) {
-    return { user: null, error: error.message };
+    return { user: null, error: authFail('email', error) };
   }
 }
 
@@ -688,7 +765,7 @@ export async function resetPassword(email) {
     await sendPasswordResetEmail(auth, email);
     return { error: null };
   } catch (error) {
-    return { error: error.message };
+    return { error: authFail('reset-password', error) };
   }
 }
 
