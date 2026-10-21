@@ -342,7 +342,7 @@ export default function App() {
             path="/access"
             element={<RequireAuth><ModuleGate module="people" feature="Access Map"><AccessPage /></ModuleGate></RequireAuth>}
           />
-          <Route path="/integrations" element={<Navigate to="/settings" replace />} />
+          <Route path="/integrations" element={<Navigate to="/settings?tab=integrations" replace />} />
           <Route
             path="/import"
             element={<RequireAuth><SetupConnectionsHub /></RequireAuth>}
@@ -359,7 +359,7 @@ export default function App() {
             path="/audit"
             element={<RequireAuth><ModuleGate module="security" feature="Security & Audit"><SecurityCompliancePage /></ModuleGate></RequireAuth>}
           />
-          <Route path="/billing" element={<Navigate to="/settings" replace />} />
+          <Route path="/billing" element={<Navigate to="/settings?tab=billing" replace />} />
           <Route
             path="/security"
             element={<RequireAuth><ModuleGate module="security" feature="Security"><SecurityCompliancePage /></ModuleGate></RequireAuth>}

@@ -97,7 +97,7 @@ export function PlanGate({ requires, children, feature = null }) {
         {t('gate_requires')} <span className="text-blue-400 font-semibold">{planNames[requires] || requires}</span> {t('gate_or_higher')} <span className="text-slate-300 font-semibold">{getPlanLimits(plan).label || plan}</span>{t('gate_plan_word')}
       </p>
       <button
-        onClick={() => { navigate('/settings'); setTimeout(() => { document.querySelector('[data-tab="billing"]')?.click(); }, 100); }}
+        onClick={() => navigate('/settings?tab=billing')}
         className="px-4 md:px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-blue-500/20"
       >
         {t('gate_view_plans')}
@@ -231,7 +231,7 @@ export function PlanLimitBanner({ resource = 'tools' }) {
         </div>
       </div>
       <button
-        onClick={() => navigate('/settings')}
+        onClick={() => navigate('/settings?tab=billing')}
         className={'px-4 py-2 rounded-xl text-sm font-semibold transition-colors flex-shrink-0 ' + (tone === 'red' ? 'bg-red-600 hover:bg-red-500 text-white' : 'bg-amber-600 hover:bg-amber-500 text-white')}
       >
         {t('plan_limit_upgrade_btn')}

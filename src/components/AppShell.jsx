@@ -321,7 +321,7 @@ export function SidebarFooter({ collapsed }) {
             <BadgeX className="h-4 w-4" />
             {isDemo ? t('exit_demo') : t('logout')}
           </Button>
-          <Button variant="ghost" className="w-full" onClick={() => { navigate('/settings'); setTimeout(() => { const el = document.querySelector('[data-tab="billing"]'); if(el) el.click(); }, 100); }}>
+          <Button variant="ghost" className="w-full" onClick={() => navigate('/settings?tab=billing')}>
               <ExternalLink className="h-4 w-4" />
               {/* resolvePlan, not the stored field: an expired trial is free, and a
                   free account that never trialled is not "Trial". */}
