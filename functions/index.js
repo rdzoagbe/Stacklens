@@ -77,6 +77,8 @@ const {
 } = require('./monthly-report.js');
 const { deviceCoverageAlerts, deviceAlertLine } = require('./device-alerts.js');
 const { renewalAlerts } = require('./renewal-alerts.js');
+const { isFounderCaller } = require('./founder-gate.js');
+const { renewalAlertLine, budgetAlertLine, securityAlertLine, weeklyRenewalRow, insightHtml } = require('./alert-email.js');
 
 // Explicitly allow stacklens.fr and Firebase preview domains
 const ALLOWED_ORIGINS = [
@@ -115,11 +117,16 @@ const SYNCUSER_RATE_LIMIT = { maxCalls: 30, windowMs: 60 * 60 * 1000 };
 const BANKFEED_RATE_LIMIT  = { maxCalls: 30,  windowMs: 60 * 60 * 1000 };
 const WORKSPACE_RATE_LIMIT = { maxCalls: 120, windowMs: 60 * 60 * 1000 };
 
-async function verifyAuth(req, res) {
+// `checkRevoked` also asks Firebase Auth whether the account was disabled or
+// its sessions revoked since the token was issued: an ID token is otherwise
+// good for up to an hour after that. It costs one Auth lookup, so it is used
+// on the actions that move money, change who may see a workspace, or delete
+// (billing, founderops, REVOCATION_CHECKED_ACTIONS), not on every read.
+async function verifyAuth(req, res, { checkRevoked = false } = {}) {
   const header = req.headers.authorization || '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : null;
   if (!token) { res.status(401).json({ error: 'Missing auth token' }); return null; }
-  try { return await getAuth().verifyIdToken(token); }
+  try { return await getAuth().verifyIdToken(token, checkRevoked); }
   catch (err) {
     // Log the reason server-side; the client only needs to know the token was rejected.
     console.error('verifyIdToken failed:', err?.code, err?.message);
@@ -259,7 +266,7 @@ exports.createCheckout = onRequest({ secrets: [STRIPE_SECRET_KEY], cors: true, t
     if (req.method === 'OPTIONS') return res.status(204).send('');
     if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
     if (!await verifyAppCheck(req, res)) return;
-    const decoded = await verifyAuth(req, res); if (!decoded) return;
+    const decoded = await verifyAuth(req, res, { checkRevoked: true }); if (!decoded) return;
     const allowed = await checkRateLimit(decoded.uid, res, CHECKOUT_RATE_LIMIT, 'checkout'); if (!allowed) return;
     const { priceId } = req.body;
     if (!priceId) return res.status(400).json({ error: 'priceId required' });
@@ -323,7 +330,7 @@ exports.createPortal = onRequest({ secrets: [STRIPE_SECRET_KEY], cors: true, tim
     if (req.method === 'OPTIONS') return res.status(204).send('');
     if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
     if (!await verifyAppCheck(req, res)) return;
-    const decoded = await verifyAuth(req, res); if (!decoded) return;
+    const decoded = await verifyAuth(req, res, { checkRevoked: true }); if (!decoded) return;
     const allowed = await checkRateLimit(decoded.uid, res, CHECKOUT_RATE_LIMIT, 'portal'); if (!allowed) return;
     try {
       const stripe = require('stripe')(STRIPE_SECRET_KEY.value());
@@ -559,18 +566,20 @@ exports.founderops = onRequest({ cors: true, timeoutSeconds: 30, secrets: [BREVO
     if (req.method === 'OPTIONS') return res.status(204).send('');
     if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
 
-    const decoded = await verifyAuth(req, res);
+    const decoded = await verifyAuth(req, res, { checkRevoked: true });
     if (!decoded) return;
 
     if (!await checkRateLimit(decoded.uid, res, FOUNDER_RATE_LIMIT, 'founderAdmin')) return;
 
     const db = getFirestore();
     const callerSnap = await db.collection('users').doc(decoded.uid).get();
-    const isFounderCaller =
-      FOUNDER_UIDS.includes(decoded.uid) ||
-      FOUNDER_EMAILS.includes((decoded.email || '').toLowerCase()) ||
-      (callerSnap.exists && callerSnap.data().is_founder === true);
-    if (!isFounderCaller) {
+    // The email counts only when Firebase has verified it (founder-gate.js).
+    if (!isFounderCaller({
+      decoded,
+      userDoc: callerSnap.exists ? callerSnap.data() : null,
+      founderUids: FOUNDER_UIDS,
+      founderEmails: FOUNDER_EMAILS,
+    })) {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
@@ -1257,6 +1266,8 @@ const MAX_CLIENT_ORGS = 50;
 // cross-client story works for them, without running a book of business free.
 const TRIAL_CLIENT_ORGS = 3;
 
+const REVOCATION_CHECKED_ACTIONS = new Set(['invite', 'revoke', 'setrole', 'createorg', 'deleteorg', 'restoreorg', 'deleteaccount']);
+
 exports.workspace = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, res) => {
   cors(req, res, async () => {
     if (req.method === 'OPTIONS') return res.status(204).send('');
@@ -1268,6 +1279,9 @@ exports.workspace = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, re
     if (!await checkRateLimit(decoded.uid, res, WORKSPACE_RATE_LIMIT, 'workspace')) return;
     const db = getFirestore();
     const { action, email, id, ownerUid, role, name } = req.body || {};
+    // Actions that change who may see a workspace, or remove one, ask Firebase
+    // whether this session was revoked; reads and writes of the data do not.
+    if (REVOCATION_CHECKED_ACTIONS.has(action) && !(await verifyAuth(req, res, { checkRevoked: true }))) return;
     // SECURITY: only trust the token's email for authorization when Firebase
     // has verified ownership of that mailbox. Otherwise an attacker could
     // register (email/password) under an invited address they don't own — the
@@ -2158,9 +2172,9 @@ exports.dailyAlerts = onSchedule({
     const html = `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;background:#0f172a;border-radius:12px;overflow:hidden">
       <div style="padding:24px;background:#1e293b"><h1 style="color:white;margin:0 0 4px;font-size:22px">Stacklens</h1><p style="color:#94a3b8;margin:0">${total} new alert${total > 1 ? 's' : ''} in your environment</p></div>
       <div style="padding:24px">
-        ${section('Upcoming renewals', alerts.renewals.map(r => line(r.name, `renews ${r.date} (${r.days} days)` + (r.annual ? ` · ${cur}${fmt(r.annual)}/yr` : ''), r.days <= 7 ? '#ef4444' : '#f59e0b')))}
-        ${section('Budget thresholds', alerts.budgets.map(b => line(b.department, `${b.pct}% of annual budget consumed (${cur}${fmt(b.spent)} of ${cur}${fmt(b.budget)})`, b.pct >= 100 ? '#ef4444' : '#f59e0b')))}
-        ${section('Access security', alerts.security.map(s => line(s.name, `no longer active but still holds ${s.count} access grant${s.count > 1 ? 's' : ''}`, '#ef4444')))}
+        ${section('Upcoming renewals', alerts.renewals.map(r => line(...renewalAlertLine(r, cur, fmt), r.days <= 7 ? '#ef4444' : '#f59e0b')))}
+        ${section('Budget thresholds', alerts.budgets.map(b => line(...budgetAlertLine(b, cur, fmt), b.pct >= 100 ? '#ef4444' : '#f59e0b')))}
+        ${section('Access security', alerts.security.map(s => line(...securityAlertLine(s), '#ef4444')))}
         ${section('Warranties and leases', alerts.devices.map(d => line(...deviceAlertLine(d), d.days <= 7 ? '#ef4444' : '#f59e0b')))}
         <div style="text-align:center;margin-top:24px"><a href="https://stacklens.fr/dashboard" style="background:#3b82f6;color:white;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block">Open Stacklens →</a></div>
       </div>
@@ -2323,12 +2337,7 @@ exports.weeklySummary = onSchedule({
       const days = Math.floor((new Date(t.renewal_date) - today) / 86400000);
       const c    = days <= 7 ? '#ef4444' : '#f59e0b';
       const cost = t.cost_per_month ? `${cur}${fmt(t.cost_per_month * 12)}/yr` : '\u2014';
-      return `<tr>
-        <td style="padding:8px;color:#e2e8f0;border-bottom:1px solid #1e293b;font-size:13px">${t.name}</td>
-        <td style="padding:8px;color:#94a3b8;border-bottom:1px solid #1e293b;font-size:13px">${t.renewal_date}</td>
-        <td style="padding:8px;color:${c};border-bottom:1px solid #1e293b;font-size:13px;font-weight:700">${days}d</td>
-        <td style="padding:8px;color:#e2e8f0;border-bottom:1px solid #1e293b;font-size:13px">${cost}</td>
-      </tr>`;
+      return weeklyRenewalRow(t, days, cost, c);
     }).join('');
 
     const renewalSection = upcoming.length ? `
@@ -2381,7 +2390,7 @@ exports.weeklySummary = onSchedule({
     ${insight ? `
     <div style="padding:14px 16px;background:linear-gradient(135deg,#1e1b4b 0%,#1e293b 100%);border-left:3px solid #6366f1;border-radius:8px;margin:0 0 20px">
       <div style="color:#a5b4fc;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">✨ This week's insight</div>
-      <div style="color:#e2e8f0;font-size:13px;line-height:1.6">${insight}</div>
+      <div style="color:#e2e8f0;font-size:13px;line-height:1.6">${insightHtml(insight)}</div>
     </div>` : ''}
 
     <!-- Stat cards -->

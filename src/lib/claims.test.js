@@ -29,13 +29,13 @@ const norm = (x) => JSON.parse(JSON.stringify(x)); // strip the vm realm's proto
 // purpose, used for another, which is the CNIL's core complaint pattern and a
 // signed contract clause made untrue.
 //
-// These tests EXECUTE the consent script from index.html rather than grep it,
+// These tests EXECUTE the consent script (public/consent-init.js) rather than grep it,
 // because the failure was never a missing string; it was what the code did.
 
-const html = read('index.html');
-const CONSENT_SCRIPT = (html.match(/<script>([\s\S]*?)<\/script>/g) || [])
-  .map((block) => block.replace(/^<script>|<\/script>$/g, ''))
-  .find((code) => code.includes('window.enableAnalytics'));
+// The script is public/consent-init.js, loaded by index.html as a blocking
+// <script src>; it used to be inline until the CSP stopped allowing inline
+// scripts (csp.test.js). Same code, run the same way.
+const CONSENT_SCRIPT = read('public/consent-init.js');
 const VERSION = (CONSENT_SCRIPT || '').match(/CONSENT_VERSION\s*=\s*'([^']+)'/)?.[1];
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -76,7 +76,7 @@ function loadPage({ stored } = {}) {
 
 describe('cookie consent grants analytics and nothing for advertising', () => {
   it('finds the consent script it means to run', () => {
-    expect(CONSENT_SCRIPT, 'no <script> in index.html defines window.enableAnalytics').toBeTruthy();
+    expect(CONSENT_SCRIPT, 'public/consent-init.js does not define window.enableAnalytics').toContain('window.enableAnalytics');
     expect(VERSION).toBeTruthy();
   });
 
@@ -145,11 +145,13 @@ describe('cookie consent grants analytics and nothing for advertising', () => {
   });
 
   it('no file anywhere grants an ad signal', () => {
-    // The behavioural tests above cover index.html. firebase-config.js runs
+    // The behavioural tests above cover the consent script; index.html is
+    // checked here too. firebase-config.js runs
     // inside the Firebase SDK and cannot be executed here, so it is checked by
     // source — and it was the one path that ALSO ignored version and expiry.
     const grant = /ad_(?:storage|user_data|personalization)\s*:\s*['"]granted['"]/;
-    expect(html).not.toMatch(grant);
+    expect(read('index.html')).not.toMatch(grant);
+    expect(CONSENT_SCRIPT).not.toMatch(grant);
     expect(read('src/firebase-config.js')).not.toMatch(grant);
   });
 
