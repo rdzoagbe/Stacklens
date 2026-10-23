@@ -620,6 +620,10 @@ export function readDb() {
 }
 
 /** The demo company, built fresh. Pure apart from the ids and dates it draws. */
+// The demo account's address. A reserved domain (RFC 2606), so it can never
+// be somebody's real mailbox, and no longer the product's former name.
+export const DEMO_EMAIL = 'demo@stacklens.example';
+
 export function buildSeedDb() {
   const now = new Date();
   const d = (daysAgo) => format(subDays(now, daysAgo), 'yyyy-MM-dd');
@@ -665,6 +669,11 @@ export function buildSeedDb() {
     { id: uid('tool'), name: 'Dropbox',          category: 'operations',    owner_email: '',                     owner_name: '',              criticality: 'low',    url: 'https://dropbox.com',    description: 'Legacy file storage',          status: 'orphaned', last_used_date: d(210), cost_per_month: 120, risk_score: 'high',   mfa_required: false, renewal_date: r(4),   notes: 'Superseded by Google Drive — candidate to cancel' },
     { id: uid('tool'), name: 'Miro',             category: 'design',        owner_email: 'emma.girard@acme.com',  owner_name: 'Emma Girard',   criticality: 'low',    url: 'https://miro.com',       description: 'Whiteboarding',                status: 'unused',   last_used_date: d(96),  cost_per_month: 96,  risk_score: 'medium', mfa_required: false, renewal_date: r(56),  notes: 'Overlaps with FigJam' },
     { id: uid('tool'), name: 'Pennylane',        category: 'finance',       owner_email: 'chloe.bernard@acme.com', owner_name: 'Chloé Bernard', criticality: 'high',  url: 'https://pennylane.com',  description: 'Accounting + invoicing',       status: 'active',   last_used_date: d(3),   cost_per_month: 199, risk_score: 'medium', mfa_required: true,  renewal_date: r(33),  notes: 'Owner is offboarding — reassign' },
+    // Paid for, and nobody can log in: the two people who used it have left
+    // and their access was revoked. It is the demo's recoverable spend
+    // (lib/waste.js counts active tools with no active grant), so the savings
+    // figures on the Dashboard and in Finance are not zero.
+    { id: uid('tool'), name: 'Loom',             category: 'communication', owner_email: 'julie.mercier@acme.com', owner_name: 'Julie Mercier', criticality: 'low',   url: 'https://loom.com',       description: 'Video messages',               status: 'active',   last_used_date: d(62),  cost_per_month: 150, risk_score: 'medium', mfa_required: false, renewal_date: r(45),  notes: 'Its two users have left — nobody has access' },
     { id: uid('tool'), name: '1Password',        category: 'security',      owner_email: 'amina.dupont@acme.com', owner_name: 'Amina Dupont',  criticality: 'high',   url: 'https://1password.com',  description: 'Password manager',             status: 'active',   last_used_date: d(0),   cost_per_month: 96,  risk_score: 'low',    mfa_required: true,  renewal_date: r(88),  notes: '' },
   ];
   const byName = Object.fromEntries(tools.map(t => [t.name, t]));
@@ -726,6 +735,8 @@ export function buildSeedDb() {
     // Already cleaned up — shows the offboarding history isn't empty
     grant('Slack',       'noah.petit@acme.com',     'editor',  { granted: 900, used: 40, reviewed: 300, status: 'revoked' }),
     grant('Notion',      'antoine.rey@acme.com',    'viewer',  { granted: 700, used: 65, reviewed: 300, status: 'revoked' }),
+    grant('Loom',        'noah.petit@acme.com',     'editor',  { granted: 600, used: 62, reviewed: 300, status: 'revoked' }),
+    grant('Loom',        'antoine.rey@acme.com',    'editor',  { granted: 650, used: 70, reviewed: 300, status: 'revoked' }),
   ];
 
   // Supplier invoices, so Finance → Budget's invoice check has something to
@@ -780,9 +791,19 @@ export function buildSeedDb() {
     device('monitor', 'Dell P2423D',        'CN0DEMO0009', '',                       { purchase_date: d(500), purchase_cost: 289 }),
   ];
 
-  const user = { id: uid('usr'), email: 'demo@accessguard.app', subscription_plan: 'pro', is_authenticated: false, is_demo: false };
+  // Five past months of spend, so Finance shows a trend and a month-on-month
+  // comparison instead of "no history yet". Example data like the rest of the
+  // seed: a real workspace only gets snapshots it recorded itself
+  // (maybeSnapshotSpend in lib/budget.js, never in the demo).
+  const billed = tools.filter(t => t.status !== 'decommissioned').reduce((sum, t) => sum + t.cost_per_month, 0);
+  const spend_history = [0.86, 0.89, 0.93, 0.96, 0.98].map((share, i) => {
+    const month = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
+    return { month: format(month, 'yyyy-MM'), total: Math.round(billed * share) };
+  });
 
-  return { tools, employees, access, invoice_records, assets, user };
+  const user = { id: uid('usr'), email: DEMO_EMAIL, subscription_plan: 'pro', is_authenticated: false, is_demo: false };
+
+  return { tools, employees, access, invoice_records, assets, spend_history, user };
 }
 
 export async function resetDb() {

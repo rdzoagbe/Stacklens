@@ -180,23 +180,23 @@ export function TrialPage() {
           <p className="text-lg md:text-xl text-slate-400 max-w-2xl mx-auto mb-10 leading-relaxed">
             {t('lp_hero_body')}
           </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-6">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap items-center justify-center gap-3 mb-6">
             {/* The free audit leads. It costs the visitor nothing — no account,
                 no upload — and it IS the product's core claim, demonstrated.
                 Sign-up and the demo stay, one step behind. */}
             <Link to="/audit-saas"
               onClick={() => track('cta_click', { location: 'hero_primary', target: 'audit' })}
-              className="px-8 py-4 bg-blue-600 hover:bg-blue-500 rounded-xl text-base font-semibold text-white transition-all hover:scale-[1.02] shadow-lg shadow-blue-900/40">
+              className="px-8 py-4 bg-blue-600 hover:bg-blue-500 rounded-xl text-base font-semibold text-white text-center sm:whitespace-nowrap transition-all hover:scale-[1.02] shadow-lg shadow-blue-900/40">
               {t('lp_cta_audit')}
             </Link>
             <button
               onClick={() => { track('cta_click', { location: 'hero_start' }); setShowAuth(true); }}
-              className="px-8 py-4 border border-slate-700 hover:border-slate-600 hover:bg-slate-900/60 rounded-xl text-base font-semibold text-slate-300 transition-all">
+              className="px-8 py-4 border border-slate-700 hover:border-slate-600 hover:bg-slate-900/60 rounded-xl text-base font-semibold text-slate-300 text-center sm:whitespace-nowrap transition-all">
               {t('lp_cta_start')}
             </button>
             <button
               onClick={() => { track('cta_click', { location: 'hero_demo' }); startDemo(); navigate('/dashboard'); }}
-              className="px-6 py-4 text-base font-semibold text-slate-400 hover:text-white transition-colors">
+              className="px-6 py-4 text-base font-semibold text-slate-400 hover:text-white whitespace-nowrap transition-colors">
               {t('lp_cta_demo')}
             </button>
           </div>
