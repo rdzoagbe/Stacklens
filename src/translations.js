@@ -5525,7 +5525,7 @@ export const translations = {
     sso: "SSO",
     continue_google: "Continuer avec Google",
     demo_mode: "Mode démo",
-    exit_demo: "Quitter le démo",
+    exit_demo: "Quitter la démo",
     demo_banner: "Vous êtes en mode démo — Explorez avec des données d'exemple",
     sign_up_free: "S'inscrire gratuitement",
     plan_trial: "Essai",

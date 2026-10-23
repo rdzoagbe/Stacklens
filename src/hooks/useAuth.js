@@ -5,7 +5,7 @@ import {
   getUserPlanFromFirestore, startTrial,
 } from '../firebase-config';
 import { LS_KEY } from '../lib/constants';
-import { loadDb, saveDb, seedDbIfEmpty, setFirestoreUid, hydrateFromFirestore, flushBeforeSignOut, clearLocalWorkspace } from '../lib/db';
+import { loadDb, saveDb, seedDbIfEmpty, setFirestoreUid, hydrateFromFirestore, flushBeforeSignOut, clearLocalWorkspace, DEMO_EMAIL } from '../lib/db';
 import { resolvePlan } from '../lib/plan';
 import { useDbQuery } from './useDbQuery';
 
@@ -263,7 +263,7 @@ export function useAuth() {
   const startDemo = () => {
     localStorage.removeItem(LS_KEY);
     const demoDb = seedDbIfEmpty();
-    demoDb.user = { is_demo: true, is_authenticated: false, plan: 'demo', subscription_plan: 'demo', email: 'demo@accessguard.app', displayName: 'Demo User' };
+    demoDb.user = { is_demo: true, is_authenticated: false, plan: 'demo', subscription_plan: 'demo', email: DEMO_EMAIL, displayName: 'Demo User' };
     saveDb(demoDb);
     qc.invalidateQueries({ queryKey: ['db'] });
   };
