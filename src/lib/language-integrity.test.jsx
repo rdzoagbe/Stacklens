@@ -38,7 +38,10 @@ describe('the Portuguese strings are Portuguese', () => {
   const pt = block('pt');
   // Identical in French and Portuguese for a real reason: an example value,
   // or an acronym both languages use.
-  const SHARED = new Set(['int_tools_placeholder', 'budget_modal_placeholder', 'lp_dpa_link', 'terms_s4_col_limits']);
+  // "E-mail" and "URL de base" are the Portuguese words too (Portugal writes
+  // e-mail with the hyphen), so those three are not French left in place.
+  const SHARED = new Set(['int_tools_placeholder', 'budget_modal_placeholder', 'lp_dpa_link', 'terms_s4_col_limits',
+    'col_email', 'th_email', 'api_base_url']);
 
   it('parses enough of each block for the check to mean something', () => {
     expect(Object.keys(pt).length).toBeGreaterThan(1000);

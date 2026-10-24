@@ -175,6 +175,17 @@ export function Sidebar({ collapsed, setCollapsed }) {
 
 // Language switcher rendered as a sidebar nav row (under Settings). Options
 // expand inline instead of a floating dropdown, so nothing can clip them.
+// Every language the app is written in. German, Spanish and Portuguese were
+// left out while they were half translated, so a reader whose browser had
+// chosen one of them saw "EN" here and could not get back to it.
+const LANGUAGE_OPTIONS = [
+  { code: 'en', name: 'English' },
+  { code: 'fr', name: 'Français' },
+  { code: 'de', name: 'Deutsch' },
+  { code: 'es', name: 'Español' },
+  { code: 'pt', name: 'Português' },
+];
+
 function LangSidebarSelector({ collapsed }) {
   const { language, setLanguage } = useLang();
   const [open, setOpen] = React.useState(false);
@@ -186,14 +197,11 @@ function LangSidebarSelector({ collapsed }) {
   React.useEffect(() => {
     if (open) optionsRef.current?.scrollIntoView({ block: 'nearest' });
   }, [open]);
-  const langs = [
-    { code: 'en', name: 'English' },
-    { code: 'fr', name: 'Français' },
-  ];
+  const langs = LANGUAGE_OPTIONS;
   const current = langs.find(l => l.code === language) || langs[0];
 
   if (collapsed) {
-    // No room for a list — one tap switches to the other language.
+    // No room for a list — each tap moves to the next language.
     const next = langs[(langs.findIndex(l => l.code === current.code) + 1) % langs.length];
     return (
       <button
@@ -336,10 +344,7 @@ export function SidebarFooter({ collapsed }) {
 export function LangSelectorCompact() {
   const { language, setLanguage } = useLang();
   const [open, setOpen] = React.useState(false);
-  const langs = [
-    { code: 'en', name: 'English' },
-    { code: 'fr', name: 'Français' },
-  ];
+  const langs = LANGUAGE_OPTIONS;
   const current = langs.find(l => l.code === language) || langs[0];
   return (
     <div className="relative">

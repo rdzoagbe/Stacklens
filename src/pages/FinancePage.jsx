@@ -85,7 +85,9 @@ export function FinanceDashboard() {
     acc[cat].count += 1;
     return acc;
   }, {}));
-  const _months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  // The reader's own month names ("mai", "Mai", "may"), as Finance → Executive
+  // already does; a fixed English list showed "May … depuis May" in French.
+  const _months = Array.from({ length: 12 }, (_, i) => new Date(2000, i, 1).toLocaleDateString(language, { month: 'short' }));
   const _trend = spendTrend(db, _totalSpend).map(p => ({ month: _months[p.monthIndex], spend: p.spend }));
   const _bills = _tools.filter(t=>t.renewal_date).sort((a,b)=>new Date(a.renewal_date)-new Date(b.renewal_date)).slice(0,5).map(t=>({app:t.name,amount:_cost(t)*12,dueDate:t.renewal_date,status:'pending',category:t.category||'Other'}));
   // Budget cap — read from db (persisted to Firestore) with localStorage fallback
