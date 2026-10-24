@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { Shield, Lock, Mail } from 'lucide-react';
 import { useLang } from '../contexts/LangContext';
-import { useTranslation } from '../translations';
+import { useTranslation, LEGAL_LANGUAGES } from '../translations';
 import { submitContactForm, mailtoFallback } from '../lib/contact';
 import { PLAN_CARDS, planText, formatCount } from '../lib/planCards';
 import { getPlanLimits } from '../lib/plan';
@@ -24,6 +24,14 @@ function legalDate(language, iso = LEGAL_UPDATED) {
     monthOnly ? { month: 'long', year: 'numeric' } : { day: 'numeric', month: 'long', year: 'numeric' });
 }
 const colon = (language) => (language === 'fr' ? '\u00a0: ' : ': ');
+
+// The legal documents are in English and French only (LEGAL_LANGUAGES in
+// translations.js); a reader in another language is told why the page is in
+// English rather than left to wonder.
+function DocLanguageNote({ language, t }) {
+  if (LEGAL_LANGUAGES.includes(language)) return null;
+  return <p className="text-sm text-slate-500 mb-4" data-testid="doc-language-note">{t('doc_lang_note')}</p>;
+}
 
 export function NotFound() {
   return <Navigate to="/" replace />;
@@ -195,6 +203,7 @@ export function DpaPage() {
       <PublicNav t={t} />
       <div className="max-w-3xl mx-auto px-6 py-16">
         <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">{t('dpa_title')}</h1>
+        <DocLanguageNote language={language} t={t} />
         <p className="text-slate-400 text-sm mb-2">{t('dpa_subtitle')} · {t('dpa_version')} 1.3 · {t('dpa_effective')} {t('dpa_effective_date')}</p>
         <p className="text-slate-400 text-sm mb-10">{t('dpa_auto_accepted')}</p>
 
@@ -382,6 +391,7 @@ export function SubProcessorsPage() {
       <PublicNav t={t} />
       <div className="max-w-4xl mx-auto px-6 py-16">
         <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">{t('subproc_title')}</h1>
+        <DocLanguageNote language={language} t={t} />
         <p className="text-slate-400 text-sm mb-2">{t('subproc_last_updated')}{colon(language)}{legalDate(language)}</p>
         <p className="text-slate-400 text-sm mb-10">{t('subproc_intro')}</p>
 
@@ -432,6 +442,7 @@ export function LegalMentionsPage() {
       <PublicNav t={t} />
       <div className="max-w-3xl mx-auto px-6 py-16">
         <h1 className="text-3xl md:text-4xl font-bold text-white mb-8">{t('legal_title')}</h1>
+        <DocLanguageNote language={language} t={t} />
 
         <div className="space-y-8 text-sm text-slate-300 leading-relaxed">
           {/* SECTION 1 — Éditeur (LCEN Art. 6 III — REQUIRED) */}
@@ -616,6 +627,7 @@ export function PrivacyPage() {
 
       <div className="max-w-4xl mx-auto px-6 py-20">
         <h1 className="text-3xl md:text-4xl font-bold text-white mb-4">{t('privacy_title')}</h1>
+        <DocLanguageNote language={language} t={t} />
         <p className="text-slate-400 mb-12">{t('privacy_last_updated')}{colon(language)}{legalDate(language)}</p>
 
         <div className="space-y-10 text-sm text-slate-300 leading-relaxed">
@@ -740,6 +752,7 @@ export function TermsPage() {
 
       <div className="max-w-4xl mx-auto px-6 py-20">
         <h1 className="text-3xl md:text-4xl font-bold text-white mb-4">{t('terms_title')}</h1>
+        <DocLanguageNote language={language} t={t} />
         <p className="text-slate-400 mb-12">{t('terms_last_updated')}{colon(language)}{legalDate(language)}</p>
 
         <div className="space-y-10 text-sm text-slate-300 leading-relaxed">

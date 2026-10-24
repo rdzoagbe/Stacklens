@@ -5,6 +5,7 @@
 
 export const translations = {
   en: {
+    doc_lang_note: "This document is available in English and French.",
     notif_devices: "Device warranty or lease ending",
     notif_devices_sub: "A laptop, phone or screen whose warranty or lease ends in 30 days, then 7 — sent by email",
     emp_clear_people: "Clear people",
@@ -3951,6 +3952,7 @@ export const translations = {
     privacy_s3_brevo_purpose: "Email delivery (optional feature, only when configured)",
   },
   fr: {
+    doc_lang_note: "Ce document est disponible en anglais et en français.",
     notif_devices: "Fin de garantie ou de location d’un appareil",
     notif_devices_sub: "Un ordinateur, téléphone ou écran dont la garantie ou la location se termine dans 30 jours, puis 7 — envoyé par e-mail",
     emp_clear_people: "Effacer les personnes",
@@ -8025,6 +8027,7 @@ export const translations = {
     privacy_s3_brevo_purpose: "Envoi d'e-mails (fonction optionnelle, uniquement si configuré)",
   },
   de: {
+    doc_lang_note: "Dieses Dokument ist auf Englisch und Französisch verfügbar.",
     notif_devices: "Garantie- oder Leasingende eines Geräts",
     notif_devices_sub: "Ein Laptop, Telefon oder Bildschirm, dessen Garantie oder Leasing in 30 Tagen, dann in 7 endet — per E-Mail gesendet",
     emp_clear_people: "Personen löschen",
@@ -9326,10 +9329,10 @@ export const translations = {
     cost_no_tools_sub: "Tools hinzufügen oder importieren, um die Kostenanalyse zu sehen.",
     cost_year_savings: "/Jahr bei Rückforderung markierter Verschwendung",
     cost_reclaim_btn: "Lizenzen zurückfordern",
-    cost_view_waste: "Verschwendung anzeigen",
+    cost_view_waste: "Verschwendung anzeigen ({n})",
     cost_per_month_label: "/ Monat",
     total_monthly: "Monatliches Gesamt",
-    cost_active_tools: "Aktive Tools",
+    cost_active_tools: "{n} aktive Tools",
     cost_healthy_label: "Gesunde Ausgaben",
     cost_wasted_label: "Verschwendet",
     cost_wasted_sub: "/Monat verschwendet",
@@ -9845,6 +9848,7 @@ export const translations = {
     exit_demo: "Demo verlassen",
   },
   es: {
+    doc_lang_note: "Este documento está disponible en inglés y francés.",
     notif_devices: "Fin de garantía o arrendamiento de un dispositivo",
     notif_devices_sub: "Un portátil, teléfono o pantalla cuya garantía o arrendamiento termina en 30 días, luego en 7 — enviado por correo",
     emp_clear_people: "Borrar personas",
@@ -11184,10 +11188,10 @@ export const translations = {
     cost_no_tools_sub: "Agregue o importe herramientas para ver análisis de costos.",
     cost_year_savings: "/año al recuperar desperdicio marcado",
     cost_reclaim_btn: "Recuperar licencias",
-    cost_view_waste: "Ver desperdicio",
+    cost_view_waste: "Ver desperdicio ({n})",
     cost_per_month_label: "/ mes",
     total_monthly: "Total mensual",
-    cost_active_tools: "Herramientas activas",
+    cost_active_tools: "{n} herramientas activas",
     cost_healthy_label: "Gasto saludable",
     cost_wasted_label: "Desperdiciado",
     cost_wasted_sub: "/mes desperdiciado",
@@ -11809,6 +11813,7 @@ export const translations = {
     exit_demo: "Salir de la demo",
   },
   pt: {
+    doc_lang_note: "Este documento está disponível em inglês e francês.",
     notif_devices: "Fim de garantia ou aluguer de um dispositivo",
     notif_devices_sub: "Um portátil, telemóvel ou ecrã cuja garantia ou aluguer termina em 30 dias, depois em 7 — enviado por e-mail",
     emp_clear_people: "Apagar pessoas",
@@ -13109,10 +13114,10 @@ export const translations = {
     cost_no_tools_sub: "Adicionar ou importar ferramentas para ver análise de custo.",
     cost_year_savings: "/ano ao recuperar desperdício sinalizado",
     cost_reclaim_btn: "Recuperar licenças",
-    cost_view_waste: "Ver desperdício",
+    cost_view_waste: "Ver desperdício ({n})",
     cost_per_month_label: "/ mês",
     total_monthly: "Total mensal",
-    cost_active_tools: "Ferramentas activas",
+    cost_active_tools: "{n} ferramentas ativas",
     cost_healthy_label: "Gastos saudáveis",
     cost_wasted_label: "Desperdiçado",
     cost_wasted_sub: "/mês desperdiçado",
@@ -13964,6 +13969,16 @@ function queueForTranslation(key, enValue, lang) {
   _transTimer = setTimeout(flushTranslationQueue, TRANS_QUEUE_DELAY);
 }
 
+// Legal documents (DPA, terms, privacy, sub-processors, legal notice) exist in
+// English and French, the versions Stacklens writes and stands behind. In any
+// other language they are shown in English: never auto-translated at runtime,
+// never read from an old cached auto-translation, never mixed with a partial
+// hand translation. A contract translated on the fly could say something the
+// English and French do not.
+export const LEGAL_KEY_PREFIXES = ['dpa_', 'privacy_', 'terms_', 'subproc_', 'legal_'];
+export const LEGAL_LANGUAGES = ['en', 'fr'];
+export const isLegalKey = (key) => LEGAL_KEY_PREFIXES.some(p => String(key).startsWith(p));
+
 // React hook version that triggers re-render when translations arrive
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { callAI } from './firebase-config';
@@ -13990,6 +14005,11 @@ export function useTranslation(language = 'en') {
   const cached = useMemo(() => { const c = loadTransCache(); return c[language] || {}; }, [language, cacheVersion]);
 
   return useCallback((key) => {
+    // 0. A legal document outside English and French: the English text.
+    if (!LEGAL_LANGUAGES.includes(language) && isLegalKey(key)) {
+      return en[key] !== undefined ? en[key] : key;
+    }
+
     // 1. Manual translation exists for this language
     if (lang[key] !== undefined) return lang[key];
 
