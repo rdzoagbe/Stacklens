@@ -18,8 +18,6 @@ import {
 // time. They are filled in. The legal documents are not machine-translated:
 // outside English and French they are shown in English, with a note.
 
-/* eslint-disable security/detect-non-literal-fs-filename --
-   the one path read here is a file of this repository named in this test. */
 
 const OTHER = ['de', 'es', 'pt'];
 
@@ -87,6 +85,19 @@ describe('legal documents', () => {
     const page = readFileSync(resolve(process.cwd(), 'src/pages/LegalPages.jsx'), 'utf8');
     expect((page.match(/<DocLanguageNote language=\{language\} t=\{t\} \/>/g) || []).length).toBe(5);
     for (const lang of ['en', 'fr', ...OTHER]) expect(translations[lang].doc_lang_note, lang).toBeTruthy();
+  });
+});
+
+describe('choosing a language', () => {
+  it('both switchers offer all five, so the label never says EN over a German page', () => {
+    const shell = readFileSync(resolve(process.cwd(), 'src/components/AppShell.jsx'), 'utf8');
+    const list = shell.slice(shell.indexOf('const LANGUAGE_OPTIONS = ['), shell.indexOf('];', shell.indexOf('const LANGUAGE_OPTIONS = [')));
+    for (const code of ['en', 'fr', 'de', 'es', 'pt']) expect(list).toContain(`code: '${code}'`);
+    expect((shell.match(/const langs = LANGUAGE_OPTIONS;/g) || []).length).toBe(2);
+  });
+
+  it('"per year" sticks to the amount the way "/year" does', () => {
+    for (const lang of ['en', 'fr', ...OTHER]) expect(translations[lang].per_year, lang).toMatch(/^\//);
   });
 });
 

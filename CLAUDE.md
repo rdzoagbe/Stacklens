@@ -326,7 +326,9 @@ pins that first insight fires once, never on an empty inbox, never in demo.
 
 ### i18n
 
-`useTranslation()` from `translations.js` returns `t(key)`. Language preference stored in `localStorage('language')` and managed by `useLang()` from `src/contexts/LangContext.jsx`. Five languages: `en`, `fr`, `de`, `es`, `pt`. Missing keys are auto-translated via AI and cached in localStorage.
+`useTranslation()` from `translations.js` returns `t(key)`. Language preference stored in `localStorage('language')` and managed by `useLang()` from `src/contexts/LangContext.jsx`. Five languages: `en`, `fr`, `de`, `es`, `pt`, all offered in both language switchers (`LANGUAGE_OPTIONS` in `AppShell.jsx`). **Every English key exists in all five** (`i18n-coverage.test.jsx`, with placeholders identical): add a new string in five languages, never in English alone. A key still missing is auto-translated via AI and cached in localStorage, which only works for a signed-in user and spends their AI allowance.
+
+**Legal documents are English and French only.** Keys starting `dpa_`, `privacy_`, `terms_`, `subproc_`, `legal_` (`LEGAL_KEY_PREFIXES`) are shown in English in any other language: never auto-translated, never read from the cache, never mixed with a partial translation; each legal page says so in one line (`doc_lang_note`). A contract translated by a machine could say something the English and French do not; a German, Spanish or Portuguese version needs a reviewed translation and a change to `LEGAL_LANGUAGES`.
 
 ### Visual system
 
