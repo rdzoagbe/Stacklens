@@ -902,7 +902,7 @@ export function PrintReport({ report, money, language, t, firm, client, note, fo
     ...f.forgotten.map((g) => [t('audit_f_forgotten'), `${g.vendor} · ${g.charges}×`, `${money(g.monthlyEquivalent)}${t('audit_per_mo')}`]),
   ];
   return (
-    <div className="bg-white text-gray-900 p-8 text-sm leading-relaxed" data-testid="print-report">
+    <div className="paper bg-white text-gray-900 p-8 text-sm leading-relaxed" data-testid="print-report">
       <div className="flex items-start justify-between gap-6 border-b border-gray-300 pb-4 mb-5">
         <div>
           {firm && <div className="text-xl font-bold">{firm}</div>}

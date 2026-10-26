@@ -117,15 +117,18 @@ describe('the call sites', () => {
     expect(effect, 'the demo guard must sit in the same effect, before the note').toMatch(/is_demo\) return;/);
     const body = page.slice(at, at + 400);
     expect(body).toMatch(/noteVisit\(/);
-    expect(body).toMatch(/noteRecommendationsShown\(derived\.alerts\.map\(a => a\.id\)/);
+    // "Shown" is the to-do lines on screen, by the kinds recommendation_acted
+    // uses: the alerts panel it used to count is gone (one to-do list now).
+    expect(body).toMatch(/noteRecommendationsShown\(todo\.slice\(0, TODO_VISIBLE\)\.map\(a => a\.kind\)/);
   });
 
-  it('every action-inbox item carries a kind and every action path notes it', () => {
+  it('every to-do item carries a kind and every action path notes it', () => {
     const page = src('src/pages/DashboardPage.jsx');
-    const inbox = page.slice(page.indexOf('ROW 3: Action Inbox'), page.indexOf('ROW 4: Quick Actions'));
-    const kinds = [...inbox.matchAll(/kind: '([a-z_]+)'/g)].map(m => m[1]);
-    expect(kinds).toEqual(['former_access', 'invoice_check', 'people_changes', 'device_return', 'no_owner', 'no_mfa', 'budget', 'device_coverage', 'idle_spend']);
-    expect((inbox.match(/noteRecommendationActed\(item\.kind, item\.severity\)/g) || []).length,
+    const list = page.slice(page.indexOf('TO-DO: ranked'), page.indexOf('end of TO-DO ──'));
+    const kinds = [...list.matchAll(/kind: '([a-z_]+)'/g)].map(m => m[1]);
+    expect(kinds).toEqual(['former_access', 'invoice_check', 'people_changes', 'device_return', 'no_owner', 'no_mfa', 'budget', 'device_coverage', 'access_review', 'idle_spend']);
+    const rows = page.slice(page.indexOf('TO-DO + SPEND'), page.indexOf('end of TO-DO list'));
+    expect((rows.match(/noteRecommendationActed\(item\.kind, item\.severity\)/g) || []).length,
       'assign-owner button, revoke button and the link must each note the action').toBe(3);
   });
 

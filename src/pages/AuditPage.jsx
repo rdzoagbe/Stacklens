@@ -111,7 +111,7 @@ export function AuditTabContent() {
           <div className="flex items-center gap-5">
             <div className="relative w-24 h-24 flex-shrink-0">
               <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
-                <circle cx="50" cy="50" r="42" fill="none" stroke="#1e293b" strokeWidth="6"/>
+                <circle cx="50" cy="50" r="42" fill="none" className="stroke-slate-800" strokeWidth="6"/>
                 <circle cx="50" cy="50" r="42" fill="none"
                   stroke={derived.healthScore >= 80 ? '#10b981' : derived.healthScore >= 60 ? '#f59e0b' : '#ef4444'}
                   strokeWidth="6"

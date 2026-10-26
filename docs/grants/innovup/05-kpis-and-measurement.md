@@ -31,8 +31,8 @@ refuses anything else.
 | Directory sync completion | `integration_sync_completed { source, added }` | `src/pages/settings/IntegrationsTab.jsx` | live |
 | Number of tools / licences / users mapped | `records` on the import event; `added` on sync; `onboarding_completed { num_tools }` | as above | live |
 | **Time from data to first actionable insight** | `first_insight { alerts, critical, minutes_since_data, minutes_since_signup }` — fires **once per user**, only when the dashboard has ≥1 alert, never in demo mode | `src/pages/DashboardPage.jsx` effect → `src/lib/activation.js` | new; report the **median** of `minutes_since_data` |
-| Recommendations viewed | `recommendations_shown { total, <kind>: n }` — once per session; kinds are the stable alert ids (`orphaned_tools`, `former_employee_access`, `admin_overdue_review`, `tools_unused_90`, `needs_review`, `spend_watch`) | same effect | new |
-| Recommendations acted on | `recommendation_acted { kind, severity }` — kinds `former_access`, `no_owner`, `no_mfa`, `budget`, `idle_spend` | action-inbox buttons and links | new |
+| Recommendations viewed | `recommendations_shown { total, <kind>: n }` — once per session; the to-do lines on screen (the first six), named by the same kinds as `recommendation_acted`. Until 2026-10 it counted the alert ids of a separate alerts panel, which the single to-do list replaced | same effect | new |
+| Recommendations acted on | `recommendation_acted { kind, severity }` — kinds `former_access`, `invoice_check`, `people_changes`, `device_return`, `no_owner`, `no_mfa`, `budget`, `device_coverage`, `access_review`, `idle_spend` | dashboard to-do buttons and links | new |
 | Recommendation acceptance / rejection / correction | **not measurable yet** — no reject or correct action exists | WP4 builds them and logs verdicts to the audit log | — |
 | Return usage after first insight | `return_after_insight { days_since_first_insight }` — the first visit on any later calendar day | same effect | new |
 | Free audit usage (accountant channel) | `audit_run { source, transactions, subscriptions }`, `audit_download` | `src/pages/SaasAuditPage.jsx` | live since PR #279 |

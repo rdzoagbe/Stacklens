@@ -18,9 +18,11 @@ import { AuditHandoffPrompt } from './AuditHandoffPrompt';
 import { ScreenProtection } from './ScreenProtection';
 import { HelpPanel } from './HelpPanel';
 import { pageHelpKey } from '../lib/pageHelp';
+import { THEME_CHOICES, readThemeChoice, saveThemeChoice, followSystemTheme } from '../lib/theme';
 import {
   LayoutDashboard, Boxes, Users, GitMerge, UserMinus, Shield, BarChart3, Settings,
   ChevronDown, BadgeX, ExternalLink, Languages, Building2, Laptop,
+  Moon, Sun, Monitor,
 } from 'lucide-react';
 
 export const NAV = [
@@ -78,24 +80,15 @@ export function Sidebar({ collapsed, setCollapsed }) {
   return (
     <div
       className={cx(
-        "sticky top-0 flex h-screen shrink-0 flex-col border-r border-slate-800 bg-slate-950/60 backdrop-blur",
+        "sticky top-0 flex h-screen shrink-0 flex-col border-r border-line bg-surface-raised",
         collapsed ? "w-[78px]" : "w-[270px]"
       )}
     >
       <div className={collapsed ? "flex items-center justify-center p-4" : "flex items-center justify-between gap-2 p-4"}>
 {!collapsed &&         <Link to="/dashboard" className="flex items-center gap-2">
-          <RDLogo size="sm" onClick={() => window.location.href = "/dashboard"} />
+          <RDLogo size="sm" />
           {!collapsed ? (
-            <div>
-              <div className="text-sm font-black tracking-tight bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">Stacklens</div>
-              <div className="flex items-center gap-1.5">
-                <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest">SaaS Intelligence</div>
-                <div className="flex items-center gap-1">
-                  <div className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  <span className="text-[9px] text-emerald-500 font-bold uppercase">Live</span>
-                </div>
-              </div>
-            </div>
+            <div className="text-lg font-bold tracking-tight text-ink">Stacklens</div>
           ) : null}
         </Link>}
         <button
@@ -119,29 +112,16 @@ export function Sidebar({ collapsed, setCollapsed }) {
         </button>
       </div>
 
-      <div className="px-3 pb-3">
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-3">
-          <div className="flex items-center gap-2">
-            <div className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
-            {!collapsed ? <div className="text-xs text-slate-300">{t('live_risk_checks')}</div> : null}
-          </div>
-          {!collapsed ? (
-            <div className="mt-2 text-xs text-slate-500">{t('realtime_desc')}</div>
-          ) : null}
-        </div>
-      </div>
-
       <nav className="flex-1 overflow-auto px-2 pb-6">
         {NAV.filter(item => navItemVisible(item, navCtx)).map((item, idx) => {
           if (item.separator) {
             return (
-              <div key={`sep-${idx}`} className="my-4 px-3">
+              <div key={`sep-${idx}`} className={collapsed ? "my-3 mx-3 h-px bg-line" : "px-3 pt-4 pb-1"}>
                 {!collapsed && (
-                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  <div className="text-[11px] font-semibold text-ink-subtle uppercase tracking-wider">
                     {t(item.tKey)}
                   </div>
                 )}
-                {!collapsed && <div className="mt-2 h-px bg-slate-800" />}
               </div>
             );
           }
@@ -152,11 +132,12 @@ export function Sidebar({ collapsed, setCollapsed }) {
             <Link
               key={item.to}
               to={item.to}
+              aria-current={active ? "page" : undefined}
               className={cx(
-                "mb-1 flex items-center gap-3 rounded-2xl px-3 py-2.5 text-[14px] transition",
+                "mb-0.5 flex items-center gap-3 rounded-lg px-3 py-2 text-[14px] transition-colors",
                 active
-                  ? "bg-blue-600/15 text-blue-200 border border-blue-600/30"
-                  : "text-slate-300 hover:bg-slate-900/60"
+                  ? "bg-brand-soft text-brand-text font-semibold"
+                  : "text-ink-muted hover:bg-surface-hover hover:text-ink"
               )}
             >
               <Icon className="h-4 w-4" />
@@ -166,6 +147,7 @@ export function Sidebar({ collapsed, setCollapsed }) {
         })}
 
         <LangSidebarSelector collapsed={collapsed} />
+        <ThemeSidebarSelector collapsed={collapsed} />
       </nav>
 
       <SidebarFooter collapsed={collapsed} />
@@ -206,7 +188,7 @@ function LangSidebarSelector({ collapsed }) {
     return (
       <button
         onClick={() => setLanguage(next.code)}
-        className="mb-1 flex w-full items-center justify-center rounded-2xl px-3 py-2.5 text-xs font-semibold text-slate-300 hover:bg-slate-900/60 transition"
+        className="mb-0.5 flex w-full items-center justify-center rounded-lg px-3 py-2 text-xs font-semibold text-ink-muted hover:bg-surface-hover hover:text-ink transition-colors"
         title={`${t('language')}: ${current.name}`}
       >
         {current.code.toUpperCase()}
@@ -218,7 +200,7 @@ function LangSidebarSelector({ collapsed }) {
     <div className="mb-1">
       <button
         onClick={() => setOpen(o => !o)}
-        className="flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-[14px] text-slate-300 hover:bg-slate-900/60 transition"
+        className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[14px] text-ink-muted hover:bg-surface-hover hover:text-ink transition-colors"
       >
         <Languages className="h-4 w-4" />
         <span className="flex-1 text-left">{t('language')}</span>
@@ -232,10 +214,10 @@ function LangSidebarSelector({ collapsed }) {
               key={l.code}
               onClick={() => { setLanguage(l.code); setOpen(false); }}
               className={cx(
-                'flex w-full items-center gap-2 rounded-xl px-3 py-2 text-[13px] transition',
+                'flex w-full items-center gap-2 rounded-lg px-3 py-2 text-[13px] transition-colors',
                 language === l.code
-                  ? 'bg-blue-600/15 text-blue-200 border border-blue-600/30'
-                  : 'text-slate-300 hover:bg-slate-900/60'
+                  ? 'bg-brand-soft text-brand-text font-semibold'
+                  : 'text-ink-muted hover:bg-surface-hover hover:text-ink'
               )}
             >
               <span>{l.name}</span>
@@ -243,6 +225,82 @@ function LangSidebarSelector({ collapsed }) {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// Dark (the default), light, or the system's (lib/theme.js). One row under
+// Language, opening inline like it.
+const THEME_ICON = { dark: Moon, light: Sun, system: Monitor };
+
+export function useThemeChoice() {
+  const [choice, setChoice] = React.useState(readThemeChoice);
+  React.useEffect(() => followSystemTheme(choice), [choice]);
+  return [choice, (c) => setChoice(saveThemeChoice(c))];
+}
+
+function ThemeSidebarSelector({ collapsed }) {
+  const { language } = useLang();
+  const t = useTranslation(language);
+  const [choice, setChoice] = useThemeChoice();
+  const [open, setOpen] = React.useState(false);
+  const Icon = THEME_ICON[choice];
+
+  if (collapsed) {
+    const next = THEME_CHOICES[(THEME_CHOICES.indexOf(choice) + 1) % THEME_CHOICES.length];
+    return (
+      <button type="button" onClick={() => setChoice(next)} title={`${t('theme_label')}: ${t(`theme_${choice}`)}`}
+        className="mb-0.5 flex w-full items-center justify-center rounded-lg px-3 py-2 text-ink-muted hover:bg-surface-hover hover:text-ink transition-colors">
+        <Icon className="h-4 w-4" aria-hidden="true" />
+      </button>
+    );
+  }
+
+  return (
+    <div className="mb-1">
+      <button type="button" onClick={() => setOpen(o => !o)} aria-expanded={open}
+        className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[14px] text-ink-muted hover:bg-surface-hover hover:text-ink transition-colors">
+        <Icon className="h-4 w-4" aria-hidden="true" />
+        <span className="flex-1 text-left">{t('theme_label')}</span>
+        <span className="text-xs text-ink-subtle">{t(`theme_${choice}`)}</span>
+        <ChevronDown className={cx('h-3.5 w-3.5 transition-transform', open ? 'rotate-180' : '')} />
+      </button>
+      {open && (
+        <div className="mt-1 ml-7 space-y-0.5" role="group" aria-label={t('theme_label')}>
+          {THEME_CHOICES.map((c) => (
+            <button key={c} type="button" aria-pressed={choice === c}
+              onClick={() => { setChoice(c); setOpen(false); }}
+              className={cx('flex w-full items-center gap-2 rounded-lg px-3 py-2 text-[13px] transition-colors',
+                choice === c ? 'bg-brand-soft text-brand-text font-semibold' : 'text-ink-muted hover:bg-surface-hover hover:text-ink')}>
+              {t(`theme_${c}`)}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** The same choice as three buttons, for the phone menu. */
+function ThemeSegmented() {
+  const { language } = useLang();
+  const t = useTranslation(language);
+  const [choice, setChoice] = useThemeChoice();
+  return (
+    <div className="mt-4">
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-ink-subtle">{t('theme_label')}</p>
+      <div className="grid grid-cols-3 gap-2" role="group" aria-label={t('theme_label')}>
+        {THEME_CHOICES.map((c) => {
+          const Icon = THEME_ICON[c];
+          return (
+            <button key={c} type="button" aria-pressed={choice === c} onClick={() => setChoice(c)}
+              className={cx('flex items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs font-medium transition-colors',
+                choice === c ? 'border-line bg-brand-soft text-brand-text' : 'border-line text-ink-muted hover:bg-surface-hover hover:text-ink')}>
+              <Icon className="h-3.5 w-3.5" aria-hidden="true" />{t(`theme_${c}`)}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -383,7 +441,7 @@ export function useRenewalAlerts() {
       const more = critical.length > 3 ? ` +${critical.length-3} more` : '';
       toast('🔔 ' + critical.length + ' renewal' + (critical.length>1?'s':'') + ' due in 30 days: ' + names + more, {
         duration: 8000,
-        style: { background: '#1e293b', color: '#f1f5f9', border: '1px solid #f59e0b' }
+        style: { background: 'rgb(var(--c-slate-800))', color: 'rgb(var(--c-slate-100))', border: '1px solid #f59e0b' }
       });
     }
   }, [db]);
@@ -401,12 +459,12 @@ export function TopBar({ title, right }) {
     <div className="border-b border-slate-800 bg-slate-950/30">
       <div className="flex items-center justify-between gap-4 px-5 pt-4 pb-3">
         <div>
-          <div className="text-xl font-semibold text-slate-100">{title}</div>
-          <div className="mt-0.5 text-sm text-slate-500 max-w-3xl" data-testid="page-help">{t(helpKey || 'topbar_subtitle')}</div>
+          <h1 className="text-2xl font-bold text-ink">{title}</h1>
+          <div className="mt-1 text-sm text-ink-muted max-w-3xl" data-testid="page-help">{t(helpKey || 'topbar_subtitle')}</div>
         </div>
         <div className="hidden sm:flex items-center gap-3 text-sm text-slate-300 flex-shrink-0">
           <HelpPanel />
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600/20 text-blue-300 font-medium">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-surface-hover text-ink-muted font-medium">
             {userName.charAt(0).toUpperCase()}
           </div>
           <span className="max-w-[120px] truncate">{userName}</span>
@@ -1008,6 +1066,7 @@ export function AppShell({ _subtitle, title, right, children }) {
                 </Link>
               ))}
             </div>
+            <ThemeSegmented />
           </Modal>
         </div>
 

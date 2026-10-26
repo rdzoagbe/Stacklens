@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import tailwind from '../../tailwind.config.js';
+import { themeValues } from '../design/palette.js';
 
 /* eslint-disable security/detect-non-literal-fs-filename --
    every path is built from the repo root and a constant, not input. */
@@ -46,7 +47,8 @@ describe('type', () => {
 
 describe('colour', () => {
   it('secondary text passes WCAG AA on the page and on cards', () => {
-    const slate500 = tailwind.theme.extend.colors.slate[500];
+    // A CSS variable since light mode (src/design/palette.js): the dark value.
+    const slate500 = themeValues().dark['--c-slate-500'];
     expect(contrast(slate500, '#020617'), 'on slate-950').toBeGreaterThanOrEqual(4.5);
     expect(contrast(slate500, '#0f172a'), 'on slate-900').toBeGreaterThanOrEqual(4.5);
   });

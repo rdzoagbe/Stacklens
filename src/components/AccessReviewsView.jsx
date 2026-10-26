@@ -145,7 +145,7 @@ export function PrintReview({ review, t, language, enumLabel, label, company }) 
   const s = summary(review);
   const date = (iso) => (iso ? new Date(iso).toLocaleDateString(language === 'en' ? 'en-GB' : language, { day: 'numeric', month: 'long', year: 'numeric' }) : '—');
   return (
-    <div className="bg-white text-gray-900 p-8 text-sm leading-relaxed" data-testid="print-review">
+    <div className="paper bg-white text-gray-900 p-8 text-sm leading-relaxed" data-testid="print-review">
       <div className="flex items-start justify-between gap-6 border-b border-gray-300 pb-4 mb-4">
         <div>
           <div className="text-xs uppercase tracking-wider text-gray-600">{t('ar_print_kicker')}</div>

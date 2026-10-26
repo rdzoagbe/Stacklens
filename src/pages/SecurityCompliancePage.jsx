@@ -99,7 +99,7 @@ function SecurityTabContent() {
           <div className="text-center">
             <div className="relative w-40 h-40 mx-auto mb-4">
               <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
-                <circle cx="50" cy="50" r="42" fill="none" stroke="#1e293b" strokeWidth="6"/>
+                <circle cx="50" cy="50" r="42" fill="none" className="stroke-slate-800" strokeWidth="6"/>
                 <circle cx="50" cy="50" r="42" fill="none"
                   stroke={scoreColor}
                   strokeWidth="6"
