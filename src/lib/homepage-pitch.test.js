@@ -29,10 +29,15 @@ describe('the hero says who it is for and what to do first', () => {
     expect(en('lp_hero_badge').toLowerCase()).toMatch(/accountant|expert/);
   });
 
-  it('the headline is the accountant pitch, not the old one', () => {
-    expect(en('lp_hero_h1_line1')).not.toMatch(/Stop SaaS drift/);
-    expect(en('lp_hero_h1_line1') + ' ' + en('lp_hero_h1_line2'))
-      .toMatch(/receipts|clients/i);
+  it('the headline is the audit’s promise, and quotes no figure it cannot source', () => {
+    // It said "Your clients pay for 80 tools." with no source for the 80; the
+    // founder had it removed (October 2026). The headline is now the free
+    // audit's own, which the button under it delivers.
+    const src = page();
+    const hero = src.slice(src.indexOf('{/* ── HERO ── */}'), src.indexOf("{/* ── WHO IT'S FOR ── "));
+    expect(hero).toMatch(/<h1[^>]*>\s*\{t\('audit_title_1'\)\} \{t\('audit_title_2'\)\}/);
+    expect(en('audit_title_1') + en('audit_title_2')).not.toMatch(/\d/);
+    expect(tr()).not.toMatch(/lp_hero_h1_line[12]:/);
   });
 
   it('the body no longer addresses only the overwhelmed ops person', () => {
@@ -42,14 +47,27 @@ describe('the hero says who it is for and what to do first', () => {
     expect(en('lp_hero_body')).toMatch(/fifty/i);
   });
 
-  it('the primary CTA is the free audit, as a link, not a sign-up modal', () => {
+  it('the primary CTA is the free audit, as a link, with only the demo beside it', () => {
     const src = page();
     const hero = src.slice(src.indexOf('{/* ── HERO ── */}'), src.indexOf("{/* ── WHO IT'S FOR ── "));
     expect(hero, 'the hero must exist between those markers').not.toBe('');
     const firstCta = hero.indexOf('<Link to="/audit-saas"');
-    const startBtn = hero.indexOf("t('lp_cta_start')");
+    const demo = hero.indexOf("t('lp_cta_demo')");
     expect(firstCta, 'no audit link in the hero').toBeGreaterThan(-1);
-    expect(firstCta, 'the audit must come before Start free').toBeLessThan(startBtn);
+    expect(firstCta, 'the audit must come before the demo').toBeLessThan(demo);
+    // One primary action: sign-up lives in the menu, not as a second button here.
+    expect(hero).not.toMatch(/lp_cta_start/);
+  });
+
+  it('shows an example of the audit result, and says it is an example', () => {
+    const src = page();
+    const hero = src.slice(src.indexOf('{/* ── HERO ── */}'), src.indexOf("{/* ── WHO IT'S FOR ── "));
+    expect(hero).toMatch(/<AuditExampleCard /);
+    const card = readFileSync(resolve(process.cwd(), 'src/components/AuditExampleCard.jsx'), 'utf8');
+    expect(card).toMatch(/t\('lp_ex_badge'\)/);
+    expect(card).toMatch(/t\('lp_ex_sub'\)/);
+    expect(en('lp_ex_badge')).toBe('Example');
+    expect(en('lp_ex_sub')).toMatch(/^Example data/);
   });
 
   it('keeps the free-plan fine print, which plan-claims.test.js pins to the real limits', () => {
@@ -88,7 +106,7 @@ describe('the audience section names both buyers and routes each', () => {
   it('every key it renders exists in English and French', () => {
     const keys = [...new Set([...src().matchAll(/\bt\('([a-z0-9_]+)'/g)].map(m => m[1]))];
     expect(keys.length).toBeGreaterThan(8);
-    for (const k of [...keys, 'lp_cta_audit', 'lp_hero_badge', 'lp_hero_h1_line1', 'lp_hero_h1_line2', 'lp_hero_body']) {
+    for (const k of [...keys, 'lp_cta_audit', 'lp_hero_badge', 'audit_title_1', 'audit_title_2', 'lp_hero_body']) {
       expect(tr().split(k + ':').length - 1, `${k} needs EN and FR`).toBeGreaterThanOrEqual(2);
     }
   });

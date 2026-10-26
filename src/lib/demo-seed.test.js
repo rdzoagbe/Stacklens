@@ -68,7 +68,7 @@ describe('French copy', () => {
 describe('landing hero buttons', () => {
   it('keep each label on one line from the tablet width up', () => {
     const page = readFileSync(resolve(process.cwd(), 'src/pages/TrialPage.jsx'), 'utf8');
-    for (const key of ['lp_cta_audit', 'lp_cta_start', 'lp_cta_demo']) {
+    for (const key of ['lp_cta_audit', 'lp_cta_demo']) {
       const at = page.indexOf(`{t('${key}')}`);
       const tag = page.slice(page.lastIndexOf('className=', at), at);
       expect(tag, key).toMatch(/whitespace-nowrap/);
