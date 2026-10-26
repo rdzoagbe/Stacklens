@@ -10,6 +10,7 @@ import { Button, Input, Select, useEnumLabel } from '../components/ui';
 import { AppShell } from '../components/AppShell';
 import { AlertTriangle, Check } from 'lucide-react';
 import { EligibilityView } from '../components/EligibilityView';
+import { AccessReviewsView } from '../components/AccessReviewsView';
 
 export function AccessForm({ initial, tools, employees, onSubmit, onClose }) {
   const { language } = useLang();
@@ -151,7 +152,7 @@ export function AccessPage() {
   const enumLabel = useEnumLabel();
   // ?view=eligibility opens the rules directly (a link from elsewhere in the app).
   const [viewMode, setViewMode] = useState(() => {
-    try { return new URLSearchParams(window.location.search).get('view') === 'eligibility' ? 'eligibility' : 'map'; } catch { return 'map'; }
+    try { const v = new URLSearchParams(window.location.search).get('view'); return ['eligibility', 'reviews'].includes(v) ? v : 'map'; } catch { return 'map'; }
   });
   const [filterRisk, setFilterRisk] = useState('all');
   const [search, setSearch] = useState('');
@@ -283,6 +284,7 @@ export function AccessPage() {
               { id: 'table', label: t('access_table_view') },
               { id: 'by-tool', label: t('access_by_tool') },
               { id: 'eligibility', label: t('elig_tab') },
+              { id: 'reviews', label: t('ar_tab') },
             ].map(v => (
               <button key={v.id} onClick={() => setViewMode(v.id)}
                 className={"px-3 py-1.5 rounded-lg text-sm font-semibold transition-all " + (viewMode === v.id ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white')}>
@@ -290,7 +292,7 @@ export function AccessPage() {
               </button>
             ))}
           </div>
-          {viewMode !== 'eligibility' && <>
+          {!['eligibility', 'reviews'].includes(viewMode) && <>
           <div className="flex-1 min-w-0">
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t("search_placeholder_access")}
               className="w-full bg-slate-900 border border-line-control rounded-xl px-4 py-2 text-sm text-white placeholder-slate-500 outline-none focus:border-blue-500 transition-colors" />
@@ -306,6 +308,7 @@ export function AccessPage() {
         </div>
 
         {viewMode === 'eligibility' && <EligibilityView db={db} />}
+        {viewMode === 'reviews' && <AccessReviewsView db={db} />}
 
         {/* ── View: Access Map (Employee → Tools grid) ── */}
         {viewMode === 'map' && (
