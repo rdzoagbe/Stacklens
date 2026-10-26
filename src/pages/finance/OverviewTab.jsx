@@ -165,7 +165,7 @@ function BudgetModal({ current, totalSpend, language, onSave, onClear, onClose }
               value={value}
               onChange={e => setValue(e.target.value)}
               placeholder={t('budget_modal_placeholder')}
-              className="w-full bg-slate-800 border border-slate-700 focus:border-blue-500 rounded-xl px-3 py-2.5 pl-8 text-white text-sm outline-none transition-colors"
+              className="w-full bg-slate-800 border border-line-control focus:border-blue-500 rounded-xl px-3 py-2.5 pl-8 text-white text-sm outline-none transition-colors"
               autoFocus
             />
           </div>
@@ -179,7 +179,7 @@ function BudgetModal({ current, totalSpend, language, onSave, onClear, onClose }
         <div className="flex gap-2">
           <button onClick={() => num > 0 && onSave(num)}
             disabled={num <= 0}
-            className="flex-1 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold transition-colors">
+            className="flex-1 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold transition-colors">
             {t('budget_modal_save')}
           </button>
           {current > 0 && (
@@ -235,7 +235,7 @@ export function FinanceOverviewTab({ financialData, showBudgetModal, setShowBudg
         </div>
         <h2 className="text-xl font-bold text-white mb-2">{t('finance_no_data_title')}</h2>
         <p className="text-sm text-slate-400 max-w-sm mb-6">{t('finance_no_data_body')}</p>
-        <Link to="/tools" className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-xl text-sm font-semibold text-white transition-colors">
+        <Link to="/tools" className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-xl text-sm font-semibold text-white transition-colors">
           {t('finance_add_tools')}
         </Link>
       </div>

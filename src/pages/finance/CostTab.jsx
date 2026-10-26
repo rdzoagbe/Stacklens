@@ -201,7 +201,7 @@ export function CostTabContent({ setFinTab }) {
               </button>
             ))}
             <select value={sortBy} onChange={e => setSortBy(e.target.value)}
-              className="px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-slate-300 outline-none">
+              className="px-3 py-1.5 bg-slate-800 border border-line-control rounded-lg text-xs text-slate-300 outline-none">
               <option value="cost">{t('sort_cost')}</option>
               <option value="perUser">{t('sort_cost_per_user')}</option>
               <option value="users">{t('sort_users')}</option>

@@ -102,7 +102,7 @@ export function ClientsPage() {
             {orgs.length >= SEARCH_FROM && (
               <input type="text" value={query} onChange={e => setQuery(e.target.value)}
                 placeholder={t('ws_search_clients')}
-                className="px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-slate-300 outline-none focus:border-indigo-500 transition-colors w-48" />
+                className="px-3 py-1.5 bg-slate-800 border border-line-control rounded-lg text-xs text-slate-300 outline-none focus:border-indigo-500 transition-colors w-48" />
             )}
           </div>
 

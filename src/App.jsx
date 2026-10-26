@@ -164,7 +164,7 @@ function EmailVerificationWall({ email, onVerified }) {
         {sent && <p className="text-green-400 text-sm">{t('verification_resent') || 'Verification email resent!'}</p>}
         <div className="flex flex-col gap-3">
           <button onClick={handleCheck} disabled={checking}
-            className="w-full px-4 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:hover:bg-blue-600 disabled:cursor-not-allowed text-white rounded-xl font-semibold text-sm transition-colors">
+            className="w-full px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:hover:bg-blue-600 disabled:cursor-not-allowed text-white rounded-xl font-semibold text-sm transition-colors">
             {checking ? (t('checking') || 'Checking...') : (t('ive_verified') || "I've verified — continue")}
           </button>
           <button onClick={handleResend} disabled={resending || cooldown > 0}

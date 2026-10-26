@@ -232,7 +232,7 @@ export function PlanLimitBanner({ resource = 'tools' }) {
       </div>
       <button
         onClick={() => navigate('/settings?tab=billing')}
-        className={'px-4 py-2 rounded-xl text-sm font-semibold transition-colors flex-shrink-0 ' + (tone === 'red' ? 'bg-red-600 hover:bg-red-500 text-white' : 'bg-amber-600 hover:bg-amber-500 text-white')}
+        className={'px-4 py-2 rounded-xl text-sm font-semibold transition-colors flex-shrink-0 ' + (tone === 'red' ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-amber-600 hover:bg-amber-500 text-white')}
       >
         {t('plan_limit_upgrade_btn')}
       </button>

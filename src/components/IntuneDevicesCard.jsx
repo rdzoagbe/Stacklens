@@ -65,7 +65,7 @@ export function IntuneDevicesCard({ db, canEdit, t, deps = null }) {
         </div>
         {canEdit && !unavailable && (
           <button type="button" onClick={read} disabled={state.phase === 'reading'}
-            className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-sm font-semibold text-white disabled:opacity-50">
+            className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-sm font-semibold text-white disabled:opacity-50">
             {state.phase === 'reading' ? t('itn_reading') : state.phase === 'done' ? t('itn_read_again') : t('itn_read')}
           </button>
         )}

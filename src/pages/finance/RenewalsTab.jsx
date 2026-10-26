@@ -352,7 +352,7 @@ export function RenewalAlerts() {
             </div>
             <div className="flex flex-col sm:flex-row gap-2 flex-shrink-0">
               <button onClick={() => sendNegotiationEmail(mostUrgent)}
-                className="px-5 py-2.5 bg-red-600 hover:bg-red-500 rounded-xl font-semibold text-sm text-white transition-colors flex items-center gap-2 whitespace-nowrap">
+                className="px-5 py-2.5 bg-red-600 hover:bg-red-700 rounded-xl font-semibold text-sm text-white transition-colors flex items-center gap-2 whitespace-nowrap">
                 <Mail className="h-4 w-4" /> {t('ren_negotiate_now')}
               </button>
               <button onClick={exportICS}
@@ -433,7 +433,7 @@ export function RenewalAlerts() {
                 </button>
               </div>
               <select value={sortBy} onChange={e => setSortBy(e.target.value)}
-                className="px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-slate-300 outline-none">
+                className="px-3 py-1.5 bg-slate-800 border border-line-control rounded-lg text-xs text-slate-300 outline-none">
                 <option value="date">{t('ren_sort_date')}</option>
                 <option value="cost">{t('ren_sort_cost')}</option>
                 <option value="app">{t('ren_sort_az')}</option>
@@ -683,7 +683,7 @@ function InvoiceManager() {
         <p className="text-sm text-slate-500">{t('fin_invoice_intro')}</p>
           <button 
             onClick={() => setShowUploadModal(true)}
-            className="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold flex items-center gap-2"
+            className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-xl font-semibold flex items-center gap-2"
           >
             <Upload className="w-5 h-5" />
             {t('act_upload_invoice')}
@@ -792,7 +792,7 @@ function InvoiceManager() {
                             setSelectedInvoice(invoice);
                             setShowInvoiceDetail(true);
                           }}
-                          className="px-3 py-1 bg-blue-600 hover:bg-blue-500 rounded text-sm transition-colors">{t('act_view')}</button>
+                          className="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-sm transition-colors">{t('act_view')}</button>
                         {invoice.status === 'pending_approval' && (
                           <button
                           onClick={async () => {
@@ -874,15 +874,15 @@ function InvoiceManager() {
             >
               <div>
                 <label className="block text-sm font-semibold text-slate-300 mb-2">{t("hc_vendor_name")}</label>
-                <input type="text" required value={uploadForm.vendor} onChange={e => setUploadForm(f => ({...f, vendor: e.target.value}))} className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-white" placeholder="e.g. Salesforce" />
+                <input type="text" required value={uploadForm.vendor} onChange={e => setUploadForm(f => ({...f, vendor: e.target.value}))} className="w-full px-4 py-3 bg-slate-900 border border-line-control rounded-xl text-white" placeholder="e.g. Salesforce" />
               </div>
               <div>
                 <label className="block text-sm font-semibold text-slate-300 mb-2">{t("hc_invoice_amount")}</label>
-                <input type="number" required value={uploadForm.amount} onChange={e => setUploadForm(f => ({...f, amount: e.target.value}))} className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-white" placeholder="0.00" />
+                <input type="number" required value={uploadForm.amount} onChange={e => setUploadForm(f => ({...f, amount: e.target.value}))} className="w-full px-4 py-3 bg-slate-900 border border-line-control rounded-xl text-white" placeholder="0.00" />
               </div>
               <div>
                 <label className="block text-sm font-semibold text-slate-300 mb-2">{t("hc_due_date")}</label>
-                <input type="date" required value={uploadForm.dueDate} onChange={e => setUploadForm(f => ({...f, dueDate: e.target.value}))} className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-white" />
+                <input type="date" required value={uploadForm.dueDate} onChange={e => setUploadForm(f => ({...f, dueDate: e.target.value}))} className="w-full px-4 py-3 bg-slate-900 border border-line-control rounded-xl text-white" />
               </div>
               <div>
                 <label className="block text-sm font-semibold text-slate-300 mb-2">{t('col_category')}</label>
@@ -905,7 +905,7 @@ function InvoiceManager() {
               </div>
               <div className="flex gap-3 pt-4">
                 <button type="button" onClick={() => setShowUploadModal(false)} className="flex-1 px-6 py-3 bg-slate-800 hover:bg-slate-700 rounded-xl font-semibold transition-colors">{t('cancel')}</button>
-                <button type="submit" className={`flex-1 px-6 py-3 rounded-xl font-semibold transition-colors ${uploadSuccess ? 'bg-emerald-600' : 'bg-blue-600 hover:bg-blue-500'}`}>{uploadSuccess ? '✅ Uploaded!' : 'Upload & Submit'}</button>
+                <button type="submit" className={`flex-1 px-6 py-3 rounded-xl font-semibold transition-colors ${uploadSuccess ? 'bg-emerald-600' : 'bg-blue-600 hover:bg-blue-700'}`}>{uploadSuccess ? '✅ Uploaded!' : 'Upload & Submit'}</button>
               </div>
             </form>
           </Modal>

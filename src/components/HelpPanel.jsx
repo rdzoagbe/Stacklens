@@ -35,7 +35,7 @@ export function HelpPanel({ compact = false }) {
           <Search className="h-4 w-4 text-slate-500 absolute left-3 top-3" />
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t('hf_search')} aria-label={t('hf_search')}
             data-testid="help-search"
-            className="h-10 w-full rounded-xl border border-slate-800 bg-slate-950 pl-9 pr-3 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40" />
+            className="h-10 w-full rounded-xl border border-line-control bg-slate-950 pl-9 pr-3 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40" />
         </div>
         {results.length === 0 ? (
           <p className="text-sm text-slate-400 py-4 text-center" data-testid="help-none">{t('hf_none')}</p>

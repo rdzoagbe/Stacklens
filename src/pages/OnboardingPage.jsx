@@ -127,7 +127,7 @@ export function OnboardingPage() {
                 type="email"
                 value={formData.workEmail}
                 onChange={(e) => setFormData({ ...formData, workEmail: e.target.value })}
-                className="w-full px-6 py-4 bg-slate-950 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-lg focus:border-blue-500 focus:outline-none transition-colors"
+                className="w-full px-6 py-4 bg-slate-950 border border-line-control rounded-xl text-white placeholder-slate-500 text-lg focus:border-blue-500 focus:outline-none transition-colors"
                 placeholder="you@company.com"
                 required
                 disabled
@@ -143,7 +143,7 @@ export function OnboardingPage() {
                 type="text"
                 value={formData.fullName}
                 onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                className="w-full px-6 py-4 bg-slate-950 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-lg focus:border-blue-500 focus:outline-none transition-colors"
+                className="w-full px-6 py-4 bg-slate-950 border border-line-control rounded-xl text-white placeholder-slate-500 text-lg focus:border-blue-500 focus:outline-none transition-colors"
                 placeholder={t('ob_placeholder_name')}
                 required
               />
@@ -158,7 +158,7 @@ export function OnboardingPage() {
                 type="text"
                 value={formData.companyName}
                 onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
-                className="w-full px-6 py-4 bg-slate-950 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-lg focus:border-blue-500 focus:outline-none transition-colors"
+                className="w-full px-6 py-4 bg-slate-950 border border-line-control rounded-xl text-white placeholder-slate-500 text-lg focus:border-blue-500 focus:outline-none transition-colors"
                 placeholder={t('ob_placeholder_company')}
                 required
               />
@@ -172,7 +172,7 @@ export function OnboardingPage() {
               <select
                 value={formData.jobTitle}
                 onChange={(e) => setFormData({ ...formData, jobTitle: e.target.value })}
-                className="w-full px-6 py-4 bg-slate-950 border border-slate-700 rounded-xl text-white text-lg focus:border-blue-500 focus:outline-none transition-colors"
+                className="w-full px-6 py-4 bg-slate-950 border border-line-control rounded-xl text-white text-lg focus:border-blue-500 focus:outline-none transition-colors"
                 required
               >
                 <option value="">{t('select_role')}</option>
@@ -196,7 +196,7 @@ export function OnboardingPage() {
               <select
                 value={formData.companySize}
                 onChange={(e) => setFormData({ ...formData, companySize: e.target.value })}
-                className="w-full px-6 py-4 bg-slate-950 border border-slate-700 rounded-xl text-white text-lg focus:border-blue-500 focus:outline-none transition-colors"
+                className="w-full px-6 py-4 bg-slate-950 border border-line-control rounded-xl text-white text-lg focus:border-blue-500 focus:outline-none transition-colors"
                 required
               >
                 <option value="">{t('select_company_size')}</option>

@@ -83,7 +83,7 @@ export function GoogleLicencesCard({ db, canEdit, t, deps = null }) {
         </div>
         {canEdit && !unavailable && (
           <button type="button" onClick={read} disabled={state.phase === 'reading'}
-            className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-sm font-semibold text-white disabled:opacity-50">
+            className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-sm font-semibold text-white disabled:opacity-50">
             {state.phase === 'reading' ? t('gl_reading') : state.phase === 'done' ? t('gl_read_again') : t('gl_read')}
           </button>
         )}
@@ -108,7 +108,7 @@ export function GoogleLicencesCard({ db, canEdit, t, deps = null }) {
                       <label className="text-xs text-slate-400 flex items-center gap-2">
                         {t('gl_tool')}
                         <select value={tool?.id || ''} onChange={(e) => link(sku, e.target.value)}
-                          className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-200">
+                          className="bg-slate-900 border border-line-control rounded-lg px-2 py-1 text-xs text-slate-200">
                           <option value="">{t('gl_pick_tool')}</option>
                           {(db.tools || []).filter((x) => x.status !== 'decommissioned').map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
                           <option value="__new">{fill(t('gl_create_tool'), { name: sku.skuName })}</option>

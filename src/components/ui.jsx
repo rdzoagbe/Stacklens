@@ -109,13 +109,18 @@ export function Button({ className, variant = 'primary', size = 'md', disabled, 
   // blue call to action, and hover still lit up — so pressing it and getting
   // nothing looks like the app failing rather than a field left blank. That
   // happened on the name gate and cost a real debugging session.
-  const base = 'inline-flex items-center justify-center gap-2 rounded-xl font-medium transition focus:outline-none focus:ring-2 focus:ring-blue-500/50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-inherit';
+  const base = 'inline-flex items-center justify-center gap-2 rounded-xl font-medium transition focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-inherit';
+  //
+  // Hover darkens (blue-700, red-700) rather than lightening: white on
+  // blue-500 or red-500 is under 4.5:1, so every filled button went below AA
+  // the moment the pointer reached it. Focus is a solid ring 2px off the
+  // button (the design system's focus-ring token), shown for the keyboard only.
   const sizes    = { sm: 'h-9 px-3 text-sm', md: 'h-10 px-4 text-sm', lg: 'h-11 px-5 text-sm' };
   const variants = {
-    primary:   'bg-blue-600 text-white hover:bg-blue-500',
+    primary:   'bg-blue-600 text-white hover:bg-blue-700',
     secondary: 'bg-slate-800 text-slate-100 hover:bg-slate-700 border border-slate-700',
     ghost:     'bg-transparent text-slate-200 hover:bg-slate-800',
-    danger:    'bg-red-600 text-white hover:bg-red-500',
+    danger:    'bg-red-600 text-white hover:bg-red-700',
   };
   return (
     <button type={type} disabled={disabled} onClick={onClick} className={cx(base, sizes[size], variants[variant], className)}>
@@ -127,7 +132,7 @@ export function Button({ className, variant = 'primary', size = 'md', disabled, 
 export function Input({ className, ...props }) {
   return (
     <input
-      className={cx('h-10 w-full rounded-xl border border-slate-800 bg-slate-950 px-3 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40', className)}
+      className={cx('h-10 w-full rounded-xl border border-line-control bg-slate-950 px-3 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring', className)}
       {...props}
     />
   );
@@ -136,7 +141,7 @@ export function Input({ className, ...props }) {
 export function Select({ className, children, ...props }) {
   return (
     <select
-      className={cx('h-10 w-full rounded-xl border border-slate-800 bg-slate-950 px-3 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40', className)}
+      className={cx('h-10 w-full rounded-xl border border-line-control bg-slate-950 px-3 text-sm text-slate-100 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring', className)}
       {...props}
     >
       {children}
@@ -147,7 +152,7 @@ export function Select({ className, children, ...props }) {
 export function Textarea({ className, ...props }) {
   return (
     <textarea
-      className={cx('w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40', className)}
+      className={cx('w-full rounded-xl border border-line-control bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring', className)}
       {...props}
     />
   );

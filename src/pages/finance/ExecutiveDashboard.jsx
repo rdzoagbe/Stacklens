@@ -49,7 +49,7 @@ export function ExecutiveDashboard({ data }) {
   return (
     <div className="w-full space-y-6">
       <div className="flex items-center justify-end">
-        <button onClick={() => window.print()} className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold text-white">
+        <button onClick={() => window.print()} className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-xl font-semibold text-white">
           <Download className="h-5 w-5" /> {t('exec_export_report')}
         </button>
       </div>

@@ -174,14 +174,14 @@ function UserTableRow({ u, onAction }) {
               placeholder="Name"
               value={editName}
               onChange={(e) => setEditName(e.target.value)}
-              className="bg-slate-800 border border-slate-600 text-slate-200 text-xs rounded-lg px-2 py-1.5 w-36"
+              className="bg-slate-800 border border-line-control text-slate-200 text-xs rounded-lg px-2 py-1.5 w-36"
             />
             <input
               type="email"
               placeholder="Email"
               value={editEmail}
               onChange={(e) => setEditEmail(e.target.value)}
-              className="bg-slate-800 border border-slate-600 text-slate-200 text-xs rounded-lg px-2 py-1.5 w-48"
+              className="bg-slate-800 border border-line-control text-slate-200 text-xs rounded-lg px-2 py-1.5 w-48"
             />
             <button onClick={handleSaveProfile} disabled={busy} className="p-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded-lg">
               <Check size={13} />
@@ -220,7 +220,7 @@ function UserTableRow({ u, onAction }) {
           value={plan}
           onChange={(e) => handlePlanChange(e.target.value)}
           disabled={busy}
-          className={`text-xs font-semibold rounded-lg px-2 py-1.5 border cursor-pointer disabled:opacity-50 bg-slate-800 border-slate-600 ${(PLAN_COLORS[plan] || '').includes('text-') ? PLAN_COLORS[plan].split(' ').find(c => c.startsWith('text-')) : 'text-slate-300'}`}
+          className={`text-xs font-semibold rounded-lg px-2 py-1.5 border cursor-pointer disabled:opacity-50 bg-slate-800 border-line-control ${(PLAN_COLORS[plan] || '').includes('text-') ? PLAN_COLORS[plan].split(' ').find(c => c.startsWith('text-')) : 'text-slate-300'}`}
         >
           {VALID_PLANS.map(p => (
             <option key={p} value={p}>{p.replace('_', ' ')}</option>
@@ -518,9 +518,9 @@ export function FounderAdminPage() {
             the console — and autoComplete off so it is never offered for saving. */}
         <form className="flex flex-wrap gap-2" autoComplete="off" onSubmit={e => { e.preventDefault(); if (!bankCfg.saving && bankCfg.id.trim() && bankCfg.secret.trim()) saveBankCreds(); }}>
           <input type="text" autoComplete="off" value={bankCfg.id} onChange={e => setBankCfg(c => ({ ...c, id: e.target.value }))}
-            placeholder="Bridge Client ID" className="flex-1 min-w-[180px] bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-indigo-500" />
+            placeholder="Bridge Client ID" className="flex-1 min-w-[180px] bg-slate-800 border border-line-control rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-indigo-500" />
           <input type="password" autoComplete="new-password" value={bankCfg.secret} onChange={e => setBankCfg(c => ({ ...c, secret: e.target.value }))}
-            placeholder="Bridge Client Secret" className="flex-1 min-w-[180px] bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-indigo-500" />
+            placeholder="Bridge Client Secret" className="flex-1 min-w-[180px] bg-slate-800 border border-line-control rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-indigo-500" />
           <button type="submit" disabled={bankCfg.saving || !bankCfg.id.trim() || !bankCfg.secret.trim()}
             className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition-colors disabled:opacity-50">
             {bankCfg.saving ? 'Saving…' : 'Save'}
@@ -632,7 +632,7 @@ export function FounderAdminPage() {
         <select
           value={filterPlan}
           onChange={(e) => setFilterPlan(e.target.value)}
-          className="bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-xl px-3 py-2"
+          className="bg-slate-800 border border-line-control text-slate-300 text-sm rounded-xl px-3 py-2"
         >
           <option value="all">All plans</option>
           {VALID_PLANS.map(p => (
@@ -642,7 +642,7 @@ export function FounderAdminPage() {
         <select
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value)}
-          className="bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-xl px-3 py-2"
+          className="bg-slate-800 border border-line-control text-slate-300 text-sm rounded-xl px-3 py-2"
         >
           <option value="recent">Most recent</option>
           <option value="email">Email A→Z</option>

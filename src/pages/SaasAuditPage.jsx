@@ -202,7 +202,7 @@ export function SaasAuditPage() {
               <p className="text-sm text-slate-400 mb-6 max-w-md mx-auto">{t('audit_drop_sub')}</p>
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
                 <button onClick={() => inputRef.current?.click()} disabled={state.phase === 'reading'}
-                  className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-blue-600 font-semibold text-sm transition-colors">
+                  className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-blue-600 font-semibold text-sm transition-colors">
                   <Upload className="w-4 h-4" /> {state.phase === 'reading' ? t('audit_parsing') : t('audit_choose_file')}
                 </button>
                 <button onClick={() => runOn(sampleBankExport(), 'sample')}
@@ -355,7 +355,7 @@ function PortfolioView({ portfolio, t, language, onClose, onOpen, onBack, onRena
                     {renaming === r.index ? (
                       <form onSubmit={(e) => { e.preventDefault(); const v = e.currentTarget.elements.n.value.trim(); if (v) onRename(r.index, v); setRenaming(null); }} className="flex gap-1.5">
                         <input name="n" autoFocus defaultValue={r.name} aria-label={t('audit_pf_rename')}
-                          className="w-44 px-2 py-1 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white outline-none focus:border-blue-500" />
+                          className="w-44 px-2 py-1 bg-slate-800 border border-line-control rounded-lg text-sm text-white outline-none focus:border-blue-500" />
                         <button type="submit" className="px-2 py-1 rounded-lg bg-blue-600 text-xs font-semibold">{t('audit_review_save')}</button>
                       </form>
                     ) : (
@@ -477,8 +477,8 @@ function RenameField({ initial, t, onSave, onCancel }) {
     <form className="flex items-center gap-2" onSubmit={(e) => { e.preventDefault(); if (name.trim()) onSave(name.trim()); }}>
       <input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder={t('audit_review_name_ph')}
         aria-label={t('audit_review_name_ph')}
-        className="h-8 w-40 rounded-lg border border-slate-700 bg-slate-950 px-2 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40" />
-      <button type="submit" disabled={!name.trim()} className="px-2 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-[11px] font-semibold">{t('audit_review_save')}</button>
+        className="h-8 w-40 rounded-lg border border-line-control bg-slate-950 px-2 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40" />
+      <button type="submit" disabled={!name.trim()} className="px-2 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-[11px] font-semibold">{t('audit_review_save')}</button>
       <button type="button" onClick={onCancel} className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] font-semibold text-slate-300">{t('audit_review_cancel')}</button>
     </form>
   );
@@ -651,7 +651,7 @@ function Report({ report, symbol, t, onReset, language, skipped, credits = 0, un
             <button onClick={download} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 transition-colors">
               <Download className="w-3.5 h-3.5" /> {t('audit_download')}
             </button>
-            <button onClick={() => setShowClientReport(true)} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-xs font-semibold transition-colors">
+            <button onClick={() => setShowClientReport(true)} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-xs font-semibold transition-colors">
               <FileText className="w-3.5 h-3.5" /> {t('audit_report_btn')}
             </button>
           </div>
@@ -793,7 +793,7 @@ function Report({ report, symbol, t, onReset, language, skipped, credits = 0, un
         <h3 className="text-xl md:text-2xl font-bold mb-2">{t('audit_cta_title')}</h3>
         <p className="text-slate-300 mb-6 max-w-xl">{t('audit_cta_body')}</p>
         <div className="flex flex-col sm:flex-row gap-3">
-          <Link to="/experts-comptables" className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 font-semibold text-sm transition-colors">
+          <Link to="/experts-comptables" className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 font-semibold text-sm transition-colors">
             {t('audit_cta_accountants')} <ArrowRight className="w-4 h-4" />
           </Link>
           <Link to="/?signup=true" className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 font-semibold text-sm text-slate-200 transition-colors">
@@ -873,10 +873,10 @@ function ClientReportPanel({ report, money, language, t, onClose, counts, format
       </div>
       <label className="block text-xs text-slate-400 mb-4">{t('audit_report_note')}
         <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2}
-          className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/40" />
+          className="mt-1 w-full rounded-xl border border-line-control bg-slate-950 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/40" />
       </label>
       <div className="flex flex-wrap items-center gap-3 mb-5">
-        <button onClick={print} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-sm font-semibold transition-colors">
+        <button onClick={print} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-sm font-semibold transition-colors">
           <Printer className="w-4 h-4" /> {t('audit_report_print')}
         </button>
         <span className="text-xs text-slate-500">{t('audit_report_print_hint')}</span>
