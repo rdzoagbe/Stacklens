@@ -34,6 +34,9 @@ const MEMBER_WRITABLE_KEYS = [
   // The hardware register (src/lib/assets.js): an editor records who holds
   // which device and marks one returned, as they record access.
   'assets',
+  // Access reviews (src/lib/accessReviews.js): a teammate who may record and
+  // revoke access may also review it and sign the review off.
+  'access_reviews',
 ];
 
 /**

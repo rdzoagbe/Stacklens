@@ -10,6 +10,7 @@ import { useTranslation } from '../translations';
 import { REVIEW_ORIGINS, isRejectedVendor, originOfRow, vendorKey } from '../lib/toolReview';
 import { csvAmount } from '../lib/csvHeaders';
 import { annotatePeopleChanges } from '../lib/peopleChanges';
+import { startReview, decide, decideRemaining, signOff, summary as reviewSummary } from '../lib/accessReviews';
 import { cleanAsset, mergeAssets } from '../lib/assets';
 import { applyIntune } from '../lib/intuneDevices';
 
@@ -787,6 +788,61 @@ export function useDbMutations() {
   //   rename   right tool, wrong name (name required)
   //   reject   not software: the tool goes, its access records with it, and
   //            the vendor is remembered so the next invoice does not re-add it
+  // ── Access reviews (lib/accessReviews.js) ─────────────────────────────────
+  const startAccessReview = useMutation({
+    mutationFn: async ({ scope, target }) => {
+      let created = null;
+      setDb((db) => {
+        created = startReview(db, { scope, target, by: auditActor(db) });
+        db.access_reviews = [created, ...(db.access_reviews || [])];
+        return db;
+      }, () => ({ action: 'access.review.started', details: `${created?.rows.length ?? 0} access row(s)${created?.label ? ` — ${created.label}` : ''}` }));
+      return created;
+    },
+    onSuccess: () => { invalidate(); track('access_review_started'); },
+    onError: () => toast.error(t('err_update_tool')),
+  });
+
+  const decideAccessReview = useMutation({
+    mutationFn: async ({ id, accessId, decision, remaining }) => {
+      setDb((db) => {
+        db.access_reviews = (db.access_reviews || []).map((r) => {
+          if (r.id !== id || r.signed_off) return r;
+          return remaining ? decideRemaining(r, remaining) : decide(r, accessId, decision);
+        });
+        return db;
+      });
+    },
+    onSuccess: invalidate,
+  });
+
+  // Signing is the moment the access rows change: kept ones are stamped
+  // reviewed today, revoked ones revoked, each revocation in the audit log.
+  const signOffAccessReview = useMutation({
+    mutationFn: async ({ id, name }) => {
+      let result = null;
+      setDb((db) => {
+        const review = (db.access_reviews || []).find((r) => r.id === id);
+        if (!review) return db;
+        result = signOff(db, review, { name, by: auditActor(db) });
+        if (!result.applied) return db;
+        let next = result.db;
+        for (const r of result.review.rows) {
+          if (r.decision !== 'revoke') continue;
+          next = { ...next, audit_log: appendAudit(next, { action: 'access.revoked', details: `${r.employee_name || r.employee_email || '?'} → ${r.tool_name || '?'} (access review)`, user: auditActor(next) }) };
+        }
+        return next;
+      }, () => {
+        if (!result?.applied) return null;
+        const s = reviewSummary(result.review);
+        return { action: 'access.review.signed', details: `${s.keep} kept, ${s.revoke} revoked — signed by ${result.review.signed_off.name}` };
+      });
+      return result;
+    },
+    onSuccess: (r) => { invalidate(); if (r?.applied) track('access_review_signed', reviewSummary(r.review)); },
+    onError: () => toast.error(t('err_update_tool')),
+  });
+
   const reviewTool = useMutation({
     mutationFn: async ({ id, kind, name }) => {
       setDb((db) => {
@@ -944,6 +1000,7 @@ export function useDbMutations() {
 
   return {
     createTool, updateTool, deleteTool, reviewTool, importAuditTools, clearInvoiceFinding,
+    startAccessReview, decideAccessReview, signOffAccessReview,
     createEmployee, updateEmployee, deleteEmployee,
     createAccess, updateAccess, deleteAccess,
     createAsset, updateAsset, returnAsset, deleteAsset, importAssets, recordIntuneDevices,
