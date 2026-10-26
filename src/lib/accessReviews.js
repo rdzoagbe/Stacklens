@@ -106,7 +106,7 @@ export const canSignOff = (review) => !review?.signed_off && (review?.rows || []
  */
 export function signOff(db, review, { name = '', by = '', now = new Date() } = {}) {
   if (!canSignOff(review)) return { db, review, applied: false };
-  const signed = { ...review, signed_off: { name: String(name || by || '').trim(), by, at: now.toISOString() } };
+  const signed = { ...review, signed_off: { name: String(name || '').trim() || String(by || ''), by, at: now.toISOString() } };
   const byAccess = new Map(signed.rows.map((r) => [r.access_id, r.decision]));
   const today = now.toISOString().slice(0, 10);
   const access = (db.access || []).map((a) => {
