@@ -8,14 +8,25 @@ import { computeWaste, monthlySpend } from '../../lib/waste';
 import { spendTrend } from '../../lib/budget';
 import { useLang } from '../../contexts/LangContext';
 import { useTranslation } from '../../translations';
+import { useResolvedTheme } from '../../hooks/useResolvedTheme';
 import {
   ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip,
   PieChart as RPieChart, Pie, Cell,
 } from 'recharts';
 
+
+// Chart lines are SVG attributes, which cannot read the theme's CSS variables,
+// so their two colours are picked here; the tooltip is a style, which can.
+const CHART_COLOURS = {
+  dark: { grid: '#334155', axis: '#94a3b8' },
+  light: { grid: '#cbd5e1', axis: '#475569' },
+};
+const TOOLTIP_STYLE = { backgroundColor: 'rgb(var(--c-slate-800))', border: '1px solid rgb(var(--c-slate-700))', color: 'rgb(var(--c-slate-100))' };
+
 export function ExecutiveDashboard({ data }) {
   const { language } = useLang();
   const t = useTranslation(language);
+  const chart = CHART_COLOURS[useResolvedTheme()];
   const enumLabel = useEnumLabel();
   const categoryLabel = useCategoryLabel();
   const money = (n) => formatMoney(n, language);
@@ -86,10 +97,10 @@ export function ExecutiveDashboard({ data }) {
           <div className='recharts-wrapper-fix' style={{position:'relative',width:'100%',minWidth:'0',overflow:'hidden'}}>
           <ResponsiveContainer width="100%" height={250} minWidth={0}>
             <LineChart data={trendData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-              <XAxis dataKey="month" stroke="#94a3b8" />
-              <YAxis stroke="#94a3b8" tickFormatter={val => new Intl.NumberFormat(language, { notation: 'compact', maximumFractionDigits: 0 }).format(val)} />
-              <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }} formatter={val => [money(val), '']} />
+              <CartesianGrid strokeDasharray="3 3" stroke={chart.grid} />
+              <XAxis dataKey="month" stroke={chart.axis} />
+              <YAxis stroke={chart.axis} tickFormatter={val => new Intl.NumberFormat(language, { notation: 'compact', maximumFractionDigits: 0 }).format(val)} />
+              <Tooltip contentStyle={TOOLTIP_STYLE} formatter={val => [money(val), '']} />
               <Line type="monotone" dataKey="spend" stroke="#3b82f6" strokeWidth={3} />
             </LineChart>
           </ResponsiveContainer>
@@ -104,7 +115,7 @@ export function ExecutiveDashboard({ data }) {
               <Pie data={categoryData} cx="50%" cy="50%" labelLine={false} label={({ name, percent }) => `${categoryLabel(name)} ${(percent * 100).toFixed(0)}%`} outerRadius={100} dataKey="value">
                 {categoryData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
               </Pie>
-              <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }} formatter={val => [money(val) + t('per_mo_short'), '']} />
+              <Tooltip contentStyle={TOOLTIP_STYLE} formatter={val => [money(val) + t('per_mo_short'), '']} />
             </RPieChart>
           </ResponsiveContainer>
           </div>

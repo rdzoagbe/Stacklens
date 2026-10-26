@@ -292,7 +292,7 @@ function SeoHead() {
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <Toaster position="top-right" toastOptions={{ style: { background: "#1e293b", color: "#f1f5f9", border: "1px solid #334155" } }} />
+      <Toaster position="top-right" toastOptions={{ style: { background: "rgb(var(--c-slate-800))", color: "rgb(var(--c-slate-100))", border: "1px solid rgb(var(--c-slate-700))" } }} />
         <LanguageProvider><CurrencyProvider>
         <ErrorBoundary><BrowserRouter>
         <SeoHead />

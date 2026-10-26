@@ -61,6 +61,7 @@ public/*
 !public/sitemap.xml
 # The Google Consent Mode script index.html loads before the app (see csp.test.js).
 !public/consent-init.js
+!public/theme-init.js
 # A parent directory has to be re-included before a file inside it can be.
 !public/.well-known/
 !public/.well-known/security.txt

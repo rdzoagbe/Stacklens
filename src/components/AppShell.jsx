@@ -18,9 +18,11 @@ import { AuditHandoffPrompt } from './AuditHandoffPrompt';
 import { ScreenProtection } from './ScreenProtection';
 import { HelpPanel } from './HelpPanel';
 import { pageHelpKey } from '../lib/pageHelp';
+import { THEME_CHOICES, readThemeChoice, saveThemeChoice, followSystemTheme } from '../lib/theme';
 import {
   LayoutDashboard, Boxes, Users, GitMerge, UserMinus, Shield, BarChart3, Settings,
   ChevronDown, BadgeX, ExternalLink, Languages, Building2, Laptop,
+  Moon, Sun, Monitor,
 } from 'lucide-react';
 
 export const NAV = [
@@ -145,6 +147,7 @@ export function Sidebar({ collapsed, setCollapsed }) {
         })}
 
         <LangSidebarSelector collapsed={collapsed} />
+        <ThemeSidebarSelector collapsed={collapsed} />
       </nav>
 
       <SidebarFooter collapsed={collapsed} />
@@ -222,6 +225,82 @@ function LangSidebarSelector({ collapsed }) {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// Dark (the default), light, or the system's (lib/theme.js). One row under
+// Language, opening inline like it.
+const THEME_ICON = { dark: Moon, light: Sun, system: Monitor };
+
+export function useThemeChoice() {
+  const [choice, setChoice] = React.useState(readThemeChoice);
+  React.useEffect(() => followSystemTheme(choice), [choice]);
+  return [choice, (c) => setChoice(saveThemeChoice(c))];
+}
+
+function ThemeSidebarSelector({ collapsed }) {
+  const { language } = useLang();
+  const t = useTranslation(language);
+  const [choice, setChoice] = useThemeChoice();
+  const [open, setOpen] = React.useState(false);
+  const Icon = THEME_ICON[choice];
+
+  if (collapsed) {
+    const next = THEME_CHOICES[(THEME_CHOICES.indexOf(choice) + 1) % THEME_CHOICES.length];
+    return (
+      <button type="button" onClick={() => setChoice(next)} title={`${t('theme_label')}: ${t(`theme_${choice}`)}`}
+        className="mb-0.5 flex w-full items-center justify-center rounded-lg px-3 py-2 text-ink-muted hover:bg-surface-hover hover:text-ink transition-colors">
+        <Icon className="h-4 w-4" aria-hidden="true" />
+      </button>
+    );
+  }
+
+  return (
+    <div className="mb-1">
+      <button type="button" onClick={() => setOpen(o => !o)} aria-expanded={open}
+        className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[14px] text-ink-muted hover:bg-surface-hover hover:text-ink transition-colors">
+        <Icon className="h-4 w-4" aria-hidden="true" />
+        <span className="flex-1 text-left">{t('theme_label')}</span>
+        <span className="text-xs text-ink-subtle">{t(`theme_${choice}`)}</span>
+        <ChevronDown className={cx('h-3.5 w-3.5 transition-transform', open ? 'rotate-180' : '')} />
+      </button>
+      {open && (
+        <div className="mt-1 ml-7 space-y-0.5" role="group" aria-label={t('theme_label')}>
+          {THEME_CHOICES.map((c) => (
+            <button key={c} type="button" aria-pressed={choice === c}
+              onClick={() => { setChoice(c); setOpen(false); }}
+              className={cx('flex w-full items-center gap-2 rounded-lg px-3 py-2 text-[13px] transition-colors',
+                choice === c ? 'bg-brand-soft text-brand-text font-semibold' : 'text-ink-muted hover:bg-surface-hover hover:text-ink')}>
+              {t(`theme_${c}`)}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** The same choice as three buttons, for the phone menu. */
+function ThemeSegmented() {
+  const { language } = useLang();
+  const t = useTranslation(language);
+  const [choice, setChoice] = useThemeChoice();
+  return (
+    <div className="mt-4">
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-ink-subtle">{t('theme_label')}</p>
+      <div className="grid grid-cols-3 gap-2" role="group" aria-label={t('theme_label')}>
+        {THEME_CHOICES.map((c) => {
+          const Icon = THEME_ICON[c];
+          return (
+            <button key={c} type="button" aria-pressed={choice === c} onClick={() => setChoice(c)}
+              className={cx('flex items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs font-medium transition-colors',
+                choice === c ? 'border-line bg-brand-soft text-brand-text' : 'border-line text-ink-muted hover:bg-surface-hover hover:text-ink')}>
+              <Icon className="h-3.5 w-3.5" aria-hidden="true" />{t(`theme_${c}`)}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -362,7 +441,7 @@ export function useRenewalAlerts() {
       const more = critical.length > 3 ? ` +${critical.length-3} more` : '';
       toast('🔔 ' + critical.length + ' renewal' + (critical.length>1?'s':'') + ' due in 30 days: ' + names + more, {
         duration: 8000,
-        style: { background: '#1e293b', color: '#f1f5f9', border: '1px solid #f59e0b' }
+        style: { background: 'rgb(var(--c-slate-800))', color: 'rgb(var(--c-slate-100))', border: '1px solid #f59e0b' }
       });
     }
   }, [db]);
@@ -987,6 +1066,7 @@ export function AppShell({ _subtitle, title, right, children }) {
                 </Link>
               ))}
             </div>
+            <ThemeSegmented />
           </Modal>
         </div>
 

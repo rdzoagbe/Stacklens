@@ -1,5 +1,12 @@
 /** @type {import('tailwindcss').Config} */
 import defaultTheme from 'tailwindcss/defaultTheme';
+import plugin from 'tailwindcss/plugin';
+import { tailwindColors, themeCss } from './src/design/palette.js';
+
+// Greys, white, coloured text and deep tints are CSS variables, so one
+// attribute on <html> (data-theme) switches the whole app between dark and
+// light. Dark holds Tailwind's own values: see src/design/palette.js.
+const palette = tailwindColors();
 
 export default {
   content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
@@ -17,7 +24,8 @@ export default {
       // text-slate-600/700 (2.66 and 1.95) were moved to slate-500 for the same
       // reason; design-tokens.test.js keeps them from coming back as text.
       colors: {
-        slate: { 500: '#74839a' },
+        // slate-500 is #74839a in the dark theme (src/design/palette.js).
+        ...palette.colors,
         // Semantic colours from the design system (src/design/tokens.json),
         // as CSS variables in index.css so a theme switch recolours them.
         'surface': 'var(--surface)',
@@ -44,6 +52,8 @@ export default {
         'success-soft': 'var(--success-soft)',
         'scrim': 'var(--scrim)',
       },
+      textColor: palette.textColor,
+      gradientColorStops: palette.gradientColorStops,
       fontFamily: {
         sans: ['"Inter Variable"', ...defaultTheme.fontFamily.sans],
       },
@@ -63,5 +73,5 @@ export default {
       },
     },
   },
-  plugins: [],
+  plugins: [plugin(({ addBase }) => addBase(themeCss()))],
 }
