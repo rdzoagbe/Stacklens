@@ -576,23 +576,27 @@ export function CookieBanner() {
       role="dialog"
       aria-labelledby="cookie-banner-title"
       aria-describedby="cookie-banner-body"
-      className="fixed bottom-0 left-0 right-0 z-[9999] p-3 sm:p-5 bg-slate-950/98 border-t border-slate-800 backdrop-blur-md shadow-2xl"
+      className="fixed bottom-0 left-0 right-0 z-[9999] p-3 sm:px-5 sm:py-4 bg-slate-950/98 border-t border-slate-800 backdrop-blur-md shadow-2xl"
     >
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-6xl mx-auto">
         {!showDetails ? (
-          <div className="flex flex-col gap-3 sm:gap-4">
-            <div>
-              <div id="cookie-banner-title" className="text-sm sm:text-base font-semibold text-white mb-1 sm:mb-1.5">
+          // One row from the laptop width up: the text beside the buttons, so
+          // the banner takes a strip at the bottom rather than a third of the
+          // first screen. The three buttons keep one class (CNIL: refusing is
+          // as easy and as visible as accepting).
+          <div className="flex flex-col lg:flex-row lg:items-center gap-3 lg:gap-6">
+            <div className="lg:flex-1 min-w-0">
+              <div id="cookie-banner-title" className="text-sm font-semibold text-white mb-1">
                 🍪 {t.title}
               </div>
-              <div id="cookie-banner-body" className="text-xs sm:text-sm text-slate-300 leading-snug sm:leading-relaxed">
+              <div id="cookie-banner-body" className="text-xs sm:text-sm text-slate-300 leading-snug">
                 {t.body}{' '}
                 <Link to="/privacy" className="text-blue-400 hover:text-blue-300 underline underline-offset-2">
                   {t.privacy}
                 </Link>
               </div>
             </div>
-            <div className="flex flex-row gap-2 sm:justify-end">
+            <div className="flex flex-row gap-2 sm:justify-end lg:flex-none">
               <button onClick={handleReject} className={btnClass}>{t.reject}</button>
               <button onClick={() => setShowDetails(true)} className={btnClass}>{t.customize}</button>
               <button onClick={handleAccept} className={btnClass}>{t.accept}</button>
