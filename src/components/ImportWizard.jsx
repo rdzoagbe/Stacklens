@@ -305,7 +305,7 @@ export function ImportWizard({ defaultKind = null, onDone = null }) {
                 <span className="text-xs text-slate-500 bg-slate-950 px-3">{t('import_paste_or_csv')}</span>
               </div>
               <textarea rows={4}
-                className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 font-mono text-xs text-slate-300 outline-none focus:border-emerald-500 transition-colors resize-none"
+                className="w-full bg-slate-900 border border-line-control rounded-xl p-3 font-mono text-xs text-slate-300 outline-none focus:border-emerald-500 transition-colors resize-none"
                 value={text} onChange={e => handlePaste(e.target.value)}
                 placeholder={t('import_paste_placeholder')} />
             </div>

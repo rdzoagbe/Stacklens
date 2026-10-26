@@ -894,7 +894,7 @@ export class ErrorBoundary extends React.Component {
             <h2 className="text-xl font-bold text-white mb-2">{crashCopy().title}</h2>
             <p className="text-slate-400 text-sm mb-4">{this.state.error?.message || crashCopy().body}</p>
             <button onClick={() => { this.setState({ hasError: false, error: null }); window.location.reload(); }}
-              className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-semibold transition-colors">
+              className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold transition-colors">
               {crashCopy().reload}
             </button>
           </div>

@@ -335,7 +335,7 @@ export function EmployeesPage() {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 pointer-events-none" />
               <input
-                className="w-full pl-9 pr-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 outline-none focus:border-blue-500 transition-colors"
+                className="w-full pl-9 pr-3 py-2 bg-slate-800 border border-line-control rounded-xl text-sm text-white placeholder-slate-500 outline-none focus:border-blue-500 transition-colors"
                 placeholder={t('search_placeholder_employees')}
                 value={q} onChange={e => setQ(e.target.value)} />
             </div>
@@ -358,7 +358,7 @@ export function EmployeesPage() {
 
             <div className="flex items-center gap-2">
               <select value={status} onChange={e => setStatus(e.target.value)}
-                className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-slate-300 outline-none">
+                className="flex-1 bg-slate-800 border border-line-control rounded-xl px-2.5 py-1.5 text-xs text-slate-300 outline-none">
                 <option value="">{t('all_status')}</option>
                 <option value="active">{t('st_active')}</option>
                 <option value="offboarding">{t('st_offboarding')}</option>

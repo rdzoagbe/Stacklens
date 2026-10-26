@@ -53,8 +53,8 @@ export function PublicMenu({ t, landing = false, onSignIn = null, onStart = null
     ? <button type="button" onClick={() => { close(); onSignIn(); }} className={linkClass}>{t('lp_nav_sign_in')}</button>
     : <a href="/?signin=true" className={linkClass}>{t('lp_nav_sign_in')}</a>;
   const start = onStart
-    ? <button type="button" onClick={() => { close(); onStart(); }} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-semibold text-white transition-colors whitespace-nowrap">{t('lp_nav_start_free')}</button>
-    : <a href="/?signup=true" className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-semibold text-white transition-colors whitespace-nowrap">{t('lp_nav_start_free')}</a>;
+    ? <button type="button" onClick={() => { close(); onStart(); }} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-semibold text-white transition-colors whitespace-nowrap">{t('lp_nav_start_free')}</button>
+    : <a href="/?signup=true" className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-semibold text-white transition-colors whitespace-nowrap">{t('lp_nav_start_free')}</a>;
 
   return (
     <>

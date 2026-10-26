@@ -482,16 +482,16 @@ export function ToolsPage() {
           <div className="p-4 border-b border-slate-800 flex flex-col sm:flex-row gap-3 items-center">
             <div className="relative flex-1 w-full">
               <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
-              <input className="w-full pl-9 pr-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 outline-none focus:border-blue-500 transition-colors"
+              <input className="w-full pl-9 pr-3 py-2 bg-slate-800 border border-line-control rounded-xl text-sm text-white placeholder-slate-500 outline-none focus:border-blue-500 transition-colors"
                 placeholder={t("search_placeholder_tools")} value={q} onChange={(e) => setQ(e.target.value)} />
             </div>
             <select value={status} onChange={(e) => setStatus(e.target.value)}
-              className="bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-300 outline-none">
+              className="bg-slate-800 border border-line-control rounded-xl px-3 py-2 text-sm text-slate-300 outline-none">
               <option value="">{t("all_status")}</option>
               {TOOL_STATUS.map((s) => <option key={s} value={s}>{enumLabel(s)}</option>)}
             </select>
             <select value={risk} onChange={(e) => setRisk(e.target.value)}
-              className="bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-300 outline-none">
+              className="bg-slate-800 border border-line-control rounded-xl px-3 py-2 text-sm text-slate-300 outline-none">
               <option value="">{t("all_risk")}</option>
               {RISK_SCORE.map((r) => <option key={r} value={r}>{enumLabel(r)}</option>)}
             </select>
@@ -533,8 +533,8 @@ export function ToolsPage() {
                                   onSubmit={(ev) => { ev.preventDefault(); if (renaming.name.trim()) review(tool, 'rename', renaming.name); }}>
                                   <input autoFocus value={renaming.name} onChange={(ev) => setRenaming({ id: tool.id, name: ev.target.value })}
                                     aria-label={t('tool_review_rename')}
-                                    className="w-40 px-2 py-1 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white outline-none focus:border-blue-500" />
-                                  <button type="submit" className="px-2 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-xs font-semibold text-white">{t('tool_review_save')}</button>
+                                    className="w-40 px-2 py-1 bg-slate-800 border border-line-control rounded-lg text-sm text-white outline-none focus:border-blue-500" />
+                                  <button type="submit" className="px-2 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-xs font-semibold text-white">{t('tool_review_save')}</button>
                                   <button type="button" onClick={() => setRenaming(null)} className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-300">{t('tool_review_cancel')}</button>
                                 </form>
                               ) : (

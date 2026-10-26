@@ -80,7 +80,7 @@ export function ContactPage() {
           <div className="text-5xl mb-6">✉️</div>
           <h1 className="text-3xl font-bold mb-4">{t('contact_sent_title')}</h1>
           <p className="text-slate-400 mb-8">{t('contact_sent_body')}</p>
-          <button onClick={() => navigate('/')} className="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl text-sm font-semibold text-white transition-all">
+          <button onClick={() => navigate('/')} className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-xl text-sm font-semibold text-white transition-all">
             {t('contact_back_home')}
           </button>
         </div>
@@ -106,7 +106,7 @@ export function ContactPage() {
                   <input
                     type="text" required value={form.name} onChange={e => setForm(f => ({...f, name: e.target.value}))}
                     placeholder={t('contact_your_name')}
-                    className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                    className="w-full px-4 py-3 bg-slate-800 border border-line-control rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                   />
                 </div>
                 <div>
@@ -114,7 +114,7 @@ export function ContactPage() {
                   <input
                     type="email" required value={form.email} onChange={e => setForm(f => ({...f, email: e.target.value}))}
                     placeholder={t('contact_your_email')}
-                    className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                    className="w-full px-4 py-3 bg-slate-800 border border-line-control rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                   />
                 </div>
               </div>
@@ -123,7 +123,7 @@ export function ContactPage() {
                 <label className="block text-xs font-semibold text-slate-400 mb-1.5">{t('contact_subject')}</label>
                 <select
                   value={form.subject} onChange={e => setForm(f => ({...f, subject: e.target.value}))}
-                  className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                  className="w-full px-4 py-3 bg-slate-800 border border-line-control rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                 >
                   {subjects.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
                 </select>
@@ -134,14 +134,14 @@ export function ContactPage() {
                 <textarea
                   required rows={6} value={form.message} onChange={e => setForm(f => ({...f, message: e.target.value}))}
                   placeholder={t('contact_how_help')}
-                  className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all resize-none"
+                  className="w-full px-4 py-3 bg-slate-800 border border-line-control rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all resize-none"
                 />
               </div>
 
               <button
                 onClick={handleSubmit}
                 disabled={sending || !form.name || !form.email || !form.message}
-                className="w-full py-3 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:cursor-not-allowed rounded-xl text-sm font-semibold text-white transition-all"
+                className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-700 disabled:cursor-not-allowed rounded-xl text-sm font-semibold text-white transition-all"
               >
                 {sending ? t('contact_sending') : t('contact_send')}
               </button>
@@ -601,7 +601,7 @@ export function AboutPage() {
             {t('about_cta_sub')}
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-            <Link to="/" className="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl text-sm font-semibold text-white transition-all">
+            <Link to="/" className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-xl text-sm font-semibold text-white transition-all">
               {t('about_get_started')}
             </Link>
             <Link to="/contact" className="px-6 py-3 border border-slate-700 hover:border-slate-600 rounded-xl text-sm font-semibold text-slate-300 transition-all">
@@ -932,7 +932,7 @@ export function SecurityPage() {
         <div className="rounded-2xl border border-blue-500/20 bg-blue-500/5 p-8 mb-8 text-center">
           <h3 className="text-xl font-bold text-white mb-2">{t('found_security_issue')}</h3>
           <p className="text-slate-400 mb-4 max-w-lg mx-auto">{t('sec_disclosure_body')}</p>
-          <Link to="/contact?subject=support" className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold transition-colors text-white">
+          <Link to="/contact?subject=support" className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-xl font-semibold transition-colors text-white">
             <Lock className="w-4 h-4" />
             {t('report_vulnerability') || 'Report a Vulnerability'}
           </Link>

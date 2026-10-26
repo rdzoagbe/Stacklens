@@ -124,7 +124,7 @@ export function TeamTab({ db, firebaseUser, t }) {
                 <select value={m.role === 'editor' ? 'editor' : 'viewer'}
                   onChange={e => setRole(m.id, e.target.value)}
                   title={t('ws_role_help')}
-                  className="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-xs text-white outline-none focus:border-emerald-500 transition-colors">
+                  className="bg-slate-800 border border-line-control rounded-lg px-2 py-1 text-xs text-white outline-none focus:border-emerald-500 transition-colors">
                   <option value="viewer">{t('ws_role_viewer')}</option>
                   <option value="editor">{t('ws_role_editor')}</option>
                 </select>
@@ -144,7 +144,7 @@ export function TeamTab({ db, firebaseUser, t }) {
           <div className="flex gap-3 flex-wrap">
             <input value={inviteEmail} disabled={!allowed} onChange={e => setInviteEmail(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') invite(); }}
-              className="flex-1 min-w-48 bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm outline-none focus:border-emerald-500 transition-colors"
+              className="flex-1 min-w-48 bg-slate-800 border border-line-control rounded-xl px-4 py-2.5 text-white text-sm outline-none focus:border-emerald-500 transition-colors"
               placeholder="colleague@company.com" />
             <button onClick={invite} disabled={!allowed || busy || !inviteEmail.trim()}
               className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 rounded-xl font-semibold text-sm transition-colors whitespace-nowrap">

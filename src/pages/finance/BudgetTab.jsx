@@ -314,7 +314,7 @@ export function BudgetTabContent() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <select value={year} aria-label={t('budget_year')} onChange={e => setYear(Number(e.target.value))}
-            className="bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white">
+            className="bg-slate-900 border border-line-control rounded-xl px-3 py-2 text-sm text-white">
             {[nowYear - 1, nowYear, nowYear + 1].map(y => <option key={y} value={y}>{y}</option>)}
           </select>
           {canEdit && (<>
@@ -325,7 +325,7 @@ export function BudgetTabContent() {
             <input ref={invoiceRef} type="file" accept=".pdf,.docx,.txt" multiple className="hidden"
               onChange={e => { if (e.target.files?.length) runInvoiceImport(e.target.files); e.target.value = ''; }} />
             <button onClick={() => fileRef.current?.click()}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold transition-colors">
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors">
               <Upload size={15} /> {t('budget_import_csv')}
             </button>
             <input ref={fileRef} type="file" accept=".csv,.txt" className="hidden"
@@ -430,7 +430,7 @@ export function BudgetTabContent() {
                           saveBudget(r.dept, e.target.value);
                           setDrafts(d => { const n = { ...d }; delete n[r.dept]; return n; });
                         }}
-                        className="w-28 bg-slate-800/70 border border-slate-700 rounded-lg px-2 py-1.5 text-white text-sm placeholder:text-slate-500"
+                        className="w-28 bg-slate-800/70 border border-line-control rounded-lg px-2 py-1.5 text-white text-sm placeholder:text-slate-500"
                         inputMode="numeric" /> : (
                         <span className="text-sm text-slate-300">{r.budget > 0 ? cur(r.budget) : t('budget_no_budget')}</span>
                       )}

@@ -235,7 +235,7 @@ function AsanaTokenModal({ onSubmit, onClose, loading }) {
               value={token}
               onChange={e => setToken(e.target.value)}
               placeholder="1/…"
-              className="w-full pr-10 pl-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-pink-500 font-mono text-sm"
+              className="w-full pr-10 pl-4 py-3 bg-slate-800 border border-line-control rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-pink-500 font-mono text-sm"
             />
             <button type="button" onClick={() => setShowToken(v => !v)}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors">
@@ -311,20 +311,20 @@ function ZoomCredentialsModal({ onSubmit, onClose, loading }) {
             <label className="block text-sm font-semibold text-slate-300 mb-1.5">{t('int_account_id')}</label>
             <input type="text" value={accountId} onChange={e => setAccountId(e.target.value)}
               placeholder="abc123…"
-              className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 font-mono text-sm" />
+              className="w-full px-4 py-2.5 bg-slate-800 border border-line-control rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 font-mono text-sm" />
           </div>
           <div>
             <label className="block text-sm font-semibold text-slate-300 mb-1.5">{t('int_client_id')}</label>
             <input type="text" value={clientId} onChange={e => setClientId(e.target.value)}
               placeholder="abc123…"
-              className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 font-mono text-sm" />
+              className="w-full px-4 py-2.5 bg-slate-800 border border-line-control rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 font-mono text-sm" />
           </div>
           <div>
             <label className="block text-sm font-semibold text-slate-300 mb-1.5">{t('int_client_secret')}</label>
             <div className="relative">
               <input type={showSecret ? 'text' : 'password'} value={clientSecret} onChange={e => setClientSecret(e.target.value)}
                 placeholder="••••••••"
-                className="w-full pr-10 pl-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 font-mono text-sm" />
+                className="w-full pr-10 pl-4 py-2.5 bg-slate-800 border border-line-control rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 font-mono text-sm" />
               <button type="button" onClick={() => setShowSecret(v => !v)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors">
                 {showSecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -341,7 +341,7 @@ function ZoomCredentialsModal({ onSubmit, onClose, loading }) {
           <button
             onClick={() => onSubmit(accountId.trim(), clientId.trim(), clientSecret.trim())}
             disabled={!accountId.trim() || !clientId.trim() || !clientSecret.trim() || loading}
-            className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 rounded-xl text-sm font-semibold text-white transition-colors flex items-center justify-center gap-2">
+            className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-xl text-sm font-semibold text-white transition-colors flex items-center justify-center gap-2">
             {loading ? <><Loader className="h-4 w-4 animate-spin" /> {t('int_syncing')}</> : t('int_connect_sync')}
           </button>
         </div>
@@ -399,7 +399,7 @@ function OktaTokenModal({ onSubmit, onClose, loading }) {
               value={token}
               onChange={e => setToken(e.target.value)}
               placeholder="00…"
-              className="w-full pr-10 pl-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 font-mono text-sm"
+              className="w-full pr-10 pl-4 py-3 bg-slate-800 border border-line-control rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 font-mono text-sm"
             />
             <button type="button" onClick={() => setShowToken(v => !v)}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors">
@@ -415,7 +415,7 @@ function OktaTokenModal({ onSubmit, onClose, loading }) {
             value={domain}
             onChange={e => setDomain(e.target.value)}
             placeholder="acme.okta.com"
-            className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 text-sm"
+            className="w-full px-4 py-3 bg-slate-800 border border-line-control rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 text-sm"
           />
           <p className="text-xs text-slate-500 mt-1.5">Your Okta org domain — without https://</p>
         </div>
@@ -485,7 +485,7 @@ function GitHubTokenModal({ onSubmit, onClose, loading }) {
               value={token}
               onChange={e => setToken(e.target.value)}
               placeholder="ghp_…"
-              className="w-full pr-10 pl-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-slate-500 font-mono text-sm"
+              className="w-full pr-10 pl-4 py-3 bg-slate-800 border border-line-control rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-slate-500 font-mono text-sm"
             />
             <button type="button" onClick={() => setShowToken(v => !v)}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors">
@@ -501,7 +501,7 @@ function GitHubTokenModal({ onSubmit, onClose, loading }) {
             value={org}
             onChange={e => setOrg(e.target.value)}
             placeholder="acme-corp"
-            className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-slate-500 text-sm"
+            className="w-full px-4 py-3 bg-slate-800 border border-line-control rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-slate-500 text-sm"
           />
           <p className="text-xs text-slate-500 mt-1.5">The slug from your GitHub org URL: github.com/&lt;slug&gt;</p>
         </div>
@@ -568,7 +568,7 @@ function SlackTokenModal({ onSubmit, onClose, loading }) {
               value={token}
               onChange={e => setToken(e.target.value)}
               placeholder="xoxb-…"
-              className="w-full pr-10 pl-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 font-mono text-sm"
+              className="w-full pr-10 pl-4 py-3 bg-slate-800 border border-line-control rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 font-mono text-sm"
             />
             <button type="button" onClick={() => setShowToken(v => !v)}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors">
@@ -584,7 +584,7 @@ function SlackTokenModal({ onSubmit, onClose, loading }) {
             value={channel}
             onChange={e => setChannel(e.target.value)}
             placeholder="#renewals"
-            className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 text-sm"
+            className="w-full px-4 py-3 bg-slate-800 border border-line-control rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 text-sm"
           />
           <p className="text-xs text-slate-500 mt-1.5">Renewal alerts will be sent here. The bot must be invited to the channel first.</p>
         </div>
@@ -731,7 +731,7 @@ function SyncCancelledModal({ source, onRetry, onDismiss }) {
         <div className="flex gap-3">
           <button
             onClick={() => { onDismiss(); onRetry(); }}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-semibold text-sm transition-colors"
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-sm transition-colors"
           >
             <RefreshCw className="h-4 w-4" /> {t('ds_sync_try_again_btn')}
           </button>
@@ -861,7 +861,7 @@ function SalesforceModal({ onSubmit, onClose, loading }) {
               value={clientId}
               onChange={e => setClientId(e.target.value)}
               placeholder="3MVG9…"
-              className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 font-mono text-sm"
+              className="w-full px-4 py-3 bg-slate-800 border border-line-control rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 font-mono text-sm"
             />
             <p className="text-xs text-slate-500 mt-1.5">Found in Setup → App Manager → your app → View → Consumer Key</p>
           </div>
@@ -872,7 +872,7 @@ function SalesforceModal({ onSubmit, onClose, loading }) {
               value={loginUrl}
               onChange={e => setLoginUrl(e.target.value)}
               placeholder="https://login.salesforce.com"
-              className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 text-sm"
+              className="w-full px-4 py-3 bg-slate-800 border border-line-control rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 text-sm"
             />
             <p className="text-xs text-slate-500 mt-1.5">Use https://test.salesforce.com for sandbox orgs</p>
           </div>
@@ -929,7 +929,7 @@ function ContactFormModal({ type, userName, userEmail, onClose, t }) {
           <h3 className="text-xl font-bold text-white mb-2">{t('contact_sent_title') || 'Message sent!'}</h3>
           <p className="text-slate-400 mb-6">{t('contact_sent_body') || "We'll get back to you soon."}</p>
           <button onClick={onClose}
-            className="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl text-sm font-semibold text-white transition-all">
+            className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-xl text-sm font-semibold text-white transition-all">
             {t('close') || 'Close'}
           </button>
         </div>
@@ -963,14 +963,14 @@ function ContactFormModal({ type, userName, userEmail, onClose, t }) {
               <label className="block text-xs font-semibold text-slate-400 mb-1.5">{t('contact_full_name') || 'Name'} *</label>
               <input type="text" required value={form.name}
                 onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                className="w-full px-4 py-3 bg-slate-800 border border-line-control rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
               />
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-400 mb-1.5">{t('contact_work_email') || 'Email'} *</label>
               <input type="email" required value={form.email}
                 onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-                className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                className="w-full px-4 py-3 bg-slate-800 border border-line-control rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
               />
             </div>
           </div>
@@ -986,7 +986,7 @@ function ContactFormModal({ type, userName, userEmail, onClose, t }) {
               placeholder={isIntegration
                 ? (t('int_tools_placeholder') || 'e.g. Jira, HubSpot, Notion…')
                 : (t('int_support_placeholder') || 'Describe the issue or question…')}
-              className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all resize-none"
+              className="w-full px-4 py-3 bg-slate-800 border border-line-control rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all resize-none"
             />
           </div>
 
@@ -996,7 +996,7 @@ function ContactFormModal({ type, userName, userEmail, onClose, t }) {
               {t('cancel')}
             </button>
             <button type="submit" disabled={sending || !form.message}
-              className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl text-sm font-semibold text-white transition-colors flex items-center justify-center gap-2">
+              className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl text-sm font-semibold text-white transition-colors flex items-center justify-center gap-2">
               {sending ? <Loader className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               {sending ? (t('sending') || 'Sending…') : (t('send') || 'Send')}
             </button>
@@ -1683,14 +1683,14 @@ export function IntegrationConnectors() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
             <input type="text" placeholder={t('search_integrations')} value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:border-blue-500" />
+              className="w-full pl-10 pr-4 py-3 bg-slate-800 border border-line-control rounded-xl text-white placeholder-slate-400 focus:outline-none focus:border-blue-500" />
           </div>
           <select value={selectedCategory} onChange={e => setSelectedCategory(e.target.value)}
-            className="px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-blue-500">
+            className="px-4 py-3 bg-slate-800 border border-line-control rounded-xl text-white focus:outline-none focus:border-blue-500">
             {categories.map(cat => <option key={cat} value={cat}>{cat === 'all' ? t('int_all_categories') : cat}</option>)}
           </select>
           <select value={selectedStatus} onChange={e => setSelectedStatus(e.target.value)}
-            className="px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-blue-500">
+            className="px-4 py-3 bg-slate-800 border border-line-control rounded-xl text-white focus:outline-none focus:border-blue-500">
             <option value="all">{t('all_status')}</option>
             <option value="connected">{t('connected')}</option>
             <option value="available">{t('int_available')}</option>
@@ -1846,7 +1846,7 @@ export function IntegrationConnectors() {
                   <div className="space-y-2">
                     {integration.id === 'google-workspace' && (
                       <button onClick={() => handleConnect(integration)} disabled={isConnecting}
-                        className="w-full py-2.5 rounded-xl font-bold bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm transition-colors flex items-center justify-center gap-2">
+                        className="w-full py-2.5 rounded-xl font-bold bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm transition-colors flex items-center justify-center gap-2">
                         {isConnecting ? <><Loader className="h-4 w-4 animate-spin" /> {t('int_syncing')}</> : <><RefreshCw className="h-4 w-4" /> {t('int_sync_now')}</>}
                       </button>
                     )}
@@ -1876,7 +1876,7 @@ export function IntegrationConnectors() {
                     )}
                     {integration.id === 'zoom' && (
                       <button onClick={handleZoomResync} disabled={zoomSyncing}
-                        className="w-full py-2.5 rounded-xl font-bold bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm transition-colors flex items-center justify-center gap-2">
+                        className="w-full py-2.5 rounded-xl font-bold bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm transition-colors flex items-center justify-center gap-2">
                         {zoomSyncing ? <><Loader className="h-4 w-4 animate-spin" /> {t('int_syncing')}</> : <><RefreshCw className="h-4 w-4" /> {t('int_sync_now')}</>}
                       </button>
                     )}
@@ -1899,7 +1899,7 @@ export function IntegrationConnectors() {
                   </div>
                 ) : (
                   <button onClick={() => handleConnect(integration)} disabled={isConnecting}
-                    className="w-full py-3 rounded-xl font-bold bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white transition-colors flex items-center justify-center gap-2">
+                    className="w-full py-3 rounded-xl font-bold bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white transition-colors flex items-center justify-center gap-2">
                     {isConnecting ? <><Loader className="h-4 w-4 animate-spin" /> {t('int_connecting')}</> : needsSetup ? `⚙️ ${t('int_view_setup_steps')}` : t('connect')}
                   </button>
                 )}
@@ -1929,7 +1929,7 @@ export function IntegrationConnectors() {
           <h3 className="text-xl font-bold text-white mb-2">{t('need_help')}</h3>
           <p className="text-slate-400 mb-6 text-sm">{t('int_need_help_sub')}</p>
           <button onClick={() => setContactModal('support')}
-            className="block w-full px-8 py-4 bg-blue-600 hover:bg-blue-500 text-white text-base rounded-xl font-bold transition-all text-center tracking-wide">
+            className="block w-full px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white text-base rounded-xl font-bold transition-all text-center tracking-wide">
             {t('int_contact_support')}
           </button>
         </div>

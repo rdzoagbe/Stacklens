@@ -23,13 +23,13 @@ function AgreedPriceEditor({ tool, t, onSave, onCancel }) {
     <form className="flex flex-wrap items-center gap-1.5" onSubmit={(e) => { e.preventDefault(); if (n > 0) onSave(Math.round(n * 100) / 100, basis); }}>
       <input autoFocus value={value} onChange={(e) => setValue(e.target.value)} inputMode="decimal"
         aria-label={t('inv_check_agreed_label')} placeholder={t('inv_check_agreed_label')}
-        className="w-28 px-2 py-1 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white outline-none focus:border-blue-500" />
+        className="w-28 px-2 py-1 bg-slate-800 border border-line-control rounded-lg text-sm text-white outline-none focus:border-blue-500" />
       <select value={basis} onChange={(e) => setBasis(e.target.value)} aria-label={t('inv_check_basis')}
-        className="px-2 py-1 bg-slate-800 border border-slate-700 rounded-lg text-xs text-slate-200">
+        className="px-2 py-1 bg-slate-800 border border-line-control rounded-lg text-xs text-slate-200">
         <option value="ht">{t('inv_check_ht')}</option>
         <option value="ttc">{t('inv_check_ttc')}</option>
       </select>
-      <button type="submit" disabled={!(n > 0)} className="px-2 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-xs font-semibold text-white">{t('inv_check_save')}</button>
+      <button type="submit" disabled={!(n > 0)} className="px-2 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-xs font-semibold text-white">{t('inv_check_save')}</button>
       <button type="button" onClick={onCancel} className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-300">{t('inv_check_cancel')}</button>
     </form>
   );

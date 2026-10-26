@@ -186,7 +186,7 @@ export function TrialPage() {
                 Sign-up and the demo stay, one step behind. */}
             <Link to="/audit-saas"
               onClick={() => track('cta_click', { location: 'hero_primary', target: 'audit' })}
-              className="px-8 py-4 bg-blue-600 hover:bg-blue-500 rounded-xl text-base font-semibold text-white text-center sm:whitespace-nowrap transition-all hover:scale-[1.02] shadow-lg shadow-blue-900/40">
+              className="px-8 py-4 bg-blue-600 hover:bg-blue-700 rounded-xl text-base font-semibold text-white text-center sm:whitespace-nowrap transition-all hover:scale-[1.02] shadow-lg shadow-blue-900/40">
               {t('lp_cta_audit')}
             </Link>
             <button
@@ -430,7 +430,7 @@ export function TrialPage() {
           <div className="text-center mt-10">
             <button
               onClick={() => { track('cta_click', { location: 'outcomes' }); setShowAuth(true); }}
-              className="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl text-sm font-semibold text-white transition-all">
+              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-xl text-sm font-semibold text-white transition-all">
               {t('lp_find_hiding')}
             </button>
           </div>
@@ -533,7 +533,7 @@ export function TrialPage() {
                   }}
                   className={"w-full py-2.5 rounded-lg text-sm font-semibold transition-colors " + (
                     p.highlight
-                      ? 'bg-blue-600 hover:bg-blue-500 text-white'
+                      ? 'bg-blue-600 hover:bg-blue-700 text-white'
                       : 'bg-slate-800 hover:bg-slate-700 text-white'
                   )}>
                   {p.cta}
@@ -592,7 +592,7 @@ export function TrialPage() {
           </p>
           <button
             onClick={() => { track('cta_click', { location: 'final' }); setShowAuth(true); }}
-            className="px-10 py-4 bg-blue-600 hover:bg-blue-500 rounded-xl text-base font-semibold text-white transition-all hover:scale-[1.02] shadow-lg shadow-blue-900/40">
+            className="px-10 py-4 bg-blue-600 hover:bg-blue-700 rounded-xl text-base font-semibold text-white transition-all hover:scale-[1.02] shadow-lg shadow-blue-900/40">
             {t('lp_final_cta_btn')}
           </button>
           <p className="mt-4 text-xs text-slate-500">{t('lp_final_cta_note')}</p>
@@ -738,14 +738,14 @@ export function TrialPage() {
                         <label htmlFor="signin-email" className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">{t("hc_work_email")}</label>
                         <input id="signin-email" type="email" autoComplete="email" value={authEmail} onChange={e => setAuthEmail(e.target.value)}
                           placeholder={t('lp_email_ph')}
-                          className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" />
+                          className="w-full px-4 py-3 bg-slate-800 border border-line-control rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" />
                       </div>
                       <div>
                         <label htmlFor="signin-password" className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">{t('lp_password_label')}</label>
                         <div className="relative">
                           <input id="signin-password" autoComplete="current-password" type={showPassword ? 'text' : 'password'} value={authPassword} onChange={e => setAuthPassword(e.target.value)}
                             placeholder="••••••••"
-                            className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all pr-12" />
+                            className="w-full px-4 py-3 bg-slate-800 border border-line-control rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all pr-12" />
                           <button type="button" onClick={() => setShowPassword(v => !v)}
                             className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 text-xs">
                             {showPassword ? t('lp_hide_password') : t('lp_show_password')}
@@ -862,13 +862,13 @@ export function TrialPage() {
                         <label htmlFor="signup-name" className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">{t("hc_full_name")}</label>
                         <input id="signup-name" type="text" autoComplete="name" value={authName} onChange={e => setAuthName(e.target.value)}
                           placeholder={t('lp_name_ph')}
-                          className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" />
+                          className="w-full px-4 py-3 bg-slate-800 border border-line-control rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" />
                       </div>
                       <div>
                         <label htmlFor="signup-email" className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">{t("hc_work_email")}</label>
                         <input id="signup-email" type="email" autoComplete="email" value={authEmail} onChange={e => setAuthEmail(e.target.value)}
                           placeholder={t('lp_email_ph')}
-                          className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" />
+                          className="w-full px-4 py-3 bg-slate-800 border border-line-control rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" />
                       </div>
 
                       {authError && <div className="text-red-400 text-xs px-1">{authError}</div>}
@@ -905,7 +905,7 @@ export function TrialPage() {
                           <input id="signup-password" autoComplete="new-password" type={showNewPassword ? 'text' : 'password'} value={authPassword}
                             onChange={e => { setAuthPassword(e.target.value); setSuggested(false); }}
                             placeholder={t('lp_min_chars')}
-                            className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all pr-16" />
+                            className="w-full px-4 py-3 bg-slate-800 border border-line-control rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all pr-16" />
                           <button type="button" onClick={() => setShowNewPassword(v => !v)}
                             className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 text-xs">
                             {showNewPassword ? t('lp_hide_password') : t('lp_show_password')}
@@ -930,7 +930,7 @@ export function TrialPage() {
                         <div className="relative">
                           <input id="signup-confirm" autoComplete="new-password" type={showNewPassword ? 'text' : 'password'} value={authConfirm} onChange={e => setAuthConfirm(e.target.value)}
                             placeholder={t('lp_confirm_password_ph')}
-                            className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all pr-16" />
+                            className="w-full px-4 py-3 bg-slate-800 border border-line-control rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all pr-16" />
                           <button type="button" onClick={() => setShowNewPassword(v => !v)}
                             className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 text-xs">
                             {showNewPassword ? t('lp_hide_password') : t('lp_show_password')}

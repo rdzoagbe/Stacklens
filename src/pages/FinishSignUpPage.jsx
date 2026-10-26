@@ -66,7 +66,7 @@ export function FinishSignUpPage() {
             </p>
             <button
               onClick={() => window.location.href = "/dashboard"}
-              className="px-4 md:px-8 py-4 bg-blue-600 hover:bg-blue-500 rounded-xl font-semibold text-lg transition-colors"
+              className="px-4 md:px-8 py-4 bg-blue-600 hover:bg-blue-700 rounded-xl font-semibold text-lg transition-colors"
             >
               {t('fsu_return_home')}
             </button>

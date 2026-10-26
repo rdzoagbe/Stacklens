@@ -246,9 +246,9 @@ export function LicenseManagement() {
             <div className="flex gap-2 flex-wrap">
               <input type="text" value={search} onChange={e => setSearch(e.target.value)}
                 placeholder={t("lic_search_placeholder")}
-                className="px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-slate-300 outline-none focus:border-blue-500 transition-colors w-40" />
+                className="px-3 py-1.5 bg-slate-800 border border-line-control rounded-lg text-xs text-slate-300 outline-none focus:border-blue-500 transition-colors w-40" />
               <select value={sortBy} onChange={e => setSortBy(e.target.value)}
-                className="px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-slate-300 outline-none">
+                className="px-3 py-1.5 bg-slate-800 border border-line-control rounded-lg text-xs text-slate-300 outline-none">
                 <option value="cost">{t('sort_cost')}</option>
                 <option value="per_user">{t('sort_cost_per_user')}</option>
                 <option value="users">{t('sort_active_users')}</option>

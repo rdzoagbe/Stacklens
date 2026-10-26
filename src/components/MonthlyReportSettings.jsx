@@ -101,7 +101,7 @@ export function MonthlyReportSettings({ firebaseUser, qc, t, language }) {
                 {t('mr_extra_label').replace('{n}', MAX_EXTRA_RECIPIENTS).replace('{domain}', account.split('@')[1] || '')}
                 <div className="mt-1 flex gap-2">
                   <input value={extra} onChange={(e) => setExtra(e.target.value)} placeholder={`dg@${account.split('@')[1] || 'entreprise.fr'}`}
-                    className="flex-1 h-9 rounded-lg border border-slate-700 bg-slate-950 px-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/40" />
+                    className="flex-1 h-9 rounded-lg border border-line-control bg-slate-950 px-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/40" />
                   <button type="button" onClick={saveRecipients}
                     className="px-3 h-9 rounded-lg bg-slate-800 hover:bg-slate-700 text-sm font-semibold text-slate-200">{t('mr_save')}</button>
                 </div>

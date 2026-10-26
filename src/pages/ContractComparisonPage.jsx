@@ -273,19 +273,19 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
                 value={state.name}
                 onChange={e => setState(s => ({...s, name: e.target.value}))}
                 placeholder={t("cc_doc_name_placeholder")}
-                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm placeholder-slate-500 outline-none focus:border-blue-500 transition-colors"
+                className="w-full bg-slate-800 border border-line-control rounded-xl px-3 py-2 text-white text-sm placeholder-slate-500 outline-none focus:border-blue-500 transition-colors"
               />
               <input
                 value={state.party}
                 onChange={e => setState(s => ({...s, party: e.target.value}))}
                 placeholder={t("cc_party_placeholder")}
-                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm placeholder-slate-500 outline-none focus:border-blue-500 transition-colors"
+                className="w-full bg-slate-800 border border-line-control rounded-xl px-3 py-2 text-white text-sm placeholder-slate-500 outline-none focus:border-blue-500 transition-colors"
               />
               <textarea
                 value={state.text}
                 onChange={e => setState(s => ({...s, text: e.target.value}))}
                 placeholder={t('cc_paste_placeholder').replace('{label}', label)}
-                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm placeholder-slate-500 outline-none focus:border-blue-500 transition-colors resize-none"
+                className="w-full bg-slate-800 border border-line-control rounded-xl px-3 py-2 text-white text-sm placeholder-slate-500 outline-none focus:border-blue-500 transition-colors resize-none"
                 rows={10}
               />
               <div className="flex items-center gap-2">
@@ -790,10 +790,10 @@ Respond with ONLY the rewritten clause text, no explanation, no JSON.`,
               onChange={e => setChatInput(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendChat()}
               placeholder={t('cc_ask_placeholder')}
-              className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-white text-sm placeholder-slate-500 outline-none focus:border-blue-500 transition-colors"
+              className="flex-1 bg-slate-800 border border-line-control rounded-xl px-4 py-2 text-white text-sm placeholder-slate-500 outline-none focus:border-blue-500 transition-colors"
             />
             <button onClick={sendChat} disabled={!chatInput.trim() || chatLoading}
-              className={"px-4 py-2 rounded-xl font-semibold text-sm transition-all " + (!chatInput.trim() || chatLoading ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500 text-white')}>
+              className={"px-4 py-2 rounded-xl font-semibold text-sm transition-all " + (!chatInput.trim() || chatLoading ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white')}>
               {t('cc_send')}
             </button>
           </div>

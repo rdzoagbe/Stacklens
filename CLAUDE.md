@@ -338,6 +338,8 @@ Held by `src/lib/design-tokens.test.js`:
 - **Critical red:** `red-*` only; no `rose-*`.
 - **Modal backdrop:** `bg-slate-950/70 backdrop-blur`, the same as `<Modal>`.
 - **Public pages** (legal, about, contact, security, accountants, audit) use `<PublicNav>`; the landing nav keeps its own links but the same classes.
+- **Design tokens:** `src/design/tokens.json` is a copy of the "Stacklens" design-system artifact (https://claude.ai/artifact/RJWC7xrkgdo2bLQciMdVTb). `index.css` declares each colour as a CSS variable (dark under `:root`, light under `[data-theme="light"]`, not switched on yet) and `tailwind.config.js` exposes it as a semantic colour (`bg-brand`, `text-ink-muted`, `border-line-control`, `outline-focus-ring`…). They are plain `var()` values, so opacity modifiers (`bg-brand/50`) do not work on them. Change a value in `tokens.json` and in `index.css` together; the test fails if they drift, and checks every text pair at 4.5:1 and controls at 3:1 in both themes.
+- **Buttons and fields:** a filled blue or red button darkens on hover (`hover:bg-blue-700`, `hover:bg-red-700`): white on blue-500 or red-500 is under 4.5:1. Text fields, selects and textareas use `border-line-control` (3:1); `Button` shows a solid `outline-focus-ring` 2px off for the keyboard.
 
 ### Deployment
 

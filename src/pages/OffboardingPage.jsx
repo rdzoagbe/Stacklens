@@ -242,7 +242,7 @@ export function OffboardingPage() {
                     riskRecords.forEach(a => muts.updateAccess.mutate({ id: a.id, patch: { status: "revoked" } }));
                     toast.success(`Revoked ${riskRecords.length} access records`);
                   }
-                }} className="px-4 py-2 bg-red-600 hover:bg-red-500 rounded-xl font-semibold text-sm text-white transition-colors">
+                }} className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-xl font-semibold text-sm text-white transition-colors">
                   {t('off_revoke_all_risky')}
                 </button>
               </div>
@@ -389,7 +389,7 @@ export function OffboardingPage() {
                 <p className="text-sm text-slate-500 mb-6 max-w-xs">{t("offboarding_no_emp_selected_sub")}</p>
                 {employees.length > 0 && (
                   <select value={employeeId} onChange={(e) => setEmployeeId(e.target.value)}
-                    className="w-full max-w-xs bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-300 outline-none focus:border-blue-500 transition-colors">
+                    className="w-full max-w-xs bg-slate-800 border border-line-control rounded-xl px-3 py-2 text-sm text-slate-300 outline-none focus:border-blue-500 transition-colors">
                     <option value="">{t("offboarding_or_pick")}</option>
                     {employees.filter(e => e.status !== 'offboarded').map(e => (
                       <option key={e.id} value={e.id}>{e.full_name} ({enumLabel(e.status)})</option>
@@ -469,7 +469,7 @@ export function OffboardingPage() {
 
                       {/* One-click button */}
                       <button onClick={revokeAll}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-600 hover:bg-red-500 rounded-xl font-bold text-sm text-white transition-all shadow-lg shadow-red-500/20">
+                        className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-600 hover:bg-red-700 rounded-xl font-bold text-sm text-white transition-all shadow-lg shadow-red-500/20">
                         <BadgeX className="h-4 w-4" />
                         One-Click Offboard ({activeRecords.length} access)
                       </button>

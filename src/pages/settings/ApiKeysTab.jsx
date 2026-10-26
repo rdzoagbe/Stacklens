@@ -109,7 +109,7 @@ export function ApiKeysTab({ t }) {
           <div className="flex gap-3">
             <input value={newKeyName} onChange={e => setNewKeyName(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && generateApiKey()}
-              className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm outline-none focus:border-emerald-500 transition-colors" placeholder={t('key_name_placeholder')} />
+              className="flex-1 bg-slate-800 border border-line-control rounded-xl px-4 py-2.5 text-white text-sm outline-none focus:border-emerald-500 transition-colors" placeholder={t('key_name_placeholder')} />
             <button onClick={generateApiKey} disabled={busy || !newKeyName.trim()}
               className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-semibold text-sm transition-colors whitespace-nowrap disabled:opacity-50">
               {busy ? '…' : t('set_gen_key_btn')}

@@ -293,10 +293,10 @@ export function AccessPage() {
           {viewMode !== 'eligibility' && <>
           <div className="flex-1 min-w-0">
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t("search_placeholder_access")}
-              className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 text-sm text-white placeholder-slate-500 outline-none focus:border-blue-500 transition-colors" />
+              className="w-full bg-slate-900 border border-line-control rounded-xl px-4 py-2 text-sm text-white placeholder-slate-500 outline-none focus:border-blue-500 transition-colors" />
           </div>
           <select value={filterRisk} onChange={e => setFilterRisk(e.target.value)}
-            className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-300 outline-none">
+            className="bg-slate-900 border border-line-control rounded-xl px-3 py-2 text-sm text-slate-300 outline-none">
             <option value="all">{t('filter_all_risk')}</option>
             <option value="high">{t("high_risk_only")}</option>
             <option value="review">{t("needs_review_filter")}</option>
@@ -597,7 +597,7 @@ export function AccessPage() {
                           if (action === '1') muts.updateAccess.mutate({ id: a.id, patch: { access_level: 'viewer' } }, { onSuccess: () => toast.success(t('changed_to_viewer')) });
                           else if (action === '2') muts.updateAccess.mutate({ id: a.id, patch: { access_level: 'admin' } }, { onSuccess: () => toast.success(t('changed_to_admin')) });
                           else if (action === '3') muts.updateAccess.mutate({ id: a.id, patch: { status: 'revoked' } }, { onSuccess: () => toast.success(t('revoked')) });
-                        }} className="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold">{t('act_manage')}</button>
+                        }} className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold">{t('act_manage')}</button>
                         <button onClick={() => {
                           if(window.confirm(t('confirm_revoke_one'))) muts.updateAccess.mutate({ id: a.id, patch: { status: 'revoked' } }, { onSuccess: () => toast.success(t('revoked')) });
                         }} className="px-2 py-1 bg-red-600/20 hover:bg-red-600/40 text-red-400 rounded-lg text-xs font-semibold">×</button>

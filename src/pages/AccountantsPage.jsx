@@ -178,7 +178,7 @@ function EarlyAccess({ t }) {
             </label>
             <label className={label + ' sm:col-span-2'}>{t('ea_form_message')}
               <textarea value={form.message} onChange={set('message')} rows={3}
-                className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/40" />
+                className="mt-1 w-full rounded-xl border border-line-control bg-slate-950 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/40" />
             </label>
           </div>
           <label className="flex items-start gap-2.5 text-sm text-slate-300 mb-3 cursor-pointer">
@@ -194,7 +194,7 @@ function EarlyAccess({ t }) {
             </p>
           )}
           <button type="submit" disabled={!ready || state === 'sending'}
-            className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-blue-600">
+            className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-blue-600">
             {state === 'sending' ? t('ea_form_sending') : t('ea_form_submit')} <ArrowRight className="w-4 h-4" />
           </button>
         </form>
@@ -238,7 +238,7 @@ export function AccountantsPage() {
           )}
           <div className="flex flex-col sm:flex-row gap-3">
             <Link to="/audit-saas" onClick={() => track('cta_click', { location: 'accountants_hero', target: 'audit' })}
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 font-semibold transition-colors">
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 font-semibold transition-colors">
               {t('acct_cta_primary')} <ArrowRight className="w-4 h-4" />
             </Link>
             <Link to="/?signup=true" onClick={() => track('cta_click', { location: 'accountants_hero', target: 'signup' })}
@@ -303,7 +303,7 @@ export function AccountantsPage() {
           <h2 className="text-2xl md:text-3xl font-bold mb-3">{t('acct_final_title')}</h2>
           <p className="text-slate-300 mb-6 max-w-xl mx-auto">{t('acct_final_body')}</p>
           <Link to="/audit-saas" onClick={() => track('cta_click', { location: 'accountants_final', target: 'audit' })}
-            className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 font-semibold transition-colors">
+            className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 font-semibold transition-colors">
             {t('acct_cta_primary')} <ArrowRight className="w-4 h-4" />
           </Link>
         </section>

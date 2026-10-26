@@ -46,7 +46,7 @@ export function SlackNotifications() {
             value={webhook}
             onChange={e => setWebhook(e.target.value)}
             placeholder="https://hooks.slack.com/services/..."
-            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-emerald-500 transition-colors"
+            className="w-full bg-slate-800 border border-line-control rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-emerald-500 transition-colors"
           />
           <p className="text-xs text-slate-500 mt-1">
             <a href="https://api.slack.com/apps" target="_blank" rel="noreferrer" className="text-blue-400 hover:underline">{t('slack_create_app')}</a> → Incoming Webhooks → Add New Webhook
