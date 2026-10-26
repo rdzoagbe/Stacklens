@@ -78,24 +78,15 @@ export function Sidebar({ collapsed, setCollapsed }) {
   return (
     <div
       className={cx(
-        "sticky top-0 flex h-screen shrink-0 flex-col border-r border-slate-800 bg-slate-950/60 backdrop-blur",
+        "sticky top-0 flex h-screen shrink-0 flex-col border-r border-line bg-surface-raised",
         collapsed ? "w-[78px]" : "w-[270px]"
       )}
     >
       <div className={collapsed ? "flex items-center justify-center p-4" : "flex items-center justify-between gap-2 p-4"}>
 {!collapsed &&         <Link to="/dashboard" className="flex items-center gap-2">
-          <RDLogo size="sm" onClick={() => window.location.href = "/dashboard"} />
+          <RDLogo size="sm" />
           {!collapsed ? (
-            <div>
-              <div className="text-sm font-black tracking-tight bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">Stacklens</div>
-              <div className="flex items-center gap-1.5">
-                <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest">SaaS Intelligence</div>
-                <div className="flex items-center gap-1">
-                  <div className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  <span className="text-[9px] text-emerald-500 font-bold uppercase">Live</span>
-                </div>
-              </div>
-            </div>
+            <div className="text-lg font-bold tracking-tight text-ink">Stacklens</div>
           ) : null}
         </Link>}
         <button
@@ -119,29 +110,16 @@ export function Sidebar({ collapsed, setCollapsed }) {
         </button>
       </div>
 
-      <div className="px-3 pb-3">
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-3">
-          <div className="flex items-center gap-2">
-            <div className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
-            {!collapsed ? <div className="text-xs text-slate-300">{t('live_risk_checks')}</div> : null}
-          </div>
-          {!collapsed ? (
-            <div className="mt-2 text-xs text-slate-500">{t('realtime_desc')}</div>
-          ) : null}
-        </div>
-      </div>
-
       <nav className="flex-1 overflow-auto px-2 pb-6">
         {NAV.filter(item => navItemVisible(item, navCtx)).map((item, idx) => {
           if (item.separator) {
             return (
-              <div key={`sep-${idx}`} className="my-4 px-3">
+              <div key={`sep-${idx}`} className={collapsed ? "my-3 mx-3 h-px bg-line" : "px-3 pt-4 pb-1"}>
                 {!collapsed && (
-                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  <div className="text-[11px] font-semibold text-ink-subtle uppercase tracking-wider">
                     {t(item.tKey)}
                   </div>
                 )}
-                {!collapsed && <div className="mt-2 h-px bg-slate-800" />}
               </div>
             );
           }
@@ -152,11 +130,12 @@ export function Sidebar({ collapsed, setCollapsed }) {
             <Link
               key={item.to}
               to={item.to}
+              aria-current={active ? "page" : undefined}
               className={cx(
-                "mb-1 flex items-center gap-3 rounded-2xl px-3 py-2.5 text-[14px] transition",
+                "mb-0.5 flex items-center gap-3 rounded-lg px-3 py-2 text-[14px] transition-colors",
                 active
-                  ? "bg-blue-600/15 text-blue-200 border border-blue-600/30"
-                  : "text-slate-300 hover:bg-slate-900/60"
+                  ? "bg-brand-soft text-brand-text font-semibold"
+                  : "text-ink-muted hover:bg-surface-hover hover:text-ink"
               )}
             >
               <Icon className="h-4 w-4" />
@@ -206,7 +185,7 @@ function LangSidebarSelector({ collapsed }) {
     return (
       <button
         onClick={() => setLanguage(next.code)}
-        className="mb-1 flex w-full items-center justify-center rounded-2xl px-3 py-2.5 text-xs font-semibold text-slate-300 hover:bg-slate-900/60 transition"
+        className="mb-0.5 flex w-full items-center justify-center rounded-lg px-3 py-2 text-xs font-semibold text-ink-muted hover:bg-surface-hover hover:text-ink transition-colors"
         title={`${t('language')}: ${current.name}`}
       >
         {current.code.toUpperCase()}
@@ -218,7 +197,7 @@ function LangSidebarSelector({ collapsed }) {
     <div className="mb-1">
       <button
         onClick={() => setOpen(o => !o)}
-        className="flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-[14px] text-slate-300 hover:bg-slate-900/60 transition"
+        className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[14px] text-ink-muted hover:bg-surface-hover hover:text-ink transition-colors"
       >
         <Languages className="h-4 w-4" />
         <span className="flex-1 text-left">{t('language')}</span>
@@ -232,10 +211,10 @@ function LangSidebarSelector({ collapsed }) {
               key={l.code}
               onClick={() => { setLanguage(l.code); setOpen(false); }}
               className={cx(
-                'flex w-full items-center gap-2 rounded-xl px-3 py-2 text-[13px] transition',
+                'flex w-full items-center gap-2 rounded-lg px-3 py-2 text-[13px] transition-colors',
                 language === l.code
-                  ? 'bg-blue-600/15 text-blue-200 border border-blue-600/30'
-                  : 'text-slate-300 hover:bg-slate-900/60'
+                  ? 'bg-brand-soft text-brand-text font-semibold'
+                  : 'text-ink-muted hover:bg-surface-hover hover:text-ink'
               )}
             >
               <span>{l.name}</span>
@@ -401,12 +380,12 @@ export function TopBar({ title, right }) {
     <div className="border-b border-slate-800 bg-slate-950/30">
       <div className="flex items-center justify-between gap-4 px-5 pt-4 pb-3">
         <div>
-          <div className="text-xl font-semibold text-slate-100">{title}</div>
-          <div className="mt-0.5 text-sm text-slate-500 max-w-3xl" data-testid="page-help">{t(helpKey || 'topbar_subtitle')}</div>
+          <h1 className="text-2xl font-bold text-ink">{title}</h1>
+          <div className="mt-1 text-sm text-ink-muted max-w-3xl" data-testid="page-help">{t(helpKey || 'topbar_subtitle')}</div>
         </div>
         <div className="hidden sm:flex items-center gap-3 text-sm text-slate-300 flex-shrink-0">
           <HelpPanel />
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600/20 text-blue-300 font-medium">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-surface-hover text-ink-muted font-medium">
             {userName.charAt(0).toUpperCase()}
           </div>
           <span className="max-w-[120px] truncate">{userName}</span>
