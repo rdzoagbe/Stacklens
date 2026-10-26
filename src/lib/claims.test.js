@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import vm from 'node:vm';
 
@@ -605,5 +605,91 @@ describe('§12 the DPA and privacy policy describe devices and Intune as the cod
     expect(copy('en', 'privacy_s2_saas_body')).toMatch(/devices \(model, serial number/);
     expect(copy('en', 'privacy_s2_saas_body')).toMatch(/Microsoft Intune with a read-only permission/);
     expect(copy('fr', 'privacy_s2_saas_body')).toMatch(/Microsoft Intune avec une autorisation en lecture seule/);
+  });
+});
+
+// ── §13 The landing page after the October 2026 site review ───────────────
+//
+// An outside review read the landing page as a prospect would and found four
+// statements that went further than the code: the import "maps everything
+// automatically" (it recognises usual column names and shows the rows before
+// saving), "take action / revoke access" (Stacklens records what was done; the
+// one change it makes at a vendor is blocking Microsoft 365 sign-in), an
+// example about unused seats (no screen counts seats: waste is a tool nobody
+// can log into), and an EU-storage line with nothing beside it about what runs
+// in the USA. The same pass removed figures nothing sourced.
+describe('§13 the landing page says what each data path gives and where it runs', () => {
+  const LANGS = ['en', 'fr', 'de', 'es', 'pt'];
+  const page = read('src/pages/TrialPage.jsx');
+
+  it('says where processing runs outside the EU, beside the EU line and at sign-up', () => {
+    const fns = read('functions/index.js');
+    expect(fns).toMatch(/region: 'us-central1'/);
+    expect(fns).not.toMatch(/region: '(europe|eu)/);
+    for (const lang of LANGS) {
+      for (const key of ['lp_data_location_note', 'lp_faq3_a']) {
+        const text = copy(lang, key);
+        expect(text, `${lang}.${key}`).toContain('us-central1');
+        expect(text, `${lang}.${key}`).toContain('Anthropic');
+        expect(text, `${lang}.${key}`).toContain('Stripe');
+      }
+    }
+    // The note sits right after the pricing line that says "stored in the EU"…
+    const fine = page.indexOf("{t('lp_pricing_fine_print')}");
+    expect(page.indexOf("{t('lp_data_location_note')}", fine) - fine).toBeLessThan(400);
+    // …and under the sign-up consent, both linking to the full list.
+    const consent = page.indexOf('{CONSENT_COPY.privacy}');
+    const signupNote = page.indexOf("{t('lp_data_location_note')}", consent);
+    expect(signupNote).toBeGreaterThan(consent);
+    expect(signupNote - consent).toBeLessThan(600);
+    expect(page.slice(signupNote, signupNote + 300)).toMatch(/to="\/sub-processors"/);
+    // The sub-processors page says the same thing.
+    expect(copy('en', 'subproc_gcp_transfer')).toMatch(/us-central1/);
+    expect(copy('en', 'subproc_anthropic_transfer')).toMatch(/USA/);
+  });
+
+  it('says Stacklens records actions, and names the one it carries out at a vendor', () => {
+    const writers = readdirSync(resolve(root, 'src/lib')).filter((f) => /writeback/i.test(f) && !/\.test\./.test(f));
+    expect(writers).toEqual(['m365-writeback.js']);
+    expect(read('src/lib/m365-writeback.js')).toMatch(/accountEnabled: false/);
+    expect(copy('en', 'lp_step3_desc')).toMatch(/does not delete accounts at your vendors/);
+    expect(copy('en', 'lp_step3_desc')).toMatch(/Microsoft 365/);
+    expect(copy('fr', 'lp_step3_desc')).toMatch(/ne supprime pas de comptes chez vos fournisseurs/);
+    for (const lang of LANGS) {
+      expect(copy(lang, 'lp_step3_desc'), lang).toContain('Microsoft 365');
+      expect(copy(lang, 'lp_step3_detail'), lang).not.toMatch(/revoke now|révoquer maintenant|jetzt entziehen|revocar ahora|revogar agora/i);
+    }
+    expect(copy('pt', 'lp_step3_title')).not.toBe(copy('fr', 'lp_step3_title'));
+  });
+
+  it('separates the bank file from the tools-and-people file, and promises a review, not magic', () => {
+    expect(copy('en', 'lp_step1_desc')).toMatch(/bank export or an FEC file for the free audit/);
+    expect(copy('en', 'lp_step2_desc')).toMatch(/From a bank file:[^.]*\. From your tools and people:/);
+    expect(read('src/components/ImportWizard.jsx')).toMatch(/t\('preview_title'\)/);
+    // The hero promised "who still has access" from a bank export: access
+    // comes from the client's tools and people, and the sentence says so.
+    expect(copy('en', 'lp_hero_body')).toMatch(/turns them into a SaaS audit per client: [^.]*renewals\. Add the client's tools and people to see who still has access\./);
+    expect(copy('en', 'lp_hero_body')).not.toMatch(/invoices/);
+    for (const lang of LANGS) {
+      expect(copy(lang, 'lp_step1_desc'), lang).not.toMatch(/automati/i);
+      expect(copy(lang, 'lp_step2_desc'), lang).not.toMatch(/idle|inutilisées|ungenutzte|sin uso|inativas/i);
+      expect(copy(lang, 'lp_step2_detail'), lang).not.toMatch(/seat|siège|Plätze|puestos|licenças/i);
+    }
+  });
+
+  it('quotes no figure nothing measures', () => {
+    for (const lang of LANGS) {
+      for (const key of ['lp_faq6_a', 'lp_faq_a5']) expect(copy(lang, key), `${lang}.${key}`).not.toMatch(/10/);
+      for (const key of ['lp_persona1_pain', 'lp_who_pain1', 'lp_who1_pain']) expect(copy(lang, key), `${lang}.${key}`).not.toMatch(/\d/);
+      expect(copy(lang, 'about_hero_sub'), lang).not.toMatch(/\d|enterprise|entreprise|Enterprise|empresarial/i);
+      expect(copy(lang, 'about_approach_p1'), lang).not.toMatch(/80/);
+    }
+  });
+
+  it('the cookie banner is one row on a laptop, and its three buttons still look alike', () => {
+    const shell = read('src/components/AppShell.jsx');
+    const banner = shell.slice(shell.indexOf('aria-labelledby="cookie-banner-title"'), shell.indexOf('{t.accept}') + 20);
+    expect(banner).toMatch(/lg:flex-row/);
+    expect(banner.match(/className=\{btnClass\}/g)).toHaveLength(3);
   });
 });

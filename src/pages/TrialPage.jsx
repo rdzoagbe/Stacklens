@@ -535,6 +535,12 @@ export function TrialPage() {
           <p className="text-center text-xs text-slate-500 mt-8">
             {t('lp_pricing_fine_print')}
           </p>
+          {/* Beside the EU-storage line, where it is read: what runs outside
+              the EU, worded as the sub-processors page words it. */}
+          <p className="text-center text-xs text-slate-500 mt-2 max-w-3xl mx-auto" data-testid="lp-data-location">
+            {t('lp_data_location_note')}{' '}
+            <Link to="/sub-processors" className="text-slate-400 hover:text-white underline">{t('lp_sub_processors_link')}</Link>
+          </p>
           {pricing.isLocal && (
             <p className="text-center text-xs text-slate-500 mt-2">
               {t('lp_pricing_local_note').replace('{code}', pricing.code)}
@@ -943,6 +949,10 @@ export function TrialPage() {
                           <Link to="/privacy" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 underline">{CONSENT_COPY.privacy}</Link>
                         </span>
                       </label>
+                      <p className="text-xs text-slate-500 leading-relaxed" data-testid="signup-data-location">
+                        {t('lp_data_location_note')}{' '}
+                        <Link to="/sub-processors" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-white underline">{t('lp_sub_processors_link')}</Link>
+                      </p>
                       <button id="signup-btn" onClick={async () => {
                           if (!authName) { setAuthError(t('lp_enter_name')); return; }
                           if (!authEmail) { setAuthError(t('lp_enter_email')); return; }
