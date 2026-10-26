@@ -18,6 +18,7 @@ import { PLAN_CARDS, planFeatures, planText } from '../lib/planCards';
 import { EARLY_ACCESS } from '../lib/earlyAccess';
 import { Testimonials } from '../components/Testimonials';
 import { PublicMenu } from '../components/PublicMenu';
+import { AuditExampleCard } from '../components/AuditExampleCard';
 import { passwordProblem, suggestPassword } from '../lib/password';
 
 // Signup consent copy. Authored in all five languages rather than routed
@@ -144,12 +145,6 @@ export function TrialPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
-      {/* Subtle background gradient */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-blue-600/10 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-indigo-600/10 rounded-full blur-3xl" />
-      </div>
-
       {/* ── NAV ── */}
       <nav className="relative z-50 border-b border-slate-800/60 bg-slate-950/80 backdrop-blur-xl sticky top-0">
         <div className="max-w-7xl mx-auto px-6 py-4">
@@ -167,46 +162,42 @@ export function TrialPage() {
       </nav>
 
       {/* ── HERO ── */}
-      <section className="relative z-10 pt-20 pb-24 px-6">
-        <div className="max-w-4xl mx-auto text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-slate-800 bg-slate-900/60 mb-8">
-            <span className="text-xs font-medium text-slate-400">{t('lp_hero_badge')}</span>
+      {/* One promise, one primary action. The free audit leads: it costs the
+          visitor nothing (no account, nothing uploaded) and it IS the product's
+          core claim, demonstrated. The headline is the audit page's own; the
+          previous one quoted "80 tools" with no source. Beside it, an example of
+          what the audit returns, labelled as an example. */}
+      <section className="relative z-10 pt-16 pb-20 px-6">
+        <div className="max-w-6xl mx-auto grid lg:grid-cols-2 gap-12 items-center">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-brand-text mb-4">{t('lp_hero_badge')}</p>
+            <h1 className="text-4xl md:text-5xl lg:text-[56px] font-extrabold tracking-tight text-white leading-[1.07]">
+              {t('audit_title_1')} {t('audit_title_2')}
+            </h1>
+            <p className="mt-5 text-lg text-slate-400 leading-relaxed max-w-xl">
+              {t('lp_hero_body')}
+            </p>
+            <div className="mt-8 flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-4">
+              <Link to="/audit-saas"
+                onClick={() => track('cta_click', { location: 'hero_primary', target: 'audit' })}
+                className="px-6 py-3.5 bg-blue-600 hover:bg-blue-700 rounded-xl text-base font-semibold text-white text-center sm:whitespace-nowrap transition-colors focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring">
+                {t('lp_cta_audit')}
+              </Link>
+              <button
+                onClick={() => { track('cta_click', { location: 'hero_demo' }); startDemo(); navigate('/dashboard'); }}
+                className="px-2 py-3.5 text-base font-semibold text-brand-text hover:text-white whitespace-nowrap transition-colors text-center sm:text-left">
+                {t('lp_cta_demo')}
+              </button>
+            </div>
+            <p className="mt-4 text-xs text-slate-500">{t('lp_hero_fine_print')}</p>
+            {EARLY_ACCESS.OPEN && (
+              <Link to="/experts-comptables#acces-anticipe" onClick={() => track('cta_click', { location: 'hero', target: 'early_access' })}
+                className="inline-flex items-center gap-2 mt-5 px-3 py-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 text-sm text-amber-200 hover:bg-amber-500/20 transition-colors">
+                {t('ea_hero_link').replace('{n}', EARLY_ACCESS.SPOTS).replace('{months}', EARLY_ACCESS.MONTHS)}
+              </Link>
+            )}
           </div>
-          <h1 className="text-5xl md:text-6xl lg:text-7xl font-black tracking-tight text-white mb-6 leading-[1.05]">
-            {t('lp_hero_h1_line1')}
-            <br />
-            <span className="bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400 bg-clip-text text-transparent">{t('lp_hero_h1_line2')}</span>
-          </h1>
-          <p className="text-lg md:text-xl text-slate-400 max-w-2xl mx-auto mb-10 leading-relaxed">
-            {t('lp_hero_body')}
-          </p>
-          <div className="flex flex-col sm:flex-row sm:flex-wrap items-center justify-center gap-3 mb-6">
-            {/* The free audit leads. It costs the visitor nothing — no account,
-                no upload — and it IS the product's core claim, demonstrated.
-                Sign-up and the demo stay, one step behind. */}
-            <Link to="/audit-saas"
-              onClick={() => track('cta_click', { location: 'hero_primary', target: 'audit' })}
-              className="px-8 py-4 bg-blue-600 hover:bg-blue-700 rounded-xl text-base font-semibold text-white text-center sm:whitespace-nowrap transition-all hover:scale-[1.02] shadow-lg shadow-blue-900/40">
-              {t('lp_cta_audit')}
-            </Link>
-            <button
-              onClick={() => { track('cta_click', { location: 'hero_start' }); setShowAuth(true); }}
-              className="px-8 py-4 border border-slate-700 hover:border-slate-600 hover:bg-slate-900/60 rounded-xl text-base font-semibold text-slate-300 text-center sm:whitespace-nowrap transition-all">
-              {t('lp_cta_start')}
-            </button>
-            <button
-              onClick={() => { track('cta_click', { location: 'hero_demo' }); startDemo(); navigate('/dashboard'); }}
-              className="px-6 py-4 text-base font-semibold text-slate-400 hover:text-white whitespace-nowrap transition-colors">
-              {t('lp_cta_demo')}
-            </button>
-          </div>
-          <p className="text-xs text-slate-500">{t('lp_hero_fine_print')}</p>
-          {EARLY_ACCESS.OPEN && (
-            <Link to="/experts-comptables#acces-anticipe" onClick={() => track('cta_click', { location: 'hero', target: 'early_access' })}
-              className="inline-flex items-center gap-2 mt-5 px-3 py-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 text-sm text-amber-200 hover:bg-amber-500/20 transition-colors">
-              {t('ea_hero_link').replace('{n}', EARLY_ACCESS.SPOTS).replace('{months}', EARLY_ACCESS.MONTHS)}
-            </Link>
-          )}
+          <AuditExampleCard t={t} language={language} />
         </div>
       </section>
 
