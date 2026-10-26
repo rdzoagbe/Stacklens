@@ -133,6 +133,11 @@ export function fillSelectors() {
       sel.push(`.bg-gradient-to-r.${esc(`from-${h}-${s}`)}:not(.bg-clip-text)`, `.bg-gradient-to-br.${esc(`from-${h}-${s}`)}:not(.bg-clip-text)`);
     }
   }
+  // The printed reports (free audit client report, access review) are a white
+  // page, class "paper", shown on screen and portalled into #print-report: they
+  // keep their designed colours in either theme, or light mode would print
+  // white text on a dark page.
+  sel.push('.paper', '#print-report');
   return sel;
 }
 

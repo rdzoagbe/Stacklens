@@ -48,6 +48,11 @@ describe('the dark theme is the app as it was', () => {
     expect(fill).toContain('.hover\\:bg-red-700:hover');
     expect(fill).not.toMatch(/bg-blue-500\/10|bg-slate/);
     expect(fill).toContain(':not(.bg-clip-text)');
+    expect(fill).toContain('#print-report');
+    expect(fill).toContain('.paper');
+    const audit = readFileSync(resolve(process.cwd(), 'src/pages/SaasAuditPage.jsx'), 'utf8');
+    const review = readFileSync(resolve(process.cwd(), 'src/components/AccessReviewsView.jsx'), 'utf8');
+    for (const src of [audit, review]) expect(src).toMatch(/className="paper bg-white text-gray-900/);
     expect(Object.keys(css[fill]).sort()).toEqual(Object.keys(dark).sort());
   });
 });

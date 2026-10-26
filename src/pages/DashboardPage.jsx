@@ -380,7 +380,8 @@ export function DashboardPage() {
         id: 'access-review', kind: 'access_review', severity: 'medium',
         title: overdueReviews === 1 ? t('dash_reviews_todo_one') : t('dash_reviews_todo').replace('{n}', overdueReviews),
         reason: t('dash_reviews_todo_reason'),
-        action: t('review'), link: '/access',
+        // Signing off a review there sets last_reviewed_date, which clears these.
+        action: t('review'), link: '/access?view=reviews',
       });
     }
 
