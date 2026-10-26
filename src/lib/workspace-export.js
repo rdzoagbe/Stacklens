@@ -22,7 +22,7 @@ import { downloadText, toCsv } from './dataUtils';
  */
 const COLLECTIONS = [
   'tools', 'employees', 'access', 'contracts', 'invoices', 'invoice_records',
-  'uploaded_invoices', 'licenses', 'budgets', 'spend_history', 'assets', 'audit_log',
+  'uploaded_invoices', 'licenses', 'budgets', 'spend_history', 'assets', 'access_reviews', 'audit_log',
 ];
 
 /**
