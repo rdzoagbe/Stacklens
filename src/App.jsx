@@ -6,6 +6,7 @@ import { LanguageProvider, useLang } from './contexts/LangContext';
 import { CurrencyProvider } from './contexts/CurrencyContext';
 import { ModuleGate } from './components/gates';
 import { AppShell, CookieBanner, ErrorBoundary, PageBoundary } from './components/AppShell';
+import { SecondFactorPrompt } from './components/SecondFactorPrompt';
 import { FloatingChatbotGated } from './components/FloatingChatbot';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useTranslation } from './translations';
@@ -297,6 +298,7 @@ export default function App() {
         <ErrorBoundary><BrowserRouter>
         <SeoHead />
         <CookieBanner />
+        <SecondFactorPrompt />
           <Suspense fallback={<PageLoader />}>
           <PageBoundary>
           <Routes>

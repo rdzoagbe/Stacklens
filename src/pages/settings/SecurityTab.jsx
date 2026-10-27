@@ -5,6 +5,8 @@ import { useDbQuery } from '../../hooks/useDbQuery';
 import { loadDb, saveDb, seedDbIfEmpty, saveOwnWorkspaceNow, getSharedView } from '../../lib/db';
 import { hasRole } from '../../components/gates';
 import { PROTECTION_FIELD } from '../../lib/screenProtection';
+import { TwoStepCard } from '../../components/TwoStepCard';
+import { useLang } from '../../contexts/LangContext';
 
 // ── Settings → Security ────────────────────────────────────────────────────
 //
@@ -70,6 +72,7 @@ function ScreenProtectionCard({ firebaseUser, qc, t }) {
 
 export function SecurityTab({ t, firebaseUser, qc }) {
   const navigate = useNavigate();
+  const { language } = useLang();
 
   const enforced = [
     t('sec_real_isolation'),
@@ -80,6 +83,7 @@ export function SecurityTab({ t, firebaseUser, qc }) {
 
   return (
     <div className="space-y-4">
+      <TwoStepCard firebaseUser={firebaseUser} t={t} language={language} />
       <ScreenProtectionCard firebaseUser={firebaseUser} qc={qc} t={t} />
       <Card>
         <CardHeader title={t('sec_real_title')} subtitle={t('sec_real_sub')} />

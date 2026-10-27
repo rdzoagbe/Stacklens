@@ -139,9 +139,13 @@ describe('every sign-in path goes through it', () => {
       'completeMagicLinkSignIn', 'registerWithEmail', 'signInWithEmail', 'resetPassword']) {
       const i = cfg.indexOf(`export async function ${fn}(`);
       const body = cfg.slice(i, cfg.indexOf('\nexport ', i + 10));
-      expect(body, fn).toContain('authFail(');
+      // Directly, or through signInResult (the second step of a sign-in),
+      // which hands every failure to authFail itself.
+      expect(body.includes('authFail(') || body.includes('signInResult('), fn).toBe(true);
       expect(body, fn).not.toContain('error: error.message');
     }
+    const helper = cfg.slice(cfg.indexOf('async function signInResult('), cfg.indexOf('export async function signInWithGoogle('));
+    expect((helper.match(/authFail\(provider, /g) || []).length).toBe(2);
   });
 
   it('the sign-in screen builds its sentence with authErrorMessage, never t(authErrorKey(...)) by hand', () => {

@@ -23,6 +23,9 @@ import {
   signInWithEmailLink,
   getIdToken,
   updateProfile,
+  getMultiFactorResolver,
+  multiFactor,
+  TotpMultiFactorGenerator,
 } from 'firebase/auth';
 import {
   getFirestore,
@@ -44,6 +47,8 @@ import { getAnalytics, isSupported, setConsent as firebaseSetConsent } from 'fir
 import { track } from './lib/analytics';
 import { stripLocalOnly } from './lib/constants';
 import { REV_FIELD, revOf, nextRev, isStaleWrite, StaleWriteError } from './lib/revision';
+import { setAuditSender } from './lib/auditSync';
+import { askForSecondFactor } from './lib/secondFactor';
 import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
 
 // Firebase config — values come from environment variables (VITE_FIREBASE_*).
@@ -392,13 +397,10 @@ export async function signInWithGoogleWorkspace() {
   const provider = new GoogleAuthProvider();
   provider.addScope('https://www.googleapis.com/auth/admin.directory.user.readonly');
   provider.setCustomParameters({ prompt: 'select_account' });
-  try {
-    const result = await signInWithPopup(auth, provider);
-    const credential = GoogleAuthProvider.credentialFromResult(result);
-    return { accessToken: credential?.accessToken || null, error: null };
-  } catch (error) {
-    return { accessToken: null, error: authFail('google-workspace', error) };
-  }
+  const { result, error } = await signInResult('google-workspace', () => signInWithPopup(auth, provider));
+  if (error) return { accessToken: null, error };
+  const credential = GoogleAuthProvider.credentialFromResult(result);
+  return { accessToken: credential?.accessToken || null, error: null };
 }
 
 // ── What a failed sign-in tells you ─────────────────────────────────────────
@@ -520,22 +522,75 @@ export function authErrorMessage(raw, t, { sso = false } = {}) {
   return hint ? `${text} (${hint})` : text;
 }
 
-export async function signInWithGoogle() {
+// ── Two-step sign-in (TOTP, an authenticator app) ───────────────────────────
+//
+// For an account with a second step, Firebase fails the first one with
+// auth/multi-factor-auth-required. Every sign-in function below sends that
+// error here: the code is asked for once, in SecondFactorPrompt
+// (lib/secondFactor.js), and the sign-in finishes as if nothing happened. A
+// person who closes the prompt gets auth/user-cancelled, which says nothing.
+// Needs Firebase Authentication with Identity Platform and TOTP switched on
+// for the project; until then no account can have a second step and this
+// never runs. second-factor.test.js holds every sign-in path to it.
+const SECOND_FACTOR_REQUIRED = 'auth/multi-factor-auth-required';
+
+async function finishWithSecondFactor(error) {
+  const resolver = getMultiFactorResolver(auth, error);
+  const hint = resolver.hints.find((h) => h.factorId === TotpMultiFactorGenerator.FACTOR_ID);
+  if (!hint) throw error; // a factor this app does not offer
+  return askForSecondFactor((code) => resolver.resolveSignIn(TotpMultiFactorGenerator.assertionForSignIn(hint.uid, code)));
+}
+
+/** The sign-in's result, through the second step when the account has one. */
+async function signInResult(provider, run) {
   try {
-    const result = await signInWithPopup(auth, googleProvider);
-    return { user: result.user, error: null };
+    const result = await run();
+    return { user: result.user, error: null, result };
   } catch (error) {
-    return { user: null, error: authFail('google', error) };
+    if (error?.code !== SECOND_FACTOR_REQUIRED) return { user: null, error: authFail(provider, error) };
+    try {
+      const result = await finishWithSecondFactor(error);
+      return { user: result.user, error: null, result };
+    } catch (second) {
+      return { user: null, error: authFail(provider, second) };
+    }
   }
 }
 
+export async function signInWithGoogle() {
+  const { user, error } = await signInResult('google', () => signInWithPopup(auth, googleProvider));
+  return { user, error };
+}
+
 export async function signInWithMicrosoft() {
-  try {
-    const result = await signInWithPopup(auth, microsoftProvider);
-    return { user: result.user, error: null };
-  } catch (error) {
-    return { user: null, error: authFail('microsoft', error) };
-  }
+  const { user, error } = await signInResult('microsoft', () => signInWithPopup(auth, microsoftProvider));
+  return { user, error };
+}
+
+// Setting it up, from Settings → Security (components/TwoStepCard.jsx).
+/** The authenticator apps this account already uses. */
+export function secondFactors() {
+  const u = auth?.currentUser;
+  return u ? multiFactor(u).enrolledFactors.filter((f) => f.factorId === TotpMultiFactorGenerator.FACTOR_ID) : [];
+}
+
+/** Step 1: a secret for the authenticator app, as a QR code URL and as text. */
+export async function startTwoStep() {
+  const u = auth?.currentUser;
+  if (!u) throw new Error('Not signed in');
+  const session = await multiFactor(u).getSession();
+  const secret = await TotpMultiFactorGenerator.generateSecret(session);
+  return { secret, qrUrl: secret.generateQrCodeUrl(u.email || 'Stacklens', 'Stacklens'), key: secret.secretKey };
+}
+
+/** Step 2: the first code from the app proves it holds the secret. */
+export async function finishTwoStep(secret, code, label = 'Authenticator app') {
+  const assertion = TotpMultiFactorGenerator.assertionForEnrollment(secret, String(code || '').replace(/\s+/g, ''));
+  await multiFactor(auth.currentUser).enroll(assertion, label);
+}
+
+export async function removeTwoStep(factorUid) {
+  await multiFactor(auth.currentUser).unenroll(factorUid);
 }
 
 // handleRedirectResult() was here. Removed 2026-09-16: exported, never called,
@@ -588,13 +643,9 @@ export async function completeMagicLinkSignIn() {
     if (!email) {
       email = window.prompt('Please provide your email for confirmation');
     }
-    try {
-      const result = await signInWithEmailLink(auth, email, window.location.href);
-      window.localStorage.removeItem('emailForSignIn');
-      return { user: result.user, error: null };
-    } catch (error) {
-      return { user: null, error: authFail('magic-link', error) };
-    }
+    const { user, error } = await signInResult('magic-link', () => signInWithEmailLink(auth, email, window.location.href));
+    if (user) window.localStorage.removeItem('emailForSignIn');
+    return { user, error };
   }
   return { user: null, error: 'Invalid sign-in link' };
 }
@@ -708,12 +759,8 @@ export async function registerWithEmail(email, password, displayName) {
 
 // Email/Password Sign In
 export async function signInWithEmail(email, password) {
-  try {
-    const result = await signInWithEmailAndPassword(auth, email, password);
-    return { user: result.user, error: null };
-  } catch (error) {
-    return { user: null, error: authFail('email', error) };
-  }
+  const { user, error } = await signInResult('email', () => signInWithEmailAndPassword(auth, email, password));
+  return { user, error };
 }
 
 // Resend email verification to current user
@@ -952,6 +999,25 @@ export const workspaceListOrgs  = () => callWorkspace({ action: 'listorgs' });
 export const workspaceDeleteOrg  = (id) => callWorkspace({ action: 'deleteorg', id });
 export const workspaceRestoreOrg = (id) => callWorkspace({ action: 'restoreorg', id });
 
+// The tamper-evident audit trail (functions/audit-chain.js). Rows are sent by
+// lib/auditSync, batched; ownerUid is null for one's own workspace. keepalive
+// lets a batch leave while the tab closes.
+export async function workspaceAudit(ownerUid, events, { keepalive = false } = {}) {
+  const token = await getToken();
+  if (!token) throw new Error('Not authenticated');
+  const res = await fetch(`${FUNCTIONS_BASE}/workspace`, {
+    method: 'POST',
+    keepalive,
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    body: JSON.stringify({ action: 'audit', ownerUid: ownerUid || undefined, events }),
+  });
+  if (!res.ok) throw new Error('Audit trail request failed');
+  return res.json().catch(() => ({}));
+}
+setAuditSender(workspaceAudit);
+// The server's copy read back and checked: { ok, count, broken_at, rows }.
+export const workspaceAuditChain = (ownerUid) => callWorkspace({ action: 'auditchain', ownerUid: ownerUid || undefined });
+
 // Bank feed — GoCardless open-banking connection + recurring-charge sync
 async function callBankfeed(body) {
   const token = await getToken();
@@ -1037,6 +1103,9 @@ async function callFounderops(body) {
 export const founderSetBankCreds   = (clientId, clientSecret) => callFounderops({ action: 'setBankCreds', clientId, clientSecret });
 export const founderBankCredsStatus = () => callFounderops({ action: 'bankCredsStatus' });
 export const founderListErrors      = () => callFounderops({ action: 'listErrors' });
+// Two-step sign-in for the project (functions/index.js founderops).
+export const founderTotpStatus = () => callFounderops({ action: 'totpStatus' });
+export const founderEnableTotp = () => callFounderops({ action: 'enableTotp' });
 
 // Founder diagnostic: send a real test email and get SendGrid's response back.
 export async function founderTestEmail(to) {

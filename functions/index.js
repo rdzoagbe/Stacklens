@@ -71,6 +71,7 @@ const {
   monthlySpend, billedToolCount, NOT_BILLED_STATUS,
 } = require('./workspace-write.js');
 const { purgeAccount, subscriptionBlocksDeletion } = require('./purge-account.js');
+const { appendToChain, readChain } = require('./audit-chain.js');
 const { shouldAlert, recordAlert, MAX_PER_HOUR } = require('./crash-alerts.js');
 const {
   allocSpendByDept, spentToDateByDept, reportRecipients, buildMonthlyReport, renderMonthlyReport,
@@ -116,6 +117,10 @@ const CHECKOUT_RATE_LIMIT = { maxCalls: 5,  windowMs: 60 * 60 * 1000 };
 const SYNCUSER_RATE_LIMIT = { maxCalls: 30, windowMs: 60 * 60 * 1000 };
 const BANKFEED_RATE_LIMIT  = { maxCalls: 30,  windowMs: 60 * 60 * 1000 };
 const WORKSPACE_RATE_LIMIT = { maxCalls: 120, windowMs: 60 * 60 * 1000 };
+// Audit events arrive batched from the browser while someone works; they get
+// their own allowance so a busy afternoon of edits cannot use up the one that
+// loading a shared workspace needs.
+const AUDIT_RATE_LIMIT = { maxCalls: 600, windowMs: 60 * 60 * 1000 };
 
 // `checkRevoked` also asks Firebase Auth whether the account was disabled or
 // its sessions revoked since the token was issued: an ID token is otherwise
@@ -589,6 +594,23 @@ exports.founderops = onRequest({ cors: true, timeoutSeconds: 30, secrets: [BREVO
       // Diagnostic: send a real email through Brevo right now and report the
       // exact provider response, so email-delivery problems can be isolated
       // from "the scheduled job hasn't fired / found nothing to send".
+      // Two-step sign-in (TOTP) for the whole project. Needs Firebase
+      // Authentication with Identity Platform first (Firebase Console →
+      // Authentication → Settings): without it these calls are refused and the
+      // error comes back as it is. adjacentIntervals 5 is Firebase's default
+      // tolerance for a phone clock a little off.
+      if (action === 'totpStatus' || action === 'enableTotp') {
+        const manager = getAuth().projectConfigManager();
+        if (action === 'enableTotp') {
+          await manager.updateProjectConfig({
+            multiFactorConfig: { providerConfigs: [{ state: 'ENABLED', totpProviderConfig: { adjacentIntervals: 5 } }] },
+          });
+        }
+        const cfg = await manager.getProjectConfig();
+        const totp = (cfg.multiFactorConfig?.providerConfigs || []).find(p => p.totpProviderConfig);
+        return res.json({ enabled: totp?.state === 'ENABLED' });
+      }
+
       if (action === 'testEmail') {
         const dest = String(to || FOUNDER_EMAILS[0] || '').trim();
         if (!dest) return res.status(400).json({ error: 'No destination email' });
@@ -1273,12 +1295,14 @@ exports.workspace = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, re
     if (req.method === 'OPTIONS') return res.status(204).send('');
     if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
     const decoded = await verifyAuth(req, res); if (!decoded) return;
+    const { action, email, id, ownerUid, role, name } = req.body || {};
     // 'read' assembles an entire userdata blob (metadata + every chunk), so an
     // unmetered caller is a read amplifier. Generous enough for normal use:
-    // 'mine' runs on app load.
-    if (!await checkRateLimit(decoded.uid, res, WORKSPACE_RATE_LIMIT, 'workspace')) return;
+    // 'mine' runs on app load. Audit events have their own allowance.
+    if (action === 'audit'
+      ? !await checkRateLimit(decoded.uid, res, AUDIT_RATE_LIMIT, 'audit')
+      : !await checkRateLimit(decoded.uid, res, WORKSPACE_RATE_LIMIT, 'workspace')) return;
     const db = getFirestore();
-    const { action, email, id, ownerUid, role, name } = req.body || {};
     // Actions that change who may see a workspace, or remove one, ask Firebase
     // whether this session was revoked; reads and writes of the data do not.
     if (REVOCATION_CHECKED_ACTIONS.has(action) && !(await verifyAuth(req, res, { checkRevoked: true }))) return;
@@ -1291,6 +1315,29 @@ exports.workspace = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, re
     // verify before an email-based invite resolves.
     const callerEmail = decoded.email_verified ? (decoded.email || '').toLowerCase() : '';
     const col = db.collection('workspace_members');
+    // Who the audit chain names (functions/audit-chain.js): the verified
+    // address, else the address marked unverified, else the uid. Never a value
+    // the browser sent.
+    const actor = callerEmail || (decoded.email ? `${decoded.email} (unverified)` : `uid:${decoded.uid}`);
+    // The server's own record of what it did. It never fails the action it
+    // describes: a lost trail row is logged, the change asked for still happens.
+    const serverAudit = async (workspaceId, auditAction, details) => {
+      try { await appendToChain(db, workspaceId, [{ action: auditAction, details }], actor); }
+      catch (err) { console.error('[audit-chain] append failed', auditAction, err?.message); }
+    };
+    // Who may touch another workspace's chain: the same rule as read/write.
+    const accessTo = async (target) => {
+      const orgSnap = isClientOrgId(target) ? await db.collection('client_orgs').doc(target).get() : null;
+      const snap = await col.where('owner_uid', '==', target).get();
+      return {
+        org: orgSnap?.exists ? orgSnap.data() : null,
+        access: resolveWorkspaceAccess({
+          clientOrg: orgSnap?.exists ? orgSnap.data() : null,
+          memberships: snap.docs.map(d => d.data()),
+          callerUid: decoded.uid, callerEmail,
+        }),
+      };
+    };
     try {
       if (action === 'invite') {
         const target = String(email || '').toLowerCase().trim();
@@ -1316,6 +1363,7 @@ exports.workspace = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, re
           status: 'pending',
           created_at: new Date().toISOString(),
         });
+        await serverAudit(decoded.uid, 'team.invited', target);
         return res.json({ ok: true, id: ref.id });
       }
       if (action === 'members') {
@@ -1326,6 +1374,7 @@ exports.workspace = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, re
         const snap = await col.doc(String(id || '')).get();
         if (!snap.exists || snap.data().owner_uid !== decoded.uid) return res.status(404).json({ error: 'Not found' });
         await snap.ref.delete();
+        await serverAudit(decoded.uid, 'team.removed', snap.data().member_email || snap.data().member_uid || '');
         return res.json({ ok: true });
       }
       if (action === 'mine') {
@@ -1400,6 +1449,7 @@ exports.workspace = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, re
           user: { company: clientName, is_client_org: true },
           tools: [], employees: [], access: [],
         });
+        await serverAudit(decoded.uid, 'client_workspace.created', clientName);
         return res.json({ org: { org_id: orgId, name: clientName } });
       }
 
@@ -1478,6 +1528,7 @@ exports.workspace = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, re
         }
         const fields = softDeleteFields();
         await ref.update(fields);
+        await serverAudit(decoded.uid, 'client_workspace.deleted', snap.data().name || orgId);
         return res.json({ ok: true, days_left: daysUntilPurge(fields), retention_days: RETENTION_DAYS });
       }
 
@@ -1497,7 +1548,36 @@ exports.workspace = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, re
           return res.status(410).json({ error: `The ${RETENTION_DAYS}-day recovery window has passed` });
         }
         await ref.update(restoreFields());
+        await serverAudit(decoded.uid, 'client_workspace.restored', snap.data().name || orgId);
         return res.json({ ok: true });
+      }
+
+      // ── The tamper-evident audit trail (functions/audit-chain.js) ──────
+      // Events the browser reports for the workspace it is editing: its own,
+      // or one it may write as an editor or as the agency. The actor and the
+      // time are the server's.
+      if (action === 'audit') {
+        const target = String(ownerUid || decoded.uid);
+        if (target !== decoded.uid) {
+          const { org, access } = await accessTo(target);
+          if (org && isOrgDeleted(org)) return res.status(409).json({ error: 'This client workspace is deleted.' });
+          try { assertCanWrite(access && { role: access.role }); }
+          catch (err) { return res.status(err.httpStatus || 403).json({ error: err.message }); }
+        }
+        const out = await appendToChain(db, target, req.body?.events, actor);
+        return res.json({ ok: true, ...out });
+      }
+
+      // The chain read back and checked, for anyone who may read the
+      // workspace. The newest 500 rows travel back for display and export.
+      if (action === 'auditchain') {
+        const target = String(ownerUid || decoded.uid);
+        if (target !== decoded.uid) {
+          const { access } = await accessTo(target);
+          if (!access) return res.status(403).json({ error: 'Not a member of this workspace' });
+        }
+        const { rows, head, check, truncated } = await readChain(db, target);
+        return res.json({ ...check, truncated, head_hash: head?.head_hash || null, rows: rows.slice(-500).reverse() });
       }
 
       if (action === 'read') {
@@ -1550,6 +1630,7 @@ exports.workspace = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, re
           return res.status(400).json({ error: `role must be one of ${MEMBER_ROLES.join(', ')}` });
         }
         await snap.ref.update({ role });
+        await serverAudit(decoded.uid, 'team.role_changed', `${snap.data().member_email || ''}: ${snap.data().role} -> ${role}`);
         return res.json({ ok: true, role });
       }
 
@@ -1924,6 +2005,16 @@ exports.purgeClientOrgs = onSchedule({
   for (const orgSnap of snap.docs) {
     if (!isPurgeDue(orgSnap.data())) continue;
     try {
+      // Its audit trail first (audit-chain.js): the workspace it records is
+      // going, and rows left under a deleted head would be unreachable.
+      const chainRef = db.collection('audit_chains').doc(orgSnap.id);
+      const events = await chainRef.collection('events').get();
+      for (let i = 0; i < events.docs.length; i += 400) {
+        const eventBatch = db.batch();
+        events.docs.slice(i, i + 400).forEach(d => eventBatch.delete(d.ref));
+        await eventBatch.commit();
+      }
+      await chainRef.delete();
       const dataRef = db.collection('userdata').doc(orgSnap.id);
       const chunks = await dataRef.collection('chunks').get();
       const batch = db.batch();

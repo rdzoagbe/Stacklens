@@ -5,7 +5,7 @@ import {
   Users, Clock, Shield, Search,
   Zap, Crown, RefreshCw, Pencil, Check, X, ArrowLeft, Trash2, Mail, ShieldCheck,
 } from 'lucide-react';
-import { loadAllUsersAdmin, founderExtendTrial, founderSetPlan, founderGrantPlan, founderEnrichProfiles, founderDeleteUser, founderTestEmail, founderSetBankCreds, founderBankCredsStatus, founderListErrors, PUBLIC_FIREBASE_CONFIG } from '../firebase-config';
+import { loadAllUsersAdmin, founderExtendTrial, founderSetPlan, founderGrantPlan, founderEnrichProfiles, founderDeleteUser, founderTestEmail, founderSetBankCreds, founderBankCredsStatus, founderListErrors, founderTotpStatus, founderEnableTotp, PUBLIC_FIREBASE_CONFIG } from '../firebase-config';
 import { probeAppCheck } from '../lib/appCheckProbe';
 import { getFirestore, doc, updateDoc } from 'firebase/firestore';
 import { useAuth } from '../hooks/useAuth';
@@ -286,6 +286,12 @@ export function FounderAdminPage() {
   const [bankCfg, setBankCfg] = useState({ configured: false, id: '', secret: '', saving: false });
   const [errors, setErrors] = useState({ loading: false, open: false, items: null });
   const [appCheck, setAppCheck] = useState({ running: false, result: null });
+  const [totp, setTotp] = useState({ busy: false, enabled: null, error: '' });
+  const totpCall = async (fn) => {
+    setTotp((x) => ({ ...x, busy: true, error: '' }));
+    try { const r = await fn(); setTotp({ busy: false, enabled: !!r.enabled, error: '' }); }
+    catch (err) { setTotp({ busy: false, enabled: null, error: String(err?.message || err) }); }
+  };
 
   // Attempts the App Check token exchange on a throwaway Firebase app, so the
   // answer arrives as a line on this page instead of as an outage. See
@@ -566,6 +572,27 @@ export function FounderAdminPage() {
         )}
       </div>
 
+      {/* Two-step sign-in (TOTP) for every account. Turning it on lets each
+          person set it up in Settings → Security; it forces nobody. Needs the
+          Identity Platform upgrade in Firebase Console first, or the call is
+          refused and the error is shown as Firebase gave it. */}
+      <div className="rounded-xl border border-slate-700/50 bg-slate-900/40 p-4" data-testid="founder-totp">
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <span className="text-sm font-semibold text-white">🔑 Two-step sign-in (authenticator app)</span>
+            <div className="text-[11px] text-slate-500 mt-0.5">
+              {totp.enabled === null ? 'Not checked yet.' : totp.enabled ? 'On: each account can set it up in Settings → Security.' : 'Off for the project.'}
+            </div>
+          </div>
+          <div className="flex gap-2 flex-shrink-0">
+            <button onClick={() => totpCall(founderTotpStatus)} disabled={totp.busy}
+              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 rounded-lg text-xs disabled:opacity-50">Check</button>
+            <button onClick={() => { if (window.confirm('Turn on two-step sign-in (TOTP) for the project?')) totpCall(founderEnableTotp); }} disabled={totp.busy || totp.enabled === true}
+              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 rounded-lg text-xs disabled:opacity-50">Turn on</button>
+          </div>
+        </div>
+        {totp.error && <div className="mt-2 font-mono text-[11px] text-red-300 break-words">{totp.error}</div>}
+      </div>
       {/* ── Does App Check still work? ─────────────────────────────────────
            APP_CHECK_ENABLED had been flipped to true twice and taken sign-in
            down twice, because once App Check is initialised on the app Auth
