@@ -70,6 +70,10 @@ describe('/userdata — the tenant boundary', () => {
     // by anyone if that grant were ever dropped.
     await admin(db => setDoc(doc(db, 'userdata', ALICE, 'chunks', 'employees_0'), { rows: ['pii'] }));
     await assertFails(getDoc(doc(asBob(), 'userdata', ALICE, 'chunks', 'employees_0')));
+    // The owner writes chunks, and only chunks: any other subcollection would
+    // outlive the account, because the purge only knows chunks.
+    await assertSucceeds(setDoc(doc(asAlice(), 'userdata', ALICE, 'chunks', 'tools_0'), { rows: [] }));
+    await assertFails(setDoc(doc(asAlice(), 'userdata', ALICE, 'stash', 'x'), { anything: true }));
     await assertSucceeds(getDoc(doc(asAlice(), 'userdata', ALICE, 'chunks', 'employees_0')));
   });
 
@@ -147,7 +151,24 @@ describe('/users — the trial cannot be replayed', () => {
   it('a free user may self-start a trial once', async () => {
     await admin(db => setDoc(doc(db, 'users', ALICE), { plan: 'free' }));
     await assertSucceeds(updateDoc(doc(asAlice(), 'users', ALICE), {
+      plan: 'trial', trial_started_at: serverTimestamp(),
+    }));
+  });
+
+  it('a user CANNOT pick their own start date: a stamp in 2100 never expires', async () => {
+    await admin(db => setDoc(doc(db, 'users', ALICE), { plan: 'free' }));
+    await assertFails(updateDoc(doc(asAlice(), 'users', ALICE), {
+      plan: 'trial', trial_started_at: 4102444800000,
+    }));
+    await assertFails(updateDoc(doc(asAlice(), 'users', ALICE), {
+      plan: 'trial', trial_started_at: '2100-01-01',
+    }));
+    // Not even "now" from the browser's own clock: only the server's.
+    await assertFails(updateDoc(doc(asAlice(), 'users', ALICE), {
       plan: 'trial', trial_started_at: Date.now(),
+    }));
+    await assertFails(setDoc(doc(asBob(), 'users', BOB), {
+      plan: 'trial', trial_started_at: 4102444800000,
     }));
   });
 
@@ -167,14 +188,14 @@ describe('/users — the trial cannot be replayed', () => {
   it('an expired trial user cannot start a second trial', async () => {
     await admin(db => setDoc(doc(db, 'users', ALICE), { plan: 'free', trial_started_at: 1000 }));
     await assertFails(updateDoc(doc(asAlice(), 'users', ALICE), {
-      plan: 'trial', trial_started_at: Date.now(),
+      plan: 'trial', trial_started_at: serverTimestamp(),
     }));
   });
 
   it('a user cannot smuggle a paid plan in alongside the trial start', async () => {
     await admin(db => setDoc(doc(db, 'users', ALICE), { plan: 'free' }));
     await assertFails(updateDoc(doc(asAlice(), 'users', ALICE), {
-      plan: 'trial', trial_started_at: Date.now(), subscription_plan: 'enterprise',
+      plan: 'trial', trial_started_at: serverTimestamp(), subscription_plan: 'enterprise',
     }));
   });
 });
@@ -228,6 +249,11 @@ describe('/consent_logs — append-only, schema-enforced', () => {
     await assertSucceeds(setDoc(doc(asAnon(), 'consent_logs', 'log1'), valid));
   });
 
+  it('but nothing beyond its five fields', async () => {
+    await assertFails(setDoc(doc(asAnon(), 'consent_logs', 'log9'), { ...valid, junk: 'x'.repeat(1000) }));
+    await assertFails(setDoc(doc(asAnon(), 'consent_logs', 'log10'), { ...valid, email: 'a@b.example' }));
+  });
+
   it('nobody can read the consent trail back', async () => {
     await admin(db => setDoc(doc(db, 'consent_logs', 'log1'), { choice: 'accepted' }));
     await assertFails(getDoc(doc(asAlice(), 'consent_logs', 'log1')));
@@ -264,6 +290,18 @@ describe('/legal_acceptances — you can only accept as yourself', () => {
   it('a user CANNOT record an acceptance in another user’s name', async () => {
     await assertFails(setDoc(doc(asAlice(), 'legal_acceptances', 'a2'), {
       uid: BOB, documents: ['terms'], accepted_at: serverTimestamp(),
+    }));
+  });
+
+  it('the record stays small: at most five documents and a short plan id', async () => {
+    await assertFails(setDoc(doc(asAlice(), 'legal_acceptances', 'a6'), {
+      uid: ALICE, documents: Array.from({ length: 50 }, (_, i) => `d${i}`), accepted_at: serverTimestamp(),
+    }));
+    await assertFails(setDoc(doc(asAlice(), 'legal_acceptances', 'a7'), {
+      uid: ALICE, documents: ['terms'], plan_id: 'p'.repeat(500), accepted_at: serverTimestamp(),
+    }));
+    await assertSucceeds(setDoc(doc(asAlice(), 'legal_acceptances', 'a8'), {
+      uid: ALICE, documents: ['terms', 'privacy', 'dpa'], plan_id: 'pro', accepted_at: serverTimestamp(),
     }));
   });
 

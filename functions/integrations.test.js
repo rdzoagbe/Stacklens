@@ -153,13 +153,68 @@ describe('failures are reported, not swallowed', () => {
 
   it('Salesforce rejecting the refresh token asks the user to reconnect', async () => {
     global.__next = [ok({ error: 'invalid_grant' }, 400)];
-    await expect(VENDORS.salesforce.listUsers({ clientId: 'c', refreshToken: 'stale', instanceUrl: 'https://x' }))
+    await expect(VENDORS.salesforce.listUsers({ clientId: 'c', refreshToken: 'stale', instanceUrl: 'https://acme.my.salesforce.com' }))
       .rejects.toThrow(/Reconnect/);
   });
 
   it('a vendor error is an IntegrationError, so the endpoint answers 4xx not 500', async () => {
     global.__next = [ok({}, 401)];
-    await expect(VENDORS.okta.listUsers({ token: 'x', domain: 'd' })).rejects.toBeInstanceOf(IntegrationError);
+    await expect(VENDORS.okta.listUsers({ token: 'x', domain: 'acme.okta.com' })).rejects.toBeInstanceOf(IntegrationError);
+  });
+});
+
+describe('the server only calls the vendor\'s own hosts', () => {
+  // The Okta domain and the Salesforce URLs are typed by the customer and the
+  // server sends their token there: anything off the vendor's domains is refused
+  // before a single request leaves.
+  const hostile = [
+    'http://acme.okta.com',
+    'https://169.254.169.254',
+    'metadata.google.internal',
+    'https://acme.okta.com.evil.example',
+    'https://evilokta.com',
+    'https://acme.okta.com:8443',
+    'https://user:pw@acme.okta.com',
+    'localhost',
+  ];
+
+  it.each(hostile)('refuses Okta domain %s without calling it', async (domain) => {
+    await expect(VENDORS.okta.listUsers({ token: 't', domain })).rejects.toBeInstanceOf(IntegrationError);
+    expect(calls).toHaveLength(0);
+  });
+
+  it.each(hostile.map((h) => h.replace(/okta/g, 'salesforce')))('refuses Salesforce instance %s without calling it', async (instanceUrl) => {
+    await expect(VENDORS.salesforce.listUsers({ clientId: 'c', refreshToken: 'r', instanceUrl }))
+      .rejects.toBeInstanceOf(IntegrationError);
+    expect(calls).toHaveLength(0);
+  });
+
+  it('refuses a Salesforce login URL off salesforce.com', async () => {
+    await expect(VENDORS.salesforce.listUsers({
+      clientId: 'c', refreshToken: 'r', instanceUrl: 'https://acme.my.salesforce.com', loginUrl: 'https://evil.example',
+    })).rejects.toBeInstanceOf(IntegrationError);
+    expect(calls).toHaveLength(0);
+  });
+
+  it('accepts the forms admins type, and a sandbox login', async () => {
+    global.__next = [ok([])];
+    await VENDORS.okta.listUsers({ token: 't', domain: 'Acme.Okta.com/' });
+    expect(calls[0].url.startsWith('https://acme.okta.com/api/v1/users')).toBe(true);
+    global.__next = [ok({ access_token: 'a' }), ok({ records: [] })];
+    await VENDORS.salesforce.listUsers({
+      clientId: 'c', refreshToken: 'r', instanceUrl: 'https://acme--dev.sandbox.my.salesforce.com', loginUrl: 'https://test.salesforce.com',
+    });
+    expect(calls[1].url).toBe('https://test.salesforce.com/services/oauth2/token');
+    expect(calls[2].url.startsWith('https://acme--dev.sandbox.my.salesforce.com/services/data/')).toBe(true);
+  });
+
+  it('does not follow a next page onto another host', async () => {
+    global.__next = [ok([], 200, { Link: '<https://evil.example/api/v1/users?after=x>; rel="next"' })];
+    await VENDORS.okta.listUsers({ token: 't', domain: 'acme.okta.com' });
+    expect(calls).toHaveLength(1);
+    global.__next = [ok({ access_token: 'a' }), ok({ records: [], nextRecordsUrl: '//evil.example/x' })];
+    await VENDORS.salesforce.listUsers({ clientId: 'c', refreshToken: 'r', instanceUrl: 'https://acme.my.salesforce.com' });
+    expect(calls).toHaveLength(3);
   });
 });
 

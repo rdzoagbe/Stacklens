@@ -36,6 +36,13 @@ const GENESIS = '0'.repeat(64);
 const MAX_EVENTS_PER_CALL = 50;
 const MAX_DETAILS = 500;
 const ACTION_RE = /^[a-z][a-z0-9_.-]{0,63}$/;
+// Names only the server writes, for what it does itself (sharing, roles,
+// client workspaces). A browser sending one would forge a row that reads as
+// the server's own record, so cleanEvents drops it unless the server is asking.
+const SERVER_ACTION_RE = /^(team|client_workspace)\./;
+
+/** The newest rows shown and exported, newest first. */
+const SHOWN_ROWS = 500;
 
 /** Rows are stored under a zero-padded sequence, so ids sort in order. */
 const seqId = (seq) => String(seq).padStart(12, '0');
@@ -54,10 +61,11 @@ function hashRow(row) {
  * Anything malformed is dropped rather than refused, so one odd row cannot
  * cost the others; the caller learns how many were kept.
  */
-function cleanEvents(events) {
+function cleanEvents(events, { server = false } = {}) {
   if (!Array.isArray(events)) return [];
   return events.slice(0, MAX_EVENTS_PER_CALL)
     .filter((e) => e && typeof e === 'object' && ACTION_RE.test(String(e.action || '')))
+    .filter((e) => server || !SERVER_ACTION_RE.test(String(e.action)))
     .map((e) => ({
       action: String(e.action),
       details: String(e.details == null ? '' : e.details).slice(0, MAX_DETAILS),
@@ -117,8 +125,8 @@ function verifyChain(rows, head) {
  * cannot both take the same sequence number. `actor` comes from the verified
  * token. Returns the new count and head hash.
  */
-async function appendToChain(db, workspaceId, events, actor, now = new Date()) {
-  const clean = cleanEvents(events);
+async function appendToChain(db, workspaceId, events, actor, now = new Date(), { server = false } = {}) {
+  const clean = cleanEvents(events, { server });
   if (!clean.length) return { appended: 0 };
   const headRef = db.collection(CHAIN_COLLECTION).doc(workspaceId);
   return db.runTransaction(async (tx) => {
@@ -141,7 +149,11 @@ async function readChain(db, workspaceId, limit = 20000) {
   const head = headSnap.exists ? headSnap.data() : null;
   // Past the read limit the head cannot be compared with what was read.
   const truncated = rows.length >= limit;
-  return { rows, head, truncated, check: verifyChain(rows, truncated ? null : head) };
+  // What is shown is always the newest rows, even past the read limit.
+  const newest = truncated
+    ? (await headRef.collection(EVENTS_SUBCOLLECTION).orderBy('seq', 'desc').limit(SHOWN_ROWS).get()).docs.map((d) => d.data())
+    : rows.slice(-SHOWN_ROWS).reverse();
+  return { rows, head, truncated, newest, check: verifyChain(rows, truncated ? null : head) };
 }
 
 module.exports = {
@@ -150,6 +162,7 @@ module.exports = {
   GENESIS,
   MAX_EVENTS_PER_CALL,
   MAX_DETAILS,
+  SHOWN_ROWS,
   cleanEvents,
   chainRows,
   hashRow,

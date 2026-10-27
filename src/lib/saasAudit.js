@@ -16,6 +16,8 @@
 // day-first dates, separate Débit/Crédit columns, and windows-1252 encoding
 // are all the normal case here, not edge cases.
 
+import { csvText } from './csvSafe';
+
 // ── 1. Decoding ─────────────────────────────────────────────────────────────
 
 /**
@@ -805,7 +807,7 @@ export function reportToCsv(report, style = csvStyleFor('en')) {
   const cols = ['vendor', 'category', 'confidence', 'cadence', 'charges', 'first', 'last',
     'avg_amount', 'monthly_equivalent', 'annualised', 'bank_label', 'review', 'status'];
   const esc = (v) => {
-    let s = v == null ? '' : String(v);
+    let s = csvText(v);
     if (typeof v === 'number' && decimal !== '.') s = s.replace('.', decimal);
     const quote = s.includes('"') || s.includes('\n') || s.includes(sep) || (sep === ',' && s.includes(';'));
     return quote ? `"${s.replaceAll('"', '""')}"` : s;

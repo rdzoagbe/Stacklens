@@ -4,7 +4,7 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   GENESIS, MAX_EVENTS_PER_CALL, MAX_DETAILS,
-  cleanEvents, chainRows, hashRow, verifyChain, appendToChain, readChain,
+  cleanEvents, chainRows, hashRow, verifyChain, appendToChain, readChain, SHOWN_ROWS,
 } from './audit-chain.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -81,6 +81,12 @@ describe('what a browser may send', () => {
     expect(cleanEvents(Array.from({ length: 80 }, () => ({ action: 'a' })))).toHaveLength(MAX_EVENTS_PER_CALL);
     expect(cleanEvents('nope')).toEqual([]);
   });
+
+  it('never a name the server keeps for what it does itself', () => {
+    const forged = [{ action: 'team.invited', details: 'x' }, { action: 'client_workspace.deleted', details: 'y' }, { action: 'tool.created', details: 'z' }];
+    expect(cleanEvents(forged).map((e) => e.action)).toEqual(['tool.created']);
+    expect(cleanEvents(forged, { server: true })).toHaveLength(3);
+  });
 });
 
 // A transaction-shaped stand-in for Firestore, enough to run the real append.
@@ -90,9 +96,9 @@ function fakeDb() {
     path,
     collection: (name) => ({
       doc: (id) => ref(`${path}/${name}/${id}`),
-      orderBy: () => ({ limit: (n) => ({ get: async () => ({
+      orderBy: (_f, dir) => ({ limit: (n) => ({ get: async () => ({
         docs: [...store.entries()].filter(([k]) => k.startsWith(`${path}/${name}/`))
-          .sort(([a], [b]) => a.localeCompare(b)).slice(0, n).map(([, v]) => ({ data: () => v })),
+          .sort(([a], [b]) => (dir === 'desc' ? b.localeCompare(a) : a.localeCompare(b))).slice(0, n).map(([, v]) => ({ data: () => v })),
       }) }) }),
     }),
     get: async () => ({ exists: store.has(path), data: () => store.get(path) }),
@@ -126,6 +132,23 @@ describe('appending and reading back', () => {
     expect((await readChain(db, 'ws1')).check).toMatchObject({ ok: false, broken_at: 1 });
   });
 
+  it('shows the newest rows first, also past the read limit', async () => {
+    const db = fakeDb();
+    await appendToChain(db, 'ws1', Array.from({ length: 30 }, (_, i) => ({ action: 'tool.updated', details: `T${i + 1}` })), 'a');
+    const all = await readChain(db, 'ws1');
+    expect(all.newest[0].seq).toBe(30);
+    const cut = await readChain(db, 'ws1', 10);
+    expect(cut.truncated).toBe(true);
+    expect(cut.newest[0].seq).toBe(30);
+    expect(SHOWN_ROWS).toBe(500);
+  });
+
+  it('refuses a server name from a browser, takes it from the server', async () => {
+    const db = fakeDb();
+    expect(await appendToChain(db, 'ws1', [{ action: 'team.removed' }], 'a')).toEqual({ appended: 0 });
+    expect(await appendToChain(db, 'ws1', [{ action: 'team.removed' }], 'a', new Date(), { server: true })).toMatchObject({ appended: 1 });
+  });
+
   it('appends nothing when nothing valid was sent', async () => {
     const db = fakeDb();
     expect(await appendToChain(db, 'ws1', [{ action: '!!' }], 'a')).toEqual({ appended: 0 });
@@ -155,6 +178,8 @@ describe('the workspace function', () => {
     for (const a of ['team.invited', 'team.removed', 'team.role_changed', 'client_workspace.created', 'client_workspace.deleted', 'client_workspace.restored']) {
       expect(fn, a).toContain(`'${a}'`);
     }
+    // ...under the names a browser may not send.
+    expect(fn).toMatch(/appendToChain\(db, workspaceId, \[\{ action: auditAction, details \}\], actor, new Date\(\), \{ server: true \}\)/);
   });
 
   it('purges a client workspace’s trail with it', () => {

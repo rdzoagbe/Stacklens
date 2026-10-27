@@ -5,6 +5,7 @@ import { safeParseISO } from './db';
 import { formatMoney } from './currency';
 import { monthlySpend } from './waste';
 import { needsReview } from './toolReview';
+import { csvField } from './csvSafe';
 
 // ── Tool/access derived-state computations ─────────────────────────────────
 
@@ -236,11 +237,8 @@ export function downloadText(filename, text) {
 }
 
 export function toCsv(rows, columns) {
-  const esc = (v) => {
-    const s = String(v ?? '');
-    if (/[",\n]/.test(s)) return `"${s.replaceAll('"', '""')}"`;
-    return s;
-  };
+  // Guarded against formulas (lib/csvSafe.js): names come from imports.
+  const esc = (v) => csvField(v, ',');
   const header = columns.map(esc).join(',');
   const body   = rows.map((r) => columns.map((c) => esc(r[c])).join(',')).join('\n');
   return `${header}\n${body}\n`;

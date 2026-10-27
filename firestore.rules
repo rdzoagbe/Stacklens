@@ -71,8 +71,12 @@ service cloud.firestore {
               'plan_grant_reason'])
         : request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(['plan', 'trial_started_at']);
+      // The stamp must be the server's own clock (serverTimestamp(), which
+      // startTrial sends). Without this a user could write a start date in
+      // 2100: the stamp then locks in place and the trial never ends.
       let isTrialStart = request.resource.data.keys().hasAny(['plan', 'trial_started_at'])
                          && request.resource.data.get('plan', '') == 'trial'
+                         && request.resource.data.get('trial_started_at', null) == request.time
                          && trialTouchesOnlyTrialKeys
                          && (isNewDoc || (
                                !resource.data.keys().hasAny(['trial_started_at'])
@@ -132,7 +136,9 @@ service cloud.firestore {
     // /userdata/{uid}/chunks/** — size-capped slices of the large arrays
     // (employees, access, audit_log); rules don't cascade to subcollections,
     // so the owner grant must be repeated here.
-    match /userdata/{uid}/{document=**} {
+    // Only `chunks`: any other subcollection would be data the account purge
+    // (functions/purge-account.js) does not know to delete.
+    match /userdata/{uid}/chunks/{chunkId} {
       allow read: if isOwner(uid);
       allow write: if isOwner(uid);
     }
@@ -151,6 +157,9 @@ service cloud.firestore {
       allow read: if false;
       allow update, delete: if false;
       allow create: if
+        // Exactly these fields: an anonymous writer must not be able to park
+        // anything else (or anything personal) in a trail kept for three years.
+        request.resource.data.keys().hasOnly(['choice', 'version', 'userAgent', 'language', 'timestamp']) &&
         request.resource.data.choice in ['accepted', 'rejected'] &&
         request.resource.data.version is string &&
         request.resource.data.version.size() < 32 &&
@@ -173,6 +182,9 @@ service cloud.firestore {
         // Kept after the account is deleted, so nothing that names anyone.
         request.resource.data.keys().hasOnly(['uid', 'accepted_at', 'documents', 'plan_id']) &&
         request.resource.data.documents is list &&
+        request.resource.data.documents.size() <= 5 &&
+        request.resource.data.get('plan_id', '') is string &&
+        request.resource.data.get('plan_id', '').size() <= 40 &&
         request.resource.data.accepted_at == request.time;
     }
 

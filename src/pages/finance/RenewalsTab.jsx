@@ -18,6 +18,7 @@ import { submitContactForm } from '../../lib/contact';
 import { Card, Modal, Pill, Select, useCategoryLabel } from '../../components/ui';
 import { ContractComparisonPage } from '../ContractComparisonPage';
 import { RENEWAL_SAVINGS_PCT } from '../../lib/constants';
+import { csvField } from '../../lib/csvSafe';
 
 export function RenewalAlerts() {
   const { language } = useLang();
@@ -661,8 +662,8 @@ function InvoiceManager() {
   // Export to CSV
   const handleExport = () => {
     const csv = `Invoice #,Vendor,Category,Amount,Due Date,Status,Submitted By\n${
-      filteredInvoices.map(inv => 
-        `${inv.id},${inv.vendor},${inv.category},${inv.amount},${inv.dueDate},${inv.status},${inv.submittedBy}`
+      filteredInvoices.map(inv =>
+        [inv.id, inv.vendor, inv.category, inv.amount, inv.dueDate, inv.status, inv.submittedBy].map((v) => csvField(v)).join(',')
       ).join('\n')
     }`;
     

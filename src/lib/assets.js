@@ -19,6 +19,7 @@
 // deleted from the people list.
 
 import { csvAmount } from './csvHeaders';
+import { csvText } from './csvSafe';
 
 export const ASSET_KINDS = ['laptop', 'desktop', 'phone', 'tablet', 'monitor', 'accessory', 'other'];
 export const ASSET_STATUSES = ['in_use', 'in_stock', 'in_repair', 'retired', 'lost'];
@@ -378,8 +379,7 @@ export function assetsToCsv(assets = [], language = 'en') {
       s = Number(v) > 0 ? String(Math.round(Number(v) * 100) / 100) : '';
       if (sep === ';') s = s.replace('.', ',');
     } else {
-      s = str(v);
-      if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
+      s = csvText(str(v));
     }
     return /["\n\r]/.test(s) || s.includes(sep) || (sep === ',' && s.includes(';')) ? `"${s.replaceAll('"', '""')}"` : s;
   };

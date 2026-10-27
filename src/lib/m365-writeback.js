@@ -79,14 +79,22 @@ export async function resolveGraphUser(email, accessToken, fetchImpl = fetch) {
 /**
  * Block a single user's sign-in. Resolves first so the caller can show exactly
  * who is about to be affected, then patches.
+ *
+ * `confirm(user)` is asked with the account Microsoft found (its own display
+ * name and sign-in address), not the name Stacklens holds: the address comes
+ * from workspace data an editor typed or a file imported, so the person
+ * confirming must see whose account the tenant will actually block. It returns
+ * false to stop before anything changes.
  */
-export async function blockGraphUserSignIn(email, accessToken, fetchImpl = fetch) {
+export async function blockGraphUserSignIn(email, accessToken, fetchImpl = fetch, { confirm } = {}) {
   const user = await resolveGraphUser(email, accessToken, fetchImpl);
 
   if (user.accountEnabled === false) {
     // Already blocked — report it rather than pretending we did something.
     return { alreadyBlocked: true, user };
   }
+
+  if (confirm && !(await confirm(user))) return { cancelled: true, user };
 
   const res = await fetchImpl(`${GRAPH}/users/${encodeURIComponent(user.id)}`, {
     method: 'PATCH',

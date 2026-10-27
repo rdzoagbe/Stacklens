@@ -65,6 +65,17 @@ describe('the trial expires on both sides', () => {
     expect(resolvePlan({ plan: 'trial', trial_started_at: startedAt })).toBe('free');
   });
 
+  it('agree that a trial starting in the future is no trial (it would never end)', () => {
+    for (const stamp of [4102444800000, '2100-01-01', Date.now() + 60 * 60 * 1000]) {
+      expect(server.effectivePlan({ plan: 'trial', trial_started_at: stamp }), String(stamp)).toBe('free');
+      expect(resolvePlan({ plan: 'trial', trial_started_at: stamp }), String(stamp)).toBe('free');
+    }
+    // A minute or two of clock difference is still a trial.
+    const soon = Date.now() + 60 * 1000;
+    expect(server.effectivePlan({ plan: 'trial', trial_started_at: soon })).toBe('trial');
+    expect(resolvePlan({ plan: 'trial', trial_started_at: soon })).toBe('trial');
+  });
+
   it('agree that a trial with no start date is invalid', () => {
     expect(server.effectivePlan({ plan: 'trial' })).toBe('free');
     expect(resolvePlan({ plan: 'trial' })).toBe('free');

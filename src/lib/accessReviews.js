@@ -16,6 +16,7 @@
 import { uid } from './db';
 import { computeAccessDerivedRiskFlag } from './dataUtils';
 import { norm } from './eligibility';
+import { csvText } from './csvSafe';
 
 export const REVIEW_SCOPES = ['all', 'tool', 'department'];
 export const DECISIONS = ['keep', 'revoke'];
@@ -123,7 +124,7 @@ export function signOff(db, review, { name = '', by = '', now = new Date() } = {
 export function reviewCsv(review, { sep = ',', headers } = {}) {
   const cols = headers || ['person', 'email', 'department', 'tool', 'level', 'granted', 'previously_reviewed', 'risk', 'decision', 'decided_at', 'signed_by', 'signed_at'];
   const esc = (v) => {
-    const s = v == null ? '' : String(v);
+    const s = csvText(v);
     return s.includes('"') || s.includes('\n') || s.includes(sep) ? `"${s.replaceAll('"', '""')}"` : s;
   };
   const signed = review.signed_off || {};

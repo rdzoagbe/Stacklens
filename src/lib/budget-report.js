@@ -4,11 +4,13 @@
 // weight. Excel: CSV with a UTF-8 BOM so Excel detects the encoding, and a
 // semicolon separator for French locales (Excel FR splits on ; by default).
 
+import { csvText } from './csvSafe';
+
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 export function buildBudgetCsv({ rows, totals, unallocated, year, labels, sep = ';' }) {
   const q = (v) => {
-    const s = String(v ?? '');
+    const s = csvText(v);
     return (s.includes(sep) || s.includes('"') || s.includes('\n')) ? '"' + s.replace(/"/g, '""') + '"' : s;
   };
   const lines = [

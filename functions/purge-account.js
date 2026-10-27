@@ -103,7 +103,7 @@ const RETAINED = {
 
 /** Every rate-limit prefix in use. MUST match the checkRateLimit callers. */
 const RATE_LIMIT_PREFIXES = [
-  'ai', 'api', 'audit', 'bankfeed', 'checkout', 'founderAdmin', 'integrations',
+  'ai', 'api', 'audit', 'bankfeed', 'checkout', 'founderAdmin', 'inbound', 'integrations',
   'invite', 'portal', 'reportnow', 'syncuser', 'workspace',
 ];
 
