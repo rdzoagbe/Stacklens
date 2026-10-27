@@ -594,6 +594,23 @@ exports.founderops = onRequest({ cors: true, timeoutSeconds: 30, secrets: [BREVO
       // Diagnostic: send a real email through Brevo right now and report the
       // exact provider response, so email-delivery problems can be isolated
       // from "the scheduled job hasn't fired / found nothing to send".
+      // Two-step sign-in (TOTP) for the whole project. Needs Firebase
+      // Authentication with Identity Platform first (Firebase Console →
+      // Authentication → Settings): without it these calls are refused and the
+      // error comes back as it is. adjacentIntervals 5 is Firebase's default
+      // tolerance for a phone clock a little off.
+      if (action === 'totpStatus' || action === 'enableTotp') {
+        const manager = getAuth().projectConfigManager();
+        if (action === 'enableTotp') {
+          await manager.updateProjectConfig({
+            multiFactorConfig: { providerConfigs: [{ state: 'ENABLED', totpProviderConfig: { adjacentIntervals: 5 } }] },
+          });
+        }
+        const cfg = await manager.getProjectConfig();
+        const totp = (cfg.multiFactorConfig?.providerConfigs || []).find(p => p.totpProviderConfig);
+        return res.json({ enabled: totp?.state === 'ENABLED' });
+      }
+
       if (action === 'testEmail') {
         const dest = String(to || FOUNDER_EMAILS[0] || '').trim();
         if (!dest) return res.status(400).json({ error: 'No destination email' });

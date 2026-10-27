@@ -6,9 +6,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 vi.mock('../../firebase-config', () => ({
   saveUserData: vi.fn().mockResolvedValue(1), loadUserData: vi.fn().mockResolvedValue(null), logConsent: vi.fn(),
+  secondFactors: vi.fn(() => []), startTwoStep: vi.fn(), finishTwoStep: vi.fn(), removeTwoStep: vi.fn(),
 }));
 
-import { saveUserData } from '../../firebase-config';
+import { saveUserData, secondFactors, startTwoStep, finishTwoStep } from '../../firebase-config';
 import { loadDb } from '../../lib/db';
 import { translations } from '../../translations';
 import { SecurityTab } from './SecurityTab';
@@ -21,7 +22,7 @@ let root;
 const settle = async () => { for (let i = 0; i < 10; i++) await act(async () => { await new Promise((r) => setTimeout(r, 0)); }); };
 const sw = () => document.querySelector('[data-testid="screen-protection-card"] [role="switch"]');
 
-async function mount(user = {}, extra = {}) {
+async function mount(user = {}, extra = {}, firebaseUser = { uid: 'u1' }) {
   localStorage.clear();
   localStorage.setItem('accessguard_v1', JSON.stringify({
     user: { is_authenticated: true, plan: 'pro', role: 'owner', ...user }, tools: [], employees: [], access: [], ...extra,
@@ -31,7 +32,7 @@ async function mount(user = {}, extra = {}) {
   document.body.appendChild(host);
   root = createRoot(host);
   await act(async () => {
-    root.render(<QueryClientProvider client={qc}><MemoryRouter><SecurityTab t={t} firebaseUser={{ uid: 'u1' }} qc={qc} /></MemoryRouter></QueryClientProvider>);
+    root.render(<QueryClientProvider client={qc}><MemoryRouter><SecurityTab t={t} firebaseUser={firebaseUser} qc={qc} /></MemoryRouter></QueryClientProvider>);
   });
   for (let i = 0; i < 10; i++) await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
 }
@@ -66,5 +67,49 @@ describe('the screen-protection switch', () => {
     expect(sw().disabled).toBe(true);
     expect(document.body.textContent).toContain('belongs to the workspace owner');
     expect(saveUserData).not.toHaveBeenCalled();
+  });
+});
+
+describe('two-step sign-in', () => {
+  const card = () => document.querySelector('[data-testid="two-step-card"]');
+  const button = (label) => [...card().querySelectorAll('button')].find((b) => b.textContent === label);
+  beforeEach(() => { secondFactors.mockReturnValue([]); });
+
+  it('is offered to a signed-in account, and set up with a QR code and the first code', async () => {
+    startTwoStep.mockResolvedValue({ secret: { id: 's' }, qrUrl: 'otpauth://totp/Stacklens:a@b.example?secret=ABC&issuer=Stacklens', key: 'ABC' });
+    finishTwoStep.mockResolvedValue();
+    await mount({}, {}, { uid: 'u1', emailVerified: true });
+    expect(card().textContent).toContain(t('mfa_off'));
+    await act(async () => { button(t('mfa_enable')).click(); });
+    await settle();
+    const img = card().querySelector('img');
+    expect(img.getAttribute('src')).toMatch(/^data:image\/gif;base64,/);
+    expect(card().textContent).toContain('ABC');
+    const input = card().querySelector('input');
+    Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(input, '123456');
+    await act(async () => { input.dispatchEvent(new window.Event('input', { bubbles: true })); });
+    secondFactors.mockReturnValue([{ uid: 'f1', factorId: 'totp', enrollmentTime: 'Tue, 27 Oct 2026 10:00:00 GMT' }]);
+    await act(async () => { button(t('mfa_turn_on')).click(); });
+    await settle();
+    expect(finishTwoStep).toHaveBeenCalledWith({ id: 's' }, '123456');
+    expect(card().textContent).toContain(t('mfa_turn_off'));
+  });
+
+  it('asks for a verified email first, and is not shown without an account', async () => {
+    await mount({}, {}, { uid: 'u1', emailVerified: false });
+    expect(card().textContent).toContain(t('mfa_need_verified'));
+    expect(button(t('mfa_enable'))).toBeUndefined();
+    await act(async () => root.unmount());
+    root = null;
+    await mount({}, {}, null);
+    expect(document.querySelector('[data-testid="two-step-card"]')).toBeNull();
+  });
+
+  it('says plainly when the project has not switched it on', async () => {
+    startTwoStep.mockRejectedValue(Object.assign(new Error('x'), { code: 'auth/operation-not-allowed' }));
+    await mount({}, {}, { uid: 'u1', emailVerified: true });
+    await act(async () => { button(t('mfa_enable')).click(); });
+    await settle();
+    expect(card().querySelector('[role="alert"]').textContent).toBe(t('mfa_not_available'));
   });
 });
