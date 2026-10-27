@@ -1,10 +1,15 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import qrcode from 'qrcode-generator';
 import toast from 'react-hot-toast';
 import { KeyRound } from 'lucide-react';
 import { Card, CardHeader, CardBody, Button, Input } from './ui';
-import { secondFactors, startTwoStep, finishTwoStep, removeTwoStep } from '../firebase-config';
+import {
+  secondFactors, startTwoStep, finishTwoStep, removeTwoStep, resendEmailVerification, refreshEmailVerified,
+} from '../firebase-config';
 import { mfaErrorText } from '../lib/secondFactor';
+
+/** Seconds before the verification link can be sent again, as on the sign-up screen. */
+const RESEND_COOLDOWN_SECONDS = 60;
 
 /** The otpauth:// address as a QR image (a data URL: nothing leaves the page). */
 function qrImage(url) {
@@ -23,13 +28,29 @@ export function TwoStepCard({ firebaseUser, t, language }) {
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  // Firebase refuses an authenticator for an unverified address, and the link
+  // sent at sign-up may be long gone: the card sends it again and re-reads
+  // the flag from the server, so nobody has to sign out to get past this.
+  const [verifiedNow, setVerifiedNow] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+  useEffect(() => {
+    if (cooldown <= 0) return undefined;
+    const id = setTimeout(() => setCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(id);
+  }, [cooldown]);
 
   if (!firebaseUser) return null;
-  const verified = firebaseUser.emailVerified !== false;
+  const verified = verifiedNow || firebaseUser.emailVerified !== false;
   const run = async (fn) => {
     setBusy(true);
     setError('');
     try { await fn(); } catch (err) { setError(mfaErrorText(err, t)); } finally { setBusy(false); }
+  };
+  // The email steps report their own sentence (or Firebase's), not a two-step error.
+  const verifyStep = async (fn) => {
+    setBusy(true);
+    setError('');
+    try { setError(await fn()); } catch (err) { setError(err?.message || String(err)); } finally { setBusy(false); }
   };
   const date = (s) => { const d = new Date(s); return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString(language); };
 
@@ -55,7 +76,30 @@ export function TwoStepCard({ firebaseUser, t, language }) {
             <p className="text-sm text-slate-400">{t('mfa_off')}</p>
             {verified
               ? <Button disabled={busy} onClick={() => run(async () => setSetup(await startTwoStep()))}>{t('mfa_enable')}</Button>
-              : <p className="text-sm text-amber-400">{t('mfa_need_verified')}</p>}
+              : (
+                <div className="w-full space-y-2">
+                  <p className="text-sm text-amber-400">{t('mfa_need_verified')}</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button variant="secondary" disabled={busy || cooldown > 0} onClick={() => verifyStep(async () => {
+                      const { error: err } = await resendEmailVerification();
+                      if (err) return err;
+                      setCooldown(RESEND_COOLDOWN_SECONDS);
+                      toast.success(t('verification_resent'));
+                      return '';
+                    })}>
+                      {cooldown > 0 ? `${t('resend_in')} ${cooldown}s` : t('resend_verification')}
+                    </Button>
+                    <Button variant="ghost" disabled={busy} onClick={() => verifyStep(async () => {
+                      const { verified: ok, error: err } = await refreshEmailVerified();
+                      if (err) return err;
+                      if (!ok) return t('email_not_verified_yet');
+                      setVerifiedNow(true);
+                      return '';
+                    })}>{t('ive_verified')}</Button>
+                  </div>
+                  {cooldown > 0 && <p className="text-xs text-slate-500">{t('verify_check_spam_title')}</p>}
+                </div>
+              )}
           </div>
         ) : (
           <div className="flex flex-wrap gap-6">
