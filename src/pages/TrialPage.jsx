@@ -20,6 +20,7 @@ import { Testimonials } from '../components/Testimonials';
 import { PublicMenu } from '../components/PublicMenu';
 import { AuditExampleCard } from '../components/AuditExampleCard';
 import { passwordProblem, suggestPassword } from '../lib/password';
+import { goToDashboard } from '../lib/goToDashboard';
 
 // Signup consent copy. Authored in all five languages rather than routed
 // through the translation hook: this is the LCEN/GDPR proof-of-consent control,
@@ -121,13 +122,19 @@ export function TrialPage() {
           setLoading(false);
         }
       } else if (provider.id === 'microsoft') {
-        const { error } = await signInWithMicrosoft();
+        const { user, error } = await signInWithMicrosoft();
         if (error) {
           const msg = authErrorMessage(error, t, { sso: true });
           if (msg) toast.error(msg); // '' = user closed the popup → stay silent
           setLoading(false);
+        } else if (user) {
+          // The comment here used to say "onAuthChange handles the rest", and
+          // nothing did: onAuthChange loads the workspace but never leaves this
+          // page, so a Microsoft sign-in sat on the landing page until a
+          // manual reload. Same ending as the Google path (useAuth.login): a
+          // full load of /dashboard, which onAuthChange hydrates.
+          goToDashboard();
         }
-        // onAuthChange handles the rest if sign-in succeeded
       } else if (provider.id === 'magic') {
         setShowEmailForm(true);
         setLoading(false);

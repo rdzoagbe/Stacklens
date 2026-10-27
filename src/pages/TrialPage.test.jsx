@@ -5,14 +5,17 @@ import { MemoryRouter } from 'react-router-dom';
 
 vi.mock('../firebase-config', () => ({
   sendMagicLink: vi.fn(), signInWithMicrosoft: vi.fn(), signInWithEmail: vi.fn(),
-  resetPassword: vi.fn(), registerWithEmail: vi.fn(), authErrorKey: vi.fn(),
+  resetPassword: vi.fn(), registerWithEmail: vi.fn(), authErrorKey: vi.fn(), authErrorMessage: vi.fn(() => ''),
   saveUserData: vi.fn().mockResolvedValue(1), loadUserData: vi.fn().mockResolvedValue(null), logConsent: vi.fn(), callAI: vi.fn(),
 }));
 vi.mock('../lib/analytics', () => ({ track: vi.fn() }));
+vi.mock('../lib/goToDashboard', () => ({ goToDashboard: vi.fn() }));
 vi.mock('../hooks/useAuth', () => ({ useAuth: () => ({ login: vi.fn(), startDemo: vi.fn(), isAuthed: false, firebaseUser: null }) }));
 vi.mock('../components/AppShell', () => ({ LangSelectorCompact: () => null, _openCookieBanner: vi.fn() }));
 
 import { TrialPage } from './TrialPage';
+import { signInWithMicrosoft } from '../firebase-config';
+import { goToDashboard } from '../lib/goToDashboard';
 import { LanguageProvider } from '../contexts/LangContext';
 import { translations } from '../translations';
 
@@ -85,5 +88,39 @@ describe('the account forms, in French', () => {
     const spans = [...document.querySelectorAll('span')].map((x) => x.textContent.trim());
     expect(spans).toContain(fr.lp_or);
     expect(spans).not.toContain('or');
+  });
+});
+
+// ── Microsoft sign-in lands on the dashboard ───────────────────────────────
+//
+// It used to leave the person on the landing page with the sign-in window
+// open until they reloaded: the success branch only had a comment saying
+// something else would move on, and nothing did.
+describe('Microsoft sign-in', () => {
+  const click = async (label) => {
+    const b = [...document.querySelectorAll('button')].find((x) => x.textContent.includes(label));
+    expect(b, label).toBeTruthy();
+    await act(async () => { b.click(); });
+  };
+
+  it('goes to the dashboard on success, without a reload by hand', async () => {
+    signInWithMicrosoft.mockResolvedValueOnce({ user: { uid: 'u1' }, error: null });
+    goToDashboard.mockClear();
+    await open('?signin=true');
+    await click('SSO');
+    await click('Microsoft 365');
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+    expect(signInWithMicrosoft).toHaveBeenCalled();
+    expect(goToDashboard).toHaveBeenCalledTimes(1);
+  });
+
+  it('stays put when the person closed the window', async () => {
+    signInWithMicrosoft.mockResolvedValueOnce({ user: null, error: 'Firebase: Error (auth/popup-closed-by-user).' });
+    goToDashboard.mockClear();
+    await open('?signin=true');
+    await click('SSO');
+    await click('Microsoft 365');
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+    expect(goToDashboard).not.toHaveBeenCalled();
   });
 });
