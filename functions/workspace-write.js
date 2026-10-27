@@ -311,6 +311,8 @@ function resolveWorkspaceAccess({ clientOrg, memberships, callerUid, callerEmail
 // Kept in step with the client by src/lib/plan-parity.test.js.
 const TRIAL_DAYS = 7;
 const TRIAL_MS = TRIAL_DAYS * 24 * 60 * 60 * 1000;
+// Clocks differ a little; a start more than this far ahead was never real.
+const FUTURE_SKEW_MS = 5 * 60 * 1000;
 
 /** Milliseconds from a Firestore Timestamp, an epoch number, or an ISO string. */
 function toMillis(value) {
@@ -345,6 +347,9 @@ function effectivePlan(userData, now = Date.now()) {
   if (stored && stored !== 'trial' && stored !== 'free') return stored;
   if (stored === 'trial') {
     const startedAt = toMillis(userData.trial_started_at);
+    // A start in the future is not a trial: it would never end. The rules
+    // only accept the server's clock now; this covers anything written before.
+    if (startedAt > now + FUTURE_SKEW_MS) return 'free';
     if (startedAt > 0 && (now - startedAt) < TRIAL_MS) return 'trial';
     return 'free';
   }

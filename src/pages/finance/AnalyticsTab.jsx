@@ -11,6 +11,7 @@ import { useLang } from '../../contexts/LangContext';
 import { useTranslation } from '../../translations';
 import { monthlySpend, billedToolCount } from '../../lib/waste';
 import { useCategoryLabel } from '../../components/ui';
+import { csvField } from '../../lib/csvSafe';
 
 export function AnalyticsTabContent() {
   const { language } = useLang();
@@ -88,15 +89,15 @@ export function AnalyticsTabContent() {
     sections.push('');
     sections.push('SPEND BY CATEGORY');
     sections.push('Category,Monthly Spend,Tool Count');
-    categorySpend.forEach(c => sections.push(c.name + ',' + c.spend + ',' + c.count));
+    categorySpend.forEach(c => sections.push([c.name, c.spend, c.count].map((v) => csvField(v)).join(',')));
     sections.push('');
     sections.push('TOP TOOLS BY COST');
     sections.push('Tool,Category,Monthly Cost');
-    topTools.forEach(t => sections.push(t.name + ',' + (t.category || '—') + ',' + (t.cost_per_month || 0)));
+    topTools.forEach(t => sections.push([t.name, t.category || '—', t.cost_per_month || 0].map((v) => csvField(v)).join(',')));
     sections.push('');
     sections.push('DEPARTMENT BREAKDOWN');
     sections.push('Department,Active,Inactive,Total');
-    deptBreakdown.forEach(d => sections.push(d.name + ',' + d.active + ',' + d.inactive + ',' + d.total));
+    deptBreakdown.forEach(d => sections.push([d.name, d.active, d.inactive, d.total].map((v) => csvField(v)).join(',')));
 
     const blob = new Blob([sections.join('\n')], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);

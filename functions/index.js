@@ -502,6 +502,16 @@ exports.sendInvite = onRequest({ cors: true, secrets: [BREVO_API_KEY] }, async (
     if (!inviteeEmail || !inviteeEmail.includes('@')) {
       return res.status(400).json({ error: 'Invalid email' });
     }
+    // Only for an invitation the workspace function has recorded: that path
+    // checks the plan (no team on free or trial), the member cap and the
+    // address. Without this, any account could have Stacklens email any
+    // address with a name and a company of its choosing.
+    if (!decoded.email_verified) return res.status(403).json({ error: 'Verify your email address first' });
+    const invited = await getFirestore().collection('workspace_members')
+      .where('owner_uid', '==', decoded.uid)
+      .where('member_email', '==', String(inviteeEmail).toLowerCase().trim())
+      .limit(1).get();
+    if (invited.empty) return res.status(404).json({ error: 'No invitation recorded for this address' });
 
     // Rate limit: 20 invites per hour
     const limited = await checkRateLimit(decoded.uid, res, { maxCalls: 20, windowMs: 60 * 60 * 1000 }, 'invite');
@@ -510,8 +520,8 @@ exports.sendInvite = onRequest({ cors: true, secrets: [BREVO_API_KEY] }, async (
     try {
       const esc = (s) => String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
       const signupUrl = 'https://stacklens.fr/?signup=true';
-      const from = esc(inviterName || decoded.name || 'Your team');
-      const org  = esc(orgName || 'Stacklens');
+      const from = esc(String(inviterName || decoded.name || 'Your team').slice(0, 60));
+      const org  = esc(String(orgName || 'Stacklens').slice(0, 60));
 
       const mail = await sendMail(BREVO_API_KEY.value(), {
         to: inviteeEmail,
@@ -1322,7 +1332,7 @@ exports.workspace = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, re
     // The server's own record of what it did. It never fails the action it
     // describes: a lost trail row is logged, the change asked for still happens.
     const serverAudit = async (workspaceId, auditAction, details) => {
-      try { await appendToChain(db, workspaceId, [{ action: auditAction, details }], actor); }
+      try { await appendToChain(db, workspaceId, [{ action: auditAction, details }], actor, new Date(), { server: true }); }
       catch (err) { console.error('[audit-chain] append failed', auditAction, err?.message); }
     };
     // Who may touch another workspace's chain: the same rule as read/write.
@@ -1576,8 +1586,8 @@ exports.workspace = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, re
           const { access } = await accessTo(target);
           if (!access) return res.status(403).json({ error: 'Not a member of this workspace' });
         }
-        const { rows, head, check, truncated } = await readChain(db, target);
-        return res.json({ ...check, truncated, head_hash: head?.head_hash || null, rows: rows.slice(-500).reverse() });
+        const { head, check, truncated, newest } = await readChain(db, target);
+        return res.json({ ...check, truncated, head_hash: head?.head_hash || null, rows: newest });
       }
 
       if (action === 'read') {
@@ -1928,6 +1938,7 @@ async function extractInvoicesWithAI(apiKey, texts) {
 // SendGrid Inbound Parse webhook. Unauthenticated by nature — bounded by the
 // token lookup (unknown tokens dropped), attachment caps, and a per-instance
 // throttle. Always answers 200 so SendGrid never retry-loops.
+const INBOUND_RATE_LIMIT = { maxCalls: 30, windowMs: 60 * 60 * 1000 };
 let _inboundCount = 0;
 setInterval(() => { _inboundCount = 0; }, 60 * 1000).unref?.();
 exports.invoiceInbound = onRequest({ cors: false, timeoutSeconds: 120, memory: '512MiB', secrets: [ANTHROPIC_API_KEY] }, async (req, res) => {
@@ -1942,6 +1953,13 @@ exports.invoiceInbound = onRequest({ cors: false, timeoutSeconds: 120, memory: '
     const tokenSnap = await db.collection('inbox_tokens').doc(m[1].toLowerCase()).get();
     if (!tokenSnap.exists) return res.status(200).send('unknown token');
     const uid = tokenSnap.data().uid;
+    // Per account, before any PDF is read or the AI is called. Nothing proves
+    // a post came from SendGrid: anyone holding an inbox address could post to
+    // it directly, and each post costs an AI call. 30 an hour is far above a
+    // real invoice flow. Answered 200 like every other refusal here, so
+    // SendGrid does not retry.
+    const sink = { status: () => ({ json: () => {} }) };
+    if (!await checkRateLimit(uid, sink, INBOUND_RATE_LIMIT, 'inbound')) return res.status(200).send('throttled');
 
     const pdfParse = require('pdf-parse');
     const texts = [];

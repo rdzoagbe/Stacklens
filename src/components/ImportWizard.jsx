@@ -10,6 +10,7 @@ import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
 import { Card, CardHeader, CardBody, Pill } from './ui';
 import { normaliseCsvHeaders } from '../lib/csvHeaders';
+import { xlsxToCsv } from '../lib/xlsxToCsv';
 
 export function ImportWizard({ defaultKind = null, onDone = null }) {
   const { language } = useLang();
@@ -52,19 +53,18 @@ export function ImportWizard({ defaultKind = null, onDone = null }) {
     if (!file) return;
     const name = file.name.toLowerCase();
     let csv;
-    if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
-      if (!window.XLSX) {
-        await new Promise((res, rej) => {
-          const s = document.createElement('script');
-          s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
-          s.onload = res; s.onerror = rej;
-          document.head.appendChild(s);
-        });
+    if (name.endsWith('.xls')) {
+      // Old binary Excel: exceljs reads .xlsx only (lib/xlsxToCsv.js).
+      toast.error(t('import_xls_unsupported'));
+      return;
+    }
+    if (name.endsWith('.xlsx')) {
+      try {
+        csv = await xlsxToCsv(await file.arrayBuffer());
+      } catch {
+        toast.error(t('import_xlsx_unreadable'));
+        return;
       }
-      const ab = await file.arrayBuffer();
-      const wb = window.XLSX.read(ab, { type: 'array' });
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      csv = window.XLSX.utils.sheet_to_csv(ws);
     } else {
       csv = await new Promise((res) => {
         const reader = new FileReader();
@@ -287,7 +287,7 @@ export function ImportWizard({ defaultKind = null, onDone = null }) {
               onClick={() => document.getElementById('csv-import-input').click()}
               className={"relative rounded-2xl border-2 border-dashed flex flex-col items-center justify-center py-14 mb-5 cursor-pointer transition-all duration-200 " + (dragOver ? 'border-emerald-400 bg-emerald-500/10 scale-[1.01]' : 'border-slate-700 hover:border-slate-500 bg-slate-900/40')}
             >
-              <input id="csv-import-input" type="file" accept=".csv,.txt,.xlsx,.xls" className="hidden" onChange={e => handleFileUpload(e.target.files[0])} />
+              <input id="csv-import-input" type="file" accept=".csv,.txt,.xlsx" className="hidden" onChange={e => handleFileUpload(e.target.files[0])} />
               <div className={"text-2xl md:text-5xl mb-3 transition-all " + (dragOver ? 'scale-125' : '')}>{dragOver ? '📂' : '📁'}</div>
               <div className={"font-bold text-lg transition-colors " + (dragOver ? 'text-emerald-400' : 'text-slate-300')}>
                 {dragOver ? t('import_drag_release') : t('import_drag_drop')}

@@ -55,6 +55,8 @@ export const PLAN_LIMITS = {
 
 export const TRIAL_DAYS = 7;
 export const TRIAL_MS = TRIAL_DAYS * 24 * 60 * 60 * 1000;
+// Clocks differ a little; a trial start more than this far ahead was never real.
+export const FUTURE_SKEW_MS = 5 * 60 * 1000;
 
 /**
  * Resolve the effective plan for a user object.
@@ -88,6 +90,9 @@ export function resolvePlan(user) {
     const startedAt = typeof user.trial_started_at === 'number'
       ? user.trial_started_at
       : Date.parse(user.trial_started_at) || 0;
+    // A start in the future is not a trial: it would never end
+    // (functions/workspace-write.js effectivePlan says the same).
+    if (startedAt > Date.now() + FUTURE_SKEW_MS) return 'free';
     if (startedAt > 0 && (Date.now() - startedAt) < TRIAL_MS) return 'trial';
     return 'free';
   }

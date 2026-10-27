@@ -29,6 +29,47 @@ class IntegrationError extends Error {
   }
 }
 
+/**
+ * The vendor hosts a stored credential may send the server to. Okta's domain
+ * and Salesforce's instance and login URLs are typed by the customer, and the
+ * server sends the customer's token to them: without this check, any signed-in
+ * account could point the function at an address of its choosing (an internal
+ * metadata service, someone else's server) and have it fetched from Google's
+ * network. Only HTTPS, only the vendor's own domains, no port, no credentials.
+ */
+const ALLOWED_HOSTS = {
+  okta: ['okta.com', 'oktapreview.com', 'okta-emea.com', 'okta-gov.com'],
+  salesforce: ['salesforce.com', 'force.com'],
+};
+
+function vendorOrigin(vendor, raw) {
+  const text = String(raw || '').trim();
+  let url;
+  try {
+    url = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(text) ? text : `https://${text}`);
+  } catch {
+    throw new IntegrationError(`"${text}" is not a valid address.`);
+  }
+  const host = url.hostname.toLowerCase();
+  const allowed = ALLOWED_HOSTS[vendor] || [];
+  const onVendor = allowed.some((d) => host === d || host.endsWith(`.${d}`));
+  if (url.protocol !== 'https:' || url.port || url.username || url.password || !onVendor) {
+    throw new IntegrationError(`"${text}" is not a ${vendor === 'okta' ? 'Okta' : 'Salesforce'} address (${allowed.map((d) => `*.${d}`).join(', ')}).`);
+  }
+  return `https://${host}`;
+}
+
+/** A next-page link must stay on the host the first page came from. */
+function sameOrigin(next, origin) {
+  if (!next) return null;
+  try {
+    const url = new URL(next, origin);
+    return url.origin === origin ? url.href : null;
+  } catch {
+    return null;
+  }
+}
+
 async function readJson(res) {
   return res.json().catch(() => ({}));
 }
@@ -92,8 +133,9 @@ const VENDORS = {
   okta: {
     required: ['token', 'domain'],
     async listUsers({ token, domain }) {
+      const origin = vendorOrigin('okta', domain);
       const out = [];
-      let url = `https://${domain}/api/v1/users?filter=status+eq+%22ACTIVE%22&limit=200`;
+      let url = `${origin}/api/v1/users?filter=status+eq+%22ACTIVE%22&limit=200`;
       for (let i = 0; i < 20 && url; i++) {
         const res = await fetch(url, {
           headers: { Authorization: `SSWS ${token}`, Accept: 'application/json' },
@@ -114,7 +156,7 @@ const VENDORS = {
             status: u.status === 'ACTIVE' ? ACTIVE : GONE, start_date: '', end_date: '',
           });
         }
-        url = (res.headers.get('Link') || '').match(/<([^>]+)>;\s*rel="next"/)?.[1] || null;
+        url = sameOrigin((res.headers.get('Link') || '').match(/<([^>]+)>;\s*rel="next"/)?.[1], origin);
       }
       return out;
     },
@@ -204,7 +246,9 @@ const VENDORS = {
     // on each sync and never stored.
     required: ['clientId', 'refreshToken', 'instanceUrl'],
     async listUsers({ clientId, refreshToken, instanceUrl, loginUrl }) {
-      const tokenRes = await fetch(`${loginUrl || 'https://login.salesforce.com'}/services/oauth2/token`, {
+      const login = vendorOrigin('salesforce', loginUrl || 'https://login.salesforce.com');
+      const instance = vendorOrigin('salesforce', instanceUrl);
+      const tokenRes = await fetch(`${login}/services/oauth2/token`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({ grant_type: 'refresh_token', client_id: clientId, refresh_token: refreshToken }),
@@ -219,7 +263,7 @@ const VENDORS = {
         "SELECT Id,Name,Email,Department,Title,IsActive,CreatedDate FROM User WHERE IsActive=true AND UserType='Standard'"
       );
       const out = [];
-      let url = `${instanceUrl}/services/data/v59.0/query?q=${soql}`;
+      let url = `${instance}/services/data/v59.0/query?q=${soql}`;
       for (let i = 0; i < 20 && url; i++) {
         const res = await fetch(url, {
           headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' },
@@ -238,7 +282,7 @@ const VENDORS = {
             end_date: '',
           });
         }
-        url = data.nextRecordsUrl ? `${instanceUrl}${data.nextRecordsUrl}` : null;
+        url = sameOrigin(data.nextRecordsUrl, instance);
       }
       return out;
     },
@@ -283,4 +327,4 @@ const VENDORS = {
   },
 };
 
-module.exports = { VENDORS, IntegrationError, ACTIVE, GONE };
+module.exports = { VENDORS, IntegrationError, ACTIVE, GONE, vendorOrigin, sameOrigin };

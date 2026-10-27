@@ -2,14 +2,14 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { AlertTriangle, BadgeX, CheckCircle, ChevronLeft, Info, Laptop, PackageCheck, UserMinus, Users } from 'lucide-react';
-import { todayISO } from '../lib/db';
+import { todayISO, getSharedView } from '../lib/db';
 import { useDbQuery, useDbMutations } from '../hooks/useDbQuery';
 import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
 import { Button, SkeletonRow, useEnumLabel } from '../components/ui';
 import { blockGraphUserSignIn, GRAPH_WRITE_SCOPES } from '../lib/m365-writeback';
 import { assetsHeldBy } from '../lib/assets';
-import { RoleGate } from '../components/gates';
+import { RoleGate, hasRole } from '../components/gates';
 import { AppShell } from '../components/AppShell';
 
 // The seven checklist strings all had cl_* translation keys already; this
@@ -102,7 +102,10 @@ export function OffboardingPage() {
   // Offered only when the tenant is actually connected, and always behind
   // an explicit confirmation naming the person, because blocking sign-in
   // revokes access to every app federated through the tenant.
-  const m365Connected = (() => {
+  // Never from a shared or client workspace: its people are another
+  // company's, and the token is the viewer's own tenant. Editors only.
+  const sharedView = !!(db?._shared_view || getSharedView());
+  const m365Connected = !sharedView && hasRole('editor') && (() => {
     try { return JSON.parse(localStorage.getItem('sg_connected_integrations') || '[]').includes('microsoft-365'); }
     catch { return false; }
   })();
@@ -110,14 +113,19 @@ export function OffboardingPage() {
 
   const blockInM365 = async (emp) => {
     if (!emp?.email) return;
-    if (!window.confirm(t('m365_block_confirm').replace('{name}', emp.full_name || emp.email))) return;
     setBlocking(true);
     try {
       // Write consent is requested here, not at connect time, so read-only
       // customers are never asked for permission to change their tenant.
       const { acquireMSToken } = await import('./settings/IntegrationsTab');
       const token = await acquireMSToken(GRAPH_WRITE_SCOPES);
-      const { alreadyBlocked } = await blockGraphUserSignIn(emp.email, token);
+      // The confirmation names the account Microsoft found, not the one
+      // Stacklens holds, before anything changes.
+      const { alreadyBlocked, cancelled } = await blockGraphUserSignIn(emp.email, token, fetch, {
+        confirm: (u) => window.confirm(t('m365_block_confirm').replace('{name}',
+          `${u.displayName || emp.full_name || emp.email} <${u.userPrincipalName || u.mail || emp.email}>`)),
+      });
+      if (cancelled) return;
       toast.success(
         t(alreadyBlocked ? 'm365_block_already' : 'm365_block_done')
           .replace('{name}', emp.full_name || emp.email)

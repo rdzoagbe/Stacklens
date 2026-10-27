@@ -13,6 +13,7 @@
 import { parseBankExport, auditSaas } from './saasAudit';
 import { isFec, parseFec, sampleFec } from './fec';
 import { sampleBankExport } from './saasAudit';
+import { csvText } from './csvSafe';
 
 export const MAX_PORTFOLIO_FILES = 25;
 
@@ -101,7 +102,7 @@ export function portfolioCsv(rows, style = { sep: ',', decimal: '.' }) {
   const cols = ['client', 'source', 'subscriptions', 'monthly_software', 'annualised', 'points_to_check',
     'duplicates', 'price_increases', 'renewals_within_60_days', 'stopped', 'currency', 'statement_up_to'];
   const esc = (v) => {
-    let s = v == null ? '' : String(v);
+    let s = csvText(v);
     if (typeof v === 'number' && decimal !== '.') s = s.replace('.', decimal);
     const quote = s.includes('"') || s.includes('\n') || s.includes(sep) || (sep === ',' && s.includes(';'));
     return quote ? `"${s.replaceAll('"', '""')}"` : s;

@@ -54,7 +54,8 @@ const SERVICES = [
   { id: 'functions',   hosts: ['us-central1-accessguard-v2.cloudfunctions.net'],                where: 'browser', personalData: true,  published: 'Google Cloud Platform' },
   { id: 'ganalytics',  hosts: ['google-analytics.com', 'googletagmanager.com'],                 where: 'browser', personalData: true,  published: 'Google Analytics' },
   { id: 'recaptcha',   hosts: ['recaptcha.net', 'gstatic.com'],                                 where: 'browser', personalData: false, published: null, noProcessing: 'Bot scoring only; no customer record is sent.' },
-  { id: 'cdnjs',       hosts: ['cdnjs.cloudflare.com'],                                         where: 'browser', personalData: false, published: null, noProcessing: 'Static asset delivery; receives only the request itself.' },
+  // cdnjs was removed on 2026-10-27: the import wizard's spreadsheet reader
+  // (SheetJS 0.18.5 from cdnjs) became the bundled exceljs (lib/xlsxToCsv.js).
 
   // ── Payments, mail, AI ──
   { id: 'stripe',      hosts: ['stripe.com'],            where: 'redirect', personalData: true, published: 'Stripe' },
@@ -94,7 +95,7 @@ const FIRST_PARTY = ['stacklens.fr', 'localhost', '127.0.0.1'];
 /** Hosts written as literals inside a fetch() call, across src/ and functions/. */
 function scanFetchHosts() {
   const files = [
-    'src/firebase-config.js', 'src/google-workspace.js', 'src/lib/contact.js',
+    'src/firebase-config.js', 'src/lib/contact.js',
     'src/lib/db.js', 'src/hooks/useAuth.js', 'src/auth-redirect.js',
     'functions/index.js', 'functions/integrations.js', 'functions/workspace-write.js',
   ];
@@ -196,7 +197,7 @@ describe('every processor of personal data is on the published sub-processor lis
 describe('the deploy supplies every environment variable the code reads', () => {
   it('no VITE_ variable is read in src but absent from the build workflow', () => {
     const srcFiles = ['src/firebase-config.js', 'src/main.jsx', 'src/lib/contact.js',
-      'src/google-workspace.js', 'src/auth-redirect.js', 'src/pages/settings/IntegrationsTab.jsx'];
+      'src/auth-redirect.js', 'src/pages/settings/IntegrationsTab.jsx'];
     const readVars = new Set();
     for (const f of srcFiles) {
       let s; try { s = read(f); } catch { continue; }

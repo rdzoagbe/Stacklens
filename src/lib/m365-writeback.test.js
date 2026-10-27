@@ -98,6 +98,22 @@ describe('blocking sign-in', () => {
     expect(f).toHaveBeenCalledTimes(1);
   });
 
+  it('asks for confirmation with the account Microsoft found, and stops on no', async () => {
+    const f = vi.fn().mockResolvedValueOnce(ok({ value: [graphUser()] }));
+    const confirm = vi.fn(() => false);
+    const res = await blockGraphUserSignIn('noah.petit@acme.com', 'tok', f, { confirm });
+    expect(confirm).toHaveBeenCalledWith(expect.objectContaining({ id: 'guid-1' }));
+    expect(res.cancelled).toBe(true);
+    expect(f).toHaveBeenCalledTimes(1); // no PATCH attempted
+  });
+
+  it('patches only after the confirmation says yes', async () => {
+    const order = [];
+    const f = vi.fn(async (url, init) => { order.push(init?.method || 'GET'); return order.length === 1 ? ok({ value: [graphUser()] }) : ok({}, 204); });
+    await blockGraphUserSignIn('noah.petit@acme.com', 'tok', f, { confirm: async () => { order.push('confirm'); return true; } });
+    expect(order).toEqual(['GET', 'confirm', 'PATCH']);
+  });
+
   it("surfaces Microsoft's own message when it refuses a privileged account", async () => {
     const f = vi.fn()
       .mockResolvedValueOnce(ok({ value: [graphUser()] }))
