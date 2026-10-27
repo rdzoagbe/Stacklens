@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import toast from 'react-hot-toast';
-import { Boxes, Download, FileJson, Laptop, Users } from 'lucide-react';
-import { deleteAccount, signOutUser, createBillingPortal } from '../../firebase-config';
+import { Boxes, Download, FileJson, Laptop, ShieldCheck, Users } from 'lucide-react';
+import { deleteAccount, signOutUser, createBillingPortal, workspaceAuditChain } from '../../firebase-config';
 import { todayISO, getSharedView } from '../../lib/db';
 import { toCsv, downloadText } from '../../lib/dataUtils';
 import { downloadWorkspaceExport } from '../../lib/workspace-export';
@@ -85,6 +85,53 @@ function DeleteAccountModal({ open, onClose, email, t }) {
         )}
       </div>
     </Modal>
+  );
+}
+
+// The server's tamper-evident copy of the audit log (functions/audit-chain.js),
+// read back and checked by the workspace function. Read only: nothing here
+// can change a row, which is the point.
+function AuditChainCard({ isDemo, t }) {
+  const [state, setState] = useState({ status: 'idle' });
+  const verify = async () => {
+    setState({ status: 'loading' });
+    try {
+      const r = await workspaceAuditChain(getSharedView()?.owner_uid || null);
+      setState({ status: 'done', result: r });
+      track('audit_chain_verified', { ok: !!r.ok, count: Number(r.count) || 0 });
+    } catch {
+      setState({ status: 'error' });
+    }
+  };
+  const download = () => {
+    const rows = state.result?.rows || [];
+    downloadText(`stacklens_audit_server_${todayISO()}.csv`, toCsv(rows, ['seq', 'at', 'actor', 'action', 'details', 'prev_hash', 'hash']));
+  };
+  const r = state.result;
+  return (
+    <Card>
+      <CardHeader title={t('audit_chain_title')} subtitle={t('audit_chain_desc')} />
+      <CardBody>
+        {isDemo ? (
+          <p className="text-sm text-slate-400">{t('audit_chain_demo')}</p>
+        ) : (
+          <div className="flex flex-wrap items-center gap-3" data-testid="audit-chain">
+            <Button variant="secondary" onClick={verify} disabled={state.status === 'loading'}>
+              <ShieldCheck className="h-4 w-4" />{t('audit_chain_verify')}
+            </Button>
+            {state.status === 'error' && <p className="text-sm text-red-400" role="alert">{t('audit_chain_error')}</p>}
+            {state.status === 'done' && (
+              r.count === 0 ? <p className="text-sm text-slate-400">{t('audit_chain_empty')}</p>
+              : r.ok ? <p className="text-sm text-emerald-400" role="status">{t('audit_chain_ok').replace('{n}', r.count)}</p>
+              : <p className="text-sm text-red-400" role="alert">{t('audit_chain_broken').replace('{n}', r.broken_at)}</p>
+            )}
+            {state.status === 'done' && r.count > 0 && (
+              <Button variant="ghost" onClick={download}><Download className="h-4 w-4" />{t('audit_chain_download')}</Button>
+            )}
+          </div>
+        )}
+      </CardBody>
+    </Card>
   );
 }
 
@@ -175,6 +222,7 @@ export function DataTab({ db, firebaseUser, isDemo, qc, t }) {
           </div>
         </CardBody>
       </Card>
+      <AuditChainCard isDemo={isDemo} t={t} />
       <Card className="border-red-500/20 bg-red-500/5">
         <CardHeader title={t('danger_zone')} subtitle={t('danger_zone_sub')} />
         <CardBody>

@@ -2,6 +2,7 @@ import { LS_KEY } from './constants';
 import { saveUserData, loadUserData, workspaceWrite, workspaceRead } from '../firebase-config';
 import { markSyncSaving, markSyncSaved, markSyncFailed, markSyncConflict } from './syncStatus';
 import { REV_FIELD, revOf, isConflictError, sameSubstance } from './revision';
+import { noteAuditLog } from './auditSync';
 import { format, subDays, parseISO, isValid } from 'date-fns';
 
 // ─── ID / date helpers ────────────────────────────────────────────────────────
@@ -216,6 +217,8 @@ async function adoptCloudCopy(uid) {
  * reload.
  */
 export function saveDb(db, { cloudSync = true } = {}) {
+  // New audit rows also go to the server's tamper-evident copy (lib/auditSync).
+  noteAuditLog(db);
   const serialized = JSON.stringify({ ...db, _saved_at: Date.now() });
   if (serialized.length > LS_SIZE_MAX_BYTES) {
     const trimmed = _trimDbForStorage(db);

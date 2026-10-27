@@ -44,6 +44,7 @@ import { getAnalytics, isSupported, setConsent as firebaseSetConsent } from 'fir
 import { track } from './lib/analytics';
 import { stripLocalOnly } from './lib/constants';
 import { REV_FIELD, revOf, nextRev, isStaleWrite, StaleWriteError } from './lib/revision';
+import { setAuditSender } from './lib/auditSync';
 import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
 
 // Firebase config — values come from environment variables (VITE_FIREBASE_*).
@@ -951,6 +952,25 @@ export const workspaceCreateOrg = (name) => callWorkspace({ action: 'createorg',
 export const workspaceListOrgs  = () => callWorkspace({ action: 'listorgs' });
 export const workspaceDeleteOrg  = (id) => callWorkspace({ action: 'deleteorg', id });
 export const workspaceRestoreOrg = (id) => callWorkspace({ action: 'restoreorg', id });
+
+// The tamper-evident audit trail (functions/audit-chain.js). Rows are sent by
+// lib/auditSync, batched; ownerUid is null for one's own workspace. keepalive
+// lets a batch leave while the tab closes.
+export async function workspaceAudit(ownerUid, events, { keepalive = false } = {}) {
+  const token = await getToken();
+  if (!token) throw new Error('Not authenticated');
+  const res = await fetch(`${FUNCTIONS_BASE}/workspace`, {
+    method: 'POST',
+    keepalive,
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    body: JSON.stringify({ action: 'audit', ownerUid: ownerUid || undefined, events }),
+  });
+  if (!res.ok) throw new Error('Audit trail request failed');
+  return res.json().catch(() => ({}));
+}
+setAuditSender(workspaceAudit);
+// The server's copy read back and checked: { ok, count, broken_at, rows }.
+export const workspaceAuditChain = (ownerUid) => callWorkspace({ action: 'auditchain', ownerUid: ownerUid || undefined });
 
 // Bank feed — GoCardless open-banking connection + recurring-charge sync
 async function callBankfeed(body) {

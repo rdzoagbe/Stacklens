@@ -47,6 +47,9 @@ const PURGED = {
   alert_state:              { by: 'doc-id' },
   report_state:             { by: 'doc-id' },   // which month's report was last sent
   inbox_invoices:           { by: 'doc-id', subcollections: ['items'] },
+  // The server's tamper-evident audit trail (audit-chain.js), one per
+  // workspace, purged with the workspace it records.
+  audit_chains:             { by: 'doc-id', subcollections: ['events'] },
   // Keyed by a field, so they need a query.
   backups:                  { by: 'field', field: 'uid', subcollections: ['chunks'] },
   api_keys:                 { by: 'field', field: 'uid' },
@@ -95,11 +98,12 @@ const RETAINED = {
   // Subcollection names, reached through their parents above.
   chunks: 'subcollection of userdata and backups',
   items: 'subcollection of inbox_invoices',
+  events: 'subcollection of audit_chains',
 };
 
 /** Every rate-limit prefix in use. MUST match the checkRateLimit callers. */
 const RATE_LIMIT_PREFIXES = [
-  'ai', 'api', 'bankfeed', 'checkout', 'founderAdmin', 'integrations',
+  'ai', 'api', 'audit', 'bankfeed', 'checkout', 'founderAdmin', 'integrations',
   'invite', 'portal', 'reportnow', 'syncuser', 'workspace',
 ];
 
@@ -134,7 +138,7 @@ async function deleteSubcollection(docRef, name, db) {
  * the way deleting /userdata orphaned its chunks.
  */
 async function purgeWorkspace(db, workspaceId) {
-  const counts = { chunks: 0, userdata: 0, backups: 0, backup_chunks: 0 };
+  const counts = { chunks: 0, userdata: 0, backups: 0, backup_chunks: 0, audit_events: 0, audit_chains: 0 };
   const ref = db.collection('userdata').doc(workspaceId);
 
   // Subcollection first: once the parent document is gone the subcollection is
@@ -143,6 +147,12 @@ async function purgeWorkspace(db, workspaceId) {
   counts.chunks += await deleteSubcollection(ref, 'chunks', db);
   await ref.delete();
   counts.userdata += 1;
+
+  // Its audit trail: rows first, then the head, for the same reason.
+  const chainRef = db.collection('audit_chains').doc(workspaceId);
+  counts.audit_events += await deleteSubcollection(chainRef, 'events', db);
+  await chainRef.delete();
+  counts.audit_chains += 1;
 
   const backups = await db.collection('backups').where('uid', '==', workspaceId).get();
   for (const b of backups.docs) {

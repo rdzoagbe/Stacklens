@@ -179,6 +179,20 @@ describe('/users — the trial cannot be replayed', () => {
   });
 });
 
+describe('/audit_chains — the audit trail is written by the server only', () => {
+  it('the owner cannot add, change or delete a row of their own trail', async () => {
+    await admin(db => setDoc(doc(db, 'audit_chains', ALICE, 'events', '000000000001'), { seq: 1, action: 'tool.created' }));
+    await assertFails(setDoc(doc(asAlice(), 'audit_chains', ALICE, 'events', '000000000002'), { seq: 2, action: 'forged' }));
+    await assertFails(updateDoc(doc(asAlice(), 'audit_chains', ALICE, 'events', '000000000001'), { action: 'changed' }));
+    await assertFails(deleteDoc(doc(asAlice(), 'audit_chains', ALICE, 'events', '000000000001')));
+    await assertFails(setDoc(doc(asAlice(), 'audit_chains', ALICE), { count: 0 }));
+  });
+
+  it('nobody reads a trail from the browser: it is served checked by the workspace function', async () => {
+    await assertFails(getDoc(doc(asAlice(), 'audit_chains', ALICE, 'events', '000000000001')));
+  });
+});
+
 describe('/integration_credentials — vendor secrets are server-only', () => {
   it('the owner cannot read back their own stored Zoom secret', async () => {
     await admin(db => setDoc(doc(db, 'integration_credentials', ALICE), {

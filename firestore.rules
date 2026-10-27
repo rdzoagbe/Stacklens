@@ -203,6 +203,13 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // The tamper-evident audit trail (functions/audit-chain.js). Written and
+    // read only by the workspace function: no browser, the owner's included,
+    // may write a row, change one or delete one.
+    match /audit_chains/{workspaceId}/{document=**} {
+      allow read, write: if false;
+    }
+
     // Default deny
     match /{document=**} {
       allow read, write: if false;
