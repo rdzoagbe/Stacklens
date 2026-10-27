@@ -1,0 +1,90 @@
+name: Redeploy functions
+
+# A manual button (Actions → Redeploy functions → Run workflow) for the one
+# case Build & Deploy does not cover: a secret changed in Secret Manager. A
+# function keeps the secret version it was deployed with, and Build & Deploy
+# only deploys functions when their code changes, so a new Brevo, Stripe or
+# Anthropic key does nothing until this runs.
+#
+# Which functions: read from functions/index.js by
+# tools/functions-to-redeploy.mjs (the ones whose options name the secret),
+# deployed from main in batches of five with a pause between them, as
+# Build & Deploy does, so the region's CPU quota is not exceeded.
+
+on:
+  workflow_dispatch:
+    inputs:
+      which:
+        description: 'Functions to redeploy'
+        type: choice
+        default: BREVO_API_KEY
+        options:
+          - BREVO_API_KEY
+          - ANTHROPIC_API_KEY
+          - STRIPE_SECRET_KEY
+          - STRIPE_WEBHOOK_SECRET
+          - all
+          - named below
+      names:
+        description: 'Only for "named below": function names separated by commas'
+        required: false
+        default: ''
+
+# Never two function deploys of this workflow at once.
+concurrency:
+  group: redeploy-functions
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  redeploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Decide which functions
+        id: scope
+        env:
+          WHICH: ${{ inputs.which }}
+          NAMES: ${{ inputs.names }}
+        run: |
+          set -euo pipefail
+          if [ "$WHICH" = "named below" ]; then CHOICE="$NAMES"; else CHOICE="$WHICH"; fi
+          node tools/functions-to-redeploy.mjs "$CHOICE" > "$RUNNER_TEMP/batches.txt"
+          echo "Batches to deploy:"
+          cat "$RUNNER_TEMP/batches.txt"
+
+      - name: Install functions dependencies
+        working-directory: functions
+        run: npm ci --legacy-peer-deps
+
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+
+      - name: Write service account credentials
+        env:
+          SA_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_ACCESSGUARD_V2 }}
+        run: |
+          echo "$SA_JSON" > "$RUNNER_TEMP/sa.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/sa.json" >> "$GITHUB_ENV"
+
+      - name: Deploy, in batches
+        run: |
+          set -euo pipefail
+          first=1
+          while IFS= read -r only; do
+            [ -z "$only" ] && continue
+            if [ "$first" -eq 0 ]; then echo "Letting the last batch drain"; sleep 90; fi
+            first=0
+            echo "Deploying $only"
+            firebase deploy --project accessguard-v2 --force --non-interactive --only "$only"
+          done < "$RUNNER_TEMP/batches.txt"
