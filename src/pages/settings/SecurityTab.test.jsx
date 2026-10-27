@@ -7,9 +7,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 vi.mock('../../firebase-config', () => ({
   saveUserData: vi.fn().mockResolvedValue(1), loadUserData: vi.fn().mockResolvedValue(null), logConsent: vi.fn(),
   secondFactors: vi.fn(() => []), startTwoStep: vi.fn(), finishTwoStep: vi.fn(), removeTwoStep: vi.fn(),
+  resendEmailVerification: vi.fn(async () => ({ error: null })), refreshEmailVerified: vi.fn(async () => ({ verified: false, error: null })),
 }));
 
-import { saveUserData, secondFactors, startTwoStep, finishTwoStep } from '../../firebase-config';
+import { saveUserData, secondFactors, startTwoStep, finishTwoStep, resendEmailVerification, refreshEmailVerified } from '../../firebase-config';
 import { loadDb } from '../../lib/db';
 import { translations } from '../../translations';
 import { SecurityTab } from './SecurityTab';
@@ -103,6 +104,27 @@ describe('two-step sign-in', () => {
     root = null;
     await mount({}, {}, null);
     expect(document.querySelector('[data-testid="two-step-card"]')).toBeNull();
+  });
+
+  it('sends the verification link again and lets the person carry on once verified', async () => {
+    await mount({}, {}, { uid: 'u1', emailVerified: false });
+    await act(async () => { button(t('resend_verification')).click(); });
+    await settle();
+    expect(resendEmailVerification).toHaveBeenCalledTimes(1);
+    // A second click waits out the cooldown.
+    expect(button(t('resend_verification'))).toBeUndefined();
+    expect(card().textContent).toContain(t('resend_in'));
+
+    await act(async () => { button(t('ive_verified')).click(); });
+    await settle();
+    expect(card().textContent).toContain(t('email_not_verified_yet'));
+    expect(button(t('mfa_enable'))).toBeUndefined();
+
+    refreshEmailVerified.mockResolvedValueOnce({ verified: true, error: null });
+    await act(async () => { button(t('ive_verified')).click(); });
+    await settle();
+    expect(button(t('mfa_enable'))).toBeDefined();
+    expect(card().textContent).not.toContain(t('mfa_need_verified'));
   });
 
   it('says plainly when the project has not switched it on', async () => {
