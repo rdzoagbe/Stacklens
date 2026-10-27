@@ -13,6 +13,7 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   sendEmailVerification,
+  verifyBeforeUpdateEmail,
   sendPasswordResetEmail,
   GoogleAuthProvider,
   OAuthProvider,
@@ -761,6 +762,27 @@ export async function registerWithEmail(email, password, displayName) {
 export async function signInWithEmail(email, password) {
   const { user, error } = await signInResult('email', () => signInWithEmailAndPassword(auth, email, password));
   return { user, error };
+}
+
+/**
+ * Give an account that has no email address one, verified.
+ *
+ * Some sign-ins (a Microsoft account, notably) reach Firebase without an
+ * email, and Firebase refuses an authenticator app for an account without a
+ * verified one. verifyBeforeUpdateEmail sends a link to the address; the
+ * address is set, already verified, only when that link is clicked, so nobody
+ * can attach an address they do not read. Returns { error } with Firebase's
+ * code kept, so the card can say "sign in again" for requires-recent-login.
+ */
+export async function addVerifiedEmail(email) {
+  try {
+    if (!auth?.currentUser) return { error: 'Not signed in' };
+    await verifyBeforeUpdateEmail(auth.currentUser, String(email || '').trim(),
+      { url: window.location.origin + '/settings?tab=security' });
+    return { error: null };
+  } catch (error) {
+    return { error: error.message, code: error.code };
+  }
 }
 
 // Resend email verification to current user

@@ -7,10 +7,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 vi.mock('../../firebase-config', () => ({
   saveUserData: vi.fn().mockResolvedValue(1), loadUserData: vi.fn().mockResolvedValue(null), logConsent: vi.fn(),
   secondFactors: vi.fn(() => []), startTwoStep: vi.fn(), finishTwoStep: vi.fn(), removeTwoStep: vi.fn(),
-  resendEmailVerification: vi.fn(async () => ({ error: null })), refreshEmailVerified: vi.fn(async () => ({ verified: false, error: null })),
+  resendEmailVerification: vi.fn(async () => ({ error: null })), addVerifiedEmail: vi.fn(async () => ({ error: null })), refreshEmailVerified: vi.fn(async () => ({ verified: false, error: null })),
 }));
 
-import { saveUserData, secondFactors, startTwoStep, finishTwoStep, resendEmailVerification, refreshEmailVerified } from '../../firebase-config';
+import { saveUserData, secondFactors, startTwoStep, finishTwoStep, resendEmailVerification, refreshEmailVerified, addVerifiedEmail } from '../../firebase-config';
 import { loadDb } from '../../lib/db';
 import { translations } from '../../translations';
 import { SecurityTab } from './SecurityTab';
@@ -97,7 +97,7 @@ describe('two-step sign-in', () => {
   });
 
   it('asks for a verified email first, and is not shown without an account', async () => {
-    await mount({}, {}, { uid: 'u1', emailVerified: false });
+    await mount({}, {}, { uid: 'u1', emailVerified: false, email: 'me@acme.example' });
     expect(card().textContent).toContain(t('mfa_need_verified'));
     expect(button(t('mfa_enable'))).toBeUndefined();
     await act(async () => root.unmount());
@@ -107,7 +107,7 @@ describe('two-step sign-in', () => {
   });
 
   it('sends the verification link again and lets the person carry on once verified', async () => {
-    await mount({}, {}, { uid: 'u1', emailVerified: false });
+    await mount({}, {}, { uid: 'u1', emailVerified: false, email: 'me@acme.example' });
     await act(async () => { button(t('resend_verification')).click(); });
     await settle();
     expect(resendEmailVerification).toHaveBeenCalledTimes(1);
@@ -125,6 +125,19 @@ describe('two-step sign-in', () => {
     await settle();
     expect(button(t('mfa_enable'))).toBeDefined();
     expect(card().textContent).not.toContain(t('mfa_need_verified'));
+  });
+
+  it('lets an account with no email address add one through a link', async () => {
+    await mount({}, {}, { uid: 'u1', emailVerified: false, email: null });
+    expect(card().textContent).toContain(t('mfa_need_email'));
+    expect(button(t('resend_verification'))).toBeUndefined();
+    const input = card().querySelector('input[type="email"]');
+    Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(input, 'me@example.com');
+    await act(async () => { input.dispatchEvent(new window.Event('input', { bubbles: true })); });
+    await act(async () => { button(t('mfa_add_email')).click(); });
+    await settle();
+    expect(addVerifiedEmail).toHaveBeenCalledWith('me@example.com');
+    expect(card().textContent).toContain(t('mfa_email_link_sent').replace('{email}', 'me@example.com'));
   });
 
   it('says plainly when the project has not switched it on', async () => {
