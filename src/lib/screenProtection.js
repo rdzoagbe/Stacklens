@@ -16,7 +16,9 @@
 //     for a moment and empty the clipboard.
 //
 // It is off until an owner or admin turns it on (db.user.screen_protection),
-// and it never applies to the founder or in the demo. Nothing here is sent
+// and it applies only to the people they let in: never to anyone who can
+// switch it off (an owner or admin in their own workspace), who would only be
+// slowed down by a lock they hold the key to, nor to the founder or the demo. Nothing here is sent
 // anywhere: the watermark is drawn in the browser from the signed-in email.
 
 import { isFounderUser } from './plan';
@@ -30,10 +32,12 @@ export const BLUR_AFTER_CAPTURE_MS = 1500;
  *   workspace: the loaded db.user (the owner's setting, also in a shared view)
  *   viewerEmail: the signed-in person's own email (never the owner's)
  *   isFounderFlag: the account's own is_founder, only meaningful outside a shared view
+ *   canSwitchOff: the viewer may turn it off (owner or admin, own workspace)
  */
-export function protectionActive({ workspaceUser, viewerEmail, isFounderFlag = false, isDemo = false } = {}) {
+export function protectionActive({ workspaceUser, viewerEmail, isFounderFlag = false, isDemo = false, canSwitchOff = false } = {}) {
   if (isDemo || workspaceUser?.is_demo) return false;
   if (workspaceUser?.[PROTECTION_FIELD] !== true) return false;
+  if (canSwitchOff) return false;
   if (isFounderFlag || isFounderUser({ email: viewerEmail })) return false;
   return true;
 }

@@ -19,6 +19,16 @@ describe('who it applies to', () => {
     expect(protectionActive({ workspaceUser: on, viewerEmail: FOUNDER_EMAILS[0] })).toBe(false);
     expect(protectionActive({ workspaceUser: on, viewerEmail: FOUNDER_EMAILS[0].toUpperCase() })).toBe(false);
   });
+  it('never for whoever can switch it off, only for the people they invite', () => {
+    expect(protectionActive({ workspaceUser: on, viewerEmail: 'owner@acme.fr', canSwitchOff: true })).toBe(false);
+    expect(protectionActive({ workspaceUser: on, viewerEmail: 'member@acme.fr', canSwitchOff: false })).toBe(true);
+  });
+  it('the component asks the same question as the Settings switch', () => {
+    const comp = readFileSync(resolve(process.cwd(), 'src/components/ScreenProtection.jsx'), 'utf8');
+    const tab = readFileSync(resolve(process.cwd(), 'src/pages/settings/SecurityTab.jsx'), 'utf8');
+    expect(comp).toMatch(/canSwitchOff: !shared && hasRole\('admin'\)/);
+    expect(tab).toMatch(/const canChange = hasRole\('admin'\) && !shared;/);
+  });
   it('never in the demo', () => {
     expect(protectionActive({ workspaceUser: on, viewerEmail: 'a@b.fr', isDemo: true })).toBe(false);
     expect(protectionActive({ workspaceUser: { ...on, is_demo: true }, viewerEmail: 'a@b.fr' })).toBe(false);

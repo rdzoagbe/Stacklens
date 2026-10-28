@@ -19,10 +19,14 @@ let root;
 let focused;
 const body = () => document.body;
 
-async function mount({ on = true, shared = null } = {}) {
+// By default the viewer is someone the owner invited (a shared workspace,
+// role viewer): the person the protection is for. The owner, and an admin,
+// can switch it off, so it never applies to them (see 'does not apply').
+const MEMBER = { owner_uid: 'o', owner_email: 'boss@acme.fr', role: 'viewer' };
+async function mount({ on = true, shared = MEMBER, role } = {}) {
   localStorage.clear();
   localStorage.setItem('accessguard_v1', JSON.stringify({
-    user: { is_authenticated: true, is_demo: false, plan: 'pro', ...(on ? { screen_protection: true } : {}) },
+    user: { is_authenticated: true, is_demo: false, plan: 'pro', role: role || (shared ? shared.role : 'owner'), ...(on ? { screen_protection: true } : {}) },
     tools: [], employees: [], access: [], ...(shared ? { _shared_view: shared } : {}),
   }));
   const host = document.createElement('div');
@@ -143,7 +147,20 @@ describe('when it does not apply', () => {
 
   it('an account with the founder flag is exempt too', async () => {
     auth.user = { is_founder: true };
-    await mount();
+    // The flag only counts in the founder's own workspace; editor, so the
+    // owner/admin rule is not what lets it through.
+    await mount({ shared: null, role: 'editor' });
+    expect(document.querySelector('[data-testid="screen-watermark"]')).toBeNull();
+  });
+
+  it('never for the owner or an admin in their own workspace: they can switch it off', async () => {
+    await mount({ shared: null });
+    expect(document.querySelector('[data-testid="screen-watermark"]')).toBeNull();
+    const div = document.createElement('div'); document.body.appendChild(div);
+    expect((await fire(div, 'copy')).defaultPrevented).toBe(false);
+    await act(async () => root.unmount());
+    root = null;
+    await mount({ shared: null, role: 'admin' });
     expect(document.querySelector('[data-testid="screen-watermark"]')).toBeNull();
   });
 

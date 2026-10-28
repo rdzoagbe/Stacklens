@@ -5,6 +5,7 @@ import { useDbQuery } from '../hooks/useDbQuery';
 import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
 import { getSharedView } from '../lib/db';
+import { hasRole } from './gates';
 import {
   protectionActive, watermarkText, isCaptureShortcut, isEditableTarget, BLUR_AFTER_CAPTURE_MS, PRINT_NOTICE_FALLBACK,
 } from '../lib/screenProtection';
@@ -43,6 +44,9 @@ export function ScreenProtection() {
     // In a shared view `user` is somebody else's account: only an own account's flag counts.
     isFounderFlag: !shared && user?.is_founder === true,
     isDemo,
+    // The same rule as the Settings switch (SecurityTab): whoever may turn it
+    // off is not the person it is meant to stop.
+    canSwitchOff: !shared && hasRole('admin'),
   });
 
   // A clock for the watermark, to the minute: enough to date an image.
