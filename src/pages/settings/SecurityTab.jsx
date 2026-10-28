@@ -114,8 +114,10 @@ export function SecurityTab({ t, firebaseUser, qc }) {
             <div>
               <div className="font-bold text-white text-sm mb-1">{t('sso_enterprise')}</div>
               <p className="text-xs text-slate-400">{t('set_sso_desc')}</p>
-              {/* This pointed at the Enterprise plan, which does not include
-                  SSO either: no plan does. Directory sync is in Integrations. */}
+              {/* Google and Microsoft sign-in work on every plan; Okta, SAML
+                  and company-wide enforcement are in no plan (this used to
+                  point at Enterprise, which has none of them either).
+                  Directory sync is in Integrations. */}
               <button onClick={() => navigate('/settings?tab=integrations')} className="text-xs text-amber-400 font-semibold hover:underline mt-2 inline-block">{t('set_view_integrations')}</button>
             </div>
           </div>
