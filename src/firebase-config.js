@@ -50,7 +50,7 @@ import { stripLocalOnly } from './lib/constants';
 import { REV_FIELD, revOf, nextRev, isStaleWrite, StaleWriteError } from './lib/revision';
 import { setAuditSender } from './lib/auditSync';
 import { askForSecondFactor } from './lib/secondFactor';
-import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
+import { initializeAppCheck, ReCaptchaV3Provider, getToken as getAppCheckToken } from 'firebase/app-check';
 
 // Firebase config — values come from environment variables (VITE_FIREBASE_*).
 // In Vite, env vars must be prefixed with VITE_ to be exposed to the client.
@@ -122,13 +122,15 @@ const app = initializeApp(firebaseConfig);
 // verified/unverified split on that page for a few days first, or enforcement
 // will lock out anything not yet sending tokens.
 const APP_CHECK_ENABLED = true;
+// Kept so appCheckHeader() can mint a token for calls to our own functions.
+let appCheckInstance = null;
 if (APP_CHECK_ENABLED) {
   try {
     const recaptchaKey = import.meta.env.DEV
       ? import.meta.env.VITE_RECAPTCHA_SITE_KEY
       : '6Ldq47MsAAAAAGks_j_COugB3Pt6ROSuKgQhLrJe';
     if (typeof window !== 'undefined' && recaptchaKey) {
-      initializeAppCheck(app, {
+      appCheckInstance = initializeAppCheck(app, {
         provider: new ReCaptchaV3Provider(recaptchaKey),
         isTokenAutoRefreshEnabled: true,
       });
@@ -186,6 +188,25 @@ googleProvider.addScope('email');
 // Cloud Functions base URL — deployed region
 const FUNCTIONS_BASE = 'https://us-central1-accessguard-v2.cloudfunctions.net';
 
+/**
+ * The App Check token for a call to our own functions, as the header the
+ * server reads (verifyAppCheck in functions/index.js). The Firebase SDK adds
+ * the token to Firestore and Auth traffic by itself; a plain fetch to a
+ * function has to carry it by hand, so every call below spreads this in.
+ * It never throws and never holds a call up: with App Check off, or a token
+ * the SDK cannot mint, the header is simply absent and the server decides
+ * (monitoring today; APP_CHECK_ENFORCE there turns absence into a 401).
+ */
+export async function appCheckHeader() {
+  if (!appCheckInstance) return {};
+  try {
+    const { token } = await getAppCheckToken(appCheckInstance, false);
+    return token ? { 'X-Firebase-AppCheck': token } : {};
+  } catch {
+    return {};
+  }
+}
+
 // ============================================================================
 // AUTH HELPERS
 // ============================================================================
@@ -209,7 +230,7 @@ export async function callAI({ messages, system, max_tokens = 2000 }) {
   const token = await getToken();
   if (!token) throw new Error('Not authenticated');
 
-  const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
+  const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, ...(await appCheckHeader()) };
   const payload = JSON.stringify({ messages, system, max_tokens });
 
   let data;
@@ -672,7 +693,7 @@ export async function syncClaimsFromServer() {
     if (!token) return null;
     const res = await fetch(`${FUNCTIONS_BASE}/refreshClaims`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, ...(await appCheckHeader()) },
     });
     if (!res.ok) return null;
     const data = await res.json();
@@ -687,7 +708,7 @@ export async function sendInviteEmail({ inviteeEmail, inviterName, orgName }) {
   if (!token) throw new Error('Not authenticated');
   const res = await fetch(`${FUNCTIONS_BASE}/sendInvite`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, ...(await appCheckHeader()) },
     body: JSON.stringify({ inviteeEmail, inviterName, orgName }),
   });
   const data = await res.json();
@@ -700,7 +721,7 @@ export async function createCheckoutSession(priceId) {
   if (!token) throw new Error('Not authenticated');
   const res = await fetch(`${FUNCTIONS_BASE}/createCheckout`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, ...(await appCheckHeader()) },
     body: JSON.stringify({ priceId }),
   });
   const data = await res.json();
@@ -713,7 +734,7 @@ export async function createBillingPortal() {
   if (!token) throw new Error('Not authenticated');
   const res = await fetch(`${FUNCTIONS_BASE}/createPortal`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, ...(await appCheckHeader()) },
     body: JSON.stringify({}),
   });
   const data = await res.json();
@@ -938,7 +959,7 @@ export async function founderEnrichProfiles() {
   if (!token) throw new Error('Not authenticated');
   const res = await fetch(`${FUNCTIONS_BASE}/founderops`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, ...(await appCheckHeader()) },
     body: JSON.stringify({ action: 'enrichProfiles' }),
   });
   const data = await res.json().catch(() => ({}));
@@ -952,7 +973,7 @@ async function callApiKeys(body) {
   if (!token) throw new Error('Not authenticated');
   const res = await fetch(`${FUNCTIONS_BASE}/apikeys`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, ...(await appCheckHeader()) },
     body: JSON.stringify(body),
   });
   const data = await res.json().catch(() => ({}));
@@ -967,7 +988,7 @@ export async function integrationCall(vendor, action, credentials) {
   if (!token) throw new Error('Not authenticated');
   const res = await fetch(`${FUNCTIONS_BASE}/integrations`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, ...(await appCheckHeader()) },
     body: JSON.stringify({ vendor, action, credentials }),
   });
   const data = await res.json().catch(() => ({}));
@@ -981,7 +1002,7 @@ async function callWorkspace(body) {
   if (!token) throw new Error('Not authenticated');
   const res = await fetch(`${FUNCTIONS_BASE}/workspace`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, ...(await appCheckHeader()) },
     body: JSON.stringify(body),
   });
   const data = await res.json().catch(() => ({}));
@@ -1030,7 +1051,7 @@ export async function workspaceAudit(ownerUid, events, { keepalive = false } = {
   const res = await fetch(`${FUNCTIONS_BASE}/workspace`, {
     method: 'POST',
     keepalive,
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, ...(await appCheckHeader()) },
     body: JSON.stringify({ action: 'audit', ownerUid: ownerUid || undefined, events }),
   });
   if (!res.ok) throw new Error('Audit trail request failed');
@@ -1046,7 +1067,7 @@ async function callBankfeed(body) {
   if (!token) throw new Error('Not authenticated');
   const res = await fetch(`${FUNCTIONS_BASE}/bankfeed`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, ...(await appCheckHeader()) },
     body: JSON.stringify(body),
   });
   const data = await res.json().catch(() => ({}));
@@ -1064,7 +1085,7 @@ async function callInvoiceInbox(body) {
   if (!token) throw new Error('Not authenticated');
   const res = await fetch(`${FUNCTIONS_BASE}/invoiceInbox`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, ...(await appCheckHeader()) },
     body: JSON.stringify(body),
   });
   const data = await res.json().catch(() => ({}));
@@ -1078,7 +1099,7 @@ export async function sendMonthlyReportNow(lang) {
   if (!token) throw new Error('Not authenticated');
   const res = await fetch(`${FUNCTIONS_BASE}/reportnow`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, ...(await appCheckHeader()) },
     body: JSON.stringify({ lang: lang === 'fr' ? 'fr' : 'en' }),
   });
   const data = await res.json().catch(() => ({}));
@@ -1101,7 +1122,7 @@ export async function founderDeleteUser(targetUid) {
   if (!token) throw new Error('Not authenticated');
   const res = await fetch(`${FUNCTIONS_BASE}/founderops`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, ...(await appCheckHeader()) },
     body: JSON.stringify({ action: 'deleteUser', targetUid }),
   });
   const data = await res.json().catch(() => ({}));
@@ -1115,7 +1136,7 @@ async function callFounderops(body) {
   if (!token) throw new Error('Not authenticated');
   const res = await fetch(`${FUNCTIONS_BASE}/founderops`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, ...(await appCheckHeader()) },
     body: JSON.stringify(body),
   });
   const data = await res.json().catch(() => ({}));
@@ -1135,7 +1156,7 @@ export async function founderTestEmail(to) {
   if (!token) throw new Error('Not authenticated');
   const res = await fetch(`${FUNCTIONS_BASE}/founderops`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, ...(await appCheckHeader()) },
     body: JSON.stringify({ action: 'testEmail', to }),
   });
   const data = await res.json().catch(() => ({}));
