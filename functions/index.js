@@ -313,18 +313,19 @@ exports.createCheckout = onRequest({ secrets: [STRIPE_SECRET_KEY], cors: true, t
       });
       return res.json({ url: session.url });
     } catch (err) {
-      console.error('Checkout error:', err);
-      let detail = err.message;
       // "No such price/customer" means the bound secret key belongs to a
-      // different Stripe account than the one holding our live objects.
-      // Surface which account the key is for so the mismatch is visible.
+      // different Stripe account than the one holding our live objects. The
+      // account id that tells them apart is a diagnostic for the operator, not
+      // the caller, so it goes to the log, never the response.
+      let detail = err.message;
       if (err.code === 'resource_missing') {
         try {
           const acct = await stripe.accounts.retrieve();
           detail += ` — server key belongs to Stripe account ${acct.id}`;
         } catch { detail += ' — could not identify the Stripe account of the server key'; }
       }
-      return res.status(500).json({ error: detail });
+      console.error('Checkout error:', detail);
+      return res.status(500).json({ error: 'Could not start checkout. Please try again.' });
     }
   });
 });
@@ -344,7 +345,7 @@ exports.createPortal = onRequest({ secrets: [STRIPE_SECRET_KEY], cors: true, tim
       if (!customerId) return res.status(400).json({ error: 'No billing account found' });
       const session = await stripe.billingPortal.sessions.create({ customer: customerId, return_url: 'https://stacklens.fr/app/settings?tab=billing' });
       return res.json({ url: session.url });
-    } catch (err) { console.error('Portal error:', err); return res.status(500).json({ error: err.message }); }
+    } catch (err) { console.error('Portal error:', err); return res.status(500).json({ error: 'Could not open the billing portal. Please try again.' }); }
   });
 });
 
@@ -1194,7 +1195,12 @@ exports.bankfeed = onRequest({ cors: true, timeoutSeconds: 120 }, async (req, re
           if (!r.ok) throw new Error(out?.message || 'Could not fetch transactions');
           all.push(...(out.resources || []));
           const next = out.pagination?.next_uri;
-          url = next ? (next.startsWith('http') ? next : `https://api.bridgeapi.io${next}`) : null;
+          // The next page must stay on Bridge's own host: an absolute next_uri
+          // off-host (a tampered or compromised response) would send the
+          // Client-Secret and the user token to it. sameOrigin returns null
+          // off-host, which stops the loop. (The same guard integrations.js
+          // uses for Okta/Salesforce paging.)
+          url = next ? (next.startsWith('http') ? sameOrigin(next, 'https://api.bridgeapi.io') : `https://api.bridgeapi.io${next}`) : null;
         }
         if (!all.length) return res.status(400).json({ error: 'No transactions yet — finish linking your bank in the Bridge window first, then sync.' });
         await reqRef.set({ status: 'linked', last_sync: new Date().toISOString() }, { merge: true });
@@ -1203,7 +1209,7 @@ exports.bankfeed = onRequest({ cors: true, timeoutSeconds: 120 }, async (req, re
       return res.status(400).json({ error: 'Unknown action' });
     } catch (err) {
       console.error('bankfeed error:', err);
-      return res.status(500).json({ error: err.message || 'Internal error' });
+      return res.status(500).json({ error: 'Bank sync failed. Please try again.' });
     }
   });
 });
@@ -1217,7 +1223,7 @@ exports.bankfeed = onRequest({ cors: true, timeoutSeconds: 120 }, async (req, re
 // One endpoint for every vendor. Per-vendor fetching and normalisation live in
 // ./integrations.js, so adding a seventh is one entry there, not another
 // endpoint here.
-const { VENDORS, IntegrationError } = require('./integrations');
+const { VENDORS, IntegrationError, sameOrigin } = require('./integrations');
 const INTEGRATION_RATE_LIMIT = { maxCalls: 60, windowMs: 60 * 60 * 1000 };
 
 exports.integrations = onRequest({ cors: true, timeoutSeconds: 120 }, async (req, res) => {
@@ -1280,7 +1286,7 @@ exports.integrations = onRequest({ cors: true, timeoutSeconds: 120 }, async (req
         return res.status(err.httpStatus).json({ error: err.message });
       }
       console.error(`integrations/${vendor} error:`, err);
-      return res.status(500).json({ error: err.message || 'Internal error' });
+      return res.status(500).json({ error: 'The sync failed. Please try again.' });
     }
   });
 });
@@ -1447,7 +1453,7 @@ exports.workspace = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, re
 
         let orgId;
         try { orgId = newClientOrgId(nodeCrypto.randomBytes(16).toString('hex')); }
-        catch (err) { return res.status(500).json({ error: err.message }); }
+        catch (err) { console.error('createorg id error:', err); return res.status(500).json({ error: 'Could not create the workspace. Please try again.' }); }
 
         await orgsCol.doc(orgId).set({
           org_id: orgId, owner_uid: decoded.uid, owner_email: callerEmail || null,
