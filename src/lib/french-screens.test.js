@@ -124,8 +124,18 @@ describe('the rest of the walkthrough of 2026-10-06', () => {
   });
 
   it('SSO is not sold as an Enterprise feature, and the client-workspace page is named for what it is', () => {
-    expect(translations.fr.set_sso_desc).toMatch(/aucun plan/);
-    expect(translations.en.set_sso_desc).toMatch(/not available on any plan/);
+    // Google and Microsoft sign-in exist on every plan; Okta, SAML and
+    // company-wide enforcement do not, and no plan sells them.
+    for (const lang of ['en', 'fr']) {
+      expect(translations[lang].set_sso_desc).toMatch(/Google/);
+      expect(translations[lang].set_sso_desc).toMatch(/Microsoft/);
+      expect(translations[lang].set_sso_desc).toMatch(/Okta/);
+      expect(translations[lang].set_sso_desc).toMatch(/SAML/);
+      expect(translations[lang].set_sso_desc).not.toMatch(/Enterprise|entreprise\b.*plan/i);
+    }
+    expect(translations.en.set_sso_desc).toMatch(/every plan/);
+    expect(translations.fr.set_sso_desc).toMatch(/tous les plans/);
+    expect(translations.en.sso_enterprise).not.toMatch(/not available/);
     expect(read('src/pages/settings/SecurityTab.jsx')).not.toMatch(/set_view_enterprise/);
     expect(translations.fr.nav_clients).toBe('Espaces clients');
     expect(translations.fr.dash_former_access_title).toMatch(/^accès/);
