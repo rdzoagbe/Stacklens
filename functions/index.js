@@ -97,7 +97,10 @@ const cors = require('cors')({
     return callback(new Error('CORS not allowed for: ' + origin));
   },
   methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  // X-Firebase-AppCheck: the App Check token the browser attaches to every
+  // call to these functions (appCheckHeader in src/firebase-config.js). A
+  // custom header fails the preflight unless listed here.
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Firebase-AppCheck'],
   credentials: true,
 });
 
@@ -147,14 +150,34 @@ async function verifyAuth(req, res, { checkRevoked = false } = {}) {
 // present (so real signal is kept once the reCAPTCHA registration is restored
 // and the client starts sending tokens), but we never hard-block on it. The
 // enforced gates for these endpoints remain verifyAuth + per-user rate limits.
-async function verifyAppCheck(req) {
+// ── App Check on the HTTP functions ────────────────────────────────────────
+// The browser sends its App Check token as X-Firebase-AppCheck (appCheckHeader
+// in src/firebase-config.js). Enforcement in the Firebase console covers
+// Firestore and Authentication only: an onRequest function has to verify the
+// token itself, here. While APP_CHECK_ENFORCE is false this is monitoring: a
+// missing or invalid token is logged and let through, so the split can be
+// read in the logs before anything is refused. Flip it to true (a one-line
+// PR, then deploy) to reject with 401; flip it back to roll back. The public
+// copy says the token is "not rejected yet" (sec_real_appcheck, dpa_s9_body)
+// and claims.test.js holds it to this function: change them together.
+// Never on api (a customer's server, no browser), stripeWebhook,
+// invoiceInbound or clientErrors (a crash before App Check initialises must
+// still be reported).
+const APP_CHECK_ENFORCE = false;
+async function verifyAppCheck(req, res) {
   const appCheckToken = req.headers['x-firebase-appcheck'];
-  if (!appCheckToken) return true;
-  try {
-    await getAppCheck().verifyToken(appCheckToken);
-  } catch {
-    console.warn('App Check token present but failed verification — allowing (monitoring mode).');
+  let reason = 'missing';
+  if (appCheckToken) {
+    try {
+      await getAppCheck().verifyToken(String(appCheckToken));
+      return true;
+    } catch { reason = 'invalid'; }
   }
+  if (APP_CHECK_ENFORCE) {
+    res.status(401).json({ error: 'App Check failed' });
+    return false;
+  }
+  console.warn(`App Check token ${reason} — allowing (monitoring mode).`);
   return true;
 }
 
@@ -476,6 +499,7 @@ exports.refreshClaims = onRequest({ cors: true }, async (req, res) => {
   cors(req, res, async () => {
     if (req.method === 'OPTIONS') return res.status(204).send('');
     if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
+    if (!await verifyAppCheck(req, res)) return;
     const decoded = await verifyAuth(req, res); if (!decoded) return;
     // Read current Firestore plan and sync it to claims
     const snap = await getFirestore().collection('users').doc(decoded.uid).get();
@@ -497,6 +521,7 @@ exports.sendInvite = onRequest({ cors: true, secrets: [BREVO_API_KEY] }, async (
   cors(req, res, async () => {
     if (req.method === 'OPTIONS') return res.status(204).send('');
     if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
+    if (!await verifyAppCheck(req, res)) return;
     const decoded = await verifyAuth(req, res); if (!decoded) return;
 
     const { inviteeEmail, inviterName, orgName } = req.body;
@@ -582,6 +607,7 @@ exports.founderops = onRequest({ cors: true, timeoutSeconds: 30, secrets: [BREVO
     if (req.method === 'OPTIONS') return res.status(204).send('');
     if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
 
+    if (!await verifyAppCheck(req, res)) return;
     const decoded = await verifyAuth(req, res, { checkRevoked: true });
     if (!decoded) return;
 
@@ -902,6 +928,7 @@ exports.apikeys = onRequest({ cors: true, timeoutSeconds: 30 }, async (req, res)
   cors(req, res, async () => {
     if (req.method === 'OPTIONS') return res.status(204).send('');
     if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
+    if (!await verifyAppCheck(req, res)) return;
     const decoded = await verifyAuth(req, res); if (!decoded) return;
     const db = getFirestore();
     const { action, name, keyId } = req.body || {};
@@ -1145,6 +1172,7 @@ exports.bankfeed = onRequest({ cors: true, timeoutSeconds: 120 }, async (req, re
   cors(req, res, async () => {
     if (req.method === 'OPTIONS') return res.status(204).send('');
     if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
+    if (!await verifyAppCheck(req, res)) return;
     const decoded = await verifyAuth(req, res); if (!decoded) return;
     // Each sync fans out up to a dozen paginated Bridge calls; cap the burst.
     if (!await checkRateLimit(decoded.uid, res, BANKFEED_RATE_LIMIT, 'bankfeed')) return;
@@ -1230,6 +1258,7 @@ exports.integrations = onRequest({ cors: true, timeoutSeconds: 120 }, async (req
   cors(req, res, async () => {
     if (req.method === 'OPTIONS') return res.status(204).send('');
     if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
+    if (!await verifyAppCheck(req, res)) return;
     const decoded = await verifyAuth(req, res); if (!decoded) return;
     if (!await checkRateLimit(decoded.uid, res, INTEGRATION_RATE_LIMIT, 'integrations')) return;
 
@@ -1310,6 +1339,7 @@ exports.workspace = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, re
   cors(req, res, async () => {
     if (req.method === 'OPTIONS') return res.status(204).send('');
     if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
+    if (!await verifyAppCheck(req, res)) return;
     const decoded = await verifyAuth(req, res); if (!decoded) return;
     const { action, email, id, ownerUid, role, name } = req.body || {};
     // 'read' assembles an entire userdata blob (metadata + every chunk), so an
@@ -1842,6 +1872,7 @@ exports.invoiceInbox = onRequest({ cors: true, timeoutSeconds: 30 }, async (req,
   cors(req, res, async () => {
     if (req.method === 'OPTIONS') return res.status(204).send('');
     if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
+    if (!await verifyAppCheck(req, res)) return;
     const decoded = await verifyAuth(req, res); if (!decoded) return;
     const db = getFirestore();
     const { action, ids } = req.body || {};
@@ -2626,6 +2657,7 @@ exports.reportnow = onRequest({ cors: true, timeoutSeconds: 60, secrets: [BREVO_
   cors(req, res, async () => {
     if (req.method === 'OPTIONS') return res.status(204).send('');
     if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
+    if (!await verifyAppCheck(req, res)) return;
     const decoded = await verifyAuth(req, res); if (!decoded) return;
     if (!mailConfigured(BREVO_API_KEY.value())) return res.status(503).json({ error: 'mail_not_configured' });
     if (!(await checkRateLimit(decoded.uid, res, REPORT_TEST_LIMIT, 'reportnow'))) return;

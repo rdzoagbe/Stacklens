@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   signInWithGoogle, signOutUser, onAuthChange,
-  getUserPlanFromFirestore, startTrial,
+  getUserPlanFromFirestore, startTrial, appCheckHeader,
 } from '../firebase-config';
 import { LS_KEY } from '../lib/constants';
 import { loadDb, saveDb, seedDbIfEmpty, setFirestoreUid, hydrateFromFirestore, flushBeforeSignOut, clearLocalWorkspace, DEMO_EMAIL } from '../lib/db';
@@ -225,7 +225,7 @@ export function useAuth() {
         const token = await googleUser.getIdToken();
         const r = await fetch('https://us-central1-accessguard-v2.cloudfunctions.net/syncuser', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token, ...(await appCheckHeader()) },
           body: JSON.stringify({ email: googleUser.email, displayName: googleUser.displayName }),
         });
         const data = await r.json();
