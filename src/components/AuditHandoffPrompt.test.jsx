@@ -8,6 +8,8 @@ vi.mock('../firebase-config', () => ({
   saveUserData: vi.fn().mockResolvedValue(1), loadUserData: vi.fn().mockResolvedValue(null),
   logConsent: vi.fn(), callAI: vi.fn(),
   workspaceWrite: vi.fn().mockResolvedValue({ ok: true }), workspaceRead: vi.fn().mockResolvedValue({ data: {} }),
+  workspaceMine: vi.fn().mockResolvedValue({ workspaces: [] }), workspaceListOrgs: vi.fn().mockResolvedValue({ orgs: [], deleted: [], retention_days: 90 }),
+  workspaceCreateOrg: vi.fn().mockResolvedValue({ org: { org_id: 'org_abc', name: 'Boulangerie Martin' } }),
 }));
 vi.mock('../lib/analytics', () => ({ track: vi.fn() }));
 vi.mock('react-hot-toast', () => ({ default: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }) }));
@@ -18,6 +20,8 @@ import toast from 'react-hot-toast';
 import { track } from '../lib/analytics';
 import { loadDb } from '../lib/db';
 import { needsReview } from '../lib/toolReview';
+import { workspaceCreateOrg, workspaceRead, workspaceWrite } from '../firebase-config';
+import { invalidateWorkspaceCaches } from '../hooks/useClientWorkspaces';
 import { AuditHandoffPrompt } from './AuditHandoffPrompt';
 
 // ── After sign-up: the list from the free audit, offered, never assumed ────
@@ -144,5 +148,73 @@ describe('the import offered after sign-up', () => {
     await mount();
     expect(listed().length).toBeGreaterThan(0);
     expect(byText('Import 3 tool(s)')).toBeUndefined();
+  });
+});
+
+// ── An accountant's audit lands in a client workspace, not the firm's ──────
+
+const typeInto = (input, value) => act(async () => {
+  Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(input, value);
+  input.dispatchEvent(new window.Event('input', { bubbles: true }));
+});
+const settle = () => act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+
+describe('into a client workspace', () => {
+  beforeEach(() => { invalidateWorkspaceCaches(); auth.firebaseUser = { uid: 'u1' }; auth.user = { plan: 'pro' }; });
+  afterEach(() => { delete auth.firebaseUser; delete auth.user; });
+
+  it('a free account is not offered a client workspace', async () => {
+    auth.user = { plan: 'free' };
+    seed({ user: { plan: 'free', trial_started_at: null } });
+    await mount();
+    await settle();
+    expect(document.querySelector('[data-testid="handoff-destination"]')).toBeNull();
+  });
+
+  it('a paid account chooses a new client, names it, and the tools go there, never into its own workspace', async () => {
+    seed({ user: { plan: 'pro' } });
+    await mount();
+    await settle();
+    const dest = document.querySelector('[data-testid="handoff-destination"]');
+    expect(dest).not.toBeNull();
+    await click(dest.querySelectorAll('input[type="radio"]')[1]);
+    expect(byText('Create the client with 3 tool(s)').disabled).toBe(true);     // no name yet
+    await typeInto(document.getElementById('handoff-client-name'), 'Boulangerie Martin');
+    await click(byText('Create the client with 3 tool(s)'));
+    await settle();
+    expect(workspaceCreateOrg).toHaveBeenCalledWith('Boulangerie Martin');
+    expect(workspaceRead).toHaveBeenCalledWith('org_abc');
+    const [orgId, payload] = workspaceWrite.mock.calls.at(-1);
+    expect(orgId).toBe('org_abc');
+    expect(payload.tools.map((x) => x.name).sort()).toEqual(['Figma', 'Notion', 'Slack']);
+    expect(payload.tools.every((x) => x.origin === 'audit')).toBe(true);
+    expect(loadDb().tools).toEqual([]);                                      // own workspace untouched
+    expect(localStorage.getItem('stacklens_audit_handoff')).toBeNull();
+    expect(toast.success.mock.calls[0][0]).toContain('Client workspace “Boulangerie Martin” created with 3 tool(s)');
+    expect(here()).toBe('/clients');
+  });
+
+  it('a refusal from the server is shown and the list is kept', async () => {
+    workspaceCreateOrg.mockRejectedValueOnce(new Error('A trial covers 3 client workspaces. Subscribe to add more.'));
+    seed({ user: { plan: 'pro' } });
+    await mount();
+    await settle();
+    await click(document.querySelector('[data-testid="handoff-destination"]').querySelectorAll('input[type="radio"]')[1]);
+    await typeInto(document.getElementById('handoff-client-name'), 'X');
+    await click(byText('Create the client with 3 tool(s)'));
+    await settle();
+    expect(toast.error).toHaveBeenCalledWith('A trial covers 3 client workspaces. Subscribe to add more.');
+    expect(localStorage.getItem('stacklens_audit_handoff')).not.toBeNull();
+    expect(workspaceWrite).not.toHaveBeenCalled();
+  });
+
+  it('"Into my own workspace" still imports locally and writes nothing to a client', async () => {
+    seed({ user: { plan: 'pro' } });
+    await mount();
+    await settle();
+    expect(document.querySelector('[data-testid="handoff-destination"] input[type="radio"]').checked).toBe(true);
+    await click(byText('Import 3 tool(s)'));
+    expect(loadDb().tools).toHaveLength(3);
+    expect(workspaceCreateOrg).not.toHaveBeenCalled();
   });
 });

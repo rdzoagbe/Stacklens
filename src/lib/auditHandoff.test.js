@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { parseBankExport, auditSaas, sampleBankExport } from './saasAudit';
 import {
-  HANDOFF_KEY, handoffFromReport, handoffToolCount, saveHandoff, loadHandoff, clearHandoff, planHandoffImport, appCategory,
+  HANDOFF_KEY, handoffFromReport, handoffToolCount, toolFromHandoffRecord, saveHandoff, loadHandoff, clearHandoff, planHandoffImport, appCategory,
 } from './auditHandoff';
 
 // ── The free audit hands its list to the app, and nothing more ─────────────
@@ -121,5 +121,16 @@ describe('what importing it would do', () => {
     expect(appCategory('Identity')).toBe('security');
     expect(appCategory('Software (unverified)')).toBe('other');
     expect(appCategory('finance')).toBe('finance');
+  });
+});
+
+describe('the tool a line becomes, wherever it lands', () => {
+  it('carries the cost, the origin, the renewal, and the confirmation when the reader gave one', () => {
+    const t = toolFromHandoffRecord({ name: 'Slack', category: 'communication', cost_per_month: 1250, renewal_date: '', notes: 'n', reviewed: 'confirmed' });
+    expect(t).toMatchObject({ name: 'Slack', category: 'communication', cost_per_month: 1250, cost_monthly: 1250, origin: 'audit', status: 'active', owner_email: '', last_used_date: '', reviewed: 'confirmed' });
+    expect(t.id).toMatch(/^tool_/);
+    const u = toolFromHandoffRecord({ name: 'Adobe', cost_per_month: 60, renewal_date: '2027-03-15' });
+    expect(u).toMatchObject({ category: 'other', renewal_date: '2027-03-15' });
+    expect(u).not.toHaveProperty('reviewed');
   });
 });

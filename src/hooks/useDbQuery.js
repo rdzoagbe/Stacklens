@@ -10,6 +10,8 @@ import { useTranslation } from '../translations';
 import { REVIEW_ORIGINS, isRejectedVendor, originOfRow, vendorKey } from '../lib/toolReview';
 import { csvAmount } from '../lib/csvHeaders';
 import { annotatePeopleChanges } from '../lib/peopleChanges';
+import { toolFromHandoffRecord } from '../lib/auditHandoff';
+import { workspaceCreateOrg, workspaceRead, workspaceWrite } from '../firebase-config';
 import { startReview, decide, decideRemaining, signOff, summary as reviewSummary } from '../lib/accessReviews';
 import { cleanAsset, mergeAssets } from '../lib/assets';
 import { applyIntune } from '../lib/intuneDevices';
@@ -741,17 +743,7 @@ export function useDbMutations() {
       const take = (records || []).slice(0, room);
       if (take.length) {
         setDb((db) => {
-          const tools = take.map((r) => ({
-            id: uid('tool'), name: r.name, category: r.category || 'other',
-            owner_email: '', owner_name: '', criticality: 'medium', url: '', description: '',
-            status: 'active',
-            // A charge is not a use: nobody knows yet who uses it, or when.
-            last_used_date: '',
-            cost_per_month: r.cost_per_month, cost_monthly: r.cost_per_month, cost: r.cost_per_month,
-            renewal_date: r.renewal_date || '', risk_score: 'low', derived_risk: 'low',
-            notes: r.notes || '', origin: 'audit',
-            ...(r.reviewed === 'confirmed' ? { reviewed: 'confirmed' } : {}),
-          }));
+          const tools = take.map(toolFromHandoffRecord);
           db.tools = [...tools, ...(db.tools || [])];
           return db;
         }, () => ({ action: 'tool.imported', details: `${take.length} tool(s) from the free audit` }));
@@ -788,6 +780,24 @@ export function useDbMutations() {
   //   rename   right tool, wrong name (name required)
   //   reject   not software: the tool goes, its access records with it, and
   //            the vendor is remembered so the next invoice does not re-add it
+  // The same list, into a client workspace created for it (an accountant's
+  // client, not the accountant's own company). The server creates the org
+  // and seeds its empty workspace; the tools are written through the
+  // workspace endpoint, which re-checks ownership. Nothing touches the
+  // reader's own workspace.
+  const createClientFromAudit = useMutation({
+    mutationFn: async ({ name, records }) => {
+      const limits = getPlanLimits(resolvePlan(loadDb()?.user));
+      const take = (records || []).slice(0, Math.max(0, limits.tools));
+      const { org } = await workspaceCreateOrg(name);
+      const { data } = await workspaceRead(org.org_id);
+      const tools = take.map(toolFromHandoffRecord);
+      await workspaceWrite(org.org_id, { ...(data || {}), tools: [...tools, ...((data && data.tools) || [])] });
+      return { org, added: tools.length, left: (records || []).length - tools.length };
+    },
+    onSuccess: ({ added, left }) => track('audit_handoff_client_created', { added, left }),
+  });
+
   // ── Access reviews (lib/accessReviews.js) ─────────────────────────────────
   const startAccessReview = useMutation({
     mutationFn: async ({ scope, target }) => {
@@ -999,7 +1009,7 @@ export function useDbMutations() {
   });
 
   return {
-    createTool, updateTool, deleteTool, reviewTool, importAuditTools, clearInvoiceFinding,
+    createTool, updateTool, deleteTool, reviewTool, importAuditTools, createClientFromAudit, clearInvoiceFinding,
     startAccessReview, decideAccessReview, signOffAccessReview,
     createEmployee, updateEmployee, deleteEmployee,
     createAccess, updateAccess, deleteAccess,
