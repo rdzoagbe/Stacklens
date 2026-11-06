@@ -196,6 +196,8 @@ describe('sharing and client-workspace caps are the ones the server enforces', (
 
   it('Starter can open the People pages its card sells', () => {
     expect(MODULE_PLANS.people).toContain('starter');
+    // The Free card says "25 employees"; the pages that hold them must open.
+    expect(MODULE_PLANS.people).toContain('free');
   });
 });
 
