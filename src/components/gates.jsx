@@ -113,9 +113,10 @@ export function PlanGate({ requires, children, feature = null }) {
 
 export const MODULE_PLANS = {
   finance:   ['hr_finance', 'pro', 'enterprise', 'scale', 'unlimited', 'growth', 'professional'],
-  // Starter sells "up to 250 employees"; without this module it could not
-  // open the Employees page to hold them.
-  people:    ['starter', 'hr_finance', 'pro', 'enterprise', 'scale', 'unlimited', 'growth', 'professional'],
+  // Every plan sells a number of employees (Free: 25, Starter: 250); without
+  // this module the Employees, Access, Offboarding and Devices pages were
+  // locked on Free while its card promised the people.
+  people:    ['free', 'starter', 'hr_finance', 'pro', 'enterprise', 'scale', 'unlimited', 'growth', 'professional'],
   security:  ['pro', 'enterprise', 'scale', 'unlimited', 'growth', 'professional'],
   ai:        ['pro', 'enterprise', 'scale', 'unlimited', 'growth', 'professional'],
   analytics: ['pro', 'enterprise', 'scale', 'unlimited', 'growth', 'professional'],

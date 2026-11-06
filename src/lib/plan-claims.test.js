@@ -101,7 +101,7 @@ describe('plan claims match enforced limits', () => {
   it('a locked module names the cheapest plan that really unlocks it', () => {
     // Before, every non-finance module said "Pro", including the API, which
     // only Enterprise unlocks.
-    expect(cheapestPlanFor('people').id).toBe('starter');
+    expect(cheapestPlanFor('people').id).toBe('free');
     expect(cheapestPlanFor('finance').id).toBe('hr_finance');
     expect(cheapestPlanFor('security').id).toBe('pro');
     expect(cheapestPlanFor('api').id).toBe('enterprise');
