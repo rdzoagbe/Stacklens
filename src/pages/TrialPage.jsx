@@ -523,11 +523,10 @@ export function TrialPage() {
                 <button
                   onClick={() => {
                     track('cta_click', { location: 'pricing_' + p.id });
-                    if (p.id === 'enterprise') {
-                      window.location.href = '/contact?subject=enterprise';
-                    } else {
-                      setShowAuth(true);
-                    }
+                    // Every plan, Enterprise included, sells through the
+                    // same sign-up: the About page promises no "contact
+                    // sales" tier, and Stripe already carries the price.
+                    setShowAuth(true);
                   }}
                   className={"w-full py-2.5 rounded-lg text-sm font-semibold transition-colors " + (
                     p.highlight
@@ -617,7 +616,7 @@ export function TrialPage() {
               <p className="text-sm text-slate-400 leading-relaxed mb-4">
                 {t('lp_footer_tagline')}
               </p>
-              <div className="text-xs text-slate-500">🇪🇺 Built in France · EU data storage</div>
+              <div className="text-xs text-slate-500">🇪🇺 {t('lp_footer_built')}</div>
             </div>
 
             {/* Product */}
@@ -639,7 +638,7 @@ export function TrialPage() {
               <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">{t('lp_footer_company')}</div>
               <ul className="space-y-3 text-sm">
                 <li><Link to="/about" className="text-slate-300 hover:text-white transition-colors">{t('lp_footer_about')}</Link></li>
-                <li><Link to="/contact" className="text-slate-300 hover:text-white transition-colors">Contact</Link></li>
+                <li><Link to="/contact" className="text-slate-300 hover:text-white transition-colors">{t('footer_contact')}</Link></li>
                 <li><Link to="/contact?subject=sales" className="text-slate-300 hover:text-white transition-colors">{t('lp_footer_sales')}</Link></li>
               </ul>
             </div>
@@ -654,7 +653,6 @@ export function TrialPage() {
                 <li><Link to="/dpa" className="text-slate-300 hover:text-white transition-colors">{t('lp_dpa_link')}</Link></li>
                 <li><Link to="/sub-processors" className="text-slate-300 hover:text-white transition-colors">{t('lp_sub_processors_link')}</Link></li>
                 <li><Link to="/security-info" className="text-slate-300 hover:text-white transition-colors">{t('lp_footer_security')}</Link></li>
-                <li><Link to="/privacy" className="text-slate-300 hover:text-white transition-colors">GDPR</Link></li>
                 <li>
                   <button
                     type="button"
@@ -1023,7 +1021,7 @@ export function TrialPage() {
                         <Mail className="w-8 h-8 text-emerald-400" />
                       </div>
                       <div>
-                        <div className="text-white font-bold text-lg mb-1">Almost there, {authName.split(' ')[0]}!</div>
+                        <div className="text-white font-bold text-lg mb-1">{t('lp_almost_there').replace('{name}', authName.split(' ')[0])}</div>
                         <div className="text-slate-400 text-sm">{t("hc_your_activation_link_is_on_its_way_")}</div>
                         <div className="text-emerald-400 font-semibold text-sm mt-1">{authEmail}</div>
                       </div>
@@ -1042,26 +1040,25 @@ export function TrialPage() {
                   <p className="text-xs text-slate-500 mb-4">{t('lp_sso_desc')}</p>
                   {[
                     { id: 'google',    name: 'Google Workspace', sub: 'G Suite / Google Cloud Identity', live: true,  logo: <svg className="w-5 h-5" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg> },
-                    { id: 'microsoft', name: 'Microsoft 365',    sub: 'Azure AD / Entra ID',            live: true,  logo: <div className="w-5 h-5 grid grid-cols-2 gap-0.5"><div className="bg-[#F25022] rounded-sm"/><div className="bg-[#7FBA00] rounded-sm"/><div className="bg-[#00A4EF] rounded-sm"/><div className="bg-[#FFB900] rounded-sm"/></div> },
-                    { id: 'okta',      name: 'Okta',             sub: 'Enterprise SSO via Okta',         live: false, logo: <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-[9px] font-black text-white">OK</div> },
-                    { id: 'saml',      name: 'SAML 2.0',         sub: 'Custom SAML identity provider',   live: false, logo: <div className="w-5 h-5 rounded bg-slate-600 flex items-center justify-center"><Lock className="w-3 h-3 text-slate-300" /></div> },
+                    { id: 'microsoft', name: 'Microsoft 365',    sub: 'Microsoft Entra ID (OpenID Connect)', live: true,  logo: <div className="w-5 h-5 grid grid-cols-2 gap-0.5"><div className="bg-[#F25022] rounded-sm"/><div className="bg-[#7FBA00] rounded-sm"/><div className="bg-[#00A4EF] rounded-sm"/><div className="bg-[#FFB900] rounded-sm"/></div> },
+                    // Okta and SAML 2.0 used to sit here greyed out as "Soon".
+                    // Neither exists, no date exists, and the Settings copy
+                    // says so: a roadmap promise is not a sign-in option.
                   ].map(p => (
                     <button key={p.id}
-                      onClick={() => p.live ? handleSSOClick({ id: p.id, live: true }) : toast(p.name + ' SSO is coming soon. Use Google or magic link for now.', { icon: 'ℹ️' })}
-                      className={"w-full flex items-center justify-between p-4 rounded-2xl border transition-all group " +
-                        (p.live ? "border-slate-700 bg-slate-800/60 hover:bg-slate-800 hover:border-blue-500/40" : "border-slate-800 bg-slate-800/20 opacity-50 cursor-not-allowed")}>
+                      onClick={() => handleSSOClick({ id: p.id, live: true })}
+                      className="w-full flex items-center justify-between p-4 rounded-2xl border transition-all group border-slate-700 bg-slate-800/60 hover:bg-slate-800 hover:border-blue-500/40">
                       <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-xl bg-slate-900 border border-slate-700 flex items-center justify-center flex-shrink-0">{p.logo}</div>
                         <div className="text-left">
-                          <div className={"text-sm font-semibold " + (p.live ? "text-white" : "text-slate-500")}>{p.name}</div>
+                          <div className="text-sm font-semibold text-white">{p.name}</div>
                           <div className="text-xs text-slate-500">{p.sub}</div>
                         </div>
                       </div>
-                      {p.live
-                        ? <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-blue-400 transition-colors" />
-                        : <span className="text-[9px] font-bold text-slate-500 bg-slate-900 border border-slate-700 px-2 py-0.5 rounded-full uppercase tracking-widest">{t('lp_sso_soon')}</span>}
+                      <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-blue-400 transition-colors" />
                     </button>
                   ))}
+                  <p className="text-xs text-slate-500 pt-1">{t('lp_sso_not_yet')}</p>
                 </div>
               )}
 

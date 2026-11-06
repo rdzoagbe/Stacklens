@@ -13,7 +13,7 @@ import { LEGAL_ENTITY } from '../lib/constants';
 // in substance. They used to print "July 2026", "May 2026" and "April 17,
 // 2026" as literals: stale after the September corrections, and English
 // inside the French page. Change this when any of them changes.
-export const LEGAL_UPDATED = '2026-10-17';
+export const LEGAL_UPDATED = '2026-11-06';
 const LOCALE_OF = { en: 'en-GB', fr: 'fr-FR', de: 'de-DE', es: 'es-ES', pt: 'pt-PT' };
 // The legal notice (mentions légales) last changed in May 2026; only the month
 // is known, so only the month is shown.
@@ -204,7 +204,7 @@ export function DpaPage() {
       <div className="max-w-3xl mx-auto px-6 py-16">
         <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">{t('dpa_title')}</h1>
         <DocLanguageNote language={language} t={t} />
-        <p className="text-slate-400 text-sm mb-2">{t('dpa_subtitle')} · {t('dpa_version')} 1.3 · {t('dpa_effective')} {t('dpa_effective_date')}</p>
+        <p className="text-slate-400 text-sm mb-2">{t('dpa_subtitle')} · {t('dpa_version')} 1.4 · {t('dpa_effective')} {t('dpa_effective_date')}</p>
         <p className="text-slate-400 text-sm mb-10">{t('dpa_auto_accepted')}</p>
 
         <div className="space-y-8 text-sm text-slate-300 leading-relaxed">
@@ -228,6 +228,7 @@ export function DpaPage() {
               <li>{t('dpa_s3_item4')}</li>
               <li>{t('dpa_s3_item5')}</li>
               <li>{t('dpa_s3_item6')}</li>
+              <li>{t('dpa_s3_item7')}</li>
             </ul>
           </section>
 
@@ -240,6 +241,7 @@ export function DpaPage() {
               <li>{t('dpa_s4_item4')}</li>
               <li>{t('dpa_s4_item5')}</li>
               <li>{t('dpa_s4_item6')}</li>
+              <li>{t('dpa_s4_item7')}</li>
             </ul>
           </section>
 
@@ -913,6 +915,7 @@ export function SecurityPage() {
             { icon: "👤", title: t('sec_card_access_title'), body: t('sec_card_access_body') },
             { icon: "🔑", title: t('sec_card_auth_title'), body: t('sec_card_auth_body') },
             { icon: "🤖", title: t('sec_card_abuse_title'), body: t('sec_card_abuse_body') },
+            { icon: "🧱", title: t('sec_card_headers_title'), body: t('sec_card_headers_body') },
             { icon: "📋", title: t('sec_card_log_title'), body: t('sec_card_log_body') },
             { icon: "🗑️", title: t('sec_card_delete_title'), body: t('sec_card_delete_body') },
             { icon: "🔍", title: t('sec_card_vuln_title'), body: t('sec_card_vuln_body') },
@@ -928,6 +931,28 @@ export function SecurityPage() {
             </div>
           ))}
         </div>
+
+        {/* What a vendor review finds, said first. Both lists are held to the
+            code by claims.test.js: nothing here may describe a control that
+            does not exist, and nothing may deny one that does. */}
+        <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-8 mb-8" data-testid="sec-large">
+          <h2 className="text-2xl font-bold text-white mb-1">{t('sec_large_title')}</h2>
+          <p className="text-slate-400 mb-6">{t('sec_large_intro')}</p>
+          <div className="grid md:grid-cols-2 gap-8">
+            <div>
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-emerald-400 mb-3">{t('sec_large_have_title')}</h3>
+              <ul className="space-y-2 text-sm text-slate-300">
+                {[1, 2, 3, 4].map((i) => <li key={i} className="flex gap-2"><span className="text-emerald-400">✓</span><span>{t(`sec_large_have_${i}`)}</span></li>)}
+              </ul>
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-amber-400 mb-3">{t('sec_large_not_title')}</h3>
+              <ul className="space-y-2 text-sm text-slate-300">
+                {[1, 2, 3, 4, 5].map((i) => <li key={i} className="flex gap-2"><span className="text-amber-400">–</span><span>{t(`sec_large_not_${i}`)}</span></li>)}
+              </ul>
+            </div>
+          </div>
+        </section>
 
         <div className="rounded-2xl border border-blue-500/20 bg-blue-500/5 p-8 mb-8 text-center">
           <h3 className="text-xl font-bold text-white mb-2">{t('found_security_issue')}</h3>

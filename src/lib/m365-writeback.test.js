@@ -124,7 +124,8 @@ describe('blocking sign-in', () => {
 });
 
 describe('scope', () => {
-  it('asks for User.ReadWrite.All, and only that', () => {
-    expect(GRAPH_WRITE_SCOPES).toEqual(['https://graph.microsoft.com/User.ReadWrite.All']);
+  it('asks for the narrowest permission that changes accountEnabled, never full write', () => {
+    expect(GRAPH_WRITE_SCOPES).toEqual(['https://graph.microsoft.com/User.EnableDisableAccount.All', 'https://graph.microsoft.com/User.Read.All']);
+    expect(GRAPH_WRITE_SCOPES.join(' ')).not.toMatch(/ReadWrite/);
   });
 });
