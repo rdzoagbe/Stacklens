@@ -47,7 +47,13 @@ describe('hosting cache headers let a deploy reach people', () => {
   const indexOfRule = (source) => headers.findIndex((h) => h.source === source);
 
   it('rewrites everything to index.html, which is why this matters', () => {
-    expect(cfg.hosting.rewrites).toEqual([{ source: '**', destination: '/index.html' }]);
+    // One file-to-file rewrite sits in front of it: the build does not copy
+    // the dot-directory, so /.well-known/security.txt is served from
+    // /security.txt. It changes no header rule.
+    expect(cfg.hosting.rewrites).toEqual([
+      { source: '/.well-known/security.txt', destination: '/security.txt' },
+      { source: '**', destination: '/index.html' },
+    ]);
   });
 
   it('the catch-all forbids caching, so SPA routes always revalidate', () => {

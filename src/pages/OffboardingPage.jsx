@@ -143,7 +143,9 @@ export function OffboardingPage() {
   const upcoming = useMemo(() => {
     if (!db) return [];
     return db.employees
-      .filter((e) => e.status === "offboarding" || (e.end_date && e.end_date >= todayISO() && e.status !== "offboarded"))
+      // Offboarding, planned to leave, or already past their end date with
+      // nobody having pressed Offboard: all three need the checklist.
+      .filter((e) => e.status === "offboarding" || (e.end_date && e.status !== "offboarded"))
       .sort((a, b) => (a.end_date || "9999") > (b.end_date || "9999") ? 1 : -1);
   }, [db]);
 

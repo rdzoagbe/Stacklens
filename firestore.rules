@@ -31,6 +31,33 @@ service cloud.firestore {
          && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('is_founder', false) == true);
     }
 
+    // ── Mandatory company sign-in (functions/sso-policy.js, src/lib/sso.js) ──
+    // /users/{uid}.sso_required asks that this account's data be reached only
+    // from a session started with Google or Microsoft. Firebase stamps every
+    // token with the provider that started it, so a password or magic-link
+    // session on the same account is refused, whatever else it has linked.
+    function ssoSession() {
+      return isSignedIn()
+        && request.auth.token.get('firebase', {}).get('sign_in_provider', '') in ['google.com', 'microsoft.com'];
+    }
+    function ssoRequiredFor(uid) {
+      return exists(/databases/$(database)/documents/users/$(uid))
+        && get(/databases/$(database)/documents/users/$(uid)).data.get('sso_required', false) == true;
+    }
+    function ssoSatisfied(uid) {
+      return !ssoRequiredFor(uid) || ssoSession();
+    }
+    // Only a Google or Microsoft session may turn the switch on or off:
+    // otherwise a phished password would simply switch it off first, and a
+    // password session could lock its own account out of the one sign-in
+    // it has.
+    function ssoSwitchSafe() {
+      let touched = resource == null
+        ? request.resource.data.keys().hasAny(['sso_required'])
+        : request.resource.data.diff(resource.data).affectedKeys().hasAny(['sso_required']);
+      return !touched || ssoSession();
+    }
+
     // Returns true if the incoming write does NOT touch any protected field.
     // Protected fields can only be set by the Stripe webhook or founderAdmin Cloud Function
     // (both use Admin SDK which bypasses rules).
@@ -120,18 +147,20 @@ service cloud.firestore {
       allow get: if isOwner(uid) || isFounder();
       allow list: if isFounder();
       // Create only allowed if new doc has no protected fields (or plan='free')
-      allow create: if isOwner(uid) && protectedFieldsSafe();
+      allow create: if isOwner(uid) && protectedFieldsSafe() && ssoSwitchSafe();
       // Update: owner with field restrictions (and trial stamp immutable),
       // OR founder can update plan/trial fields
-      allow update: if (isOwner(uid) && protectedFieldsSafe() && trialStampImmutable())
+      allow update: if (isOwner(uid) && protectedFieldsSafe() && trialStampImmutable() && ssoSwitchSafe())
                     || (isFounder() && founderWriteSafe());
       allow delete: if false;
     }
 
-    // /userdata/{uid}
+    // /userdata/{uid} — the owner, from a session the account's company
+    // sign-in policy accepts (ssoSatisfied: one read of /users/{uid}, cached
+    // across the request).
     match /userdata/{uid} {
-      allow read: if isOwner(uid);
-      allow write: if isOwner(uid);
+      allow read: if isOwner(uid) && ssoSatisfied(uid);
+      allow write: if isOwner(uid) && ssoSatisfied(uid);
     }
     // /userdata/{uid}/chunks/** — size-capped slices of the large arrays
     // (employees, access, audit_log); rules don't cascade to subcollections,
@@ -139,8 +168,8 @@ service cloud.firestore {
     // Only `chunks`: any other subcollection would be data the account purge
     // (functions/purge-account.js) does not know to delete.
     match /userdata/{uid}/chunks/{chunkId} {
-      allow read: if isOwner(uid);
-      allow write: if isOwner(uid);
+      allow read: if isOwner(uid) && ssoSatisfied(uid);
+      allow write: if isOwner(uid) && ssoSatisfied(uid);
     }
 
     // /rate_limits/{uid}

@@ -442,6 +442,26 @@ describe('small claims', () => {
     expect(translations).not.toMatch(/"Conforme RGPD"|"GDPR-compliant"|"GDPR compliant"/);
   });
 
+  it('index.html (meta, structured data, noscript) makes no claim the pages do not', () => {
+    // Google indexes the JSON-LD and the noscript block; a reviewer reads the
+    // page source. They used to carry "SOC 2", "GDPR-compliant by design",
+    // "pass audits in days", a SearchAction for a search that does not exist
+    // and three of the five plans.
+    const html = read('index.html');
+    expect(html).not.toMatch(/SOC ?2/i);
+    expect(html).not.toMatch(/GDPR[- ]compliant|GDPR compliance/i);
+    expect(html).not.toMatch(/pass audits/i);
+    expect(html).not.toMatch(/maps everything automatically/i);
+    expect(html).not.toMatch(/SearchAction/);
+    expect(html).not.toMatch(/\d+[–-]\d+% waste/);
+    for (const name of ['Free', 'Starter', 'HR & Finance', 'Pro', 'Enterprise']) {
+      expect(html, name).toMatch(new RegExp(`"name": "${name.replace('&', '&')}"`));
+    }
+    // No FAQ structured data: Google requires it to match the visible FAQ,
+    // and the visible FAQ is translated copy the static file cannot carry.
+    expect(html).not.toMatch(/FAQPage/);
+  });
+
   it('Web3Forms is described as receiving name and email, which it does', () => {
     expect(read('src/lib/contact.js')).toMatch(/from_name:\s*name/);
     expect(copy('en', 'subproc_web3forms_transfer')).toMatch(/name, email address and message/);
@@ -600,8 +620,8 @@ describe('§12 the DPA and privacy policy describe devices and Intune as the cod
     }
   });
 
-  it('the DPA is version 1.3, and the privacy policy mentions devices and Intune', () => {
-    expect(read('src/pages/LegalPages.jsx')).toMatch(/\{t\('dpa_version'\)\} 1\.3 ·/);
+  it('the DPA is version 1.4, and the privacy policy mentions devices and Intune', () => {
+    expect(read('src/pages/LegalPages.jsx')).toMatch(/\{t\('dpa_version'\)\} 1\.4 ·/);
     expect(copy('en', 'privacy_s2_saas_body')).toMatch(/devices \(model, serial number/);
     expect(copy('en', 'privacy_s2_saas_body')).toMatch(/Microsoft Intune with a read-only permission/);
     expect(copy('fr', 'privacy_s2_saas_body')).toMatch(/Microsoft Intune avec une autorisation en lecture seule/);

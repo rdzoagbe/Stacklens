@@ -13,11 +13,11 @@ import { LEGAL_ENTITY } from '../lib/constants';
 // in substance. They used to print "July 2026", "May 2026" and "April 17,
 // 2026" as literals: stale after the September corrections, and English
 // inside the French page. Change this when any of them changes.
-export const LEGAL_UPDATED = '2026-10-17';
+export const LEGAL_UPDATED = '2026-11-06';
 const LOCALE_OF = { en: 'en-GB', fr: 'fr-FR', de: 'de-DE', es: 'es-ES', pt: 'pt-PT' };
 // The legal notice (mentions légales) last changed in May 2026; only the month
 // is known, so only the month is shown.
-const LEGAL_NOTICE_UPDATED = '2026-05';
+const LEGAL_NOTICE_UPDATED = '2026-11-06';
 function legalDate(language, iso = LEGAL_UPDATED) {
   const monthOnly = iso.length === 7;
   return new Date((monthOnly ? iso + '-15' : iso) + 'T12:00:00Z').toLocaleDateString(LOCALE_OF[language] || 'en-GB',
@@ -33,8 +33,22 @@ function DocLanguageNote({ language, t }) {
   return <p className="text-sm text-slate-500 mb-4" data-testid="doc-language-note">{t('doc_lang_note')}</p>;
 }
 
+// An unknown address used to bounce to the landing page without a word, so a
+// mistyped link read as "the site changed". Say so, and offer the way home.
 export function NotFound() {
-  return <Navigate to="/" replace />;
+  const { language } = useLang();
+  const t = useTranslation(language);
+  return (
+    <div className="min-h-screen bg-slate-950 text-white">
+      <PublicNav t={t} />
+      <div className="max-w-xl mx-auto px-6 py-24 text-center" data-testid="not-found">
+        <div className="text-6xl font-black text-slate-500 mb-4">404</div>
+        <h1 className="text-2xl font-bold mb-3">{t('nf_title')}</h1>
+        <p className="text-slate-400 mb-8">{t('nf_body')}</p>
+        <Link to="/" className="inline-block px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-xl text-sm font-semibold text-white">{t('nf_home')}</Link>
+      </div>
+    </div>
+  );
 }
 
 export function ContactPage() {
@@ -204,7 +218,7 @@ export function DpaPage() {
       <div className="max-w-3xl mx-auto px-6 py-16">
         <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">{t('dpa_title')}</h1>
         <DocLanguageNote language={language} t={t} />
-        <p className="text-slate-400 text-sm mb-2">{t('dpa_subtitle')} · {t('dpa_version')} 1.3 · {t('dpa_effective')} {t('dpa_effective_date')}</p>
+        <p className="text-slate-400 text-sm mb-2">{t('dpa_subtitle')} · {t('dpa_version')} 1.4 · {t('dpa_effective')} {t('dpa_effective_date')}</p>
         <p className="text-slate-400 text-sm mb-10">{t('dpa_auto_accepted')}</p>
 
         <div className="space-y-8 text-sm text-slate-300 leading-relaxed">
@@ -228,6 +242,7 @@ export function DpaPage() {
               <li>{t('dpa_s3_item4')}</li>
               <li>{t('dpa_s3_item5')}</li>
               <li>{t('dpa_s3_item6')}</li>
+              <li>{t('dpa_s3_item7')}</li>
             </ul>
           </section>
 
@@ -240,6 +255,7 @@ export function DpaPage() {
               <li>{t('dpa_s4_item4')}</li>
               <li>{t('dpa_s4_item5')}</li>
               <li>{t('dpa_s4_item6')}</li>
+              <li>{t('dpa_s4_item7')}</li>
             </ul>
           </section>
 
@@ -449,11 +465,11 @@ export function LegalMentionsPage() {
           <section>
             <h2 className="text-lg font-semibold text-white mb-3">{t('legal_publisher_title')}</h2>
             <p><strong>{LEGAL_ENTITY.brand}</strong></p>
-            <p>{t('legal_published_by')}: {LEGAL_ENTITY.publisher}</p>
+            <p>{t('legal_published_by')}{colon(language)}{LEGAL_ENTITY.publisher}</p>
             <p>{t('legal_status')}: {t('legal_status_value')}</p>
             <p>SIRET : {LEGAL_ENTITY.siret}</p>
             <p>Email : <a href={`mailto:${LEGAL_ENTITY.email}`} className="text-blue-400 hover:text-blue-300">{LEGAL_ENTITY.email}</a></p>
-            <p>{t('legal_phone')}: {LEGAL_ENTITY.phone}</p>
+            <p>{t('legal_phone')}{colon(language)}{LEGAL_ENTITY.phone}</p>
             <p>{t('legal_address')}: {LEGAL_ENTITY.city}</p>
           </section>
 
@@ -471,7 +487,7 @@ export function LegalMentionsPage() {
             <p>Google Ireland Limited</p>
             <p>Gordon House, Barrow Street, Dublin 4, Ireland</p>
             <p>Tél. : +353 1 543 1000</p>
-            <p>{t('legal_website')}: <a href="https://firebase.google.com" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300">firebase.google.com</a></p>
+            <p>{t('legal_website')}{colon(language)}<a href="https://firebase.google.com" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300">firebase.google.com</a></p>
           </section>
 
           {/* SECTION 4 — Domaine */}
@@ -489,14 +505,14 @@ export function LegalMentionsPage() {
             <p><strong>Stripe</strong></p>
             <p>Stripe Payments Europe, Limited</p>
             <p>1 Grand Canal Street Lower, Grand Canal Dock, Dublin, D02 H210, Ireland</p>
-            <p>{t('legal_website')}: <a href="https://stripe.com" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300">stripe.com</a></p>
+            <p>{t('legal_website')}{colon(language)}<a href="https://stripe.com" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300">stripe.com</a></p>
           </section>
 
           {/* SECTION 6 — IA (EU AI Act transparency) */}
           <section>
             <h2 className="text-lg font-semibold text-white mb-3">{t('legal_ai_title')}</h2>
             <p>{t('legal_ai_body')}</p>
-            <p className="mt-2">{t('legal_ai_provider')}: Anthropic, PBC — 548 Market St, San Francisco, CA 94104, USA</p>
+            <p className="mt-2">{t('legal_ai_provider')}{colon(language)}Anthropic, PBC — 548 Market St, San Francisco, CA 94104, USA</p>
           </section>
 
           {/* SECTION 7 — Propriété intellectuelle */}
@@ -634,7 +650,7 @@ export function PrivacyPage() {
           <section>
             <h2 className="text-xl font-bold mb-3 text-white">{t('privacy_s1_title')}</h2>
             <p>{t('privacy_s1_body')}</p>
-            <p className="mt-2"><strong>{LEGAL_ENTITY.brand}</strong> — {LEGAL_ENTITY.publisher}<br/>{LEGAL_ENTITY.city}<br/>Email: <a href={`mailto:${LEGAL_ENTITY.email}`} className="text-blue-400 hover:text-blue-300">{LEGAL_ENTITY.email}</a></p>
+            <p className="mt-2"><strong>{LEGAL_ENTITY.brand}</strong> — {LEGAL_ENTITY.publisher}<br/>{LEGAL_ENTITY.city}<br/>Email{colon(language)}<a href={`mailto:${LEGAL_ENTITY.email}`} className="text-blue-400 hover:text-blue-300">{LEGAL_ENTITY.email}</a></p>
           </section>
 
           <section>
@@ -913,6 +929,7 @@ export function SecurityPage() {
             { icon: "👤", title: t('sec_card_access_title'), body: t('sec_card_access_body') },
             { icon: "🔑", title: t('sec_card_auth_title'), body: t('sec_card_auth_body') },
             { icon: "🤖", title: t('sec_card_abuse_title'), body: t('sec_card_abuse_body') },
+            { icon: "🧱", title: t('sec_card_headers_title'), body: t('sec_card_headers_body') },
             { icon: "📋", title: t('sec_card_log_title'), body: t('sec_card_log_body') },
             { icon: "🗑️", title: t('sec_card_delete_title'), body: t('sec_card_delete_body') },
             { icon: "🔍", title: t('sec_card_vuln_title'), body: t('sec_card_vuln_body') },
@@ -928,6 +945,28 @@ export function SecurityPage() {
             </div>
           ))}
         </div>
+
+        {/* What a vendor review finds, said first. Both lists are held to the
+            code by claims.test.js: nothing here may describe a control that
+            does not exist, and nothing may deny one that does. */}
+        <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-8 mb-8" data-testid="sec-large">
+          <h2 className="text-2xl font-bold text-white mb-1">{t('sec_large_title')}</h2>
+          <p className="text-slate-400 mb-6">{t('sec_large_intro')}</p>
+          <div className="grid md:grid-cols-2 gap-8">
+            <div>
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-emerald-400 mb-3">{t('sec_large_have_title')}</h3>
+              <ul className="space-y-2 text-sm text-slate-300">
+                {[1, 2, 3, 4].map((i) => <li key={i} className="flex gap-2"><span className="text-emerald-400">✓</span><span>{t(`sec_large_have_${i}`)}</span></li>)}
+              </ul>
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-amber-400 mb-3">{t('sec_large_not_title')}</h3>
+              <ul className="space-y-2 text-sm text-slate-300">
+                {[1, 2, 3, 4, 5].map((i) => <li key={i} className="flex gap-2"><span className="text-amber-400">–</span><span>{t(`sec_large_not_${i}`)}</span></li>)}
+              </ul>
+            </div>
+          </div>
+        </section>
 
         <div className="rounded-2xl border border-blue-500/20 bg-blue-500/5 p-8 mb-8 text-center">
           <h3 className="text-xl font-bold text-white mb-2">{t('found_security_issue')}</h3>

@@ -118,7 +118,7 @@ Read this section before changing `firestore.rules` or `functions/index.js`.
 
 **The rules are the entire multi-tenant boundary.** Everything separating one
 customer's employee directory from another's is in that one file. It is covered
-by 58 tests (`npm run test:rules`) which run in CI, and those tests have been
+by 64 tests (`npm run test:rules`) which run in CI, and those tests have been
 verified to fail against deliberately broken rules — they are not decorative.
 
 - `/userdata/{uid}` and its `chunks` subcollection — owner only. Rules do not
@@ -143,9 +143,11 @@ rate limits live in `/rate_limits`.
   enforcement is turned on per service in Firebase Console → App Check →
   APIs. Until then a valid Firebase ID token is still the only gate on
   Functions.
-- **Five of six integration credentials are still in the browser** — Slack,
-  GitHub, Okta, Asana tokens and the Salesforce refresh token. Zoom has been
-  migrated to `/integration_credentials` and is the pattern to follow.
+- **One integration credential is still in the browser**: the Slack
+  notifications webhook, kept in localStorage and removed at sign-out. Every
+  other stored secret (Zoom, GitHub, Okta, Asana, the Salesforce refresh
+  token) lives in `/integration_credentials`, server-only and write-only
+  (`src/lib/legacyCredentials.js` moves what an older browser still holds).
 - **No account-level MFA, IP restrictions or session timeout.** Settings →
   Security used to show switches for all three; they wrote a localStorage key
   nothing read, so they enforced nothing and have been removed. The tab now
@@ -153,9 +155,16 @@ rate limits live in `/rate_limits`.
   (a paid upgrade), which has not been done.
 - **No third-party assessment.** No pen test, no SOC 2, no secrets-in-history
   scan has been commissioned.
-- Cloud Functions run in `us-central1`. Marketing says "EU data storage"; that
-  is accurate for Firestore but processing is US, which a European DPO will ask
-  about.
+- Cloud Functions run in `us-central1`: every server-side path (the workspace
+  endpoint, backups, alerts, AI, the invoice inbox) runs in the USA. The site
+  says "stored in the EU" for Firestore and says where processing runs beside
+  it, under SCCs. Moving the functions to `europe-west1` is the one change
+  that answers a European DPO outright; it needs the Stripe and SendGrid
+  webhook URLs changed at the same time.
+- **No SAML or SCIM.** Sign-in is Google or Microsoft (Entra ID, OpenID
+  Connect), magic link or password; a workspace can require Google or
+  Microsoft for everyone (Settings → Security). Optional TOTP exists in code
+  but needs Identity Platform switched on for the project.
 
 ---
 
@@ -165,7 +174,8 @@ rate limits live in `/rate_limits`.
 |---|---|---|
 | Firebase (project `accessguard-v2`) | Auth, Firestore, Hosting, Functions | `VITE_FIREBASE_*` — public by design |
 | Stripe | Subscriptions and the billing portal | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` in GCP Secret Manager |
-| SendGrid | Invites, alerts, digests — sent from `hello@stacklens.fr` | `SENDGRID_API_KEY` in Secret Manager |
+| Brevo | Invites, alerts, digests and reports — sent from `hello@stacklens.fr` (`functions/mailer.js`) | `BREVO_API_KEY` in Secret Manager |
+| SendGrid | Inbound only: forwarded invoices (Inbound Parse → `invoiceInbound`) | the inbox address, in `functions/index.js` |
 | Anthropic | AI assistant and auto-translation | `ANTHROPIC_API_KEY` in Secret Manager |
 | Azure AD | Microsoft 365 sign-in and directory sync | `VITE_AZURE_CLIENT_ID` (public); multi-tenant app registration |
 | Google Cloud | Workspace directory + token-activity audit | `VITE_GOOGLE_CLIENT_ID` (public) |

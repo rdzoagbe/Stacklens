@@ -7,6 +7,7 @@ import {
 import { LS_KEY } from '../lib/constants';
 import { loadDb, saveDb, seedDbIfEmpty, setFirestoreUid, hydrateFromFirestore, flushBeforeSignOut, clearLocalWorkspace, DEMO_EMAIL } from '../lib/db';
 import { resolvePlan } from '../lib/plan';
+import { signInProviderOf, ssoRequiredFor, isSsoProvider, raiseSsoBlock, clearSsoBlock } from '../lib/sso';
 import { useDbQuery } from './useDbQuery';
 
 export function useAuth() {
@@ -52,11 +53,35 @@ export function useAuth() {
         let isFounder = false;
         let trialStartedAt = null;
         let planGrantUntil = null;
+        let ssoRequired = false;
         try {
           const tokenResult = await fbUser.getIdTokenResult();
           const claimedPlan = tokenResult.claims?.plan;
 
           const fsUser = await getUserPlanFromFirestore(fbUser.uid);
+          // Mandatory company sign-in (lib/sso.js): the account asked that
+          // its data be reached only from a Google or Microsoft session, and
+          // this one is not. The rules would refuse the workspace anyway;
+          // read nothing, mark nothing signed in, and show which sign-in to
+          // use instead. Signing in again with the right button starts a
+          // new session, which comes back through here.
+          ssoRequired = ssoRequiredFor(fsUser);
+          if (ssoRequired && !isSsoProvider(signInProviderOf(tokenResult))) {
+            raiseSsoBlock({ scope: 'own', owner: fbUser.email || '', signedInWith: signInProviderOf(tokenResult) });
+            // Whatever an earlier, accepted session left in this browser is
+            // not shown to this one: signed out as far as the pages go, the
+            // data kept for the next accepted session.
+            const held = loadDb();
+            if (held?.user?.is_authenticated && !held.user?.is_demo) {
+              held.user = { ...held.user, is_authenticated: false };
+              saveDb(held); // no cloud uid is set for this session: local only
+              qc.invalidateQueries({ queryKey: ['db'] });
+            }
+            return;
+          }
+          // This session passes (or nothing is required): a screen raised for
+          // an earlier session, or for a shared workspace, is over.
+          clearSsoBlock();
           if (fsUser) {
             plan = (claimedPlan && claimedPlan !== 'free') ? claimedPlan : (fsUser.plan || 'free');
             stripeCustomerId   = fsUser.stripe_customer_id  || null;
@@ -165,6 +190,7 @@ export function useAuth() {
             is_founder:         isFounder,
             trial_started_at:   trialStartedAt,
             plan_grant_until:   planGrantUntil,
+            sso_required:       ssoRequired,
           }),
         };
         // Bookkeeping, not an edit: every field patched above came from
@@ -176,7 +202,9 @@ export function useAuth() {
         saveDb(cur, { cloudSync: false });
         qc.invalidateQueries({ queryKey: ['db'] });
       } else {
-        // Nobody signed in. Only an existing session needs marking as ended;
+        // Nobody signed in: no policy applies to nobody.
+        clearSsoBlock();
+        // Only an existing session needs marking as ended;
         // with no workspace in this browser there is nothing to write, and
         // writing the demo here is how every visitor to a public page used
         // to end up with it saved.

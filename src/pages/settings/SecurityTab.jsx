@@ -1,10 +1,14 @@
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, Check } from 'lucide-react';
+import { Check } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { Card, CardHeader, CardBody } from '../../components/ui';
 import { useDbQuery } from '../../hooks/useDbQuery';
 import { loadDb, saveDb, seedDbIfEmpty, saveOwnWorkspaceNow, getSharedView } from '../../lib/db';
 import { hasRole } from '../../components/gates';
 import { PROTECTION_FIELD } from '../../lib/screenProtection';
+import { SSO_FIELD, isSsoProvider, signInProviderOf } from '../../lib/sso';
+import { setSsoRequired } from '../../firebase-config';
 import { TwoStepCard } from '../../components/TwoStepCard';
 import { useLang } from '../../contexts/LangContext';
 
@@ -70,8 +74,69 @@ function ScreenProtectionCard({ firebaseUser, qc, t }) {
   );
 }
 
-export function SecurityTab({ t, firebaseUser, qc }) {
+// Mandatory company sign-in (lib/sso.js). The switch lives on /users/{uid},
+// which only a Google or Microsoft session may change (firestore.rules), so
+// the card asks the session which provider started it before offering it.
+function CompanySignInCard({ firebaseUser, qc, t }) {
   const navigate = useNavigate();
+  const { data: db } = useDbQuery();
+  const shared = !!getSharedView();
+  const isDemo = db?.user?.is_demo === true;
+  const on = db?.user?.[SSO_FIELD] === true;
+  const [provider, setProvider] = useState('');
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    let live = true;
+    Promise.resolve(firebaseUser?.getIdTokenResult?.()).then((r) => { if (live) setProvider(signInProviderOf(r)); }).catch(() => {});
+    return () => { live = false; };
+  }, [firebaseUser]);
+  const sessionIsSso = isSsoProvider(provider);
+  const canChange = hasRole('admin') && !shared && !isDemo && sessionIsSso && !!firebaseUser?.uid;
+  const why = shared ? t('screen_prot_shared')
+    : isDemo ? t('sso_req_demo')
+    : !hasRole('admin') ? t('screen_prot_admins')
+    : !sessionIsSso ? t('sso_req_need_sso') : '';
+
+  const set = async (value) => {
+    if (!canChange || busy) return;
+    setBusy(true);
+    try {
+      await setSsoRequired(firebaseUser.uid, value);
+      // The truth is /users; the copy in the workspace is what the card shows.
+      const cur = loadDb() || seedDbIfEmpty();
+      cur.user = { ...cur.user, [SSO_FIELD]: value };
+      saveDb(cur, { cloudSync: false });
+      qc?.invalidateQueries({ queryKey: ['db'] });
+      toast.success(t(value ? 'sso_req_on' : 'sso_req_off'));
+    } catch {
+      toast.error(t('sso_req_failed'));
+    } finally { setBusy(false); }
+  };
+  return (
+    <div data-testid="company-signin-card"><Card>
+      <CardHeader title={t('sso_req_title')} subtitle={t('sso_req_sub')} />
+      <CardBody>
+        <div className="flex items-start justify-between gap-4">
+          <ul className="space-y-1.5 text-sm text-slate-300">
+            <li>• {t('sso_req_l1')}</li>
+            <li>• {t('sso_req_l2')}</li>
+            <li>• {t('sso_req_l3')}</li>
+          </ul>
+          <button type="button" role="switch" aria-checked={on} aria-label={t('sso_req_title')}
+            disabled={!canChange || busy} onClick={() => set(!on)}
+            className={'relative w-11 h-6 rounded-full transition-colors flex-shrink-0 disabled:opacity-40 ' + (on ? 'bg-emerald-500' : 'bg-slate-700')}>
+            <div className={'absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ' + (on ? 'translate-x-5' : 'translate-x-0.5')} />
+          </button>
+        </div>
+        {why && <p className="mt-3 text-xs text-slate-500" data-testid="company-signin-why">{why}</p>}
+        <p className="mt-4 text-xs text-slate-400">{t('set_sso_desc')}</p>
+        <button onClick={() => navigate('/settings?tab=integrations')} className="text-xs text-blue-300 font-semibold hover:underline mt-2 inline-block">{t('set_view_integrations')}</button>
+      </CardBody>
+    </Card></div>
+  );
+}
+
+export function SecurityTab({ t, firebaseUser, qc }) {
   const { language } = useLang();
 
   const enforced = [
@@ -84,6 +149,7 @@ export function SecurityTab({ t, firebaseUser, qc }) {
   return (
     <div className="space-y-4">
       <TwoStepCard firebaseUser={firebaseUser} t={t} language={language} />
+      <CompanySignInCard firebaseUser={firebaseUser} qc={qc} t={t} />
       <ScreenProtectionCard firebaseUser={firebaseUser} qc={qc} t={t} />
       <Card>
         <CardHeader title={t('sec_real_title')} subtitle={t('sec_real_sub')} />
@@ -104,23 +170,6 @@ export function SecurityTab({ t, firebaseUser, qc }) {
           <div className="font-bold text-white text-sm mb-1">{t('sec_roadmap_title')}</div>
           <p className="text-xs text-slate-400">{t('sec_roadmap_body')}</p>
           <p className="text-xs text-slate-400 mt-2">{t('sec_real_appcheck')}</p>
-        </CardBody>
-      </Card>
-
-      <Card className="border-amber-500/20 bg-amber-500/5">
-        <CardBody>
-          <div className="flex items-start gap-3">
-            <AlertTriangle className="h-5 w-5 text-amber-400 flex-shrink-0 mt-0.5" />
-            <div>
-              <div className="font-bold text-white text-sm mb-1">{t('sso_enterprise')}</div>
-              <p className="text-xs text-slate-400">{t('set_sso_desc')}</p>
-              {/* Google and Microsoft sign-in work on every plan; Okta, SAML
-                  and company-wide enforcement are in no plan (this used to
-                  point at Enterprise, which has none of them either).
-                  Directory sync is in Integrations. */}
-              <button onClick={() => navigate('/settings?tab=integrations')} className="text-xs text-amber-400 font-semibold hover:underline mt-2 inline-block">{t('set_view_integrations')}</button>
-            </div>
-          </div>
         </CardBody>
       </Card>
     </div>

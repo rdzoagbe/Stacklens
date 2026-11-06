@@ -19,6 +19,7 @@ import {
   computeSecurityScore,
   validateEmail,
   validateRequired,
+  hasLeft,
 } from './dataUtils';
 
 // Helpers
@@ -143,6 +144,18 @@ describe('computeAccessDerivedRiskFlag', () => {
   it('returns former_employee for offboarded employee', () => {
     const emp = { e1: makeEmp({ status: 'offboarded' }) };
     expect(computeAccessDerivedRiskFlag(makeAccess(), emp, byTool)).toBe('former_employee');
+  });
+
+  it('returns former_employee when the end date has passed, even with the row still active', () => {
+    const emp = { e1: makeEmp({ status: 'active', end_date: '2020-01-31' }) };
+    expect(computeAccessDerivedRiskFlag(makeAccess(), emp, byTool)).toBe('former_employee');
+    // A future end date is a planned departure, not a departure.
+    const future = { e1: makeEmp({ status: 'active', end_date: '2999-01-01' }) };
+    expect(computeAccessDerivedRiskFlag(makeAccess(), future, byTool)).toBe('none');
+    expect(hasLeft({ end_date: '2020-01-31' })).toBe(true);
+    expect(hasLeft({ end_date: '' })).toBe(false);
+    expect(hasLeft({ end_date: 'soon' })).toBe(false);
+    expect(hasLeft({ end_date: '2026-03-01' }, '2026-03-01')).toBe(false);
   });
 
   it('returns needs_review for offboarding employee', () => {

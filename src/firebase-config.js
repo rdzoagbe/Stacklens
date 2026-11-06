@@ -1020,6 +1020,7 @@ async function callWorkspace(body) {
     // A machine-readable reason, so a caller can act on it rather than parse
     // the message — e.g. 'subscription_active' from deleteaccount.
     if (data.code) err.code = data.code;
+    if (data.signed_in_with) err.signed_in_with = data.signed_in_with;
     throw err;
   }
   return data;
@@ -1169,6 +1170,24 @@ export async function founderTestEmail(to) {
 // Sets plan='trial' and trial_started_at on /users/{uid}.
 // Best-effort: silently fails if Firestore rules reject (Cloud Function may have already set it).
 // ============================================================================
+
+// ── Mandatory company sign-in (src/lib/sso.js) ─────────────────────────────
+/** The provider that started this session: 'google.com', 'password', ... */
+export async function currentSignInProvider() {
+  const u = auth?.currentUser;
+  if (!u) return '';
+  try { return String((await u.getIdTokenResult()).signInProvider || ''); }
+  catch { return ''; }
+}
+
+/**
+ * The owner's switch, on /users/{uid}. firestore.rules accepts the write
+ * only from a Google or Microsoft session; a refusal arrives as the error.
+ */
+export async function setSsoRequired(uid, value) {
+  if (!firestoreDb) throw new Error('Not connected');
+  await setDoc(doc(firestoreDb, 'users', uid), { sso_required: value === true }, { merge: true });
+}
 
 export async function startTrial(uid) {
   if (!firestoreDb) return;

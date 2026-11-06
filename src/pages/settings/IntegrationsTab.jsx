@@ -124,7 +124,7 @@ function clearMSALInteractionState() {
   }
 }
 
-// `scopes` is a parameter so write-back can request User.ReadWrite.All
+// `scopes` is a parameter so write-back can request User.EnableDisableAccount.All
 // incrementally — a customer who only syncs their directory is never asked to
 // grant Stacklens permission to change their tenant.
 export async function acquireMSToken(scopes = GRAPH_SCOPES) {

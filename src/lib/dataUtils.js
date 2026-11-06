@@ -49,6 +49,12 @@ export function getRiskEvidence(tool) {
   return reasons;
 }
 
+/** True when the person's end date is before today (date only, no clock). */
+export function hasLeft(emp, today = new Date().toISOString().slice(0, 10)) {
+  const end = String(emp?.end_date || '').slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(end) && end < today;
+}
+
 export function computeAccessDerivedRiskFlag(accessRow, employeesById, toolsById) {
   const emp  = employeesById[accessRow.employee_id];
   const tool = toolsById[accessRow.tool_id];
@@ -57,6 +63,11 @@ export function computeAccessDerivedRiskFlag(accessRow, employeesById, toolsById
 
   if (accessRow.status !== 'active') return 'none';
   if (emp?.status === 'offboarded')  return 'former_employee';
+  // An end date that has passed is a departure whether or not anyone pressed
+  // Offboard: a contract that ended last month (a freelancer, an intermittent,
+  // a fixed-term hire) with the row still 'active' used to count as a normal
+  // employee and fall out of every list.
+  if (emp && emp.status !== 'offboarding' && hasLeft(emp)) return 'former_employee';
   if (emp?.status === 'offboarding') return 'needs_review';
   if (ownerMissing)                  return 'orphaned';
   if (toolStatus === 'unused')       return 'unused';

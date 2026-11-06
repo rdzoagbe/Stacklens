@@ -49,15 +49,17 @@ describe('recoverable spend counts only what is really recoverable', () => {
     expect(w.recoverable).toBe(0);
   });
 
-  it('ignores archived tools and counts each grant once', () => {
+  it('ignores archived and decommissioned tools, keeps an unused one, and counts each grant once', () => {
     const db = {
-      tools: [tool('a', 100, { status: 'archived' }), tool('b', 60)],
+      tools: [tool('a', 100, { status: 'archived' }), tool('b', 60), tool('c', 40, { status: 'decommissioned' }), tool('d', 20, { status: 'unused' })],
       access: [grant('b'), grant('b')],
     };
     const enriched = enrichToolCosts(db);
-    expect(enriched).toHaveLength(1);
+    expect(enriched.map((t) => t.id)).toEqual(['b', 'd']);
     expect(enriched[0].activeUsers).toBe(2);
     expect(enriched[0].costPerUser).toBe(30);
+    // The tool marked unused is the savings, not a tool to hide.
+    expect(enriched[1]).toMatchObject({ wasteReason: 'no-users', cost: 20 });
   });
 
   it('survives an empty or malformed workspace', () => {

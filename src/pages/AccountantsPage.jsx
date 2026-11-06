@@ -182,7 +182,7 @@ function EarlyAccess({ t }) {
             </label>
           </div>
           <label className="flex items-start gap-2.5 text-sm text-slate-300 mb-3 cursor-pointer">
-            <input type="checkbox" checked={form.consent} onChange={set('consent')} className="mt-1 accent-blue-500" />
+            <input type="checkbox" checked={form.consent} onChange={set('consent')} className="mt-1 h-4 w-4 accent-blue-500" />
             <span>{t('ea_form_consent')}</span>
           </label>
           <p className="text-xs text-slate-500 mb-5">

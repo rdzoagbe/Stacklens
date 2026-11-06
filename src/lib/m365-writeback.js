@@ -12,10 +12,15 @@
 // tenant, which is exactly the risk the Offboarding page is about.
 //
 // SCOPE
-// Requested incrementally. Directory sync keeps User.Read.All; the broader
-// User.ReadWrite.All is only requested the first time someone actually blocks
-// a user, so customers who just want to import their directory never have to
-// grant write access to their tenant.
+// Requested incrementally. Directory sync keeps User.Read.All; the write
+// permission is only requested the first time someone actually blocks a
+// user, so customers who just want to import their directory never have to
+// grant write access to their tenant. And the write permission is the
+// narrowest Microsoft offers for this: User.EnableDisableAccount.All lets a
+// caller change accountEnabled and nothing else (it used to be the full
+// user-write permission, which edits every attribute of every user, and a
+// tenant administrator was right to refuse that for one action). Graph still
+// needs User.Read.All beside it to read the account first.
 //
 // SAFETY
 // The email in Stacklens is user-entered and may not match the tenant exactly,
@@ -28,8 +33,9 @@
 
 const GRAPH = 'https://graph.microsoft.com/v1.0';
 
-/** Scope needed to change accountEnabled. Requested only when blocking. */
-export const GRAPH_WRITE_SCOPES = ['https://graph.microsoft.com/User.ReadWrite.All'];
+/** Scopes needed to change accountEnabled, and nothing else. Requested only when blocking. */
+export const GRAPH_WRITE_SCOPES = ['https://graph.microsoft.com/User.EnableDisableAccount.All', 'https://graph.microsoft.com/User.Read.All'];
+export const GRAPH_WRITE_PERMISSION = 'User.EnableDisableAccount.All';
 
 export class M365WriteError extends Error {
   constructor(code, message) {
@@ -58,7 +64,7 @@ export async function resolveGraphUser(email, accessToken, fetchImpl = fetch) {
   const res = await fetchImpl(url, { headers: { Authorization: `Bearer ${accessToken}` } });
   if (res.status === 403) {
     throw new M365WriteError('forbidden',
-      'Microsoft refused the change. A Global Administrator must approve the User.ReadWrite.All permission for Stacklens.');
+      'Microsoft refused the change. A Global Administrator must approve the User.EnableDisableAccount.All permission for Stacklens.');
   }
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
@@ -104,7 +110,7 @@ export async function blockGraphUserSignIn(email, accessToken, fetchImpl = fetch
 
   if (res.status === 403) {
     throw new M365WriteError('forbidden',
-      'Microsoft refused the change. The signing-in user must be able to manage this account, and Stacklens needs User.ReadWrite.All admin consent.');
+      'Microsoft refused the change. The signing-in user must be able to manage this account, and Stacklens needs User.EnableDisableAccount.All admin consent.');
   }
   // Graph refuses to disable privileged accounts unless the caller outranks
   // them; surface that plainly rather than as a generic failure.
