@@ -70,6 +70,7 @@ const {
   REV_FIELD, revOf, nextRev, isStaleWrite,
   monthlySpend, billedToolCount, NOT_BILLED_STATUS,
 } = require('./workspace-write.js');
+const { ssoRefusal } = require('./sso-policy');
 const { purgeAccount, subscriptionBlocksDeletion } = require('./purge-account.js');
 const { appendToChain, readChain } = require('./audit-chain.js');
 const { shouldAlert, recordAlert, MAX_PER_HOUR } = require('./crash-alerts.js');
@@ -1371,6 +1372,18 @@ exports.workspace = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, re
       try { await appendToChain(db, workspaceId, [{ action: auditAction, details }], actor, new Date(), { server: true }); }
       catch (err) { console.error('[audit-chain] append failed', auditAction, err?.message); }
     };
+    // Mandatory company sign-in (functions/sso-policy.js). The policy is the
+    // owner's /users document, or the agency's for a client workspace, and
+    // it is checked against the session that started this token. Answers
+    // the refusal itself; the caller returns on true.
+    const ssoGate = async (target, org) => {
+      const policyUid = org?.owner_uid || target;
+      const policySnap = await db.collection('users').doc(policyUid).get();
+      const refusal = ssoRefusal(policySnap.exists ? policySnap.data() : null, decoded);
+      if (!refusal) return false;
+      res.status(403).json(refusal);
+      return true;
+    };
     // Who may touch another workspace's chain: the same rule as read/write.
     const accessTo = async (target) => {
       const orgSnap = isClientOrgId(target) ? await db.collection('client_orgs').doc(target).get() : null;
@@ -1609,7 +1622,8 @@ exports.workspace = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, re
           if (org && isOrgDeleted(org)) return res.status(409).json({ error: 'This client workspace is deleted.' });
           try { assertCanWrite(access && { role: access.role }); }
           catch (err) { return res.status(err.httpStatus || 403).json({ error: err.message }); }
-        }
+          if (await ssoGate(target, org)) return;
+        } else if (await ssoGate(target, null)) return;
         const out = await appendToChain(db, target, req.body?.events, actor);
         return res.json({ ok: true, ...out });
       }
@@ -1619,9 +1633,10 @@ exports.workspace = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, re
       if (action === 'auditchain') {
         const target = String(ownerUid || decoded.uid);
         if (target !== decoded.uid) {
-          const { access } = await accessTo(target);
+          const { org, access } = await accessTo(target);
           if (!access) return res.status(403).json({ error: 'Not a member of this workspace' });
-        }
+          if (await ssoGate(target, org)) return;
+        } else if (await ssoGate(target, null)) return;
         const { head, check, truncated, newest } = await readChain(db, target);
         return res.json({ ...check, truncated, head_hash: head?.head_hash || null, rows: newest });
       }
@@ -1637,6 +1652,7 @@ exports.workspace = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, re
           callerUid: decoded.uid, callerEmail,
         });
         if (!access) return res.status(403).json({ error: 'Not a member of this workspace' });
+        if (await ssoGate(target, orgSnap?.exists ? orgSnap.data() : null)) return;
         const me = snap.docs.find(d => d.data().member_uid === decoded.uid ||
           (callerEmail && d.data().member_email === callerEmail));
         if (me && !me.data().member_uid) await me.ref.update({ member_uid: decoded.uid, status: 'accepted' });
@@ -1659,6 +1675,9 @@ exports.workspace = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, re
           subscription_plan: planSource.subscription_plan || planSource.plan || 'free',
           is_founder: planSource.is_founder === true,
           is_client_org: u.is_client_org === true,
+          // The owner's (or the agency's) company sign-in policy, read fresh
+          // in ssoGate; the member's screen shows it and cannot change it.
+          sso_required: planSource.sso_required === true,
         };
         delete data._uid;
         return res.json({ data, role: access.role });
@@ -1714,6 +1733,7 @@ exports.workspace = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, re
         } catch (err) {
           return res.status(err.httpStatus || 403).json({ error: err.message });
         }
+        if (await ssoGate(target, orgSnap?.exists ? orgSnap.data() : null)) return;
 
         const ownerRef = db.collection('userdata').doc(target);
         const ownerSnap = await ownerRef.get();

@@ -8,9 +8,12 @@ vi.mock('../../firebase-config', () => ({
   saveUserData: vi.fn().mockResolvedValue(1), loadUserData: vi.fn().mockResolvedValue(null), logConsent: vi.fn(),
   secondFactors: vi.fn(() => []), startTwoStep: vi.fn(), finishTwoStep: vi.fn(), removeTwoStep: vi.fn(),
   resendEmailVerification: vi.fn(async () => ({ error: null })), addVerifiedEmail: vi.fn(async () => ({ error: null })), refreshEmailVerified: vi.fn(async () => ({ verified: false, error: null })),
+  setSsoRequired: vi.fn(async () => {}),
 }));
+vi.mock('react-hot-toast', () => ({ default: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }) }));
 
-import { saveUserData, secondFactors, startTwoStep, finishTwoStep, resendEmailVerification, refreshEmailVerified, addVerifiedEmail } from '../../firebase-config';
+import toast from 'react-hot-toast';
+import { saveUserData, secondFactors, startTwoStep, finishTwoStep, resendEmailVerification, refreshEmailVerified, addVerifiedEmail, setSsoRequired } from '../../firebase-config';
 import { loadDb } from '../../lib/db';
 import { translations } from '../../translations';
 import { SecurityTab } from './SecurityTab';
@@ -68,6 +71,71 @@ describe('the screen-protection switch', () => {
     expect(sw().disabled).toBe(true);
     expect(document.body.textContent).toContain('belongs to the workspace owner');
     expect(saveUserData).not.toHaveBeenCalled();
+  });
+});
+
+describe('the company sign-in switch', () => {
+  const card = () => document.querySelector('[data-testid="company-signin-card"]');
+  const ssw = () => card().querySelector('[role="switch"]');
+  const why = () => document.querySelector('[data-testid="company-signin-why"]')?.textContent || '';
+  const via = (signInProvider, uid = 'u1') => ({ uid, getIdTokenResult: async () => ({ signInProvider }) });
+
+  it('a Google session turns it on and off, writing the users document, and the card says what it does', async () => {
+    await mount({}, {}, via('google.com'));
+    expect(ssw().getAttribute('aria-checked')).toBe('false');
+    expect(ssw().disabled).toBe(false);
+    expect(why()).toBe('');
+    expect(card().textContent).toContain('refused by the server');
+    expect(card().textContent).toContain('Okta and SAML 2.0');
+    await act(async () => { ssw().click(); });
+    await settle();
+    expect(setSsoRequired).toHaveBeenCalledWith('u1', true);
+    expect(loadDb().user.sso_required).toBe(true);
+    expect(ssw().getAttribute('aria-checked')).toBe('true');
+    expect(toast.success).toHaveBeenCalledWith('Company sign-in is now required for this workspace.');
+    await act(async () => { ssw().click(); });
+    await settle();
+    expect(setSsoRequired).toHaveBeenLastCalledWith('u1', false);
+    expect(loadDb().user.sso_required).toBe(false);
+  });
+
+  it('a Microsoft session may too; a password session reads the state and is told to sign in with Google or Microsoft', async () => {
+    await mount({ sso_required: true }, {}, via('microsoft.com'));
+    expect(ssw().disabled).toBe(false);
+    expect(ssw().getAttribute('aria-checked')).toBe('true');
+    await act(async () => root.unmount()); root = null; document.body.innerHTML = '';
+    await mount({ sso_required: true }, {}, via('password'));
+    expect(ssw().getAttribute('aria-checked')).toBe('true');
+    expect(ssw().disabled).toBe(true);
+    expect(why()).toMatch(/Sign in with Google or Microsoft to change this/);
+    await act(async () => { ssw().click(); });
+    expect(setSsoRequired).not.toHaveBeenCalled();
+  });
+
+  it('a refusal from the rules is reported, and the local copy stays as it was', async () => {
+    setSsoRequired.mockRejectedValueOnce(new Error('permission-denied'));
+    await mount({}, {}, via('google.com'));
+    await act(async () => { ssw().click(); });
+    await settle();
+    expect(toast.error).toHaveBeenCalledWith('Could not save. Sign in again with Google or Microsoft and retry.');
+    expect(loadDb().user.sso_required).toBeUndefined();
+    expect(ssw().getAttribute('aria-checked')).toBe('false');
+  });
+
+  it('an editor, a teammate in someone else’s workspace and the demo cannot change it', async () => {
+    await mount({ role: 'editor' }, {}, via('google.com'));
+    expect(ssw().disabled).toBe(true);
+    expect(why()).toBe('Only an owner or admin can change this.');
+    await act(async () => root.unmount()); root = null; document.body.innerHTML = '';
+    await mount({ role: 'owner', sso_required: true }, { _shared_view: { owner_uid: 'o', role: 'editor' } }, via('google.com'));
+    expect(ssw().disabled).toBe(true);
+    expect(ssw().getAttribute('aria-checked')).toBe('true');
+    expect(why()).toContain('belongs to the workspace owner');
+    await act(async () => root.unmount()); root = null; document.body.innerHTML = '';
+    await mount({ is_demo: true }, {}, via('google.com'));
+    expect(ssw().disabled).toBe(true);
+    expect(why()).toBe('Not in the demo.');
+    expect(setSsoRequired).not.toHaveBeenCalled();
   });
 });
 

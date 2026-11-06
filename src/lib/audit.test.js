@@ -286,12 +286,25 @@ describe('the security tab does not offer controls that do nothing', () => {
       .not.toContain('sg_security');
   });
 
-  it('offers no toggle or setting at all', () => {
+  it('offers no toggle or setting that nothing enforces', () => {
     // If a control returns here it must be enforced somewhere, and this test
-    // is the place to record where. Until then, no switches.
+    // is the place to record where.
     expect(tab).not.toMatch(/<Toggle/);
     expect(tab).not.toMatch(/<select/);
-    expect(tab).not.toMatch(/useState/);
+    // The two switches it has, and where each is enforced:
+    // - screen protection: lib/screenProtection.js + components/ScreenProtection.jsx
+    //   (a deterrent, and the card says so);
+    // - company sign-in: /users/{uid}.sso_required, applied by firestore.rules
+    //   (ssoSatisfied on /userdata) and by the workspace function (ssoGate)
+    //   for members; only a Google or Microsoft session may change it.
+    const switches = tab.match(/role="switch"/g) || [];
+    expect(switches).toHaveLength(2);
+    expect(tab).toMatch(/PROTECTION_FIELD/);
+    expect(tab).toMatch(/setSsoRequired\(firebaseUser\.uid, value\)/);
+    const rules = readFileSync(resolve(process.cwd(), 'firestore.rules'), 'utf8');
+    expect(rules).toMatch(/allow read: if isOwner\(uid\) && ssoSatisfied\(uid\);/);
+    expect(rules).toMatch(/allow write: if isOwner\(uid\) && ssoSatisfied\(uid\);/);
+    expect(readFileSync(resolve(process.cwd(), 'functions/index.js'), 'utf8')).toMatch(/await ssoGate\(target/);
   });
 
   it('says plainly what is not available, rather than leaving it to inference', () => {

@@ -20,6 +20,7 @@ import {
 import { downloadWorkspaceExport } from '../lib/workspace-export';
 import { track } from '../lib/analytics';
 import { enterSharedView, getSharedView } from '../lib/db';
+import { isSsoRefusal, raiseSsoBlock } from '../lib/sso';
 import { resolvePlan } from '../lib/plan';
 import { useAuth } from './useAuth';
 import { useLang } from '../contexts/LangContext';
@@ -104,7 +105,10 @@ export function useClientWorkspaces() {
       toast.success(effective === 'editor' ? t('ws_opened_edit') : t('ws_opened'));
       return true;
     } catch (err) {
-      toast.error(t('ws_open_failed') + ': ' + (err.message || ''));
+      // The owner requires company sign-in and this session is not one:
+      // the screen says which button to use (components/CompanySignInRequired).
+      if (isSsoRefusal(err)) raiseSsoBlock({ scope: 'shared', owner: w.owner_email || '', signedInWith: err.signed_in_with || '' });
+      else toast.error(t('ws_open_failed') + ': ' + (err.message || ''));
       return false;
     } finally { setBusy(false); }
   }, [busy, qc, t]);

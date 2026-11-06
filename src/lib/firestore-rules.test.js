@@ -200,6 +200,70 @@ describe('/users — the trial cannot be replayed', () => {
   });
 });
 
+describe('/users and /userdata — mandatory company sign-in', () => {
+  // The session's provider is a token claim; the harness lets a test set it.
+  const asAliceVia = (sign_in_provider) =>
+    testEnv.authenticatedContext(ALICE, { email: 'alice@acme.fr', email_verified: true, firebase: { sign_in_provider } }).firestore();
+  const requireSso = () => admin(db => setDoc(doc(db, 'users', ALICE), { plan: 'free', sso_required: true }));
+  const seedData = () => admin(async (db) => {
+    await setDoc(doc(db, 'userdata', ALICE), { tools: [{ name: 'CRM' }] });
+    await setDoc(doc(db, 'userdata', ALICE, 'chunks', 'employees_0'), { items: ['pii'] });
+  });
+
+  it('without the switch, a password session reads and writes as before', async () => {
+    await admin(db => setDoc(doc(db, 'users', ALICE), { plan: 'free' }));
+    await seedData();
+    await assertSucceeds(getDoc(doc(asAliceVia('password'), 'userdata', ALICE)));
+    await assertSucceeds(setDoc(doc(asAliceVia('password'), 'userdata', ALICE), { tools: [] }));
+    await assertSucceeds(getDoc(doc(asAliceVia('password'), 'userdata', ALICE, 'chunks', 'employees_0')));
+  });
+
+  it('with the switch on, the owner’s password session reaches neither the document nor a chunk', async () => {
+    await requireSso(); await seedData();
+    const pw = asAliceVia('password');
+    await assertFails(getDoc(doc(pw, 'userdata', ALICE)));
+    await assertFails(setDoc(doc(pw, 'userdata', ALICE), { tools: [] }));
+    await assertFails(getDoc(doc(pw, 'userdata', ALICE, 'chunks', 'employees_0')));
+    await assertFails(setDoc(doc(pw, 'userdata', ALICE, 'chunks', 'employees_0'), { items: [] }));
+    await assertFails(getDocs(collection(pw, 'userdata', ALICE, 'chunks')));
+  });
+
+  it('the same owner signed in with Google or Microsoft reads and writes', async () => {
+    await requireSso(); await seedData();
+    for (const via of ['google.com', 'microsoft.com']) {
+      await assertSucceeds(getDoc(doc(asAliceVia(via), 'userdata', ALICE)));
+      await assertSucceeds(setDoc(doc(asAliceVia(via), 'userdata', ALICE), { tools: [] }));
+      await assertSucceeds(getDocs(collection(asAliceVia(via), 'userdata', ALICE, 'chunks')));
+      await assertSucceeds(setDoc(doc(asAliceVia(via), 'userdata', ALICE, 'chunks', 'employees_0'), { items: [] }));
+    }
+  });
+
+  it('only a Google or Microsoft session can turn the switch on or off', async () => {
+    await admin(db => setDoc(doc(db, 'users', ALICE), { plan: 'free' }));
+    await assertFails(updateDoc(doc(asAliceVia('password'), 'users', ALICE), { sso_required: true }));
+    await assertSucceeds(updateDoc(doc(asAliceVia('google.com'), 'users', ALICE), { sso_required: true }));
+    // A phished password cannot switch it off first; the Google session can.
+    await assertFails(updateDoc(doc(asAliceVia('password'), 'users', ALICE), { sso_required: false }));
+    await assertFails(setDoc(doc(asAliceVia('password'), 'users', ALICE), { sso_required: false }, { merge: true }));
+    await assertSucceeds(updateDoc(doc(asAliceVia('microsoft.com'), 'users', ALICE), { sso_required: false }));
+    // The password session may still read its own user document (that is how
+    // the app learns it must show the sign-in screen) and change other fields.
+    await admin(db => updateDoc(doc(db, 'users', ALICE), { sso_required: true }));
+    await assertSucceeds(getDoc(doc(asAliceVia('password'), 'users', ALICE)));
+    await assertSucceeds(updateDoc(doc(asAliceVia('password'), 'users', ALICE), { company: 'Acme' }));
+  });
+
+  it('a new user document cannot start with the switch on from a password session', async () => {
+    await assertFails(setDoc(doc(asAliceVia('password'), 'users', ALICE), { plan: 'free', sso_required: true }));
+    await assertSucceeds(setDoc(doc(asAliceVia('google.com'), 'users', ALICE), { plan: 'free', sso_required: true }));
+  });
+
+  it('a token that names no provider counts as not company sign-in', async () => {
+    await requireSso(); await seedData();
+    await assertFails(getDoc(doc(asAlice(), 'userdata', ALICE)));
+  });
+});
+
 describe('/audit_chains — the audit trail is written by the server only', () => {
   it('the owner cannot add, change or delete a row of their own trail', async () => {
     await admin(db => setDoc(doc(db, 'audit_chains', ALICE, 'events', '000000000001'), { seq: 1, action: 'tool.created' }));
