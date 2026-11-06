@@ -457,7 +457,9 @@ describe('small claims', () => {
     for (const name of ['Free', 'Starter', 'HR & Finance', 'Pro', 'Enterprise']) {
       expect(html, name).toMatch(new RegExp(`"name": "${name.replace('&', '&')}"`));
     }
-    expect(html).toMatch(/us-central1/);
+    // No FAQ structured data: Google requires it to match the visible FAQ,
+    // and the visible FAQ is translated copy the static file cannot carry.
+    expect(html).not.toMatch(/FAQPage/);
   });
 
   it('Web3Forms is described as receiving name and email, which it does', () => {

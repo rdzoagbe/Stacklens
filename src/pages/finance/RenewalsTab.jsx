@@ -347,7 +347,7 @@ export function RenewalAlerts() {
                   <span className="text-red-400 font-semibold">{Math.abs(mostUrgent.daysUntil)} {t('ren_days_overdue')}</span>
                 ) : (
                   <>{t('ren_renews_in')} <span className="text-red-400 font-semibold">{mostUrgent.daysUntil} {t('days')}</span></>
-                )} · {formatMoney(Math.round(mostUrgent.annualCost), language)}/year
+                )} · {formatMoney(Math.round(mostUrgent.annualCost), language)}{t('per_year')}
                 {mostUrgent.autoRenew && <span className="ml-2 text-amber-400">· {t('ren_auto_renewing')}</span>}
               </div>
             </div>

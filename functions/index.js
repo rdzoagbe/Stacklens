@@ -68,7 +68,7 @@ const {
   currencySymbol,
   RETENTION_DAYS, softDeleteFields, restoreFields, isOrgDeleted, daysUntilPurge, isPurgeDue,
   REV_FIELD, revOf, nextRev, isStaleWrite,
-  monthlySpend, billedToolCount, NOT_BILLED_STATUS,
+  monthlySpend, billedToolCount, NOT_BILLED_STATUSES,
 } = require('./workspace-write.js');
 const { ssoRefusal } = require('./sso-policy');
 const { purgeAccount, subscriptionBlocksDeletion } = require('./purge-account.js');
@@ -2448,7 +2448,7 @@ exports.weeklySummary = onSchedule({
     const access    = data?.access    || [];
 
     // ── Metrics ──────────────────────────────────────────────────────────
-    const activeTools   = tools.filter(t => t.status !== NOT_BILLED_STATUS);
+    const activeTools   = tools.filter(t => !NOT_BILLED_STATUSES.includes(t.status));
     // Was its own reduce over the same filter. Identical result, but it was
     // the fifth hand-written definition of this figure and the one customers
     // actually receive by email — so it is the last place that should have

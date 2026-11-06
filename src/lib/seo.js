@@ -93,16 +93,28 @@ export const PAGE_SEO = {
   // name so they read whole in a result; descriptions are French-first
   // because that is who they are for.
   '/experts-comptables': {
-    title: 'Stacklens pour les experts-comptables',
-    description: "Un audit SaaS pour chaque client, en cinq minutes. Stacklens donne aux experts-comptables et DAF externalisés une vue des abonnements logiciels, des doublons et des renouvellements de tous leurs clients, depuis un seul compte.",
+    title: 'Stacklens for accountants',
+    description: "A SaaS audit for every client in five minutes. Stacklens gives accounting firms and outsourced CFOs one view of every client's software subscriptions, duplicates and renewals, from a single account.",
+    fr: {
+      title: 'Stacklens pour les experts-comptables',
+      description: "Un audit SaaS pour chaque client, en cinq minutes. Stacklens donne aux experts-comptables et DAF externalisés une vue des abonnements logiciels, des doublons et des renouvellements de tous leurs clients, depuis un seul compte.",
+    },
   },
   '/direction-financiere': {
-    title: 'Stacklens pour les directions financières',
-    description: "Budgets logiciels par service, factures fournisseurs contrôlées contre le prix convenu, renouvellements à venir et rapport budgétaire exportable : Stacklens tient les dépenses logicielles dont le DAF et le contrôleur de gestion sont garants.",
+    title: 'Stacklens for finance leads',
+    description: "Software budgets by department, supplier invoices checked against the agreed price, upcoming renewals and an exportable budget report: Stacklens keeps the software spend a CFO and a controller answer for.",
+    fr: {
+      title: 'Stacklens pour les directions financières',
+      description: "Budgets logiciels par service, factures fournisseurs contrôlées contre le prix convenu, renouvellements à venir et rapport budgétaire exportable : Stacklens tient les dépenses logicielles dont le DAF et le contrôleur de gestion sont garants.",
+    },
   },
   '/audit-saas': {
-    title: 'Audit SaaS gratuit',
-    description: "Déposez un export bancaire, obtenez la liste des abonnements logiciels récurrents, des doublons, des hausses de prix et des renouvellements à venir. Tout se passe dans votre navigateur : rien n'est envoyé à Stacklens.",
+    title: 'Free SaaS audit',
+    description: "Drop a bank export and get the list of recurring software subscriptions, duplicates, price rises and upcoming renewals. Everything happens in your browser: nothing is sent to Stacklens.",
+    fr: {
+      title: 'Audit SaaS gratuit',
+      description: "Déposez un export bancaire, obtenez la liste des abonnements logiciels récurrents, des doublons, des hausses de prix et des renouvellements à venir. Tout se passe dans votre navigateur : rien n'est envoyé à Stacklens.",
+    },
   },
   '/legal': {
     title: 'Legal Notice',

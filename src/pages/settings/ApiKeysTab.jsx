@@ -3,18 +3,23 @@ import toast from 'react-hot-toast';
 import { Zap, RefreshCw, Copy } from 'lucide-react';
 import { Card, CardHeader, CardBody } from '../../components/ui';
 import { apiKeysList, apiKeysCreate, apiKeysRevoke, API_BASE_URL } from '../../firebase-config';
+import { useDbQuery } from '../../hooks/useDbQuery';
 
 // API_RATE_LIMIT in functions/index.js; claims.test.js holds the two equal.
 export const API_CALLS_PER_HOUR = 120;
 
 export function ApiKeysTab({ t }) {
+  const { data: db } = useDbQuery();
+  const isDemo = db?.user?.is_demo === true;
   const [apiKeys, setApiKeys] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!isDemo);
   const [busy, setBusy] = useState(false);
   const [newKeyName, setNewKeyName] = useState('');
   const [showNewKey, setShowNewKey] = useState(null);
 
   useEffect(() => {
+    // The demo has no account and no keys: nothing to load, no error to show.
+    if (isDemo) return undefined;
     let cancelled = false;
     (async () => {
       try {
@@ -27,7 +32,7 @@ export function ApiKeysTab({ t }) {
       }
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [isDemo]);
 
   const refresh = async () => {
     try { setApiKeys((await apiKeysList()).keys); } catch { /* keep current list */ }

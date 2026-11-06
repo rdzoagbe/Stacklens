@@ -479,7 +479,7 @@ export function TrialPage() {
               sub: c.monthly === 0 ? t('forever') : t('per_month'),
               features: planFeatures(c.id, language),
               cta: c.id === 'free' ? t('start_free') : t('start_trial'),
-              highlight: c.id === 'pro', badge: c.id === 'hr_finance' ? 'NEW' : null,
+              highlight: c.id === 'pro', badge: c.id === 'hr_finance' ? t('lp_badge_new') : null,
             })).map((p, i) => (
               <div
                 key={i}
@@ -684,7 +684,7 @@ export function TrialPage() {
            UNIFIED AUTH MODAL — Create Account / Sign In / SSO
           ══════════════════════════════════════════════════════ */}
       {showAuth && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4"
           style={{background:'rgba(2,6,23,0.85)', backdropFilter:'blur(12px)'}}>
           <div className="relative w-full max-w-md bg-slate-900 border border-slate-700/60 rounded-3xl shadow-2xl overflow-hidden"
             style={{boxShadow:'0 0 80px rgba(59,130,246,0.15)'}}>

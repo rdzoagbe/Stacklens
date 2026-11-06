@@ -17,7 +17,7 @@ export const LEGAL_UPDATED = '2026-11-06';
 const LOCALE_OF = { en: 'en-GB', fr: 'fr-FR', de: 'de-DE', es: 'es-ES', pt: 'pt-PT' };
 // The legal notice (mentions légales) last changed in May 2026; only the month
 // is known, so only the month is shown.
-const LEGAL_NOTICE_UPDATED = '2026-05';
+const LEGAL_NOTICE_UPDATED = '2026-11-06';
 function legalDate(language, iso = LEGAL_UPDATED) {
   const monthOnly = iso.length === 7;
   return new Date((monthOnly ? iso + '-15' : iso) + 'T12:00:00Z').toLocaleDateString(LOCALE_OF[language] || 'en-GB',
@@ -33,8 +33,22 @@ function DocLanguageNote({ language, t }) {
   return <p className="text-sm text-slate-500 mb-4" data-testid="doc-language-note">{t('doc_lang_note')}</p>;
 }
 
+// An unknown address used to bounce to the landing page without a word, so a
+// mistyped link read as "the site changed". Say so, and offer the way home.
 export function NotFound() {
-  return <Navigate to="/" replace />;
+  const { language } = useLang();
+  const t = useTranslation(language);
+  return (
+    <div className="min-h-screen bg-slate-950 text-white">
+      <PublicNav t={t} />
+      <div className="max-w-xl mx-auto px-6 py-24 text-center" data-testid="not-found">
+        <div className="text-6xl font-black text-slate-500 mb-4">404</div>
+        <h1 className="text-2xl font-bold mb-3">{t('nf_title')}</h1>
+        <p className="text-slate-400 mb-8">{t('nf_body')}</p>
+        <Link to="/" className="inline-block px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-xl text-sm font-semibold text-white">{t('nf_home')}</Link>
+      </div>
+    </div>
+  );
 }
 
 export function ContactPage() {
@@ -451,11 +465,11 @@ export function LegalMentionsPage() {
           <section>
             <h2 className="text-lg font-semibold text-white mb-3">{t('legal_publisher_title')}</h2>
             <p><strong>{LEGAL_ENTITY.brand}</strong></p>
-            <p>{t('legal_published_by')}: {LEGAL_ENTITY.publisher}</p>
+            <p>{t('legal_published_by')}{colon(language)}{LEGAL_ENTITY.publisher}</p>
             <p>{t('legal_status')}: {t('legal_status_value')}</p>
             <p>SIRET : {LEGAL_ENTITY.siret}</p>
             <p>Email : <a href={`mailto:${LEGAL_ENTITY.email}`} className="text-blue-400 hover:text-blue-300">{LEGAL_ENTITY.email}</a></p>
-            <p>{t('legal_phone')}: {LEGAL_ENTITY.phone}</p>
+            <p>{t('legal_phone')}{colon(language)}{LEGAL_ENTITY.phone}</p>
             <p>{t('legal_address')}: {LEGAL_ENTITY.city}</p>
           </section>
 
@@ -473,7 +487,7 @@ export function LegalMentionsPage() {
             <p>Google Ireland Limited</p>
             <p>Gordon House, Barrow Street, Dublin 4, Ireland</p>
             <p>Tél. : +353 1 543 1000</p>
-            <p>{t('legal_website')}: <a href="https://firebase.google.com" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300">firebase.google.com</a></p>
+            <p>{t('legal_website')}{colon(language)}<a href="https://firebase.google.com" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300">firebase.google.com</a></p>
           </section>
 
           {/* SECTION 4 — Domaine */}
@@ -491,14 +505,14 @@ export function LegalMentionsPage() {
             <p><strong>Stripe</strong></p>
             <p>Stripe Payments Europe, Limited</p>
             <p>1 Grand Canal Street Lower, Grand Canal Dock, Dublin, D02 H210, Ireland</p>
-            <p>{t('legal_website')}: <a href="https://stripe.com" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300">stripe.com</a></p>
+            <p>{t('legal_website')}{colon(language)}<a href="https://stripe.com" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300">stripe.com</a></p>
           </section>
 
           {/* SECTION 6 — IA (EU AI Act transparency) */}
           <section>
             <h2 className="text-lg font-semibold text-white mb-3">{t('legal_ai_title')}</h2>
             <p>{t('legal_ai_body')}</p>
-            <p className="mt-2">{t('legal_ai_provider')}: Anthropic, PBC — 548 Market St, San Francisco, CA 94104, USA</p>
+            <p className="mt-2">{t('legal_ai_provider')}{colon(language)}Anthropic, PBC — 548 Market St, San Francisco, CA 94104, USA</p>
           </section>
 
           {/* SECTION 7 — Propriété intellectuelle */}
@@ -636,7 +650,7 @@ export function PrivacyPage() {
           <section>
             <h2 className="text-xl font-bold mb-3 text-white">{t('privacy_s1_title')}</h2>
             <p>{t('privacy_s1_body')}</p>
-            <p className="mt-2"><strong>{LEGAL_ENTITY.brand}</strong> — {LEGAL_ENTITY.publisher}<br/>{LEGAL_ENTITY.city}<br/>Email: <a href={`mailto:${LEGAL_ENTITY.email}`} className="text-blue-400 hover:text-blue-300">{LEGAL_ENTITY.email}</a></p>
+            <p className="mt-2"><strong>{LEGAL_ENTITY.brand}</strong> — {LEGAL_ENTITY.publisher}<br/>{LEGAL_ENTITY.city}<br/>Email{colon(language)}<a href={`mailto:${LEGAL_ENTITY.email}`} className="text-blue-400 hover:text-blue-300">{LEGAL_ENTITY.email}</a></p>
           </section>
 
           <section>

@@ -55,6 +55,10 @@ export const EXPENSIVE_PER_USER = 200;
 
 /** The one status that means billing has stopped. */
 export const NOT_BILLED_STATUS = 'decommissioned';
+// An archived tool bills nobody either (lib/budget.js, the dashboard and the
+// Finance page already left it out); the server twin in
+// functions/workspace-write.js lists the same two.
+export const NOT_BILLED_STATUSES = ['archived', NOT_BILLED_STATUS];
 
 /**
  * The tools still being billed for.
@@ -68,7 +72,7 @@ export const NOT_BILLED_STATUS = 'decommissioned';
  */
 export function billedTools(db) {
   const tools = db && Array.isArray(db.tools) ? db.tools : [];
-  return tools.filter(t => t && t.status !== NOT_BILLED_STATUS);
+  return tools.filter(t => t && !NOT_BILLED_STATUSES.includes(t.status));
 }
 
 /**
@@ -126,10 +130,14 @@ export function activeGrantsByTool(db) {
 
 /** Active tools with their real active-grant count and unit economics. */
 export function enrichToolCosts(db) {
-  const tools = db?.tools || [];
+  // Every tool still billing (billedTools), not only status 'active': a tool
+  // marked 'unused' is exactly the one the Cost tab exists to show, and the
+  // Finance overview already counted it in the total. Filtering on 'active'
+  // here made the Cost tab's total disagree with the overview's on the same
+  // screen, and hid the clearest savings from the one figure meant to show
+  // them.
   const activeByTool = activeGrantsByTool(db);
-  return tools
-    .filter(t => t?.status === 'active')
+  return billedTools(db)
     .map(tool => {
       const activeUsers = activeByTool.get(tool.id) || 0;
       const cost = Number(tool.cost_per_month) || 0;

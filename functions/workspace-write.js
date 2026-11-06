@@ -114,16 +114,17 @@ function isStaleWrite(stored, base) {
 // the list and the page it links to disagree about the same customer's bill —
 // so they are held together by src/lib/spend-parity.test.js.
 const NOT_BILLED_STATUS = 'decommissioned';
+const NOT_BILLED_STATUSES = ['archived', NOT_BILLED_STATUS]; // = src/lib/waste.js
 
 function monthlySpend(data) {
   return (data && Array.isArray(data.tools) ? data.tools : [])
-    .filter(t => t && t.status !== NOT_BILLED_STATUS)
+    .filter(t => t && !NOT_BILLED_STATUSES.includes(t.status))
     .reduce((sum, t) => sum + (Number(t && t.cost_per_month) || 0), 0);
 }
 
 function billedToolCount(data) {
   return (data && Array.isArray(data.tools) ? data.tools : [])
-    .filter(t => t && t.status !== NOT_BILLED_STATUS).length;
+    .filter(t => t && !NOT_BILLED_STATUSES.includes(t.status)).length;
 }
 
 /**
@@ -436,7 +437,7 @@ function isPurgeDue(org, now = Date.now()) {
 module.exports = {
   PAYING_STATUSES,
   grantExpired,
-  NOT_BILLED_STATUS,
+  NOT_BILLED_STATUS, NOT_BILLED_STATUSES,
   monthlySpend,
   billedToolCount,
   REV_FIELD,

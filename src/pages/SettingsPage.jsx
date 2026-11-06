@@ -86,8 +86,8 @@ export function SettingsPage() {
   }, []);  // eslint-disable-line react-hooks/exhaustive-deps
 
   const saved = JSON.parse(localStorage.getItem('sg_general') || '{}');
-  const [orgName, setOrgName] = useState(saved.orgName || 'My Organisation');
-  const [timezone, setTimezone] = useState(saved.timezone || 'Europe/London');
+  const [orgName, setOrgName] = useState(saved.orgName || db?.user?.company || '');
+  const [timezone, setTimezone] = useState(saved.timezone || 'Europe/Paris');
   // The workspace currency. This had no setter and no control on screen, and
   // defaulted to 'GBP (£)' — so pressing Save Changes to rename an
   // organisation switched every figure in the app to pounds, a currency the
