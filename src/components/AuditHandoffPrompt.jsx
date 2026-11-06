@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
-import { Modal, Button } from './ui';
+import { Modal, Button, Input } from './ui';
 import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
 import { useDbQuery, useDbMutations } from '../hooks/useDbQuery';
@@ -9,6 +9,7 @@ import { useAuth } from '../hooks/useAuth';
 import { loadHandoff, clearHandoff, planHandoffImport } from '../lib/auditHandoff';
 import { getPlanLimits, resolvePlan } from '../lib/plan';
 import { RoleGate } from './gates';
+import { useClientWorkspaces, invalidateWorkspaceCaches } from '../hooks/useClientWorkspaces';
 
 // ── "Import the subscriptions from your free audit?" ───────────────────────
 //
@@ -26,7 +27,13 @@ export function AuditHandoffPrompt() {
   const navigate = useNavigate();
   const { isDemo } = useAuth();
   const { data: db } = useDbQuery();
-  const { importAuditTools } = useDbMutations();
+  const { importAuditTools, createClientFromAudit } = useDbMutations();
+  // An accountant on a paid plan can land the list in a client workspace of
+  // its own instead of their firm's. The name is typed here, after sign-in:
+  // the audit page keeps nothing about the client.
+  const { canManageClients } = useClientWorkspaces();
+  const [dest, setDest] = useState('mine');
+  const [clientName, setClientName] = useState('');
   const [handoff, setHandoff] = useState(() => (closedThisPage ? null : loadHandoff()));
   const plan = useMemo(() => (handoff && db ? planHandoffImport(handoff, db) : null), [handoff, db]);
   // null until the reader touches a box: then the plan's room decides which
@@ -46,7 +53,23 @@ export function AuditHandoffPrompt() {
   const chosen = byCost.filter((r) => !unticked.has(r.name)).slice(0, room);
   const close = () => { closedThisPage = true; setHandoff(null); };
   const ignore = () => { clearHandoff(); setHandoff(null); };
+  const toClient = canManageClients && dest === 'client';
+  const busy = importAuditTools.isPending || createClientFromAudit.isPending;
   const importNow = () => {
+    if (toClient) {
+      createClientFromAudit.mutate({ name: clientName.trim(), records: chosen }, {
+        onSuccess: ({ org, added, left }) => {
+          clearHandoff();
+          setHandoff(null);
+          invalidateWorkspaceCaches();
+          toast.success(t('handoff_client_done').replace('{name}', org.name).replace('{n}', added)
+            + (left ? ` ${t('handoff_limit').replace('{n}', left)}` : ''), { duration: 6000 });
+          navigate('/clients');
+        },
+        onError: (err) => toast.error(err?.message || t('handoff_client_failed')),
+      });
+      return;
+    }
     importAuditTools.mutate(chosen, {
       onSuccess: ({ added, left }) => {
         clearHandoff();
@@ -74,13 +97,31 @@ export function AuditHandoffPrompt() {
         <div className="flex flex-wrap justify-end gap-2" data-testid="handoff-actions">
           <Button variant="secondary" onClick={ignore}>{t('handoff_ignore')}</Button>
           <RoleGate requires="editor">
-            <Button onClick={importNow} disabled={!chosen.length || importAuditTools.isPending}>
-              {t('handoff_import').replace('{n}', chosen.length)}
+            <Button onClick={importNow} disabled={!chosen.length || busy || (toClient && !clientName.trim())}>
+              {toClient ? t('handoff_create_client').replace('{n}', chosen.length) : t('handoff_import').replace('{n}', chosen.length)}
             </Button>
           </RoleGate>
         </div>
       }
     >
+      {canManageClients && (
+        <fieldset className="mb-3 space-y-2 rounded-xl border border-slate-800 bg-slate-900/40 px-3 py-2 text-sm" data-testid="handoff-destination">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input type="radio" name="handoff-dest" checked={dest === 'mine'} onChange={() => setDest('mine')} className="accent-blue-500" />
+            <span className="text-slate-200">{t('handoff_dest_mine')}</span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input type="radio" name="handoff-dest" checked={dest === 'client'} onChange={() => setDest('client')} className="accent-blue-500" />
+            <span className="text-slate-200">{t('handoff_dest_client')}</span>
+          </label>
+          {dest === 'client' && (
+            <div className="pl-6">
+              <label className="block text-xs font-semibold text-slate-400 mb-1" htmlFor="handoff-client-name">{t('handoff_client_name')}</label>
+              <Input id="handoff-client-name" value={clientName} maxLength={120} placeholder={t('handoff_client_name_ph')} onChange={(e) => setClientName(e.target.value)} autoFocus />
+            </div>
+          )}
+        </fieldset>
+      )}
       {doesNotFit && (
         <p className="mb-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200" data-testid="handoff-room">
           {t('handoff_room').replace('{room}', room).replace('{n}', plan.toAdd.length)}

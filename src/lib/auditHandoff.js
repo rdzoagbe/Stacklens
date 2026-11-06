@@ -12,6 +12,7 @@
 // line that is not software, or anything about the client they audited.
 
 import { CATEGORIES } from './constants';
+import { uid } from './db';
 
 export const HANDOFF_KEY = 'stacklens_audit_handoff';
 export const HANDOFF_TTL_HOURS = 2;
@@ -131,4 +132,24 @@ export function planHandoffImport(handoff, db) {
     });
   }
   return { toAdd, existing, skipped };
+}
+
+/**
+ * The tool record a handoff line becomes, in whichever workspace it lands:
+ * the reader's own (importAuditTools) or a client workspace created for it
+ * (createClientFromAudit). A charge is not a use, so nobody is recorded as
+ * using it yet; it carries origin 'audit' and shows "To check" until an
+ * editor confirms it, unless the reader already confirmed it in the audit.
+ */
+export function toolFromHandoffRecord(r) {
+  return {
+    id: uid('tool'), name: r.name, category: r.category || 'other',
+    owner_email: '', owner_name: '', criticality: 'medium', url: '', description: '',
+    status: 'active',
+    last_used_date: '',
+    cost_per_month: r.cost_per_month, cost_monthly: r.cost_per_month, cost: r.cost_per_month,
+    renewal_date: r.renewal_date || '', risk_score: 'low', derived_risk: 'low',
+    notes: r.notes || '', origin: 'audit',
+    ...(r.reviewed === 'confirmed' ? { reviewed: 'confirmed' } : {}),
+  };
 }
