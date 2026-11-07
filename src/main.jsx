@@ -6,6 +6,7 @@ import '@fontsource-variable/inter'
 import './index.css'
 import { purgeLegacyCredentials } from './lib/legacyCredentials'
 import { loadHandoff } from './lib/auditHandoff'
+import { primeWorkspaceStore } from './lib/workspaceStore'
 
 // Remove integration credentials that older builds kept in localStorage.
 // Runs before React mounts so it reaches every session, not just users who
@@ -69,8 +70,13 @@ Sentry.init({
   environment: import.meta.env.MODE,
 });
 
-ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>,
-)
+// The workspace is read synchronously everywhere (loadDb), so its stored copy
+// is loaded into memory before the first render (lib/workspaceStore.js). A
+// browser without IndexedDB resolves at once and keeps localStorage.
+primeWorkspaceStore().catch(() => {}).then(() => {
+  ReactDOM.createRoot(document.getElementById('root')).render(
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>,
+  )
+})
