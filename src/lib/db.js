@@ -184,7 +184,7 @@ function markInSync(rev) {
  * half the screen computed from the copy they discarded would be worse than
  * the conflict was.
  */
-async function adoptCloudCopy(uid) {
+export async function adoptCloudCopy(uid) {
   const cloud = await loadUserData(uid);
   if (!cloud) throw new Error('Could not read the stored copy');
   store.setItem(LS_KEY, JSON.stringify(asCompleteCopy(cloud)));

@@ -7,6 +7,7 @@ vi.mock('../../firebase-config', () => ({
   deleteAccount: vi.fn(),
   signOutUser: vi.fn().mockResolvedValue(undefined),
   createBillingPortal: vi.fn().mockResolvedValue({ url: 'https://billing.example/portal' }),
+  loadUserData: vi.fn().mockResolvedValue(null), workspaceRead: vi.fn(),
 }));
 vi.mock('../../lib/analytics', () => ({ track: vi.fn() }));
 vi.mock('react-hot-toast', () => ({ default: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }) }));

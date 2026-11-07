@@ -49,6 +49,7 @@ export const HELP_TASKS = [
   { key: 'hf_joiners', to: '/access?view=eligibility', page: 'nav_access' },
   { key: 'hf_leaver', to: '/offboarding', page: 'nav_offboarding' },
   { key: 'hf_device_add', to: '/devices', page: 'nav_devices' },
+  { key: 'hf_reconcile', to: '/settings?tab=data', page: 'nav_settings' },
   { key: 'hf_device_return', to: '/devices', page: 'nav_devices' },
   { key: 'hf_device_intune', to: '/devices', page: 'nav_devices' },
   { key: 'hf_device_warranty', to: '/devices', page: 'nav_devices' },
