@@ -10,6 +10,7 @@ import { loadDb, saveDb, seedDbIfEmpty, saveOwnWorkspaceNow } from '../lib/db';
 import { SUPPORTED_CURRENCIES, getCurrencyCode } from '../lib/currency';
 import { track } from '../lib/analytics';
 import { useDbQuery } from '../hooks/useDbQuery';
+import { DataSourcesPanel } from '../components/DataSourcesPanel';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../hooks/useAuth';
 import { useLang } from '../contexts/LangContext';
@@ -238,6 +239,7 @@ export function SettingsPage() {
 
           {activeTab === 'integrations' && (
             <div className="space-y-4">
+              <DataSourcesPanel db={db} t={t} language={language} />
               <Card>
                 <CardHeader title={t('nav_integrations')} subtitle={t('set_integrations_sub')} />
                 <CardBody>

@@ -1202,6 +1202,7 @@ export function IntegrationConnectors() {
       setConnectedIntegrations(next);
       localStorage.setItem('sg_connected_integrations', JSON.stringify(next));
       localStorage.setItem('sg_gws_last_sync', new Date().toISOString());
+      muts.recordSourceRun.mutate({ id: 'google-workspace', ok: true, counts: { total: incoming.length, added: toAdd.length, updated: toUpdate.length } });
 
       setSyncResult({
         source: 'google-workspace',
@@ -1218,6 +1219,7 @@ export function IntegrationConnectors() {
         return;
       }
       setSyncResult({ error: err.message });
+      muts.recordSourceRun.mutate({ id: 'google-workspace', ok: false, error: err.message });
       toast.error('Google Workspace sync failed');
     } finally {
       setConnecting(null);
@@ -1259,6 +1261,7 @@ export function IntegrationConnectors() {
     for (const { id, patch } of toUpdate) await muts.updateEmployee.mutateAsync({ id, patch });
 
     localStorage.setItem(SYNC_STATE[vendor].syncKey, new Date().toISOString());
+    muts.recordSourceRun.mutate({ id: vendor, ok: true, counts: { total: incoming.length, added: toAdd.length, updated: toUpdate.length } });
     setConnectedIntegrations(prev => {
       const next = prev.includes(vendor) ? prev : [...prev, vendor];
       localStorage.setItem('sg_connected_integrations', JSON.stringify(next));
@@ -1280,11 +1283,12 @@ export function IntegrationConnectors() {
       closeModal?.();
     } catch (err) {
       setSyncResult({ source: vendor, error: err.message });
+      muts.recordSourceRun.mutate({ id: vendor, ok: false, error: err.message });
       toast.error(`${vendor} sync failed`);
     } finally {
       st.setBusy(false);
     }
-  }, [reconcile]);
+  }, [reconcile, muts]);
 
   /** Re-sync: the server already holds the credentials. */
    
@@ -1299,11 +1303,12 @@ export function IntegrationConnectors() {
       await reconcile(vendor, users);
     } catch (err) {
       setSyncResult({ source: vendor, error: err.message });
+      muts.recordSourceRun.mutate({ id: vendor, ok: false, error: err.message });
       toast.error(`${vendor} sync failed`);
     } finally {
       st.setBusy(false);
     }
-  }, [reconcile]);
+  }, [reconcile, muts]);
 
   const handleSlackTokenSubmit = useCallback((token, channel = '#renewals') => {
     // The channel is a notification preference, not a credential.
@@ -1390,6 +1395,7 @@ export function IntegrationConnectors() {
       setConnectedIntegrations(next);
       localStorage.setItem('sg_connected_integrations', JSON.stringify(next));
       localStorage.setItem(M365_SYNC_KEY, new Date().toISOString());
+      muts.recordSourceRun.mutate({ id: 'microsoft-365', ok: true, counts: { total: incoming.length, added: toAdd.length, updated: toUpdate.length } });
 
       setSyncResult({ source: 'microsoft-365', total: incoming.length, added: toAdd.length, updated: toUpdate.length, skipped });
     } catch (err) {
@@ -1397,6 +1403,7 @@ export function IntegrationConnectors() {
         setSyncCancelled({ source: 'microsoft-365', retry: handleMicrosoftConnect });
         return;
       }
+      muts.recordSourceRun.mutate({ id: 'microsoft-365', ok: false, error: err.message || String(err) });
       if (err.message?.includes('timed_out') || err.errorCode === 'monitor_popup_timeout') {
         setSyncResult({ source: 'microsoft-365', error: t('int_m365_popup_timeout') });
         toast.error(t('int_m365_popup_timeout_toast'));

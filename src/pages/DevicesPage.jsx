@@ -252,7 +252,9 @@ export function DevicesPage() {
   };
   const runImport = (records) => {
     muts.importAssets.mutate(records, {
+      onError: (err) => muts.recordSourceRun.mutate({ id: 'csv:assets', ok: false, error: err?.message || String(err) }),
       onSuccess: (r) => {
+        muts.recordSourceRun.mutate({ id: 'csv:assets', ok: true, counts: { rows: (records || []).length, added: r?.created || 0, updated: r?.updated || 0 } });
         toast.success(t('dev_import_done').replace('{created}', r?.created || 0).replace('{updated}', r?.updated || 0));
         setImportOpen(false);
       },

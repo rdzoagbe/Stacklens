@@ -10,6 +10,7 @@ import { useTranslation } from '../translations';
 import { REVIEW_ORIGINS, isRejectedVendor, originOfRow, vendorKey } from '../lib/toolReview';
 import { csvAmount } from '../lib/csvHeaders';
 import { annotatePeopleChanges } from '../lib/peopleChanges';
+import { recordSourceRun as recordSourceRunPure, SOURCE_FACTS } from '../lib/dataSources';
 import { toolFromHandoffRecord } from '../lib/auditHandoff';
 import { workspaceCreateOrg, workspaceRead, workspaceWrite } from '../firebase-config';
 import { startReview, decide, decideRemaining, signOff, summary as reviewSummary } from '../lib/accessReviews';
@@ -400,6 +401,11 @@ export function useDbMutations() {
     mutationFn: async (rows) => {
       let recorded = 0; let created = 0;
       setDb((db) => {
+        // Each source in the batch records its run (lib/dataSources.js).
+        for (const src of new Set((rows || []).map((r) => r?.source).filter(Boolean))) {
+          const id = `invoice:${src}`;
+          if (SOURCE_FACTS[id]) db = recordSourceRunPure(db, id, { ok: true, counts: { lines: (rows || []).filter((r) => r?.source === src).length } });
+        }
         // A line already recorded is not recorded again: a second bank sync
         // before the next charge, or the same PDF uploaded and also forwarded
         // to the inbox, used to add it twice, and the invoice check then read
@@ -462,6 +468,17 @@ export function useDbMutations() {
         db.user = { ...db.user, ...patch };
         return db;
       });
+    },
+    onSuccess: invalidate,
+  });
+
+  // A connector or an import recording its run (lib/dataSources.js): the
+  // caller that did the work records it, success or failure, so the screens
+  // can say how fresh each area's data is and which connector failed.
+  const recordSourceRun = useMutation({
+    mutationFn: async ({ id, ok = true, error = '', counts = null }) => {
+      setDb((db) => recordSourceRunPure(db, id, { ok, error, counts }),
+        () => ({ action: ok ? 'source.synced' : 'source.failed', details: ok ? `${id}: ${JSON.stringify(counts || {})}` : `${id}: ${String(error || '').slice(0, 200)}` }));
     },
     onSuccess: invalidate,
   });
@@ -745,7 +762,7 @@ export function useDbMutations() {
         setDb((db) => {
           const tools = take.map(toolFromHandoffRecord);
           db.tools = [...tools, ...(db.tools || [])];
-          return db;
+          return recordSourceRunPure(db, 'audit', { ok: true, counts: { added: take.length } });
         }, () => ({ action: 'tool.imported', details: `${take.length} tool(s) from the free audit` }));
       }
       return { added: take.length, left: (records || []).length - take.length };
@@ -1014,6 +1031,6 @@ export function useDbMutations() {
     createEmployee, updateEmployee, deleteEmployee,
     createAccess, updateAccess, deleteAccess,
     createAsset, updateAsset, returnAsset, deleteAsset, importAssets, recordIntuneDevices,
-    setPlan, setAuth, setBudgets, importInvoices, addUploadedInvoices, bulkImport,
+    setPlan, setAuth, setBudgets, importInvoices, addUploadedInvoices, bulkImport, recordSourceRun,
   };
 }
