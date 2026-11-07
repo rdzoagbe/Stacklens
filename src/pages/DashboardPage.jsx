@@ -20,6 +20,7 @@ import { RoleGate } from '../components/gates';
 import { AppShell } from '../components/AppShell';
 import { ImportWizard } from '../components/ImportWizard';
 import { ClearDataButton } from '../components/ClearDataButton';
+import { FreshnessLine } from '../components/DataSourcesPanel';
 import { invoiceCheckSummary } from '../lib/invoiceCheck';
 import { openPeopleChanges } from '../lib/peopleChanges';
 import { coverageEnding, devicesToReturn, COVERAGE_SOON_DAYS } from '../lib/assets';
@@ -472,6 +473,9 @@ export function DashboardPage() {
           <Button onClick={() => { setImportKind('company'); setShowImport(true); }}>{t('dash_upload_data')} →</Button>
         </section>
       )}
+
+      {/* How fresh the data under these figures is (lib/dataSources.js). */}
+      <FreshnessLine db={db} t={t} language={language} />
 
       {/* ── KEY FIGURES ── what is paid, what could be recovered, how exposed. */}
       {(() => {

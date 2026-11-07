@@ -786,7 +786,25 @@ export function buildSeedDb() {
 
   const user = { id: uid('usr'), email: DEMO_EMAIL, subscription_plan: 'pro', is_authenticated: false, is_demo: false };
 
-  return { tools, employees, access, invoice_records, assets, spend_history, user };
+  // Where the demo's data came from (lib/dataSources.js), with the two
+  // situations the freshness screens exist for: a connector whose last run
+  // failed (Okta, an expired token) and a source not read for weeks (the
+  // devices file). Usage dates of the tools Google Workspace sees are marked
+  // as read from it; the rest stay typed.
+  const at = (daysAgo) => subDays(now, daysAgo).toISOString();
+  const data_sources = {
+    'microsoft-365': { last_success_at: at(1), last_attempt_at: at(1), last_error: '', counts: { total: employees.length, added: 0, updated: 1 }, runs: 14 },
+    'google-workspace': { last_success_at: at(3), last_attempt_at: at(3), last_error: '', counts: { usage_matched: 4, discovered: 1 }, runs: 6 },
+    okta: { last_success_at: at(19), last_attempt_at: at(1), last_error: 'Okta answered 401: the API token has expired or was revoked.', counts: { total: employees.length, added: 0, updated: 0 }, runs: 9 },
+    'invoice:bank': { last_success_at: at(2), last_attempt_at: at(2), last_error: '', counts: { lines: 23 }, runs: 30 },
+    'csv:assets': { last_success_at: at(41), last_attempt_at: at(41), last_error: '', counts: { rows: assets.length, added: assets.length, updated: 0 }, runs: 1 },
+  };
+  const READ_FROM_GOOGLE = new Set(['Slack', 'Google Workspace', 'Notion', 'Figma']);
+  for (const tool of tools) {
+    if (READ_FROM_GOOGLE.has(tool.name) && tool.last_used_date) Object.assign(tool, { usage_source: 'google-workspace', usage_read_at: d(3) });
+  }
+
+  return { tools, employees, access, invoice_records, assets, spend_history, data_sources, user };
 }
 
 export async function resetDb() {

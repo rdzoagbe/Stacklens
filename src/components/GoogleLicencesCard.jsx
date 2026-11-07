@@ -21,7 +21,7 @@ const small = 'px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors di
 /** `deps` lets a test stand in for Google: { token, read }. */
 export function GoogleLicencesCard({ db, canEdit, t, deps = null }) {
   const isDemo = db?.user?.is_demo === true;
-  const { createTool, updateTool, createAccess, updateAccess } = useDbMutations();
+  const { createTool, updateTool, createAccess, updateAccess, recordSourceRun } = useDbMutations();
   const [state, setState] = useState({ phase: 'idle' });
 
   const read = async () => {
@@ -35,9 +35,12 @@ export function GoogleLicencesCard({ db, canEdit, t, deps = null }) {
         return fetchLicenceAssignments(tk, customerId);
       });
       const { assignments } = await run(token);
-      setState({ phase: 'done', skus: groupBySku(assignments) });
+      const skus = groupBySku(assignments);
+      setState({ phase: 'done', skus });
+      recordSourceRun.mutate({ id: 'google-licensing', ok: true, counts: { skus: skus.length, assignments: (assignments || []).length } });
     } catch (err) {
       setState({ phase: 'error', message: err?.message || String(err) });
+      recordSourceRun.mutate({ id: 'google-licensing', ok: false, error: err?.message || String(err) });
     }
   };
 

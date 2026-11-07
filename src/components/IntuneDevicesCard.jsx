@@ -18,7 +18,7 @@ const small = 'px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors di
 /** `deps` lets a test stand in for Microsoft: { token, read }. */
 export function IntuneDevicesCard({ db, canEdit, t, deps = null }) {
   const isDemo = db?.user?.is_demo === true;
-  const { recordIntuneDevices, updateAsset } = useDbMutations();
+  const { recordIntuneDevices, updateAsset, recordSourceRun } = useDbMutations();
   const [state, setState] = useState({ phase: 'idle' });
 
   const read = async () => {
@@ -36,6 +36,7 @@ export function IntuneDevicesCard({ db, canEdit, t, deps = null }) {
       setState({ phase: 'done', devices: raw.map(toIntuneDevice) });
     } catch (err) {
       setState({ phase: 'error', message: err?.message || String(err) });
+      recordSourceRun.mutate({ id: 'intune', ok: false, error: err?.message || String(err) });
     }
   };
 
@@ -43,7 +44,10 @@ export function IntuneDevicesCard({ db, canEdit, t, deps = null }) {
 
   const record = () => {
     recordIntuneDevices.mutate(state.devices, {
-      onSuccess: (res) => toast.success(fill(t('itn_recorded'), { created: res?.created || 0, updated: res?.updated || 0 })),
+      onSuccess: (res) => {
+        recordSourceRun.mutate({ id: 'intune', ok: true, counts: { total: state.devices.length, added: res?.created || 0, updated: res?.updated || 0 } });
+        toast.success(fill(t('itn_recorded'), { created: res?.created || 0, updated: res?.updated || 0 }));
+      },
     });
   };
   const takeIntuneHolder = ({ asset, device, person }) => {

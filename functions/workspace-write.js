@@ -37,6 +37,9 @@ const MEMBER_WRITABLE_KEYS = [
   // Access reviews (src/lib/accessReviews.js): a teammate who may record and
   // revoke access may also review it and sign the review off.
   'access_reviews',
+  // Where the data came from (src/lib/dataSources.js): the editor who ran a
+  // connector or an import records its run, success or failure.
+  'data_sources',
 ];
 
 /**

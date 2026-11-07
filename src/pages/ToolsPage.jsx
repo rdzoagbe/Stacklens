@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import { todayISO } from '../lib/db';
 import { CATEGORIES, TOOL_STATUS, CRITICALITY, RISK_SCORE } from '../lib/constants';
 import { computeToolDerivedStatus, computeToolDerivedRisk, getRiskEvidence, formatMoney } from '../lib/dataUtils';
+import { sourceLabelKey } from '../lib/dataSources';
 import { useDbQuery, useDbMutations } from '../hooks/useDbQuery';
 import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
@@ -374,6 +375,10 @@ export function ToolsPage() {
         await muts.updateTool.mutateAsync({ id: m.tool.id, patch: {
           last_used_date: m.lastSeen.slice(0, 10),
           gws_users: m.users,
+          // A date a source read is confirmed; one typed in the form is a
+          // claim (lib/dataSources.js usageKnowledge).
+          usage_source: 'google-workspace',
+          usage_read_at: new Date().toISOString().slice(0, 10),
         } });
       }
       const toAdd = discovered.filter(d => d.include).map(d => ({
@@ -382,10 +387,13 @@ export function ToolsPage() {
         status: 'active',
         cost_per_month: 0,
         last_used_date: d.lastSeen.slice(0, 10),
+        usage_source: 'google-workspace',
+        usage_read_at: new Date().toISOString().slice(0, 10),
         origin: 'google-workspace',
         notes: `Discovered via Google Workspace — ${d.users} user(s) signed in with Google in the last 180 days`,
       }));
       if (toAdd.length) await muts.bulkImport.mutateAsync({ kind: 'tools', records: toAdd });
+      muts.recordSourceRun.mutate({ id: 'google-workspace', ok: true, counts: { usage_matched: matched.length, discovered: toAdd.length } });
       toast.success(t('gws_sync_done').replace('{m}', matched.length).replace('{d}', toAdd.length));
     } catch (err) {
       toast.error(t('gws_sync_failed') + ': ' + (err.message || ''));
@@ -553,7 +561,15 @@ export function ToolsPage() {
                             </div>
                           ) : <button onClick={(ev) => { ev.stopPropagation(); setOwnerToolId(tool.id); setOwnerToolName(tool.name); setShowToolOwnerModal(true); }} className="text-xs text-amber-400 hover:text-amber-300 underline underline-offset-2 transition-colors">{t('act_assign_owner')}</button>}
                         </td>
-                        <td className="py-3 px-4 text-sm text-slate-400 hidden lg:table-cell">{tool.last_used_date || '—'}</td>
+                        <td className="py-3 px-4 text-sm text-slate-400 hidden lg:table-cell">
+                          {/* Unknown is not unused; a typed date is not a read one (lib/dataSources.js). */}
+                          {tool.last_used_date ? (
+                            <>
+                              {tool.last_used_date}
+                              <span className="block text-[11px] text-slate-500">{tool.usage_source ? t('ds_usage_read').replace('{source}', t(sourceLabelKey(tool.usage_source))) : t('ds_usage_typed')}</span>
+                            </>
+                          ) : <span className="text-slate-500">{t('ds_usage_unknown')}</span>}
+                        </td>
                         <td className="py-3 px-4 text-center"><RiskBadge risk={tool.derived_risk} /></td>
                         <td className="py-3 px-4 text-center hidden sm:table-cell"><StatusBadge status={tool.derived_status} /></td>
                         <td className="py-3 px-4 text-right text-sm font-semibold text-white whitespace-nowrap">

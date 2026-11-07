@@ -80,7 +80,13 @@ export function ImportWizard({ defaultKind = null, onDone = null }) {
     if (!liveRows.length || !kind) return;
     setImporting(true);
     try {
-      await muts.bulkImport.mutateAsync({ kind, records: liveRows });
+      try {
+        await muts.bulkImport.mutateAsync({ kind, records: liveRows });
+        muts.recordSourceRun.mutate({ id: `csv:${kind}`, ok: true, counts: { rows: liveRows.length } });
+      } catch (err) {
+        muts.recordSourceRun.mutate({ id: `csv:${kind}`, ok: false, error: err?.message || String(err) });
+        throw err;
+      }
       await new Promise(r => setTimeout(r, 1500));
       setImported({ count: liveRows.length, kind });
       if (onDone) setTimeout(onDone, 2000);
