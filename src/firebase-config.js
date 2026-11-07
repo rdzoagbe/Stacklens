@@ -48,6 +48,7 @@ import { getAnalytics, isSupported, setConsent as firebaseSetConsent } from 'fir
 import { track } from './lib/analytics';
 import { stripLocalOnly } from './lib/constants';
 import { REV_FIELD, revOf, nextRev, isStaleWrite, StaleWriteError } from './lib/revision';
+import { removeItem as removeStoredItem } from './lib/workspaceStore';
 import { setAuditSender } from './lib/auditSync';
 import { askForSecondFactor } from './lib/secondFactor';
 import { initializeAppCheck, ReCaptchaV3Provider, getToken as getAppCheckToken } from 'firebase/app-check';
@@ -1241,8 +1242,8 @@ export async function deleteAccount(confirmEmail) {
   if (!user) throw new Error('Not authenticated');
   await callWorkspace({ action: 'deleteaccount', confirmEmail });
   localStorage.removeItem('saasguard_db');
-  localStorage.removeItem('accessguard_v1');
+  removeStoredItem('accessguard_v1');
   localStorage.removeItem('sg_auth_uid');
-  localStorage.removeItem('sg_own_workspace_backup');
+  removeStoredItem('sg_own_workspace_backup');
 }
 

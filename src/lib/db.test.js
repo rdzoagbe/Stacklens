@@ -170,10 +170,16 @@ describe('seedDbIfEmpty', () => {
   });
 });
 
-// ── saveDb overflow trimming ──────────────────────────────────────────────────
+// ── saveDb keeps everything ────────────────────────────────────────────────
+//
+// It used to cut the access list down to 150 rows above 4.5 MB (the
+// localStorage ceiling) and flag the blob `_trimmed`. The workspace now lives
+// in IndexedDB behind lib/workspaceStore.js, so a save is the whole workspace
+// at any size; the shared-workspace sync still refuses a blob an older build
+// flagged, because that one is known to be incomplete.
 
-describe('saveDb overflow trimming', () => {
-  it('keeps all records when under size limit', () => {
+describe('saveDb keeps every record', () => {
+  it('keeps a small workspace whole', () => {
     const db = {
       tools: [{ id: 't1', name: 'Tool' }],
       employees: [{ id: 'e1', name: 'Alice' }],
@@ -181,30 +187,21 @@ describe('saveDb overflow trimming', () => {
       user: {},
     };
     saveDb(db);
-    const loaded = loadDb();
-    expect(loaded.access.length).toBe(50);
+    expect(loadDb().access.length).toBe(50);
+    expect(loadDb()._trimmed).toBeUndefined();
   });
 
-  it('trims access records sorted by recency when access list is large', () => {
-    // Build 200 access records with varying last_accessed_dates
-    const access = Array.from({ length: 200 }, (_, i) => ({
-      id: `a${i}`,
-      last_accessed_date: new Date(Date.now() - i * 86400000).toISOString().slice(0, 10),
+  it('keeps a large access list whole, and never flags it (the full-size case is scale.test.js)', () => {
+    const access = Array.from({ length: 12000 }, (_, i) => ({
+      id: `a${i}`, employee_id: `e${i % 3000}`, tool_id: `t${i % 40}`, access_level: 'viewer', status: 'active',
+      granted_date: '2024-01-01', last_accessed_date: '2024-06-01',
     }));
-    const _db = { tools: [], employees: [], access, user: {} };
-
-    // Manually invoke trim logic by checking that after a huge db is stored,
-    // only most-recent records are preserved
-    // We simulate by passing a large enough db; here we just verify sort order is correct
-    const sorted = [...access].sort((a, b) => {
-      const ta = a.last_accessed_date ? new Date(a.last_accessed_date).getTime() : 0;
-      const tb = b.last_accessed_date ? new Date(b.last_accessed_date).getTime() : 0;
-      return tb - ta;
-    });
-    // Most recent should be a0 (index 0 = today)
-    expect(sorted[0].id).toBe('a0');
-    // Oldest should be a199
-    expect(sorted[sorted.length - 1].id).toBe('a199');
+    const db = { tools: [], employees: [], access, user: {} };
+    saveDb(db);
+    const loaded = loadDb();
+    expect(loaded.access).toHaveLength(12000);
+    expect(loaded.access[11999].id).toBe('a11999');
+    expect(loaded._trimmed).toBeUndefined();
   });
 });
 

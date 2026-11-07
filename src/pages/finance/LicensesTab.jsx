@@ -1,3 +1,4 @@
+import { loadDb } from '../../lib/db';
 import React, { useState, useMemo } from 'react';
 import toast from 'react-hot-toast';
 import {
@@ -103,7 +104,7 @@ export function LicenseManagement() {
       toast(t('lic_nothing_to_reclaim'), { icon: '✅' });
       return;
     }
-    const userName = JSON.parse(localStorage.getItem('accessguard_v1') || '{}')?.user?.displayName || '';
+    const userName = loadDb()?.user?.displayName || '';
     const subject = encodeURIComponent(t('lic_mail_subject').replace('{n}', unused.length));
     const body = encodeURIComponent(t('lic_mail_body')
       .replace('{list}', unused.map(a => '• ' + a.name + ': ' + money(a.cost) + t('per_mo_short')).join('\n'))

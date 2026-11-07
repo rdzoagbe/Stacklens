@@ -7,6 +7,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
 import { resolvePlan, getPlanLimits, PLAN_TIERS } from '../lib/plan';
+import { loadDb } from '../lib/db';
 import { PLAN_CARDS, planText } from '../lib/planCards';
 
 // ── Role-Based Access Control ──────────────────────────────────────────────
@@ -20,7 +21,7 @@ export const ROLES = {
 
 export function getUserRole() {
   try {
-    const db = JSON.parse(localStorage.getItem('accessguard_v1') || '{}');
+    const db = loadDb() || {};
     return (db?.user?.role || 'owner').toLowerCase();
   } catch {
     return 'owner';

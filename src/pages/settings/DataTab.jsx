@@ -10,6 +10,7 @@ import { useLang } from '../../contexts/LangContext';
 import { clearWorkspaceData } from '../../lib/clearData';
 import { track } from '../../lib/analytics';
 import { Card, CardHeader, CardBody, Modal, Button, Input } from '../../components/ui';
+import { ReconcilePanel } from '../../components/ReconcilePanel';
 
 // ── Deleting the account ─────────────────────────────────────────────────────
 //
@@ -140,6 +141,7 @@ export function DataTab({ db, firebaseUser, isDemo, qc, t }) {
   const [deleting, setDeleting] = useState(false);
   return (
     <div className="space-y-4">
+      <ReconcilePanel db={db} firebaseUser={firebaseUser} isDemo={isDemo} t={t} language={language} />
       <Card>
         <CardHeader title={t('export_data')} subtitle={t('export_data_sub')} />
         <CardBody>

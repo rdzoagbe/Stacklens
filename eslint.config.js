@@ -37,6 +37,7 @@ export default [
         FormData: 'readonly', File: 'readonly', FileReader: 'readonly', Blob: 'readonly',
         crypto: 'readonly', performance: 'readonly', EventSource: 'readonly',
         TextEncoder: 'readonly', TextDecoder: 'readonly',
+        indexedDB: 'readonly', BroadcastChannel: 'readonly',
         // Third-party globals
         gtag: 'readonly',
         // Node globals (used in vite.config, etc.)

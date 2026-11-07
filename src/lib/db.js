@@ -1,4 +1,6 @@
 import { LS_KEY } from './constants';
+import * as store from './workspaceStore';
+import { OWN_BACKUP_KEY } from './workspaceStore';
 import { saveUserData, loadUserData, workspaceWrite, workspaceRead } from '../firebase-config';
 import { markSyncSaving, markSyncSaved, markSyncFailed, markSyncConflict } from './syncStatus';
 import { REV_FIELD, revOf, isConflictError, sameSubstance } from './revision';
@@ -44,6 +46,10 @@ export function setFirestoreUid(newUid) { _firestoreUid = newUid; }
 let _queryClient = null;
 
 export function setQueryClient(qc) { _queryClient = qc; }
+// A save made in another tab of this browser arrives through the store
+// (lib/workspaceStore.js): the screen re-reads rather than showing a copy
+// the next save would overwrite.
+store.onWorkspaceChangedElsewhere((key) => { if (key === LS_KEY) _queryClient?.invalidateQueries({ queryKey: ['db'] }); });
 
 // Early spend snapshots stored the unallocated bucket under "__unallocated__",
 // which Firestore rejects as a field name ("cannot begin and end with __") —
@@ -62,7 +68,7 @@ function _migrateSpendHistory(db) {
 }
 
 export function loadDb() {
-  const raw = localStorage.getItem(LS_KEY);
+  const raw = store.getItem(LS_KEY);
   if (!raw) return null;
   try { return _migrateSpendHistory(JSON.parse(raw)); } catch { return null; }
 }
@@ -70,10 +76,10 @@ export function loadDb() {
 // ── Installing a copy that is known to be complete ─────────────────────────
 //
 // `_trimmed` means "this browser's copy is missing records the source of truth
-// still has". saveDb sets it when the blob will not fit in localStorage, and
-// keeps it on every later save — correctly, because a save whose blob happens
-// to fit is usually the already-trimmed data, and syncing that to a shared
-// workspace would delete the owner's history.
+// still has". Builds before the IndexedDB store (lib/workspaceStore.js) set it
+// when the blob would not fit in localStorage; nothing sets it any more, but a
+// browser can still hold such a blob, and syncing it to a shared workspace
+// would delete the owner's history.
 //
 // What was missing was any way back. Nothing cleared the flag, so once a
 // shared-workspace editor hit the ceiling every subsequent save was refused
@@ -91,25 +97,6 @@ function asCompleteCopy(data) {
   return copy;
 }
 
-const LS_SIZE_WARN_BYTES = 3 * 1024 * 1024;
-const LS_SIZE_MAX_BYTES  = 4.5 * 1024 * 1024;
-
-function _trimDbForStorage(db) {
-  const trimmed = { ...db };
-  // Keep all employees and tools — they're the source of truth.
-  // Trim access records: sort by last_accessed_date desc, keep most recent.
-  if (trimmed.access?.length > 100) {
-    trimmed.access = [...trimmed.access]
-      .sort((a, b) => {
-        const ta = a.last_accessed_date ? new Date(a.last_accessed_date).getTime() : 0;
-        const tb = b.last_accessed_date ? new Date(b.last_accessed_date).getTime() : 0;
-        return tb - ta;
-      })
-      .slice(0, 150);
-  }
-  return trimmed;
-}
-
 // ── Keeping the local copy's base revision current ─────────────────────────
 //
 // Every cloud write is conditional on the revision it was based on (see
@@ -123,12 +110,12 @@ function _trimDbForStorage(db) {
 function stampLocalRev(rev) {
   if (!Number.isFinite(rev)) return;
   try {
-    const raw = localStorage.getItem(LS_KEY);
+    const raw = store.getItem(LS_KEY);
     if (!raw) return;
     const blob = JSON.parse(raw);
     if (!blob || typeof blob !== 'object') return;
     blob[REV_FIELD] = rev;
-    localStorage.setItem(LS_KEY, JSON.stringify(blob));
+    store.setItem(LS_KEY, JSON.stringify(blob));
   } catch { /* bookkeeping must never break a save */ }
 }
 
@@ -197,10 +184,10 @@ function markInSync(rev) {
  * half the screen computed from the copy they discarded would be worse than
  * the conflict was.
  */
-async function adoptCloudCopy(uid) {
+export async function adoptCloudCopy(uid) {
   const cloud = await loadUserData(uid);
   if (!cloud) throw new Error('Could not read the stored copy');
-  localStorage.setItem(LS_KEY, JSON.stringify(asCompleteCopy(cloud)));
+  store.setItem(LS_KEY, JSON.stringify(asCompleteCopy(cloud)));
   // Local IS the stored copy now, so the next page load has nothing to push.
   markCloudClean();
   if (typeof window !== 'undefined') window.location.reload();
@@ -219,18 +206,12 @@ async function adoptCloudCopy(uid) {
 export function saveDb(db, { cloudSync = true } = {}) {
   // New audit rows also go to the server's tamper-evident copy (lib/auditSync).
   noteAuditLog(db);
-  const serialized = JSON.stringify({ ...db, _saved_at: Date.now() });
-  if (serialized.length > LS_SIZE_MAX_BYTES) {
-    const trimmed = _trimDbForStorage(db);
-    const trimmedSerialized = JSON.stringify({ ...trimmed, _saved_at: Date.now(), _trimmed: true });
-    localStorage.setItem(LS_KEY, trimmedSerialized);
-    console.warn('[Stacklens] localStorage limit reached — oldest access records archived. Sync to cloud to preserve full history.');
-  } else {
-    if (serialized.length > LS_SIZE_WARN_BYTES) {
-      console.warn('[Stacklens] localStorage usage high:', Math.round(serialized.length / 1024), 'KB');
-    }
-    localStorage.setItem(LS_KEY, serialized);
-  }
+  // The whole workspace, whatever its size: the store (lib/workspaceStore.js)
+  // has no ceiling, so nothing is trimmed and nothing is archived. A blob
+  // flagged `_trimmed` by an older build is still refused below, because it
+  // is known to be incomplete; the flag clears on the next copy read from the
+  // cloud (asCompleteCopy).
+  store.setItem(LS_KEY, JSON.stringify({ ...db, _saved_at: Date.now() }));
   // A shared-view copy belongs to someone else's workspace. It must never go
   // to the viewer's own Firestore document, and it only reaches the owner's
   // through the workspace endpoint, which re-checks membership server-side —
@@ -345,7 +326,6 @@ let _cloudSaveTimer = null;
 // the owner's data flagged _shared_view + role 'viewer' (all existing
 // RoleGates hide edit controls). saveDb refuses to cloud-sync the flagged
 // copy, and hydration restores the viewer's own workspace on reload.
-const OWN_BACKUP_KEY = 'sg_own_workspace_backup';
 
 // ── Signing out leaves nothing behind ────────────────────────────────────────
 //
@@ -403,14 +383,14 @@ export async function flushBeforeSignOut() {
 export function clearLocalWorkspace() {
   clearTimeout(_cloudSaveTimer);
   for (const key of SIGN_OUT_KEYS) {
-    try { localStorage.removeItem(key); } catch { /* storage unavailable: nothing to clear */ }
+    try { store.removeItem(key); } catch { /* storage unavailable: nothing to clear */ }
   }
 }
 
 export function enterSharedView(sharedDb, meta) {
-  const current = localStorage.getItem(LS_KEY);
+  const current = store.getItem(LS_KEY);
   try {
-    if (current && !JSON.parse(current)?._shared_view) localStorage.setItem(OWN_BACKUP_KEY, current);
+    if (current && !JSON.parse(current)?._shared_view) store.setItem(OWN_BACKUP_KEY, current);
   } catch { /* unreadable blob — don't overwrite an existing backup with it */ }
   // The role comes from the membership record the server returned, not from a
   // constant. 'editor' lets the RoleGates show edit controls and lets saveDb
@@ -423,17 +403,17 @@ export function enterSharedView(sharedDb, meta) {
     _shared_view: { ...meta, role }, // { owner_uid, owner_email, role }
     user: { ...(sharedDb.user || {}), role, is_authenticated: true, is_demo: false },
   };
-  localStorage.setItem(LS_KEY, JSON.stringify(view));
+  store.setItem(LS_KEY, JSON.stringify(view));
   return view;
 }
 
 export function exitSharedView() {
-  const backup = localStorage.getItem(OWN_BACKUP_KEY);
+  const backup = store.getItem(OWN_BACKUP_KEY);
   if (backup) {
-    localStorage.setItem(LS_KEY, backup);
-    localStorage.removeItem(OWN_BACKUP_KEY);
+    store.setItem(LS_KEY, backup);
+    store.removeItem(OWN_BACKUP_KEY);
   } else {
-    localStorage.removeItem(LS_KEY);
+    store.removeItem(LS_KEY);
   }
 }
 
@@ -456,7 +436,7 @@ export async function saveOwnWorkspaceNow(uid, db) {
 }
 
 export function getSharedView() {
-  try { return JSON.parse(localStorage.getItem(LS_KEY) || 'null')?._shared_view || null; } catch { return null; }
+  try { return JSON.parse(store.getItem(LS_KEY) || 'null')?._shared_view || null; } catch { return null; }
 }
 
 export async function hydrateFromFirestore(uid) {
@@ -470,7 +450,7 @@ export async function hydrateFromFirestore(uid) {
 
     const storedUid = localStorage.getItem('sg_auth_uid');
     if (localData && storedUid && storedUid !== uid) {
-      localStorage.removeItem(LS_KEY);
+      store.removeItem(LS_KEY);
       localStorage.removeItem('sg_team_members');
       localStorage.removeItem('sg_api_keys');
       localStorage.removeItem('sg_notifications');
@@ -517,7 +497,7 @@ export async function hydrateFromFirestore(uid) {
     if (!freshLocal || (!freshLocal.tools?.length && !freshLocal.employees?.length)) {
       if (cloudData && cloudData.tools !== undefined) {
         const complete = asCompleteCopy(cloudData);
-        localStorage.setItem(LS_KEY, JSON.stringify(complete));
+        store.setItem(LS_KEY, JSON.stringify(complete));
         // This browser now holds exactly the stored copy — the fresh-browser
         // and cleared-storage case. Without this mark its first page load
         // would send the whole blob straight back to Firestore.
@@ -530,7 +510,7 @@ export async function hydrateFromFirestore(uid) {
         const rev = await saveUserData(uid, local).catch(() => null);
         if (Number.isFinite(rev)) {
           local[REV_FIELD] = rev;
-          localStorage.setItem(LS_KEY, JSON.stringify(local));
+          store.setItem(LS_KEY, JSON.stringify(local));
           markCloudClean();
         }
       }
@@ -540,7 +520,7 @@ export async function hydrateFromFirestore(uid) {
     // Both exist — use the newer copy, always trust cloud for billing
     if (cloudData && cloudData.tools !== undefined && cloudTs > localTs) {
       const complete = asCompleteCopy(cloudData);
-      localStorage.setItem(LS_KEY, JSON.stringify(complete));
+      store.setItem(LS_KEY, JSON.stringify(complete));
       markCloudClean();
       return complete;
     }
@@ -568,7 +548,7 @@ export async function hydrateFromFirestore(uid) {
     //
     // Written straight to localStorage rather than through saveDb: the values
     // came from Firestore, so a cloud write here would only send them back.
-    if (billingChanged) localStorage.setItem(LS_KEY, JSON.stringify(freshLocal));
+    if (billingChanged) store.setItem(LS_KEY, JSON.stringify(freshLocal));
 
     // Does this browser hold anything the cloud has not got?
     //

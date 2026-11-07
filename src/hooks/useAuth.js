@@ -5,6 +5,7 @@ import {
   getUserPlanFromFirestore, startTrial, appCheckHeader,
 } from '../firebase-config';
 import { LS_KEY } from '../lib/constants';
+import * as store from '../lib/workspaceStore';
 import { loadDb, saveDb, seedDbIfEmpty, setFirestoreUid, hydrateFromFirestore, flushBeforeSignOut, clearLocalWorkspace, DEMO_EMAIL } from '../lib/db';
 import { resolvePlan } from '../lib/plan';
 import { signInProviderOf, ssoRequiredFor, isSsoProvider, raiseSsoBlock, clearSsoBlock } from '../lib/sso';
@@ -258,14 +259,14 @@ export function useAuth() {
         });
         const data = await r.json();
         if (data.plan && data.plan !== 'free') {
-          const raw = localStorage.getItem('accessguard_v1');
+          const raw = store.getItem(LS_KEY);
           const db2 = raw ? JSON.parse(raw) : {};
           db2.user.plan = data.plan;
           db2.user.subscription_plan = data.plan;
           setTimeout(() => window.location.reload(), 500);
           db2.user.stripe_customer_id  = data.stripe_customer_id;
           db2.user.subscription_status = data.subscription_status;
-          localStorage.setItem('accessguard_v1', JSON.stringify(db2));
+          store.setItem(LS_KEY, JSON.stringify(db2));
         }
       } catch { /* ignore sync errors */ }
       window.location.replace('/dashboard');
@@ -289,7 +290,7 @@ export function useAuth() {
   };
 
   const startDemo = () => {
-    localStorage.removeItem(LS_KEY);
+    store.removeItem(LS_KEY);
     const demoDb = seedDbIfEmpty();
     demoDb.user = { is_demo: true, is_authenticated: false, plan: 'demo', subscription_plan: 'demo', email: DEMO_EMAIL, displayName: 'Demo User' };
     saveDb(demoDb);
