@@ -14,6 +14,7 @@ import { recordSourceRun as recordSourceRunPure, SOURCE_FACTS } from '../lib/dat
 import { toolFromHandoffRecord } from '../lib/auditHandoff';
 import { workspaceCreateOrg, workspaceRead, workspaceWrite } from '../firebase-config';
 import { startReview, decide, decideRemaining, signOff, summary as reviewSummary } from '../lib/accessReviews';
+import { withDecision } from '../lib/renewalNotice';
 import { cleanAsset, mergeAssets } from '../lib/assets';
 import { applyIntune } from '../lib/intuneDevices';
 
@@ -52,7 +53,7 @@ export function useDbQuery() {
 // auto_renew (yes/no). Absent columns set nothing, so an older file leaves
 // MFA unknown rather than "off".
 const YES = /^(1|true|yes|oui|y|o)$/i; const NO = /^(0|false|no|non|n)$/i;
-function csvToolExtras(r, prefix) {
+export function csvToolExtras(r, prefix) {
   const out = {};
   const mfa = String(r[prefix + 'mfa'] ?? r[prefix + 'mfa_enabled'] ?? '').trim();
   if (YES.test(mfa)) out.mfa_enabled = true; else if (NO.test(mfa)) out.mfa_enabled = false;
@@ -62,6 +63,15 @@ function csvToolExtras(r, prefix) {
   if (['monthly', 'quarterly', 'yearly'].includes(cycle)) out.billing_cycle = cycle;
   const auto = String(r[prefix + 'auto_renew'] ?? '').trim();
   if (YES.test(auto)) out.auto_renew = true; else if (NO.test(auto)) out.auto_renew = false;
+  // Cancellation notice (lib/renewalNotice.js): "30", "30 jours", "30 days".
+  const notice = String(r[prefix + 'notice_days'] ?? '').trim().match(/^(\d{1,4})\b/);
+  if (notice) out.notice_days = Number(notice[1]);
+  const contractOwner = String(r[prefix + 'contract_owner_email'] ?? '').trim();
+  if (/^[^\s@]+@[^\s@]+$/.test(contractOwner)) out.contract_owner_email = contractOwner.toLowerCase();
+  const proc = String(r[prefix + 'procurement_required'] ?? '').trim();
+  if (YES.test(proc)) out.procurement_required = true; else if (NO.test(proc)) out.procurement_required = false;
+  const lead = Math.round(Number(r[prefix + 'procurement_lead_days']));
+  if (lead >= 0 && String(r[prefix + 'procurement_lead_days'] ?? '').trim() !== '') out.procurement_lead_days = lead;
   return out;
 }
 
@@ -904,6 +914,32 @@ export function useDbMutations() {
     onError: () => toast.error(t('err_update_tool')),
   });
 
+  // ── Renewal decisions (lib/renewalNotice.js) ─────────────────────────────
+  // Records what was decided for this renewal date: renew, cancel or
+  // renegotiate. It changes nothing at the vendor; the cancellation itself is
+  // sent by the customer. The decision is tied to the renewal date, so the
+  // next cycle asks again. `choice: null` takes the decision back.
+  const decideRenewal = useMutation({
+    mutationFn: async ({ id, choice, note = '' }) => {
+      setDb((db) => {
+        db.tools = (db.tools || []).map((x) => {
+          if (x.id !== id) return x;
+          if (choice === null) { const { renewal_decision: _gone, ...rest } = x; return rest; }
+          return withDecision(x, { choice, note, by: auditActor(db) });
+        });
+        return db;
+      }, (after, before) => {
+        const was = (before.tools || []).find((x) => x.id === id);
+        if (!was) return null;
+        return choice === null
+          ? { action: 'renewal.decision_cleared', details: `${was.name} — renews ${String(was.renewal_date || '').slice(0, 10)}` }
+          : { action: 'renewal.decided', details: `${was.name} — ${choice}, renews ${String(was.renewal_date || '').slice(0, 10)}` };
+      });
+    },
+    onSuccess: (_d, { choice }) => { invalidate(); track('renewal_decided', { choice: choice || 'cleared' }); },
+    onError: () => toast.error(t('err_update_tool')),
+  });
+
   // ── The hardware register (lib/assets.js) ────────────────────────────────
   // Every row goes through cleanAsset, so status and holder always agree.
   // These record what happened to a device; none of them reaches a device.
@@ -1026,7 +1062,7 @@ export function useDbMutations() {
   });
 
   return {
-    createTool, updateTool, deleteTool, reviewTool, importAuditTools, createClientFromAudit, clearInvoiceFinding,
+    createTool, updateTool, deleteTool, reviewTool, decideRenewal, importAuditTools, createClientFromAudit, clearInvoiceFinding,
     startAccessReview, decideAccessReview, signOffAccessReview,
     createEmployee, updateEmployee, deleteEmployee,
     createAccess, updateAccess, deleteAccess,

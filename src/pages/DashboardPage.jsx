@@ -23,6 +23,7 @@ import { ClearDataButton } from '../components/ClearDataButton';
 import { FreshnessLine } from '../components/DataSourcesPanel';
 import { invoiceCheckSummary } from '../lib/invoiceCheck';
 import { openPeopleChanges } from '../lib/peopleChanges';
+import { decisionsDue, todayISOUtc } from '../lib/renewalNotice';
 import { coverageEnding, devicesToReturn, COVERAGE_SOON_DAYS } from '../lib/assets';
 import { canInviteTeam } from '../lib/plan';
 import { previousMonthSpend } from '../lib/budget';
@@ -301,6 +302,22 @@ export function DashboardPage() {
         title: t('inv_check_dash_title').replace('{n}', _invoiceCheck.count),
         reason: t('inv_check_dash_reason').replace('{amount}', money(_invoiceCheck.annualAtStake)),
         action: t('review'), link: '/finance?tab=budget',
+      });
+    }
+
+    // Contracts whose last day to cancel has passed with no decision, or whose
+    // day to decide (that date minus purchasing's delay) is within a week
+    // (lib/renewalNotice.js, the same rule as the daily email). One line.
+    const _decisions = decisionsDue(db, todayISOUtc());
+    if (_decisions.length > 0) {
+      const first = _decisions[0];
+      actions.push({
+        id: 'notice-deadline', kind: 'notice_deadline', severity: 'high',
+        title: _decisions.length === 1 ? t('rn_dash_title_one').replace('{name}', first.name) : t('rn_dash_title').replace('{n}', _decisions.length),
+        reason: first.state === 'locked'
+          ? t('rn_dash_reason_locked').replace('{name}', first.name).replace('{date}', fmtDate(first.renewal_date))
+          : t('rn_dash_reason').replace('{name}', first.name).replace('{date}', fmtDate(first.decide_by)).replace('{deadline}', fmtDate(first.notice_deadline)),
+        action: t('review'), link: '/finance?tab=renewals',
       });
     }
 

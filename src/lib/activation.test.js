@@ -126,7 +126,7 @@ describe('the call sites', () => {
     const page = src('src/pages/DashboardPage.jsx');
     const list = page.slice(page.indexOf('TO-DO: ranked'), page.indexOf('end of TO-DO ──'));
     const kinds = [...list.matchAll(/kind: '([a-z_]+)'/g)].map(m => m[1]);
-    expect(kinds).toEqual(['former_access', 'invoice_check', 'people_changes', 'device_return', 'no_owner', 'no_mfa', 'budget', 'device_coverage', 'access_review', 'idle_spend']);
+    expect(kinds).toEqual(['former_access', 'invoice_check', 'notice_deadline', 'people_changes', 'device_return', 'no_owner', 'no_mfa', 'budget', 'device_coverage', 'access_review', 'idle_spend']);
     const rows = page.slice(page.indexOf('TO-DO + SPEND'), page.indexOf('end of TO-DO list'));
     expect((rows.match(/noteRecommendationActed\(item\.kind, item\.severity\)/g) || []).length,
       'assign-owner button, revoke button and the link must each note the action').toBe(3);

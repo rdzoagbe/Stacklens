@@ -19,6 +19,8 @@ import { Card, Modal, Pill, Select, useCategoryLabel } from '../../components/ui
 import { ContractComparisonPage } from '../ContractComparisonPage';
 import { RENEWAL_SAVINGS_PCT } from '../../lib/constants';
 import { csvField } from '../../lib/csvSafe';
+import { noticeTimeline, todayISOUtc, DECISION_LABEL_KEY } from '../../lib/renewalNotice';
+import { NoticeDecisionsPanel } from '../../components/NoticeDecisionsPanel';
 
 export function RenewalAlerts() {
   const { language } = useLang();
@@ -37,6 +39,7 @@ export function RenewalAlerts() {
   const renewals = useMemo(() => {
     const tools = db?.tools || [];
     const today = new Date();
+    const todayStr = todayISOUtc(today);
     return tools
       // Only genuinely cancelled tools are excluded. Filtering to status
       // 'active' used to hide orphaned and unused tools — which is backwards:
@@ -65,6 +68,8 @@ export function RenewalAlerts() {
           owner: tool.owner_name || tool.owner_email || '—',
           autoRenew: tool.auto_renew !== false,
           status,
+          // Last day to cancel and the day to decide by (lib/renewalNotice.js).
+          notice: noticeTimeline(tool, todayStr),
         };
       });
   }, [db]);
@@ -78,6 +83,8 @@ export function RenewalAlerts() {
   const autoRenewing = renewals.filter(r => r.autoRenew && r.daysUntil <= 90);
 
   const totalAtRisk = next90Days.reduce((s, r) => s + r.annualCost, 0);
+  const needsDecision = (r) => ['locked', 'act_now', 'soon'].includes(r.notice?.state);
+  const decisionNeeded = renewals.filter(needsDecision);
 
   // Most urgent renewal (highest cost in next 30 days)
   const mostUrgent = [...overdue, ...critical, ...urgent].sort((a, b) => b.annualCost - a.annualCost)[0];
@@ -105,6 +112,7 @@ export function RenewalAlerts() {
         // both use `autoRenewing`. Unbounded here, the chip said 15 and
         // returned 16.
         if (filter === 'auto') return r.autoRenew && r.daysUntil <= 90;
+        if (filter === 'decide') return needsDecision(r);
         return true;
       })
       .sort((a, b) => {
@@ -177,6 +185,23 @@ export function RenewalAlerts() {
       lines.push('DESCRIPTION:Renewal reminder: ' + r.app);
       lines.push('END:VALARM');
       lines.push('END:VEVENT');
+      // The day to decide by, when a notice period is recorded: the date that
+      // matters for a contract that renews by itself.
+      if (r.notice?.decide_by && !r.notice.decision && r.notice.state !== 'locked') {
+        const dd = r.notice.decide_by.replace(/-/g, '');
+        lines.push('BEGIN:VEVENT');
+        lines.push('UID:' + uid.replace('-hello@', '-decide-hello@'));
+        lines.push('DTSTART;VALUE=DATE:' + dd);
+        lines.push('DTEND;VALUE=DATE:' + dd);
+        lines.push('SUMMARY:' + r.app + ' — ' + t('rn_ics_summary'));
+        lines.push('DESCRIPTION:' + t('rn_col_deadline') + ': ' + r.notice.notice_deadline + '\\n' + t('ren_renewal_date') + ': ' + r.renewalDate);
+        lines.push('BEGIN:VALARM');
+        lines.push('TRIGGER:-P7D');
+        lines.push('ACTION:DISPLAY');
+        lines.push('DESCRIPTION:' + r.app + ' — ' + t('rn_ics_summary'));
+        lines.push('END:VALARM');
+        lines.push('END:VEVENT');
+      }
     });
     lines.push('END:VCALENDAR');
     const blob = new Blob([lines.join('\r\n')], { type: 'text/calendar;charset=utf-8' });
@@ -305,6 +330,9 @@ export function RenewalAlerts() {
           </button>
         </div>
       )}
+
+      {/* ── Decisions before the last day to cancel ── */}
+      <NoticeDecisionsPanel tools={db?.tools || []} />
 
       {/* ── Row 1: KPI Strip ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -453,6 +481,7 @@ export function RenewalAlerts() {
               ['critical', t('ren_critical'), critical.length],
               ['upcoming', t('ren_upcoming'), urgent.length + upcoming.length],
               ['auto', t('ren_auto_renew'), autoRenewing.length],
+              ['decide', t('rn_filter_decide'), decisionNeeded.length],
             ].map(([val, label, count]) => (
               <button key={val} onClick={() => setFilter(val)}
                 className={"px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap " + (filter === val ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white')}>
@@ -478,6 +507,7 @@ export function RenewalAlerts() {
                   <tr className="border-b border-slate-800 bg-slate-950/50">
                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('ren_app_col')}</th>
                     <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">{t('ren_renewal_date')}</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">{t('rn_col_deadline')}</th>
                     <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('th_status')}</th>
                     <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden lg:table-cell">{t('ren_annual')}</th>
                     <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden lg:table-cell">{t('ren_auto_col')}</th>
@@ -493,6 +523,22 @@ export function RenewalAlerts() {
                       </td>
                       <td className="py-3 px-4 text-sm text-slate-300 hidden md:table-cell whitespace-nowrap">
                         {fmtDate(r.renewalDate)}
+                      </td>
+                      <td className="py-3 px-4 text-sm hidden md:table-cell whitespace-nowrap">
+                        {!r.notice || r.notice.state === 'no_auto_renew' ? (
+                          <span className="text-slate-500">—</span>
+                        ) : r.notice.state === 'unknown_notice' ? (
+                          <span className="text-slate-500">{t('rn_notice_unknown')}</span>
+                        ) : (
+                          <>
+                            <span className={r.notice.state === 'locked' ? 'text-red-400 line-through' : 'text-slate-300'}>{fmtDate(r.notice.notice_deadline)}</span>
+                            <div className={'text-xs ' + (r.notice.state === 'decided' ? 'text-emerald-400' : ['locked', 'act_now'].includes(r.notice.state) ? 'text-red-400' : 'text-slate-500')}>
+                              {r.notice.state === 'decided' ? t(DECISION_LABEL_KEY[r.notice.decision.choice])
+                                : r.notice.state === 'locked' ? t('rn_state_locked')
+                                : t('rn_decide_by_short').replace('{date}', fmtDate(r.notice.decide_by))}
+                            </div>
+                          </>
+                        )}
                       </td>
                       <td className="py-3 px-4 text-center">
                         <span className={"text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border whitespace-nowrap " + getStatusColor(r.status)}>
