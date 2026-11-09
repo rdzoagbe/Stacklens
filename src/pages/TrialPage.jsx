@@ -503,8 +503,8 @@ export function TrialPage() {
                 )}
                 <div className="text-sm font-semibold text-slate-400 mb-2">{p.name}</div>
                 <div className="mb-5">
-                  <div className="flex items-baseline gap-1">
-                    {p.contact && <span className="text-sm text-slate-400">{planText(language, 'plan_enterprise_from')}</span>}
+                  {p.contact && <div className="text-xs text-slate-400">{planText(language, 'plan_enterprise_from')}</div>}
+                  <div className="flex flex-wrap items-baseline gap-1">
                     <span className="text-4xl font-black text-white">{pricing.format(p.eur)}</span>
                     <span className="text-sm text-slate-500">{p.sub}</span>
                   </div>

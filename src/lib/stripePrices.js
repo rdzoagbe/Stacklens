@@ -15,7 +15,7 @@ export const PRICE_IDS = {
   starter:    { monthly: 'price_1TMhOt1yFs6IziIVgJGBbzoG', annual: 'price_1TMhfK1yFs6IziIVOtbhpy23' },
   hr_finance: { monthly: 'price_1TWxAB1yFs6IziIVjxw3CG2V', annual: 'price_1TWxFd1yFs6IziIVjPZnA8XT' },
   pro:        { monthly: 'price_1TMhNW1yFs6IziIV5hwlssrt', annual: 'price_1TMhNW1yFs6IziIVMxiacXD7' },
-  business:   { monthly: null, annual: null },
+  business:   { monthly: 'price_1UZsKz1yFs6IziIVtDrqBwBb', annual: 'price_1UZsMY1yFs6IziIVfyUjcOKa' },
   enterprise: { monthly: 'price_1TMhNk1yFs6IziIVPkv7RiLc', annual: 'price_1TMhNk1yFs6IziIViMLzewdQ' },
 };
 

@@ -241,10 +241,12 @@ function getPlanFromSubscription(sub) {
     // Live mode price IDs (stacklens.fr)
     'price_1TMhOt1yFs6IziIVgJGBbzoG': 'starter',        // Starter monthly €29
     'price_1TMhfK1yFs6IziIVOtbhpy23': 'starter',        // Starter annual €278
-    'price_1TWxAB1yFs6IziIVjxw3CG2V':      'hr_finance',     // HR & Finance monthly €49  ← fill after Stripe
-    'price_1TWxFd1yFs6IziIVjPZnA8XT':       'hr_finance',     // HR & Finance annual €470  ← fill after Stripe
+    'price_1TWxAB1yFs6IziIVjxw3CG2V': 'hr_finance',     // HR & Finance monthly €49
+    'price_1TWxFd1yFs6IziIVjPZnA8XT': 'hr_finance',     // HR & Finance annual €470
     'price_1TMhNW1yFs6IziIV5hwlssrt': 'pro',            // Pro monthly €79
     'price_1TMhNW1yFs6IziIVMxiacXD7': 'pro',            // Pro annual €758
+    'price_1UZsKz1yFs6IziIVtDrqBwBb': 'business',       // Business monthly €149
+    'price_1UZsMY1yFs6IziIVfyUjcOKa': 'business',       // Business annual €1430
     'price_1TMhNk1yFs6IziIVPkv7RiLc': 'enterprise',     // Enterprise monthly €299
     'price_1TMhNk1yFs6IziIViMLzewdQ': 'enterprise',     // Enterprise annual €2870
     'price_1TMhND1yFs6IziIVFqZSPoGR': 'free',           // Trial/free
@@ -305,6 +307,7 @@ exports.createCheckout = onRequest({ secrets: [STRIPE_SECRET_KEY], cors: true, t
       'price_1TMhOt1yFs6IziIVgJGBbzoG','price_1TMhfK1yFs6IziIVOtbhpy23',
       'price_1TWxAB1yFs6IziIVjxw3CG2V','price_1TWxFd1yFs6IziIVjPZnA8XT',
       'price_1TMhNW1yFs6IziIV5hwlssrt','price_1TMhNW1yFs6IziIVMxiacXD7',
+      'price_1UZsKz1yFs6IziIVtDrqBwBb','price_1UZsMY1yFs6IziIVfyUjcOKa',
       'price_1TMhNk1yFs6IziIVPkv7RiLc','price_1TMhNk1yFs6IziIViMLzewdQ',
       'price_1T9X4k0E2aOcllaPRKLOAgiK','price_1T9XaZ0E2aOcllaPORiPFfGp',
       'price_1T9X5G0E2aOcllaP1KncPTsP','price_1T9Xaa0E2aOcllaPRA4P9Cy8',
