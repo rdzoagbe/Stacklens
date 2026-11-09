@@ -132,12 +132,15 @@ export function getTrialState(user) {
 // Pro was sold up to 1,500 people until Business took over 500 to 1,500.
 // A Pro subscription that began before the change, or Pro given without a
 // subscription (an early-access grant), keeps 1,500: nobody already paying
-// loses room. `subscription_started_at` is Stripe's start_date, written by
-// the webhook (a protected field in firestore.rules).
+// loses room. `pro_since` is when the account became Pro, written by the
+// Stripe webhook (proSinceUpdate in functions/index.js; a protected field in
+// firestore.rules) and removed when it stops being Pro, so a Starter from
+// before the change that moves to Pro later gets the new allowance. No date
+// means Pro from before the field existed, or Pro given by hand.
 export const PRO_LEGACY_EMPLOYEES = 1500;
 export const PRO_LIMIT_CUTOFF = Date.parse('2026-11-10T00:00:00Z');
 export const isLegacyPro = (user) => {
-  const started = Number(user?.subscription_started_at) || 0;
+  const started = Number(user?.pro_since) || 0;
   return !started || started < PRO_LIMIT_CUTOFF;
 };
 

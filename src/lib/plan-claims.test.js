@@ -86,7 +86,7 @@ describe('plan claims match enforced limits', () => {
   it('both pages render the shared cards rather than their own copy', () => {
     const billing = readRepo('src/pages/settings/BillingTab.jsx');
     const landing = readRepo('src/pages/TrialPage.jsx');
-    expect(billing).toMatch(/planFeatures\(c\.id, language\)/);
+    expect(billing).toMatch(/planFeatures\(c\.id, language, limits\)/);
     expect(landing).toMatch(/planFeatures\(c\.id, language\)/);
     // The hand-written lists these replaced.
     expect(billing).not.toMatch(/featureText/);

@@ -18,6 +18,7 @@ const PLAN_COLORS = {
   starter: 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30',
   hr_finance: 'bg-violet-600/20 text-violet-400 border border-violet-500/30',
   pro: 'bg-amber-600/20 text-amber-400 border border-amber-500/30',
+  business: 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30',
   enterprise: 'bg-red-600/20 text-red-400 border border-red-500/30',
   scale: 'bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-300 border border-amber-500/30',
 };
@@ -504,7 +505,9 @@ export function FounderAdminPage() {
         <KpiCard
           icon={Crown}
           label="Paid Users"
-          value={(stats.planCounts.starter || 0) + (stats.planCounts.hr_finance || 0) + (stats.planCounts.pro || 0) + (stats.planCounts.enterprise || 0) + (stats.planCounts.scale || 0)}
+          value={Object.entries(stats.planCounts)
+            .filter(([k]) => !['free', 'trial'].includes(k))
+            .reduce((sum, [, v]) => sum + (v || 0), 0)}
           sub={Object.entries(stats.planCounts)
             .filter(([k]) => !['free', 'trial'].includes(k))
             .map(([k, v]) => `${v} ${k.replace('_', ' ')}`)

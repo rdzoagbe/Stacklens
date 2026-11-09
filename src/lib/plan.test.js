@@ -129,10 +129,10 @@ describe('getPlanLimits', () => {
     const limits = getPlanLimits('pro');
     expect(limits.tools).toBe(500);
     expect(limits.employees).toBe(500);
-    expect(getPlanLimits('pro', { subscription_started_at: Date.parse('2026-12-01T00:00:00Z') }).employees).toBe(500);
-    expect(getPlanLimits('pro', { subscription_started_at: Date.parse('2026-06-01T00:00:00Z') }).employees).toBe(1500);
+    expect(getPlanLimits('pro', { pro_since: Date.parse('2026-12-01T00:00:00Z') }).employees).toBe(500);
+    expect(getPlanLimits('pro', { pro_since: Date.parse('2026-06-01T00:00:00Z') }).employees).toBe(1500);
     expect(getPlanLimits('pro', { plan: 'pro' }).employees).toBe(1500); // no subscription: an early-access grant
-    expect(getPlanLimits('business', { subscription_started_at: 1 }).employees).toBe(1500);
+    expect(getPlanLimits('business', { pro_since: 1 }).employees).toBe(1500);
   });
 
   it('enterprise has no practical limits', () => {
