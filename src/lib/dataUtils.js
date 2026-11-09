@@ -64,6 +64,11 @@ export function computeAccessDerivedRiskFlag(accessRow, employeesById, toolsById
   // A removal approved or requested but not yet carried out in the tool is
   // still access the person holds (lib/removals.js): it keeps its risk.
   if (accessRow.status !== 'active' && accessRow.status !== 'pending_revocation') return 'none';
+  // Kept past the person's end date under a written exception (reason and
+  // end date, lib/lifecycle.js): a decision, not a finding, until it ends.
+  const exc = accessRow.exception;
+  if (exc && typeof exc.until === 'string' && exc.until.slice(0, 10) >= new Date().toISOString().slice(0, 10)
+    && (emp?.status === 'offboarded' || hasLeft(emp))) return 'none';
   if (emp?.status === 'offboarded')  return 'former_employee';
   // An end date that has passed is a departure whether or not anyone pressed
   // Offboard: a contract that ended last month (a freelancer, an intermittent,

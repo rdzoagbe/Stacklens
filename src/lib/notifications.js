@@ -10,7 +10,9 @@
 //   renewal   → renewal_alerts   renewals at 30 and 7 days
 //   budget    → budget_alerts    department budgets at 80 % and 100 % (and the
 //                                in-app banner when spend passes the cap)
-//   access    → access_alerts    former employees whose access is still active
+//   access    → access_alerts    former employees whose access is still active;
+//                                assignments ending, overdue, temporary access
+//                                expired (functions/lifecycle.js)
 //   weekly    → weekly_summary   the weekly summary
 //   devices   → device_alerts    warranty and lease ends at 30 and 7 days
 //                                (hardware register; functions/device-alerts.js)

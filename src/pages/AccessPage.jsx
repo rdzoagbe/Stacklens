@@ -132,6 +132,16 @@ export function AccessForm({ initial, tools, employees, onSubmit, onClose }) {
         </div>
       </div>
 
+      {/* Temporary access (lib/lifecycle.js): past this date it is listed on
+          the Offboarding page and in the daily email until it is removed. */}
+      <div className="grid gap-3 md:grid-cols-3">
+        <div>
+          <div className="mb-1 text-xs font-semibold text-slate-400">{t('lc_expires_on')}</div>
+          <Input type="date" value={form.expires_on || ''} aria-label={t('lc_expires_on')} onChange={(e) => setForm((f) => ({ ...f, expires_on: e.target.value }))} />
+        </div>
+        <p className="self-end text-xs text-slate-500 md:col-span-2">{t('lc_expires_hint')}</p>
+      </div>
+
       <div className="flex justify-end gap-2">
         <Button variant="ghost" onClick={onClose}>
           {t('act_cancel')}

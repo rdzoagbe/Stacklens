@@ -26,6 +26,7 @@ import { openPeopleChanges } from '../lib/peopleChanges';
 import { decisionsDue, todayISOUtc } from '../lib/renewalNotice';
 import { removalQueue } from '../lib/removals';
 import { savingsSummary } from '../lib/savings';
+import { assignments, expiringAccess } from '../lib/lifecycle';
 import { coverageEnding, devicesToReturn, COVERAGE_SOON_DAYS } from '../lib/assets';
 import { canInviteTeam } from '../lib/plan';
 import { previousMonthSpend } from '../lib/budget';
@@ -323,6 +324,20 @@ export function DashboardPage() {
           ? t('rn_dash_reason_locked').replace('{name}', first.name).replace('{date}', fmtDate(first.renewal_date))
           : t('rn_dash_reason').replace('{name}', first.name).replace('{date}', fmtDate(first.decide_by)).replace('{deadline}', fmtDate(first.notice_deadline)),
         action: t('review'), link: '/finance?tab=renewals',
+      });
+    }
+
+    // Assignments overdue (escalated: ended with something still open, past
+    // the grace period or with no manager) and temporary access past its
+    // date (lib/lifecycle.js). One line for both.
+    const _overdue = assignments(db).filter((a) => a.escalated);
+    const _expired = expiringAccess(db).filter((x) => x.days < 0);
+    if (_overdue.length + _expired.length > 0) {
+      actions.push({
+        id: 'assignment-overdue', kind: 'assignment_overdue', severity: 'high',
+        title: t('lc_dash_title').replace('{n}', _overdue.length).replace('{m}', _expired.length),
+        reason: _overdue[0] ? t('lc_dash_reason').replace('{name}', _overdue[0].name).replace('{n}', _overdue[0].open) : t('lc_dash_reason_temp').replace('{name}', _expired[0].person).replace('{tool}', _expired[0].tool),
+        action: t('review'), link: '/offboarding',
       });
     }
 

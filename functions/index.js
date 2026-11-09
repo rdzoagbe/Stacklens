@@ -81,7 +81,8 @@ const { deviceCoverageAlerts, deviceAlertLine } = require('./device-alerts.js');
 const { renewalAlerts } = require('./renewal-alerts.js');
 const { noticeAlerts } = require('./renewal-notice.js');
 const { isFounderCaller } = require('./founder-gate.js');
-const { renewalAlertLine, budgetAlertLine, securityAlertLine, weeklyRenewalRow, insightHtml } = require('./alert-email.js');
+const { renewalAlertLine, budgetAlertLine, securityAlertLine, lifecycleAlertLine, weeklyRenewalRow, insightHtml } = require('./alert-email.js');
+const { lifecycleAlerts } = require('./lifecycle.js');
 
 // Explicitly allow stacklens.fr and Firebase preview domains
 const ALLOWED_ORIGINS = [
@@ -2269,7 +2270,7 @@ exports.dailyAlerts = onSchedule({
     const stateSnap = await stateRef.get();
     const sentKeys = stateSnap.exists ? (stateSnap.data().sent || {}) : {};
     const newKeys = {};
-    const alerts = { renewals: [], budgets: [], security: [], devices: [] };
+    const alerts = { renewals: [], budgets: [], security: [], devices: [], assignments: [] };
 
     // 1) Renewals crossing the 30-day and 7-day thresholds (once each).
     if (data?.user?.renewal_alerts !== false) {
@@ -2321,13 +2322,20 @@ exports.dailyAlerts = onSchedule({
       alerts.security.push({ name: emp.full_name || emp.email, count });
     });
 
+    // 3b) Assignments ending, overdue (escalated to the owner) and temporary
+    // access past its date (functions/lifecycle.js, the twin of
+    // src/lib/lifecycle.js). Under the same switch as leavers' access.
+    if (data?.user?.access_alerts !== false) {
+      for (const r of lifecycleAlerts(data, todayStr, sentKeys, newKeys)) alerts.assignments.push(r);
+    }
+
     // 4) Warranty and lease ends in the hardware register, at 30 and 7 days
     // (functions/device-alerts.js, the twin of src/lib/assets.js).
     if (data?.user?.device_alerts !== false) {
       for (const d of deviceCoverageAlerts(data.assets, todayStr, sentKeys, newKeys)) alerts.devices.push(d);
     }
 
-    const total = alerts.renewals.length + alerts.budgets.length + alerts.security.length + alerts.devices.length;
+    const total = alerts.renewals.length + alerts.budgets.length + alerts.security.length + alerts.devices.length + alerts.assignments.length;
     if (!total) continue;
 
     const section = (title, rows) => rows.length ? `
@@ -2344,20 +2352,26 @@ exports.dailyAlerts = onSchedule({
         ${section('Renewals and last days to cancel', alerts.renewals.map(r => line(...renewalAlertLine(r, cur, fmt), r.kind === 'locked' || r.days <= 7 ? '#ef4444' : '#f59e0b')))}
         ${section('Budget thresholds', alerts.budgets.map(b => line(...budgetAlertLine(b, cur, fmt), b.pct >= 100 ? '#ef4444' : '#f59e0b')))}
         ${section('Access security', alerts.security.map(s => line(...securityAlertLine(s), '#ef4444')))}
+        ${section('Assignments ending', alerts.assignments.map(r => line(...lifecycleAlertLine(r), r.kind === 'ending' ? '#f59e0b' : '#ef4444')))}
         ${section('Warranties and leases', alerts.devices.map(d => line(...deviceAlertLine(d), d.days <= 7 ? '#ef4444' : '#f59e0b')))}
         <div style="text-align:center;margin-top:24px"><a href="https://stacklens.fr/dashboard" style="background:#3b82f6;color:white;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block">Open Stacklens →</a></div>
       </div>
       <div style="padding:16px;text-align:center;border-top:1px solid #1e293b"><p style="color:#475569;font-size:12px;margin:0">Stacklens · <a href="https://stacklens.fr/settings" style="color:#475569">Manage notifications</a></p></div>
     </div>`;
 
+    const firstAssignment = alerts.assignments.find(r => r.kind !== 'ending') || alerts.assignments[0];
     const worst = alerts.security.length ? `🚨 ${alerts.security[0].name} still has access`
+      : firstAssignment && firstAssignment.kind !== 'ending' ? (firstAssignment.kind === 'overdue'
+        ? `🚨 ${firstAssignment.name}: assignment ended ${firstAssignment.days} days ago, items still open`
+        : `🚨 ${firstAssignment.name}: temporary access to ${firstAssignment.tool} expired`)
       : alerts.budgets.length ? `⚠️ ${alerts.budgets[0].department} budget at ${alerts.budgets[0].pct}%`
       : alerts.renewals.length ? (alerts.renewals[0].kind === 'notice'
         ? `🔔 ${alerts.renewals[0].name}: decide within ${alerts.renewals[0].days} days to keep the option to cancel`
         : alerts.renewals[0].kind === 'locked'
           ? `🔔 ${alerts.renewals[0].name}: too late to cancel, it renews ${alerts.renewals[0].renewal_date}`
           : `🔔 ${alerts.renewals[0].name} renews in ${alerts.renewals[0].days} days`)
-      : `🗓️ ${alerts.devices[0].name}: ${alerts.devices[0].type || 'warranty or lease'} ends in ${alerts.devices[0].days} days`;
+      : alerts.devices.length ? `🗓️ ${alerts.devices[0].name}: ${alerts.devices[0].type || 'warranty or lease'} ends in ${alerts.devices[0].days} days`
+      : `👋 ${firstAssignment.name}: assignment ends in ${firstAssignment.days} days`;
 
     try {
       const mail = await sendMail(BREVO_API_KEY.value(), {

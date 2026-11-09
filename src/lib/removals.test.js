@@ -104,7 +104,7 @@ describe('the lists and the evidence file', () => {
     const q = removalQueue(buildSeedDb());
     expect(q.open.map((r) => [r.person, r.tool, r.stage])).toEqual([['Antoine Rey', 'Pennylane', 'requested']]);
     expect(q.unverified.length).toBeGreaterThanOrEqual(3);
-    expect(q.verified.map((r) => r.tool)).toEqual(['Slack']);
+    expect(q.verified.map((r) => r.tool)).toEqual(['Figma', 'Slack']); // newest first: Zoé's Figma (lib/lifecycle.js demo), Noah's Slack
   });
 });
 

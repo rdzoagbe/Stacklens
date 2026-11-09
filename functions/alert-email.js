@@ -39,6 +39,18 @@ function securityAlertLine(s) {
   return [escapeHtml(s.name), `no longer active but still holds ${n} access grant${n > 1 ? 's' : ''}`];
 }
 
+/**
+ * [title, detail] of an assignment line (functions/lifecycle.js): ending,
+ * overdue (the escalation), or temporary access past its date. Escaped.
+ */
+function lifecycleAlertLine(r) {
+  const manager = r.manager ? `manager ${escapeHtml(r.manager)}` : 'no manager named';
+  const open = (r2) => `${Number(r2.access)} access${Number(r2.access) === 1 ? '' : 'es'} and ${Number(r2.devices)} device${Number(r2.devices) === 1 ? '' : 's'} still open`;
+  if (r.kind === 'ending') return [escapeHtml(r.name), `assignment ends ${escapeHtml(r.end_date)} (${Number(r.days)} days): ${open(r)} · ${manager}`];
+  if (r.kind === 'overdue') return [escapeHtml(r.name), `assignment ended ${escapeHtml(r.end_date)}, ${Number(r.days)} days ago: ${open(r)} · ${manager} — escalated to you`];
+  return [escapeHtml(r.name), `temporary access to ${escapeHtml(r.tool)} expired ${escapeHtml(r.expires_on)} and is still held · ${manager}`];
+}
+
 /** One row of the weekly email's renewals table. `days` and `cost` are ours; the rest is escaped. */
 function weeklyRenewalRow(t, days, cost, color) {
   const cell = 'padding:8px;border-bottom:1px solid #1e293b;font-size:13px';
@@ -55,4 +67,4 @@ function insightHtml(insight) {
   return escapeHtml(insight);
 }
 
-module.exports = { renewalAlertLine, budgetAlertLine, securityAlertLine, weeklyRenewalRow, insightHtml };
+module.exports = { renewalAlertLine, budgetAlertLine, securityAlertLine, lifecycleAlertLine, weeklyRenewalRow, insightHtml };
