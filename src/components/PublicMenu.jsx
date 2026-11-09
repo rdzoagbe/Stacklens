@@ -22,6 +22,7 @@ export const PUBLIC_MENU_LINKS = [
   { to: '/audit-saas', key: 'pm_audit' },
   { to: '/experts-comptables', key: 'pm_accountants' },
   { to: '/direction-financiere', key: 'pm_finance' },
+  { to: '/fonctionnalites', key: 'pm_capabilities' },
 ];
 
 const linkClass = 'text-sm text-slate-400 hover:text-white transition-colors whitespace-nowrap';

@@ -108,6 +108,14 @@ export const PAGE_SEO = {
       description: "Budgets logiciels par service, factures fournisseurs contrôlées contre le prix convenu, renouvellements à venir et rapport budgétaire exportable : Stacklens tient les dépenses logicielles dont le DAF et le contrôleur de gestion sont garants.",
     },
   },
+  '/fonctionnalites': {
+    title: 'What Stacklens does today',
+    description: "Feature by feature, what Stacklens does by itself, what stays yours to do in your other tools, what does not exist, and what each connector reads and changes.",
+    fr: {
+      title: 'Ce que fait Stacklens aujourd\'hui',
+      description: "Fonction par fonction, ce que Stacklens fait seul, ce qui reste à faire dans vos autres outils, ce qui n'existe pas, et ce que chaque connecteur lit et modifie.",
+    },
+  },
   '/audit-saas': {
     title: 'Free SaaS audit',
     description: "Drop a bank export and get the list of recurring software subscriptions, duplicates, price rises and upcoming renewals. Everything happens in your browser: nothing is sent to Stacklens.",
