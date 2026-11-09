@@ -116,6 +116,14 @@ export const PAGE_SEO = {
       description: "Fonction par fonction, ce que Stacklens fait seul, ce qui reste à faire dans vos autres outils, ce qui n'existe pas, et ce que chaque connecteur lit et modifie.",
     },
   },
+  '/note-donnees': {
+    title: "How Stacklens handles your clients' data",
+    description: "One page an accountant can hand to a client: the free audit reads the bank file on the computer and sends nothing (check it with the internet off), what a paid workspace stores and where, the exit rules, and who runs Stacklens.",
+    fr: {
+      title: 'Comment Stacklens traite les données de vos clients',
+      description: "Une page à remettre à un client : l'audit gratuit lit le relevé sur l'ordinateur et n'envoie rien (vérifiable internet coupé), ce qu'un espace payant stocke et où, les règles de sortie, et qui exploite Stacklens.",
+    },
+  },
   '/audit-saas': {
     title: 'Free SaaS audit',
     description: "Drop a bank export and get the list of recurring software subscriptions, duplicates, price rises and upcoming renewals. Everything happens in your browser: nothing is sent to Stacklens.",

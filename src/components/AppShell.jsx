@@ -634,7 +634,7 @@ export function CookieBanner() {
       role="dialog"
       aria-labelledby="cookie-banner-title"
       aria-describedby="cookie-banner-body"
-      className="fixed bottom-0 left-0 right-0 z-[9999] p-3 sm:px-5 sm:py-4 bg-slate-950/98 border-t border-slate-800 backdrop-blur-md shadow-2xl"
+      className="print:hidden fixed bottom-0 left-0 right-0 z-[9999] p-3 sm:px-5 sm:py-4 bg-slate-950/98 border-t border-slate-800 backdrop-blur-md shadow-2xl"
     >
       <div className="max-w-6xl mx-auto">
         {!showDetails ? (

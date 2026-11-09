@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Briefcase, Users, FileCheck, Upload, Search, Send, ShieldCheck, ArrowRight, Globe2, Lock, Sparkles, Check, CheckCircle2 } from 'lucide-react';
+import { Briefcase, Users, FileCheck, Upload, Search, Send, ShieldCheck, ArrowRight, Globe2, Lock, Sparkles, Check, CheckCircle2, FileText, Copy, Receipt } from 'lucide-react';
 import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
 import { PublicNav } from '../components/PublicNav';
@@ -9,6 +9,7 @@ import { submitContactForm, mailtoFallback } from '../lib/contact';
 import { EARLY_ACCESS } from '../lib/earlyAccess';
 import { Testimonials } from '../components/Testimonials';
 import { CLIENT_WORKSPACE_LIMIT } from '../lib/plan';
+import { LEGAL_ENTITY } from '../lib/constants';
 
 // ── /experts-comptables ─────────────────────────────────────────────────────
 //
@@ -62,6 +63,37 @@ const ea = (s) => String(s || '')
 // Module scope: a component created inside another's render remounts every render.
 function Item({ children }) {
   return <li className="flex gap-2"><Check className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" /><span>{children}</span></li>;
+}
+
+// ── Make it billable ────────────────────────────────────────────────────────
+//
+// Accountants on the panel said their clients never ask for a software audit,
+// so they could not see who would pay. This gives them the words: a proposal
+// to send as it is, with the fee left blank. Stacklens suggests no price, and
+// the promise about the bank file is the free audit's own (nothing leaves the
+// computer that reads it).
+function Billable({ t }) {
+  const [copied, setCopied] = useState(false);
+  const text = t('acct_bill_template');
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch { /* the text stays selectable */ }
+  };
+  return (
+    <section className="mb-20" data-testid="acct-billable">
+      <h2 className="text-2xl md:text-3xl font-bold mb-3 flex items-center gap-2"><Receipt className="w-6 h-6 text-blue-400" /> {t('acct_bill_title')}</h2>
+      <p className="text-slate-400 leading-relaxed max-w-3xl mb-6">{t('acct_bill_body')}</p>
+      <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 md:p-6">
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <h3 className="font-semibold">{t('acct_bill_template_title')}</h3>
+          <button type="button" onClick={copy} className="inline-flex items-center gap-2 rounded-lg border border-line-control px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-800">
+            {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />} {copied ? t('acct_bill_copied') : t('acct_bill_copy')}
+          </button>
+        </div>
+        <pre className="whitespace-pre-wrap font-sans text-sm text-slate-300 leading-relaxed select-all" data-testid="acct-bill-template">{text}</pre>
+        <p className="mt-4 text-xs text-slate-500">{t('acct_bill_note')}</p>
+      </div>
+    </section>
+  );
 }
 
 // ── Early access ────────────────────────────────────────────────────────────
@@ -125,7 +157,7 @@ function EarlyAccess({ t }) {
       <div className="grid md:grid-cols-3 gap-6 mb-10 text-sm text-slate-300">
         <div>
           <h3 className="font-semibold text-white mb-3">{t('ea_get_title')}</h3>
-          <ul className="space-y-2"><Item>{ea(t('ea_get_1'))}</Item><Item>{ea(t('ea_get_2'))}</Item></ul>
+          <ul className="space-y-2"><Item>{ea(t('ea_get_1'))}</Item><Item>{ea(t('ea_get_3'))}</Item><Item>{ea(t('ea_get_4'))}</Item><Item>{ea(t('ea_get_2'))}</Item></ul>
         </div>
         <div>
           <h3 className="font-semibold text-white mb-3">{t('ea_give_title')}</h3>
@@ -276,7 +308,18 @@ export function AccountantsPage() {
             <li className="flex gap-2"><ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" /> {t('acct_trust_2')}</li>
             <li className="flex gap-2"><Globe2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" /> {t('acct_trust_3')}</li>
           </ul>
+          <div className="mt-5 flex flex-col gap-2 text-sm md:flex-row md:items-center md:justify-between">
+            <Link to="/note-donnees" className="inline-flex items-center gap-2 font-semibold text-emerald-300 hover:text-emerald-200 underline" data-testid="acct-data-note">
+              <FileText className="w-4 h-4" /> {t('acct_trust_4')}
+            </Link>
+            <span className="text-slate-400" data-testid="acct-who">
+              {t('acct_who').replace('{publisher}', LEGAL_ENTITY.publisher).replace('{siret}', LEGAL_ENTITY.siret)}{' '}
+              <Link to="/legal" className="underline hover:text-slate-300">{t('dn_link_legal')}</Link>
+            </span>
+          </div>
         </section>
+
+        <Billable t={t} />
 
         {/* FAQ */}
         <section className="mb-20">

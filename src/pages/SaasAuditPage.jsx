@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import {
   Upload, ShieldCheck, Download, Copy, TrendingUp, CalendarClock, Eye, Layers,
   ArrowRight, RefreshCw, FileSpreadsheet, AlertTriangle, CheckCircle2,
-  Check, X, Pencil, Undo2, Printer, Mail, FileText, Users, ArrowLeft,
+  Check, X, Pencil, Undo2, Printer, Mail, FileText, Users, ArrowLeft, WifiOff,
 } from 'lucide-react';
 import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
@@ -249,6 +249,7 @@ export function SaasAuditPage() {
                 <p className="text-sm text-emerald-200/70 mt-1">{t('audit_privacy_body')}</p>
               </div>
             </div>
+            <OfflineCheck t={t} />
           </>
         )}
 
@@ -256,6 +257,35 @@ export function SaasAuditPage() {
           skipped={state.skipped} credits={state.credits} unreadable={state.unreadable} dateOrder={state.dateOrder} onFlipDateOrder={flipDateOrder}
           format={state.format} entries={state.entries}
           verdicts={verdicts} setVerdict={setVerdict} />}
+      </div>
+    </div>
+  );
+}
+
+// ── Check it yourself ──────────────────────────────────────────────────────
+//
+// "Read in your browser" is a claim a cautious accountant cannot check, so
+// the page tells them how: load it, switch the internet off, drop the file.
+// The audit needs no network once loaded (accountant-channel.test.js: no
+// fetch, no storage), and while the browser is offline the page says so,
+// which turns the claim into something they watch happen.
+function OfflineCheck({ t }) {
+  const [online, setOnline] = useState(() => (typeof navigator === 'undefined' ? true : navigator.onLine !== false));
+  useEffect(() => {
+    const up = () => setOnline(true);
+    const down = () => setOnline(false);
+    window.addEventListener('online', up);
+    window.addEventListener('offline', down);
+    return () => { window.removeEventListener('online', up); window.removeEventListener('offline', down); };
+  }, []);
+  return (
+    <div className="mt-3 rounded-xl border border-slate-800 bg-slate-900/60 px-5 py-4 flex gap-3" data-testid="audit-offline-check">
+      <WifiOff className="w-5 h-5 text-slate-400 shrink-0 mt-0.5" aria-hidden />
+      <div className="text-sm">
+        <div className="font-semibold text-slate-200">{t('audit_check_title')}</div>
+        <p className="text-slate-400 mt-1">{t('audit_check_body')}</p>
+        {!online && <p className="mt-2 font-semibold text-emerald-300" role="status" data-testid="audit-offline-now">{t('audit_offline_now')}</p>}
+        <Link to="/note-donnees" className="mt-2 inline-block text-blue-400 hover:text-blue-300 underline">{t('audit_note_link')}</Link>
       </div>
     </div>
   );
