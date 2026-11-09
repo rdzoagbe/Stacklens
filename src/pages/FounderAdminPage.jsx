@@ -22,7 +22,7 @@ const PLAN_COLORS = {
   scale: 'bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-300 border border-amber-500/30',
 };
 
-const VALID_PLANS = ['free', 'trial', 'starter', 'hr_finance', 'pro', 'enterprise', 'scale'];
+const VALID_PLANS = ['free', 'trial', 'starter', 'hr_finance', 'pro', 'business', 'enterprise', 'scale'];
 
 
 function timeAgo(ms) {

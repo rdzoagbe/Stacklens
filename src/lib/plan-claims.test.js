@@ -73,12 +73,14 @@ describe('plan claims match enforced limits', () => {
     }
   });
 
-  it('only Enterprise, whose limits are effectively unlimited, says "unlimited"', () => {
+  it('"unlimited" is said only of tools, on the plans whose tool limit is effectively none, and never of people', () => {
     for (const card of PLAN_CARDS) {
-      const says = planFeatures(card.id, 'en').some((l) => /unlimited/i.test(l));
-      expect(says, card.id).toBe(card.id === 'enterprise');
+      const lines = planFeatures(card.id, 'en');
+      expect(lines.some((l) => /unlimited.*tools/i.test(l)), card.id).toBe(PLAN_LIMITS[card.id].tools >= 99999 && !card.contact);
+      // The product is designed and tested for about 1,500 people (sec_large_not_5).
+      expect(lines.some((l) => /unlimited (employees|people)/i.test(l)), card.id).toBe(false);
     }
-    expect(PLAN_LIMITS.enterprise.tools).toBeGreaterThanOrEqual(99999);
+    expect(PLAN_LIMITS.business.employees).toBe(1500);
   });
 
   it('both pages render the shared cards rather than their own copy', () => {
@@ -104,7 +106,7 @@ describe('plan claims match enforced limits', () => {
     expect(cheapestPlanFor('people').id).toBe('free');
     expect(cheapestPlanFor('finance').id).toBe('hr_finance');
     expect(cheapestPlanFor('security').id).toBe('pro');
-    expect(cheapestPlanFor('api').id).toBe('enterprise');
+    expect(cheapestPlanFor('api').id).toBe('business');
   });
 });
 

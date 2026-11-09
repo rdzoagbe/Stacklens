@@ -18,6 +18,7 @@ export const PLAN_TIERS = {
   starter: 2,
   hr_finance: 2,
   pro: 3,
+  business: 4,
   enterprise: 4,
   // legacy aliases
   growth: 3, scale: 4, unlimited: 4, professional: 4, startup: 0,
@@ -43,7 +44,8 @@ export const PLAN_LIMITS = {
   demo:       { tools: 9999,  employees: 9999,  teamInvites: 0,   label: 'Demo' },
   starter:    { tools: 100,   employees: 250,   teamInvites: TEAM_INVITE_LIMIT,   label: 'Starter' },
   hr_finance: { tools: 100,   employees: 250,   teamInvites: TEAM_INVITE_LIMIT,   label: 'HR & Finance' },
-  pro:        { tools: 500,   employees: 1500,  teamInvites: TEAM_INVITE_LIMIT,  label: 'Pro' },
+  pro:        { tools: 500,   employees: 500,   teamInvites: TEAM_INVITE_LIMIT,  label: 'Pro' },
+  business:   { tools: 99999, employees: 1500,  teamInvites: TEAM_INVITE_LIMIT,  label: 'Business' },
   enterprise: { tools: 99999, employees: 99999, teamInvites: TEAM_INVITE_LIMIT, label: 'Enterprise' },
   // legacy
   growth:       { tools: 500,   employees: 1500,  teamInvites: TEAM_INVITE_LIMIT,  label: 'Pro' },
@@ -127,6 +129,21 @@ export function getTrialState(user) {
   return { isTrial, daysLeft, expired };
 }
 
-export function getPlanLimits(plan) {
-  return PLAN_LIMITS[plan] || PLAN_LIMITS.free;
+// Pro was sold up to 1,500 people until Business took over 500 to 1,500.
+// A Pro subscription that began before the change, or Pro given without a
+// subscription (an early-access grant), keeps 1,500: nobody already paying
+// loses room. `subscription_started_at` is Stripe's start_date, written by
+// the webhook (a protected field in firestore.rules).
+export const PRO_LEGACY_EMPLOYEES = 1500;
+export const PRO_LIMIT_CUTOFF = Date.parse('2026-11-10T00:00:00Z');
+export const isLegacyPro = (user) => {
+  const started = Number(user?.subscription_started_at) || 0;
+  return !started || started < PRO_LIMIT_CUTOFF;
+};
+
+/** The plan's limits; pass the user so a Pro customer from before the change keeps 1,500 people. */
+export function getPlanLimits(plan, user = null) {
+  const limits = PLAN_LIMITS[plan] || PLAN_LIMITS.free;
+  if (plan === 'pro' && user && isLegacyPro(user)) return { ...limits, employees: PRO_LEGACY_EMPLOYEES };
+  return limits;
 }

@@ -13,7 +13,7 @@ import { LEGAL_ENTITY } from '../lib/constants';
 // in substance. They used to print "July 2026", "May 2026" and "April 17,
 // 2026" as literals: stale after the September corrections, and English
 // inside the French page. Change this when any of them changes.
-export const LEGAL_UPDATED = '2026-11-06';
+export const LEGAL_UPDATED = '2026-11-09';
 const LOCALE_OF = { en: 'en-GB', fr: 'fr-FR', de: 'de-DE', es: 'es-ES', pt: 'pt-PT' };
 // The legal notice (mentions légales) last changed in May 2026; only the month
 // is known, so only the month is shown.
@@ -817,14 +817,14 @@ export function TermsPage() {
                       It used to omit HR & Finance entirely. */}
                   {PLAN_CARDS.map((c, i) => {
                     const lim = getPlanLimits(c.id);
-                    const capped = lim.tools < 99999;
+                    const tools = lim.tools < 99999 ? `${formatCount(lim.tools, language)} ${t('terms_s4_tools')}` : t('terms_s4_unlimited_tools');
                     return (
                       <tr key={c.id} className={i < PLAN_CARDS.length - 1 ? 'border-b border-slate-800' : ''}>
                         <td className="py-2 pr-4">{planText(language, 'plan_' + c.id)}</td>
-                        <td className="py-2 pr-4">€{c.monthly}{c.monthly ? '/' + t('terms_s4_month') : ''}</td>
-                        <td className="py-2">{capped
-                          ? `${formatCount(lim.tools, language)} ${t('terms_s4_tools')}, ${formatCount(lim.employees, language)} ${t('terms_s4_employees')}`
-                          : t('terms_s4_unlimited')}</td>
+                        <td className="py-2 pr-4">{c.contact ? planText(language, 'plan_enterprise_from') + ' ' : ''}€{c.monthly}{c.monthly ? '/' + t('terms_s4_month') : ''}</td>
+                        <td className="py-2">{c.contact
+                          ? t('terms_s4_enterprise_limits')
+                          : `${tools}, ${formatCount(lim.employees, language)} ${t('terms_s4_employees')}`}</td>
                       </tr>
                     );
                   })}

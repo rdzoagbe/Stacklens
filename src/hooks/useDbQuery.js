@@ -144,7 +144,7 @@ export function useDbMutations() {
     mutationFn: async (tool) => {
       const current = loadDb();
       const plan = resolvePlan(current?.user);
-      const limits = getPlanLimits(plan);
+      const limits = getPlanLimits(plan, current?.user);
       if ((current?.tools?.length || 0) >= limits.tools) {
         throw planLimitError('tools', plan, limits.label, limits.tools);
       }
@@ -210,7 +210,7 @@ export function useDbMutations() {
     mutationFn: async (emp) => {
       const current = loadDb();
       const plan = resolvePlan(current?.user);
-      const limits = getPlanLimits(plan);
+      const limits = getPlanLimits(plan, current?.user);
       if ((current?.employees?.length || 0) >= limits.employees) {
         throw planLimitError('employees', plan, limits.label, limits.employees);
       }
@@ -636,7 +636,7 @@ export function useDbMutations() {
       let records = initialRecords;
       const current = loadDb();
       const plan = resolvePlan(current?.user);
-      const limits = getPlanLimits(plan);
+      const limits = getPlanLimits(plan, current?.user);
       const currentTools = current?.tools?.length || 0;
       const currentEmps  = current?.employees?.length || 0;
 
@@ -909,7 +909,7 @@ export function useDbMutations() {
   const importAuditTools = useMutation({
     mutationFn: async (records) => {
       const current = loadDb();
-      const limits = getPlanLimits(resolvePlan(current?.user));
+      const limits = getPlanLimits(resolvePlan(current?.user), current?.user);
       const room = Math.max(0, limits.tools - (current?.tools?.length || 0));
       const take = (records || []).slice(0, room);
       if (take.length) {
@@ -958,7 +958,7 @@ export function useDbMutations() {
   // reader's own workspace.
   const createClientFromAudit = useMutation({
     mutationFn: async ({ name, records }) => {
-      const limits = getPlanLimits(resolvePlan(loadDb()?.user));
+      const limits = getPlanLimits(resolvePlan(loadDb()?.user), loadDb()?.user);
       const take = (records || []).slice(0, Math.max(0, limits.tools));
       const { org } = await workspaceCreateOrg(name);
       const { data } = await workspaceRead(org.org_id);

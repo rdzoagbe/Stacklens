@@ -13,6 +13,7 @@ import { useTranslation } from '../../translations';
 import { usePlanPricing } from '../../contexts/CurrencyContext';
 import { Pill } from '../../components/ui';
 import { PLAN_CARDS, planFeatures, planText } from '../../lib/planCards';
+import { priceIdFor } from '../../lib/stripePrices';
 import { AppShell } from '../../components/AppShell';
 
 export function BillingPage({ noShell = false }) {
@@ -44,13 +45,14 @@ export function BillingPage({ noShell = false }) {
     starter:    { icon: '🌱', color: 'from-blue-500 to-blue-700', border: 'border-blue-500/40' },
     hr_finance: { icon: '👥', color: 'from-teal-500 to-emerald-700', border: 'border-teal-500/40', badge: 'NEW' },
     pro:        { icon: '🚀', color: 'from-emerald-600 to-teal-700', border: 'border-emerald-500/50', popular: true },
+    business:   { icon: '🏢', color: 'from-blue-600 to-indigo-700', border: 'border-blue-500/40', badge: 'NEW' },
     enterprise: { icon: '⚡', color: 'from-violet-600 to-purple-700', border: 'border-violet-500/40' },
   };
   const plans = PLAN_CARDS.map((c) => ({
     ...c, ...LOOK[c.id],
     tName: 'plan_' + c.id, tTag: 'plan_' + c.id + '_tag',
     lines: planFeatures(c.id, language),
-    limits: getPlanLimits(c.id),
+    limits: getPlanLimits(c.id, c.id === plan ? db?.user : null),
   }));
 
   const ft = (key) => planText(language, key);
@@ -58,7 +60,7 @@ export function BillingPage({ noShell = false }) {
   const getPrice = (p) => {
     if (p.isTrial) return t('free_trial_label');
     if (p.isFree || p.id === 'free') return pricing.format(0);
-    if (p.id === 'enterprise' && !p.monthly) return t('contact_sales');
+    if (p.contact) return ft('plan_enterprise_from') + ' ' + pricing.format(p.monthly);
     const v = billing === 'monthly' ? p.monthly : p.annual;
     return pricing.format(v);
   };
@@ -73,15 +75,7 @@ export function BillingPage({ noShell = false }) {
   // only the clicked card shows the spinner — a bare boolean lit up every card.
   const [upgrading, setUpgrading] = useState(null);
 
-  const PRICE_IDS = {
-    starter:    { monthly: 'price_1TMhOt1yFs6IziIVgJGBbzoG', annual: 'price_1TMhfK1yFs6IziIVOtbhpy23' },
-    hr_finance: { monthly: 'price_1TWxAB1yFs6IziIVjxw3CG2V', annual: 'price_1TWxFd1yFs6IziIVjPZnA8XT' },
-    pro:        { monthly: 'price_1TMhNW1yFs6IziIV5hwlssrt', annual: 'price_1TMhNW1yFs6IziIVMxiacXD7' },
-    enterprise: { monthly: 'price_1TMhNk1yFs6IziIVPkv7RiLc', annual: 'price_1TMhNk1yFs6IziIViMLzewdQ' },
-    growth:     { monthly: 'price_1TMhNW1yFs6IziIV5hwlssrt', annual: 'price_1TMhNW1yFs6IziIVMxiacXD7' },
-    scale:      { monthly: 'price_1TMhNk1yFs6IziIVPkv7RiLc', annual: 'price_1TMhNk1yFs6IziIViMLzewdQ' },
-    unlimited:  { monthly: 'price_1TMhNk1yFs6IziIVPkv7RiLc', annual: 'price_1TMhNk1yFs6IziIViMLzewdQ' },
-  };
+  // Stripe price ids: src/lib/stripePrices.js, held equal to the server's list.
 
   // Explicit contract step: Upgrade opens the agreement dialog; checkout only
   // starts from proceedToCheckout() once the user has ticked "I agree".
@@ -92,7 +86,7 @@ export function BillingPage({ noShell = false }) {
 
   const upgrade = (id) => {
     if (id === 'free' || id === 'startup') return;
-    const priceId = PRICE_IDS[id]?.[billing] || PRICE_IDS[id]?.monthly;
+    const priceId = priceIdFor(id, billing);
     if (!priceId) { toast.error(t('bill_plan_unavailable')); return; }
     setConsentChecked(false);
     setConsentPlan(id);
@@ -101,7 +95,7 @@ export function BillingPage({ noShell = false }) {
   const proceedToCheckout = async () => {
     const id = consentPlan;
     if (!id) return;
-    const priceId = PRICE_IDS[id]?.[billing] || PRICE_IDS[id]?.monthly;
+    const priceId = priceIdFor(id, billing);
     setConsentPlan(null);
     setUpgrading(id);
     // GDPR/LCEN audit trail: the user explicitly accepted the Terms/Privacy/DPA
@@ -206,7 +200,7 @@ export function BillingPage({ noShell = false }) {
         </div>
       </div>
 
-      <div id="billing-plans" className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      <div id="billing-plans" className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
         {plans.map(p => {
           const isCurrent = plan === p.id;
           return (
@@ -239,7 +233,7 @@ export function BillingPage({ noShell = false }) {
                 ) : (
                   <span className="text-xl md:text-3xl font-black text-white">{getPrice(p)}</span>
                 )}
-                {p.monthly > 0 && !p.isTrial && <span className="text-xs text-slate-500 ml-1">/{billing === 'monthly' ? 'mo' : 'yr'}</span>}
+                {p.monthly > 0 && !p.isTrial && <span className="text-xs text-slate-500 ml-1">/{billing === 'monthly' || p.contact ? 'mo' : 'yr'}</span>}
               </div>
               {getSaving(p) && billing === 'annual' && (
                 <span className="text-xs text-emerald-400 font-bold mb-3 block">{getSaving(p)}</span>
@@ -256,6 +250,13 @@ export function BillingPage({ noShell = false }) {
                 <div className="text-center py-2.5 rounded-xl bg-slate-800/60 text-slate-400 text-xs font-semibold">
                   {isTrial ? '✓ ' + t('active_trial') : '✓ ' + t('current_plan')}
                 </div>
+              ) : p.contact ? (
+                // Over 1,500 people: an annual contract by headcount, agreed
+                // with us rather than bought by card (lib/planCards.js).
+                <Link to="/contact?subject=enterprise"
+                  className={"block w-full py-2.5 rounded-xl font-bold text-center transition-all text-xs text-white bg-gradient-to-r hover:opacity-90 shadow-lg " + p.color}>
+                  {ft('plan_enterprise_cta')}
+                </Link>
               ) : (
                 <button onClick={() => upgrade(p.id)} disabled={!!upgrading}
                   className={"w-full py-2.5 rounded-xl font-bold transition-all text-xs text-white bg-gradient-to-r hover:opacity-90 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed " + p.color}>

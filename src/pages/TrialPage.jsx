@@ -470,7 +470,7 @@ export function TrialPage() {
             <h2 className="text-3xl md:text-4xl font-bold text-white mb-3">{t('transparent_pricing')}</h2>
             <p className="text-slate-500">{t('public_pricing')}</p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
             {PLAN_CARDS.map((c) => ({
               // Words, prices and every number come from src/lib/planCards.js,
               // shared with Settings → Billing, and each number from the limits
@@ -478,7 +478,10 @@ export function TrialPage() {
               id: c.id, name: planText(language, 'plan_' + c.id), eur: c.monthly,
               sub: c.monthly === 0 ? t('forever') : t('per_month'),
               features: planFeatures(c.id, language),
-              cta: c.id === 'free' ? t('start_free') : t('start_trial'),
+              // Enterprise is above 1,500 people: a published starting price,
+              // then a conversation (annual contract by headcount).
+              contact: !!c.contact,
+              cta: c.contact ? planText(language, 'plan_enterprise_cta') : c.id === 'free' ? t('start_free') : t('start_trial'),
               highlight: c.id === 'pro', badge: c.id === 'hr_finance' ? t('lp_badge_new') : null,
             })).map((p, i) => (
               <div
@@ -500,7 +503,8 @@ export function TrialPage() {
                 )}
                 <div className="text-sm font-semibold text-slate-400 mb-2">{p.name}</div>
                 <div className="mb-5">
-                  <div className="flex items-baseline gap-1">
+                  {p.contact && <div className="text-xs text-slate-400">{planText(language, 'plan_enterprise_from')}</div>}
+                  <div className="flex flex-wrap items-baseline gap-1">
                     <span className="text-4xl font-black text-white">{pricing.format(p.eur)}</span>
                     <span className="text-sm text-slate-500">{p.sub}</span>
                   </div>
@@ -523,9 +527,10 @@ export function TrialPage() {
                 <button
                   onClick={() => {
                     track('cta_click', { location: 'pricing_' + p.id });
-                    // Every plan, Enterprise included, sells through the
-                    // same sign-up: the About page promises no "contact
-                    // sales" tier, and Stripe already carries the price.
+                    // Up to Business, every plan sells through the same
+                    // sign-up and card checkout. Enterprise (over 1,500
+                    // people, annual, by headcount) opens the contact form.
+                    if (p.contact) { navigate('/contact?subject=enterprise'); return; }
                     setShowAuth(true);
                   }}
                   className={"w-full py-2.5 rounded-lg text-sm font-semibold transition-colors " + (
