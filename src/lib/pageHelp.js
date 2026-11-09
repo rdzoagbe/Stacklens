@@ -47,6 +47,7 @@ export const HELP_TASKS = [
   { key: 'hf_access', to: '/access', page: 'nav_access' },
   { key: 'hf_eligibility', to: '/access?view=eligibility', page: 'nav_access' },
   { key: 'hf_removals', to: '/access?view=removals', page: 'nav_access' },
+  { key: 'hf_savings', to: '/finance?tab=cost', page: 'nav_finance' },
   { key: 'hf_joiners', to: '/access?view=eligibility', page: 'nav_access' },
   { key: 'hf_leaver', to: '/offboarding', page: 'nav_offboarding' },
   { key: 'hf_device_add', to: '/devices', page: 'nav_devices' },

@@ -158,6 +158,10 @@ function checkInvoices(db, { now = new Date() } = {}) {
     const tool = toolFor(r.vendor);
     if (tool?.status !== 'decommissioned' || !r._date) continue;
     if (now - r._date > RECENT_AFTER_CANCEL_DAYS * DAY || r._date > now) continue;
+    // The twin of src/lib/invoiceCheck.js: an invoice up to the recorded stop
+    // date (lib/savings.js) is the last one, not a charge after cancellation.
+    const stops = Date.parse((tool.saving && tool.saving.stops_on) || '');
+    if (stops && r._date <= stops + 7 * DAY) continue;
     const monthly = monthlyTtc(r);
     add({ ...base(r, tool), kind: 'after_cancel',
       overMonthly: round2(monthly), overAnnual: round2(monthly ? monthly * 12 : Number(r.amount)) });

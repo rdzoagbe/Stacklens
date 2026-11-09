@@ -130,6 +130,10 @@ export function checkInvoices(db, { now = new Date() } = {}) {
     const tool = toolFor(r.vendor);
     if (tool?.status !== 'decommissioned' || !r._date) continue;
     if (now - r._date > RECENT_AFTER_CANCEL_DAYS * DAY || r._date > now) continue;
+    // When the cancellation says when billing stops (lib/savings.js), an
+    // invoice for a period before that is the last one, not a mistake.
+    const stops = Date.parse(tool.saving?.stops_on || '');
+    if (stops && r._date <= stops + 7 * DAY) continue;
     const monthly = monthlyTtc(r);
     add({ ...base(r, tool), kind: 'after_cancel',
       overMonthly: round2(monthly), overAnnual: round2(monthly ? monthly * 12 : Number(r.amount)) });

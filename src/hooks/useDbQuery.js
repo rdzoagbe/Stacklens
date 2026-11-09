@@ -16,6 +16,7 @@ import { workspaceCreateOrg, workspaceRead, workspaceWrite } from '../firebase-c
 import { startReview, decide, decideRemaining, signOff, summary as reviewSummary } from '../lib/accessReviews';
 import { withDecision } from '../lib/renewalNotice';
 import { approveRemoval, requestRemoval, completeRemoval, verifyRemoval, cancelRemoval } from '../lib/removals';
+import { approveSaving, rejectSaving, reopenSaving, realiseSaving } from '../lib/savings';
 import { cleanAsset, mergeAssets } from '../lib/assets';
 import { applyIntune } from '../lib/intuneDevices';
 
@@ -349,6 +350,40 @@ export function useDbMutations() {
     },
     onSuccess: invalidate,
     onError: () => toast.error(t('err_update_access')),
+  });
+
+  // ── Savings with their evidence (lib/savings.js) ─────────────────────────
+  // approve | reject (reason required) | reopen | realise (evidence required:
+  // the cancellation confirmation; marks the tool decommissioned).
+  const SAVING_STEPS = {
+    approve: [approveSaving, 'saving.approved'],
+    reject: [rejectSaving, 'saving.rejected'],
+    reopen: [reopenSaving, 'saving.reopened'],
+    realise: [realiseSaving, 'saving.realised'],
+  };
+  const recordSaving = useMutation({
+    mutationFn: async ({ id, step, ...opts }) => {
+      const [apply, action] = SAVING_STEPS[step] || [];
+      if (!apply) throw new Error(`unknown saving step ${step}`);
+      let was = null; let now = null;
+      setDb((db) => {
+        db.tools = (db.tools || []).map((x) => {
+          if (x.id !== id) return x;
+          was = x;
+          now = step === 'reopen' ? apply(x) : apply(x, { by: auditActor(db), ...opts });
+          return now;
+        });
+        return db;
+      }, () => {
+        if (!was) return null;
+        const per = `${Math.round(Number(was.cost_per_month) || 0)}/mo`;
+        const why = opts.note || opts.evidence ? ` — ${String(opts.note || opts.evidence).trim().slice(0, 160)}` : '';
+        const stop = step === 'realise' ? `, billing stops ${now?.saving?.stops_on || '?'}` : '';
+        return { action, details: `${was.name} (${per})${stop}${why}` };
+      });
+    },
+    onSuccess: (_r, { step }) => { invalidate(); track('saving_step', { step }); },
+    onError: (err) => toast.error(t(err?.message === 'reason_required' ? 'sv_err_reason' : 'err_update_tool')),
   });
 
   // ── Access removal (lib/removals.js) ─────────────────────────────────────
@@ -1108,7 +1143,7 @@ export function useDbMutations() {
     createTool, updateTool, deleteTool, reviewTool, decideRenewal, importAuditTools, createClientFromAudit, clearInvoiceFinding,
     startAccessReview, decideAccessReview, signOffAccessReview,
     createEmployee, updateEmployee, deleteEmployee,
-    createAccess, updateAccess, deleteAccess, recordRemoval,
+    createAccess, updateAccess, deleteAccess, recordRemoval, recordSaving,
     createAsset, updateAsset, returnAsset, deleteAsset, importAssets, recordIntuneDevices,
     setPlan, setAuth, setBudgets, importInvoices, addUploadedInvoices, bulkImport, recordSourceRun,
   };
