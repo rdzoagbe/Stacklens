@@ -20,9 +20,15 @@ export const MAX_PORTFOLIO_FILES = 25;
 const CURRENCY_HINTS = [
   [/€|\bEUR\b/, '€'], [/£|\bGBP\b/, '£'], [/\$|\bUSD\b/, '$'], [/\bCHF\b/, 'CHF '],
 ];
-/** The currency a statement is in, from the symbols in its text; € otherwise. */
-export function detectSymbol(text) {
+/**
+ * The currency a statement is in, from the symbols in its text. A US bank
+ * export usually carries no symbol at all, but its dates are month first:
+ * when the file proves that (dateOrder from parseBankExport), it is dollars.
+ * € otherwise.
+ */
+export function detectSymbol(text, dateOrder = null) {
   for (const [re, sym] of CURRENCY_HINTS) if (re.test(text)) return sym;
+  if (dateOrder?.order === 'mdy' && dateOrder?.evidence === 'proven') return '$';
   return '€';
 }
 
@@ -46,7 +52,7 @@ export function readClientFile({ name, fileName, text, forceOrder }) {
   return {
     name: label, fileName, text,
     format: fec ? 'fec' : 'bank',
-    symbol: fec ? '€' : detectSymbol(text),
+    symbol: fec ? '€' : detectSymbol(text, parsed.dateOrder),
     transactions: parsed.transactions,
     entries: parsed.entries, skipped: parsed.skipped, credits: parsed.credits || 0, unreadable: parsed.unreadable || [], dateOrder: parsed.dateOrder,
     verdicts: {},

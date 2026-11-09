@@ -92,3 +92,14 @@ describe('the portfolio', () => {
     expect(MAX_PORTFOLIO_FILES).toBe(25);
   });
 });
+
+describe('the currency of a statement', () => {
+  it('is dollars when the file proves month-first dates and shows no symbol', () => {
+    expect(detectSymbol('Date,Description,Amount', { order: 'mdy', evidence: 'proven' })).toBe('$');
+  });
+  it('stays € when the order is only assumed, and a symbol in the text always wins', () => {
+    expect(detectSymbol('Date,Libellé,Montant', { order: 'mdy', evidence: 'assumed' })).toBe('€');
+    expect(detectSymbol('Date,Libellé,Montant', { order: 'dmy', evidence: 'proven' })).toBe('€');
+    expect(detectSymbol('Amount EUR', { order: 'mdy', evidence: 'proven' })).toBe('€');
+  });
+});
