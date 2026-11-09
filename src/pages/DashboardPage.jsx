@@ -24,6 +24,7 @@ import { FreshnessLine } from '../components/DataSourcesPanel';
 import { invoiceCheckSummary } from '../lib/invoiceCheck';
 import { openPeopleChanges } from '../lib/peopleChanges';
 import { decisionsDue, todayISOUtc } from '../lib/renewalNotice';
+import { removalQueue } from '../lib/removals';
 import { coverageEnding, devicesToReturn, COVERAGE_SOON_DAYS } from '../lib/assets';
 import { canInviteTeam } from '../lib/plan';
 import { previousMonthSpend } from '../lib/budget';
@@ -282,13 +283,16 @@ export function DashboardPage() {
     const fmtDate = (d) => new Date(d).toLocaleDateString(LOCALE_TAG[language] || 'en-GB');
     const actions = [];
 
-    (derived.access || []).filter(a => a.derived_risk_flag === 'former_employee' && a.status === 'active').forEach(a => {
+    // A removal approved but not carried out in the tool is still access the
+    // person holds (lib/removals.js): it stays here, pointing to the step left.
+    (derived.access || []).filter(a => a.derived_risk_flag === 'former_employee').forEach(a => {
+      const open = a.status === 'pending_revocation';
       actions.push({
         id: 'former-' + a.id, kind: 'former_access', severity: 'critical',
         title: `${a.employee_name || t('dash_ex_employee')} ${t('dash_still_has_access')} ${a.tool_name || t('dash_a_tool')}`,
-        reason: t('dash_left_not_revoked'),
-        action: t('dash_revoke'),
-        revokeId: a.id,
+        reason: open ? t('rm_dash_open_reason') : t('dash_left_not_revoked'),
+        action: open ? t('rm_dash_open_action') : t('rm_approve'),
+        ...(open ? { link: '/access?view=removals' } : { revokeId: a.id }),
       });
     });
 
@@ -318,6 +322,18 @@ export function DashboardPage() {
           ? t('rn_dash_reason_locked').replace('{name}', first.name).replace('{date}', fmtDate(first.renewal_date))
           : t('rn_dash_reason').replace('{name}', first.name).replace('{date}', fmtDate(first.decide_by)).replace('{deadline}', fmtDate(first.notice_deadline)),
         action: t('review'), link: '/finance?tab=renewals',
+      });
+    }
+
+    // Removals marked done in the tool that no check has confirmed yet,
+    // older rows with no record of how included (lib/removals.js).
+    const _unverified = removalQueue(db).unverified;
+    if (_unverified.length > 0) {
+      actions.push({
+        id: 'removal-unverified', kind: 'removal_unverified', severity: 'medium',
+        title: (_unverified.length === 1 ? t('rm_dash_unverified_one') : t('rm_dash_unverified')).replace('{n}', _unverified.length),
+        reason: t('rm_dash_unverified_reason'),
+        action: t('review'), link: '/access?view=removals',
       });
     }
 
@@ -599,7 +615,7 @@ export function DashboardPage() {
                     </button>
                   ) : item.revokeId ? (
                     <button type="button" className={TODO_ACTION}
-                      onClick={() => { noteRecommendationActed(item.kind, item.severity); muts.updateAccess.mutate({ id: item.revokeId, patch: { status: 'revoked' } }, { onSuccess: () => toast.success(t('revoked')) }); }}>
+                      onClick={() => { noteRecommendationActed(item.kind, item.severity); muts.recordRemoval.mutate({ ids: [item.revokeId], step: 'approve', source: 'dashboard' }, { onSuccess: () => toast.success(t('rm_approved_toast')) }); }}>
                       {item.action}
                     </button>
                   ) : (

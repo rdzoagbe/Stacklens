@@ -77,7 +77,7 @@ describe('a review', () => {
     expect(canSignOff(startReview({ ...d, access: [] }, { scope: 'all' }))).toBe(false);
   });
 
-  it('signing stamps the kept rows reviewed today, revokes the others, and leaves the rest alone', () => {
+  it('signing stamps the kept rows reviewed today, approves removing the others, and leaves the rest alone', () => {
     const d = db();
     let r = startReview(d, { scope: 'all', now: NOW });
     r = decide(decideRemaining(r, 'keep', NOW), 'a4', 'revoke', NOW);
@@ -85,7 +85,10 @@ describe('a review', () => {
     const by = Object.fromEntries(next.access.map((a) => [a.id, a]));
     expect(by.a1.last_reviewed_date).toBe('2026-10-26');
     expect(by.a2).toMatchObject({ last_reviewed_date: '2026-10-26', status: 'active' });
-    expect(by.a4).toMatchObject({ status: 'revoked', last_reviewed_date: '2026-10-26' });
+    // A signed "revoke" is a decision, not a removal: the person keeps the
+    // access until it is removed in the tool (lib/removals.js).
+    expect(by.a4).toMatchObject({ status: 'pending_revocation', last_reviewed_date: '2026-10-26',
+      removal: { stage: 'approved', approved: { by: 'claire@acme.fr', at: NOW.toISOString(), source: 'review' } } });
     expect(by.a5).toEqual(d.access[4]);                         // outside the review: untouched
     expect(review.signed_off).toEqual({ name: 'Claire Martin', by: 'claire@acme.fr', at: NOW.toISOString() });
     expect(next.access_reviews[0].signed_off.name).toBe('Claire Martin');

@@ -87,7 +87,7 @@ describe('reading Google licences', () => {
     expect(box('gl-unknown').textContent).toContain('shared@acme.fr');
   });
 
-  it('"Record them all" adds access rows; "Mark them as removed" revokes', async () => {
+  it('"Record them all" adds access rows; Google having no licence verifies the removal', async () => {
     await mount({ tools: [{ id: 'gem', name: 'Gemini Business', status: 'active' }],
       access: [{ id: 'a2', tool_id: 'gem', employee_id: 'dan', employee_email: 'dan@acme.fr', status: 'active' }] });
     await click(button(/^Read the licences from Google$/));
@@ -95,8 +95,9 @@ describe('reading Google licences', () => {
     const rows = loadDb().access.filter((a) => a.origin === 'google-licensing');
     expect(rows.map((a) => a.employee_id).sort()).toEqual(['ana', 'ben']);
     expect(box('gl-to-record').textContent).toMatch(/\(0\)/);
-    await click(button(/^Mark them as removed$/));
-    expect(loadDb().access.find((a) => a.id === 'a2').status).toBe('revoked');
+    await click(button(/^Confirm removed \(Google has no licence\)$/));
+    expect(loadDb().access.find((a) => a.id === 'a2')).toMatchObject({ status: 'revoked',
+      removal: { stage: 'verified', completed: { method: 'connector' }, verified: { method: 'connector', evidence: expect.stringMatching(/^Google licence read \d{4}-\d{2}-\d{2}: no /) } } });
   });
 
   it('"Create" makes the tool already linked to the SKU', async () => {

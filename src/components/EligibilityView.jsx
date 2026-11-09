@@ -112,7 +112,7 @@ const small = 'px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors di
 
 /** The four answers, shared by the per-tool lists and the joiner/mover to-dos. */
 function useLicenceActions(t) {
-  const { updateTool, createAccess, updateAccess, updateEmployee } = useDbMutations();
+  const { updateTool, createAccess, updateAccess, updateEmployee, recordRemoval } = useDbMutations();
   const grant = (tool, emps) => {
     for (const emp of emps) {
       createAccess.mutate({
@@ -128,8 +128,10 @@ function useLicenceActions(t) {
     const rule = cleanRule(tool.eligibility);
     updateTool.mutate({ id: tool.id, patch: { eligibility: { ...rule, excluded_ids: [...rule.excluded_ids, emp.id] } } });
   };
-  const revoke = (accessRow) => updateAccess.mutate({ id: accessRow.id, patch: { status: 'revoked' } },
-    { onSuccess: () => toast.success(t('revoked')) });
+  // Records the decision; the licence stays held until it is removed in the
+  // vendor's console and marked done in Access → Removals (lib/removals.js).
+  const revoke = (accessRow) => recordRemoval.mutate({ ids: [accessRow.id], step: 'approve', source: 'eligibility' },
+    { onSuccess: () => toast.success(t('rm_approved_toast')) });
   const keep = (accessRow) => updateAccess.mutate({ id: accessRow.id, patch: { eligibility_exception: { at: todayISO() } } });
   const done = (emp) => updateEmployee.mutate({ id: emp.id, patch: { people_change: { ...emp.people_change, done_at: new Date().toISOString() } } });
   return { updateTool, grant, notNeeded, revoke, keep, done };
@@ -186,7 +188,7 @@ function PeopleChanges({ db, canEdit, actions, t, label, language }) {
                   <li key={'r' + tool.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
                     <span className="text-amber-200">{fill(t('jm_remove'), { tool: tool.name })}</span>
                     {canEdit && <span className="flex gap-1.5">
-                      <button type="button" onClick={() => actions.revoke(access)} className={small + ' bg-red-600/30 hover:bg-red-600/50 text-red-300'}>{t('elig_mark_removed')}</button>
+                      <button type="button" onClick={() => actions.revoke(access)} className={small + ' bg-red-600/30 hover:bg-red-600/50 text-red-300'}>{t('rm_approve')}</button>
                       <button type="button" onClick={() => actions.keep(access)} className={small + ' bg-slate-800 hover:bg-slate-700 text-slate-300'}>{t('elig_keep')}</button>
                     </span>}
                   </li>
@@ -303,7 +305,7 @@ export function EligibilityView({ db }) {
                         {i.outsideRule.map((row) => (
                           <Person key={row.access.id} emp={row.employee} label={label}>
                             {canEdit && <>
-                              <button type="button" onClick={() => revoke(row)} className={small + ' bg-red-600/30 hover:bg-red-600/50 text-red-300'}>{t('elig_mark_removed')}</button>
+                              <button type="button" onClick={() => revoke(row)} className={small + ' bg-red-600/30 hover:bg-red-600/50 text-red-300'}>{t('rm_approve')}</button>
                               <button type="button" onClick={() => keep(row)} className={small + ' bg-slate-800 hover:bg-slate-700 text-slate-300'}>{t('elig_keep')}</button>
                             </>}
                           </Person>

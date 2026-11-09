@@ -99,10 +99,11 @@ describe('running a review', () => {
     expect(dialog.querySelector('input').value).toBe('Claire Martin');
     await click(button(/^Sign and apply$/));
     const db = loadDb();
-    expect(db.access.find((a) => a.id === 'a4').status).toBe('revoked');
+    // Signing approves the removal; it is done in the tool, then recorded.
+    expect(db.access.find((a) => a.id === 'a4')).toMatchObject({ status: 'pending_revocation', removal: { stage: 'approved', approved: { source: 'review' } } });
     expect(db.access.find((a) => a.id === 'a1').last_reviewed_date).toBe(new Date().toISOString().slice(0, 10));
     expect(db.access_reviews[0].signed_off.name).toBe('Claire Martin');
-    expect(db.audit_log.map((e) => e.action)).toEqual(expect.arrayContaining(['access.review.signed', 'access.revoked']));
+    expect(db.audit_log.map((e) => e.action)).toEqual(expect.arrayContaining(['access.review.signed', 'access.removal_approved']));
     // The evidence opens itself, with the attestation and the company.
     const ev = box('print-review');
     expect(ev.textContent).toContain('Reviewed and signed by Claire Martin');
