@@ -116,13 +116,16 @@ export function billedToolCount(db) {
  * call every unowned tool recoverable, which counted a tool twenty people use
  * daily as a saving because nobody had filled in the owner field.
  *
- * Only `active` grants count. A revoked one is somebody who used to have
+ * Only grants still held count (`active`, or `pending_revocation`: removal
+ * approved, not yet done). A revoked one is somebody who used to have
  * access, which is the opposite of a reason to keep paying.
  */
 export function activeGrantsByTool(db) {
   const counts = new Map();
   for (const a of (db?.access || [])) {
-    if (a?.status !== 'active') continue;
+    // A removal approved but not yet done in the tool is still held
+    // (lib/removals.js): the person can sign in, so it is not a saving yet.
+    if (a?.status !== 'active' && a?.status !== 'pending_revocation') continue;
     counts.set(a.tool_id, (counts.get(a.tool_id) || 0) + 1);
   }
   return counts;
@@ -142,8 +145,11 @@ export function enrichToolCosts(db) {
       const activeUsers = activeByTool.get(tool.id) || 0;
       const cost = Number(tool.cost_per_month) || 0;
       const costPerUser = activeUsers > 0 ? cost / activeUsers : cost;
-      const noUsers = activeUsers === 0 && cost > 0;
-      const expensive = activeUsers > 0 && costPerUser > EXPENSIVE_PER_USER;
+      // Someone recorded why this is not a saving (lib/savings.js): it leaves
+      // every savings figure, on every screen, with the reason kept.
+      const rejected = tool.saving?.stage === 'rejected';
+      const noUsers = activeUsers === 0 && cost > 0 && !rejected;
+      const expensive = activeUsers > 0 && costPerUser > EXPENSIVE_PER_USER && !rejected;
       return {
         ...tool,
         activeUsers,

@@ -25,6 +25,7 @@ import { invoiceCheckSummary } from '../lib/invoiceCheck';
 import { openPeopleChanges } from '../lib/peopleChanges';
 import { decisionsDue, todayISOUtc } from '../lib/renewalNotice';
 import { removalQueue } from '../lib/removals';
+import { savingsSummary } from '../lib/savings';
 import { coverageEnding, devicesToReturn, COVERAGE_SOON_DAYS } from '../lib/assets';
 import { canInviteTeam } from '../lib/plan';
 import { previousMonthSpend } from '../lib/budget';
@@ -559,7 +560,7 @@ export function DashboardPage() {
               </p>
             </Link>
 
-            <Link to="/finance?tab=licenses" className={card}>
+            <Link to="/finance?tab=cost" className={card}>
               <p className={label}>{t('dash_savings_label')}</p>
               <p className={figure}>{money(wastedSpend)}</p>
               <p className="mt-1 text-sm text-ink-muted">
@@ -567,6 +568,16 @@ export function DashboardPage() {
                   : wastedCount === 1 ? t('dash_savings_note_one')
                   : t('dash_savings_note').replace('{n}', wastedCount)}
               </p>
+              {/* What the figure is: a suspicion until approved, money only
+                  once cancelled and seen on the bills (lib/savings.js). */}
+              {(() => {
+                const sv = savingsSummary(db);
+                return (
+                  <p className="mt-3 text-xs text-ink-subtle" data-testid="dash-savings-stages">
+                    {t('sv_dash_line').replace('{approved}', money(sv.approved.monthly)).replace('{realised}', money(sv.realised.monthly)).replace('{confirmed}', sv.confirmed.count)}
+                  </p>
+                );
+              })()}
             </Link>
 
             <Link to="/security" className={card}>

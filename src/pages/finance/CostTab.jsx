@@ -9,6 +9,7 @@ import { useDbQuery } from '../../hooks/useDbQuery';
 import { useLang } from '../../contexts/LangContext';
 import { useTranslation } from '../../translations';
 import { useCategoryLabel } from '../../components/ui';
+import { SavingsPanel } from '../../components/SavingsPanel';
 
 export function CostTabContent({ setFinTab }) {
   const { language } = useLang();
@@ -40,7 +41,9 @@ export function CostTabContent({ setFinTab }) {
   const totalSpend = enriched.reduce((s, t) => s + t.cost, 0);
   const wasteTools = enriched.filter(t => t.wasteFlag);
   const wasteAmount = wasteTools.reduce((s, t) => s + t.cost, 0);
-  const unusedTools = enriched.filter(t => t.activeUsers === 0);
+  // The same rule as lib/waste.js: billed, no active access, and not
+  // recorded as "not a saving" (lib/savings.js).
+  const unusedTools = enriched.filter(t => t.wasteReason === 'no-users');
   const unusedAmount = unusedTools.reduce((s, t) => s + t.cost, 0);
   // Recoverable spend is the cost of tools nobody holds access to —
   // countable, not a fraction of flagged spend. Same figure everywhere.
@@ -54,6 +57,9 @@ export function CostTabContent({ setFinTab }) {
 
   return (
     <div className="space-y-6">
+
+      {/* ── Savings with their stage and evidence (lib/savings.js) ── */}
+      <SavingsPanel db={db} />
 
       {/* ── Row 1: Hero — Potential savings front & center ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-5">

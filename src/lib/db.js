@@ -780,6 +780,26 @@ export function buildSeedDb() {
     invoice('Salesforce France', 520, 28, { amount_excl_tax: 433.33 }),
   ];
 
+  // Savings at each stage (lib/savings.js): Loom (nobody can log in) approved
+  // by its owner; Typeform paid, no access recorded, and recorded as not a
+  // saving with the reason; Calendly cancelled months ago and confirmed by the
+  // invoices (none since); Hotjar cancelled last week, billing stops at the
+  // end of the month, waiting for the invoices to confirm it.
+  Object.assign(byName.Loom, { saving: { stage: 'approved', by: 'julie.mercier@acme.com', at: ago(6), note: 'Its two users have left', by_owner: true } });
+  tools.push(
+    { id: uid('tool'), name: 'Typeform', category: 'marketing', owner_email: 'julie.mercier@acme.com', owner_name: 'Julie Mercier', criticality: 'low', url: 'https://typeform.com', description: 'Surveys', status: 'active', last_used_date: d(9), cost_per_month: 59, risk_score: 'low', mfa_required: false, renewal_date: r(140), billing_cycle: 'yearly', notes: '',
+      saving: { stage: 'rejected', by: 'julie.mercier@acme.com', at: ago(12), note: 'Used every week by marketing through one shared login; access is not tracked here', by_owner: true } },
+    { id: uid('tool'), name: 'Calendly', category: 'communication', owner_email: 'karim.benali@acme.com', owner_name: 'Karim Benali', criticality: 'low', url: 'https://calendly.com', description: 'Meeting booking', status: 'decommissioned', last_used_date: d(110), cost_per_month: 48, risk_score: 'low', mfa_required: false, renewal_date: '', billing_cycle: 'monthly', notes: '',
+      saving: { stage: 'realised', by: 'chloe.bernard@acme.com', at: ago(100), evidence: 'Cancellation confirmed by Calendly by email, ticket FIN-71', stops_on: d(95), monthly: 48, billing_cycle: 'monthly',
+        approved: { by: 'karim.benali@acme.com', at: ago(104), by_owner: true, note: 'Replaced by Google Calendar booking pages' } } },
+    { id: uid('tool'), name: 'Hotjar', category: 'marketing', owner_email: 'julie.mercier@acme.com', owner_name: 'Julie Mercier', criticality: 'low', url: 'https://hotjar.com', description: 'Site analytics', status: 'decommissioned', last_used_date: d(50), cost_per_month: 99, risk_score: 'low', mfa_required: false, renewal_date: '', billing_cycle: 'monthly', notes: '',
+      saving: { stage: 'realised', by: 'julie.mercier@acme.com', at: ago(6), evidence: 'Plan downgraded to free in the Hotjar billing page, confirmation HJ-55120', stops_on: r(21), monthly: 99, billing_cycle: 'monthly' } },
+  );
+  invoice_records.push(
+    invoice('Calendly LLC', 48, 160), invoice('Calendly LLC', 48, 130), invoice('Calendly LLC', 48, 100),
+    invoice('Hotjar Ltd', 99, 35), invoice('Hotjar Ltd', 99, 5),
+  );
+
   // The hardware register (lib/assets.js): a leaver who still has a laptop and
   // a phone, someone leaving this week, a warranty and a lease ending within
   // the month, and spares in stock.
