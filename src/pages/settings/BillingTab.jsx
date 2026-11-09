@@ -48,12 +48,17 @@ export function BillingPage({ noShell = false }) {
     business:   { icon: '🏢', color: 'from-blue-600 to-indigo-700', border: 'border-blue-500/40', badge: 'NEW' },
     enterprise: { icon: '⚡', color: 'from-violet-600 to-purple-700', border: 'border-violet-500/40' },
   };
-  const plans = PLAN_CARDS.map((c) => ({
-    ...c, ...LOOK[c.id],
-    tName: 'plan_' + c.id, tTag: 'plan_' + c.id + '_tag',
-    lines: planFeatures(c.id, language),
-    limits: getPlanLimits(c.id, c.id === plan ? db?.user : null),
-  }));
+  const plans = PLAN_CARDS.map((c) => {
+    // The plan's own limits for the customer on it (a Pro from before the
+    // change keeps 1,500), so the bullets and the usage meter agree.
+    const limits = getPlanLimits(c.id, c.id === plan ? db?.user : null);
+    return {
+      ...c, ...LOOK[c.id],
+      tName: 'plan_' + c.id, tTag: 'plan_' + c.id + '_tag',
+      lines: planFeatures(c.id, language, limits),
+      limits,
+    };
+  });
 
   const ft = (key) => planText(language, key);
 
@@ -66,7 +71,8 @@ export function BillingPage({ noShell = false }) {
   };
 
   const getSaving = (p) => {
-    if (!p.monthly || !p.annual) return null;
+    // Enterprise has no card price to save on: it is agreed by headcount.
+    if (p.contact || !p.monthly || !p.annual) return null;
     const saved = p.monthly * 12 - p.annual;
     return saved > 0 ? t('billing_save_per_year').replace('{amount}', pricing.format(saved)) : null;
   };

@@ -137,11 +137,11 @@ export function planText(lang, key) {
 }
 
 /** The bullet lines for one plan, in `lang`, with every number from the enforced limits. */
-export function planFeatures(id, lang = 'en') {
+/** The card's lines; pass `limits` (getPlanLimits with the user) so a Pro customer from before the change reads their own 1,500. */
+export function planFeatures(id, lang = 'en', limits = PLAN_LIMITS[id]) {
   const card = PLAN_CARDS.find((c) => c.id === id);
   if (!card) return [];
   const counted = COUNTED[lang] || COUNTED.en;
-  const limits = PLAN_LIMITS[id];
   const value = {
     tools: limits?.tools, employees: limits?.employees,
     team: TEAM_INVITE_LIMIT, clients: CLIENT_WORKSPACE_LIMIT,

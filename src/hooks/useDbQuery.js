@@ -958,7 +958,8 @@ export function useDbMutations() {
   // reader's own workspace.
   const createClientFromAudit = useMutation({
     mutationFn: async ({ name, records }) => {
-      const limits = getPlanLimits(resolvePlan(loadDb()?.user), loadDb()?.user);
+      const owner = loadDb()?.user;
+      const limits = getPlanLimits(resolvePlan(owner), owner);
       const take = (records || []).slice(0, Math.max(0, limits.tools));
       const { org } = await workspaceCreateOrg(name);
       const { data } = await workspaceRead(org.org_id);

@@ -66,13 +66,13 @@ service cloud.firestore {
     function protectedFieldsSafe() {
       // plan_grant_until / plan_grant_reason: the early-access end date. A
       // user who could write it could grant themselves any plan for ever.
-      // subscription_started_at decides which Pro allowance applies (lib/plan.js):
+      // pro_since decides which Pro allowance applies (lib/plan.js):
       // a user who could backdate it would keep 1,500 people on a new Pro plan.
       let protectedFields = ['plan', 'subscription_plan', 'stripe_customer_id',
                              'stripe_subscription_id', 'subscription_status',
                              'subscription_current_period_end', 'is_admin',
                              'is_founder', 'role', 'plan_grant_until',
-                             'plan_grant_reason', 'subscription_started_at'];
+                             'plan_grant_reason', 'pro_since'];
       // Check if user is just starting their trial — that's allowed once.
       // For updates: only permit if the existing doc has no trial_started_at yet
       // and the current plan is 'free', preventing trial replay attacks.
@@ -97,7 +97,7 @@ service cloud.firestore {
              ['subscription_plan', 'stripe_customer_id', 'stripe_subscription_id',
               'subscription_status', 'subscription_current_period_end',
               'is_admin', 'is_founder', 'role', 'plan_grant_until',
-              'plan_grant_reason', 'subscription_started_at'])
+              'plan_grant_reason', 'pro_since'])
         : request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(['plan', 'trial_started_at']);
       // The stamp must be the server's own clock (serverTimestamp(), which

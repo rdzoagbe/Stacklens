@@ -54,7 +54,7 @@ export function useAuth() {
         let isFounder = false;
         let trialStartedAt = null;
         let planGrantUntil = null;
-        let subscriptionStartedAt = null;
+        let proSince = null;
         let ssoRequired = false;
         try {
           const tokenResult = await fbUser.getIdTokenResult();
@@ -92,7 +92,7 @@ export function useAuth() {
             planGrantUntil     = Number(fsUser.plan_grant_until) || null;
             // When the paid subscription began (Stripe's start_date, set by the
             // webhook): decides which Pro allowance applies (lib/plan.js).
-            subscriptionStartedAt = Number(fsUser.subscription_started_at) || null;
+            proSince = Number(fsUser.pro_since) || null;
             trialStartedAt     = fsUser.trial_started_at
               ? (typeof fsUser.trial_started_at === 'number'
                   ? fsUser.trial_started_at
@@ -117,7 +117,7 @@ export function useAuth() {
           subscription_plan: plan,
           trial_started_at: trialStartedAt,
           plan_grant_until: planGrantUntil,
-          subscription_started_at: subscriptionStartedAt,
+          pro_since: proSince,
           subscription_status: subscriptionStatus,
         });
 
@@ -196,7 +196,7 @@ export function useAuth() {
             is_founder:         isFounder,
             trial_started_at:   trialStartedAt,
             plan_grant_until:   planGrantUntil,
-            subscription_started_at: subscriptionStartedAt,
+            pro_since: proSince,
             sso_required:       ssoRequired,
           }),
         };

@@ -26,12 +26,34 @@ describe('Stripe prices', () => {
   });
 
   it('every price the browser offers, the server accepts and maps to the same plan', () => {
-    for (const [plan, ids] of Object.entries(PRICE_IDS)) {
+    for (const plan of CHECKOUT_PLANS) {
+      const ids = PRICE_IDS[plan];
       for (const id of [ids.monthly, ids.annual].filter(Boolean)) {
         expect(allowed.has(id), `${id} (${plan}) is not in ALLOWED_PRICE_IDS`).toBe(true);
         expect(planMap[id], `${id} maps to ${planMap[id]}, not ${plan}`).toBe(plan);
       }
     }
+  });
+
+  it('the server accepts no price the browser does not offer (Enterprise is agreed by conversation)', () => {
+    const offered = new Set(CHECKOUT_PLANS.flatMap((p) => [PRICE_IDS[p].monthly, PRICE_IDS[p].annual]));
+    expect([...allowed].sort()).toEqual([...offered].sort());
+    for (const id of [PRICE_IDS.enterprise?.monthly, PRICE_IDS.enterprise?.annual].filter(Boolean)) {
+      expect(allowed.has(id)).toBe(false);
+      expect(planMap[id], 'existing Enterprise subscriptions still map').toBe('enterprise');
+    }
+  });
+
+  it('pro_since follows the plan: set on becoming Pro, cleared otherwise and on cancellation', () => {
+    expect(index).toMatch(/async function proSinceUpdate\(ref, plan, sub\)/);
+    expect(index).toMatch(/if \(plan !== 'pro'\) return \{ pro_since: null \}/);
+    expect((index.match(/\.\.\.\(await proSinceUpdate\(ref, plan, sub\)\)/g) || []).length).toBe(2);
+    expect(index).toMatch(/plan: 'free', subscription_status: 'cancelled'[^}]*pro_since: null/);
+    expect(index).not.toMatch(/subscription_started_at/);
+  });
+
+  it('a shared workspace carries the owner\'s pro_since, so members count against the same limit', () => {
+    expect(index).toMatch(/pro_since: Number\(planSource\.pro_since\) \|\| null/);
   });
 
   it('Enterprise is not sold by card; every other paid card is', () => {

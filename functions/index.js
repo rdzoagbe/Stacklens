@@ -308,11 +308,11 @@ exports.createCheckout = onRequest({ secrets: [STRIPE_SECRET_KEY], cors: true, t
       'price_1TWxAB1yFs6IziIVjxw3CG2V','price_1TWxFd1yFs6IziIVjPZnA8XT',
       'price_1TMhNW1yFs6IziIV5hwlssrt','price_1TMhNW1yFs6IziIVMxiacXD7',
       'price_1UZsKz1yFs6IziIVtDrqBwBb','price_1UZsMY1yFs6IziIVfyUjcOKa',
-      'price_1TMhNk1yFs6IziIVPkv7RiLc','price_1TMhNk1yFs6IziIViMLzewdQ',
-      'price_1T9X4k0E2aOcllaPRKLOAgiK','price_1T9XaZ0E2aOcllaPORiPFfGp',
-      'price_1T9X5G0E2aOcllaP1KncPTsP','price_1T9Xaa0E2aOcllaPRA4P9Cy8',
-      'price_1TBUkO0E2aOcllaPOuw3UBPM','price_1TBUoe0E2aOcllaP5J7bvqWK',
     ]);
+    // Exactly the prices Settings → Billing offers (src/lib/stripePrices.js,
+    // held equal by stripe-prices.test.js). Enterprise and the old test-mode
+    // prices stay in PLAN_MAP for subscriptions that already exist, but are
+    // not sold here: Enterprise is agreed by conversation, by headcount.
     if (!ALLOWED_PRICE_IDS.has(priceId)) return res.status(400).json({ error: 'Invalid priceId' });
     const stripe = require('stripe')(STRIPE_SECRET_KEY.value());
     try {
@@ -379,10 +379,20 @@ exports.createPortal = onRequest({ secrets: [STRIPE_SECRET_KEY], cors: true, tim
 });
 
 // ── /stripeWebhook ───────────────────────────────────────────
-// When the subscription began (Stripe's start_date, which stays the same on
-// renewals and plan changes). src/lib/plan.js reads it: a Pro subscription
-// started before PRO_LIMIT_CUTOFF keeps the 1,500 people Pro used to sell.
-const subscriptionStart = (sub) => (Number(sub && sub.start_date) > 0 ? { subscription_started_at: Number(sub.start_date) * 1000 } : {});
+// When this account's Pro began, kept in pro_since: src/lib/plan.js gives a
+// Pro that began before PRO_LIMIT_CUTOFF the 1,500 people Pro used to sell.
+// Stripe's start_date alone is not enough: it stays the same across plan
+// changes, so a Starter from before the change switched to Pro later would
+// pass for an old Pro. Rules: set when the account becomes Pro (now), kept
+// while it stays Pro, cleared (null) when it is anything else. An account already on
+// Pro before this field existed takes its subscription's start_date.
+async function proSinceUpdate(ref, plan, sub) {
+  if (plan !== 'pro') return { pro_since: null };
+  const cur = (await ref.get()).data() || {};
+  if (cur.plan === 'pro' && Number(cur.pro_since) > 0) return {};
+  if (cur.plan === 'pro' && Number(sub && sub.start_date) > 0) return { pro_since: Number(sub.start_date) * 1000 };
+  return { pro_since: Date.now() };
+}
 
 exports.stripeWebhook = onRequest({ secrets: [STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET], cors: false, timeoutSeconds: 30 }, async (req, res) => {
   if (req.method !== 'POST') return res.status(405).send('POST only');
@@ -404,7 +414,8 @@ exports.stripeWebhook = onRequest({ secrets: [STRIPE_SECRET_KEY, STRIPE_WEBHOOK_
         if (uid && session.subscription) {
           const sub = await stripe.subscriptions.retrieve(session.subscription);
           const plan = getPlanFromSubscription(sub);
-          await db.collection('users').doc(uid).set({ plan, stripe_subscription_id: sub.id, stripe_customer_id: session.customer, subscription_status: sub.status, ...subscriptionStart(sub), plan_updated_at: Date.now() }, { merge: true });
+          const ref = db.collection('users').doc(uid);
+          await ref.set({ plan, stripe_subscription_id: sub.id, stripe_customer_id: session.customer, subscription_status: sub.status, ...(await proSinceUpdate(ref, plan, sub)), plan_updated_at: Date.now() }, { merge: true });
           await getAuth().setCustomUserClaims(uid, { plan });
           console.log(`Plan updated for uid=${uid} to ${plan}`);
         } else {
@@ -424,7 +435,8 @@ exports.stripeWebhook = onRequest({ secrets: [STRIPE_SECRET_KEY, STRIPE_WEBHOOK_
           // cancel_at_period_end is recorded so an account whose subscription
           // is already cancelled can be deleted before the period runs out;
           // see subscriptionBlocksDeletion in purge-account.js.
-          await db.collection('users').doc(uid).set({ plan, subscription_status: sub.status, cancel_at_period_end: !!sub.cancel_at_period_end, ...subscriptionStart(sub), plan_updated_at: Date.now() }, { merge: true });
+          const ref = db.collection('users').doc(uid);
+          await ref.set({ plan, subscription_status: sub.status, cancel_at_period_end: !!sub.cancel_at_period_end, ...(await proSinceUpdate(ref, plan, sub)), plan_updated_at: Date.now() }, { merge: true });
           await getAuth().setCustomUserClaims(uid, { plan });
         }
         break;
@@ -437,7 +449,7 @@ exports.stripeWebhook = onRequest({ secrets: [STRIPE_SECRET_KEY, STRIPE_WEBHOOK_
           if (!snap.empty) uid = snap.docs[0].id;
         }
         if (uid) {
-          await db.collection('users').doc(uid).set({ plan: 'free', subscription_status: 'cancelled', stripe_subscription_id: null, plan_updated_at: Date.now() }, { merge: true });
+          await db.collection('users').doc(uid).set({ plan: 'free', subscription_status: 'cancelled', stripe_subscription_id: null, pro_since: null, plan_updated_at: Date.now() }, { merge: true });
           await getAuth().setCustomUserClaims(uid, { plan: 'free' });
         }
         break;
@@ -1688,6 +1700,9 @@ exports.workspace = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, re
           // The owner's (or the agency's) company sign-in policy, read fresh
           // in ssoGate; the member's screen shows it and cannot change it.
           sso_required: planSource.sso_required === true,
+          // Which Pro allowance applies (lib/plan.js): a member counts against
+          // the same limit the owner does.
+          pro_since: Number(planSource.pro_since) || null,
         };
         delete data._uid;
         return res.json({ data, role: access.role });
