@@ -661,6 +661,17 @@ export function buildSeedDb() {
   ];
   const byName = Object.fromEntries(tools.map(t => [t.name, t]));
 
+  // Cancellation notice (lib/renewalNotice.js), so Finance → Renewals and the
+  // dashboard show one of each: HubSpot's last day to cancel has passed,
+  // Salesforce (purchasing must approve) and Pennylane must be decided now,
+  // GitHub soon, Miro is already decided. The rest have no notice recorded.
+  Object.assign(byName.HubSpot, { notice_days: 30 });
+  Object.assign(byName.Salesforce, { notice_days: 30, procurement_required: true, contract_owner_email: 'chloe.bernard@acme.com' });
+  Object.assign(byName.Pennylane, { notice_days: 30 });
+  Object.assign(byName.GitHub, { notice_days: 30 });
+  Object.assign(byName['Google Workspace'], { notice_days: 30, procurement_required: true, procurement_lead_days: 20 });
+  Object.assign(byName.Miro, { notice_days: 30, renewal_decision: { renewal_date: byName.Miro.renewal_date, choice: 'cancel', by: 'emma.girard@acme.com', note: 'Overlaps with FigJam', at: format(subDays(now, 3), "yyyy-MM-dd'T'09:00:00.000'Z'") } });
+
   const grant = (toolName, email, level, opts = {}) => {
     const tool = byName[toolName];
     const emp  = byEmail[email];

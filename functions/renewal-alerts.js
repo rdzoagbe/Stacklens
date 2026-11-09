@@ -6,6 +6,7 @@
 // so what was already sent stays sent.
 
 const { daysUntil, dueReminder } = require('./threshold-alerts.js');
+const { coveredByRenewalReminder } = require('./renewal-notice.js');
 
 /** The renewals to mention today, one line per tool. */
 function renewalAlerts(tools, todayStr, sentKeys = {}, newKeys = {}) {
@@ -14,6 +15,9 @@ function renewalAlerts(tools, todayStr, sentKeys = {}, newKeys = {}) {
     if (!t || !t.renewal_date) continue;
     const date = String(t.renewal_date).slice(0, 10);
     if (date < todayStr) continue;
+    // A tool with a notice period is reminded of the last day to cancel
+    // instead (renewal-notice.js); a recorded decision stops both.
+    if (!coveredByRenewalReminder(t, todayStr)) continue;
     const days = daysUntil(todayStr, date);
     if (!dueReminder(`renewal_${t.id || t.name}_${t.renewal_date}`, days, sentKeys, newKeys, todayStr)) continue;
     out.push({ name: t.name, date, days, annual: (Number(t.cost_per_month) || 0) * 12 });

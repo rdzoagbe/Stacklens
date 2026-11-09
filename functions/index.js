@@ -79,6 +79,7 @@ const {
 } = require('./monthly-report.js');
 const { deviceCoverageAlerts, deviceAlertLine } = require('./device-alerts.js');
 const { renewalAlerts } = require('./renewal-alerts.js');
+const { noticeAlerts } = require('./renewal-notice.js');
 const { isFounderCaller } = require('./founder-gate.js');
 const { renewalAlertLine, budgetAlertLine, securityAlertLine, weeklyRenewalRow, insightHtml } = require('./alert-email.js');
 
@@ -2274,7 +2275,9 @@ exports.dailyAlerts = onSchedule({
     if (data?.user?.renewal_alerts !== false) {
       // The tightest threshold that applies is sent and settles the looser
       // one (functions/renewal-alerts.js): one email per renewal per threshold.
-      for (const r of renewalAlerts(data.tools, todayStr, sentKeys, newKeys)) alerts.renewals.push(r);
+      // The last day to cancel first (renewal-notice.js): a tool with a
+      // notice period is reminded before that date, not before the renewal.
+      for (const r of [...noticeAlerts(data.tools, todayStr, sentKeys, newKeys), ...renewalAlerts(data.tools, todayStr, sentKeys, newKeys)]) alerts.renewals.push(r);
     }
 
     // 2) Department budgets crossing 80% / 100% consumption (once each per year).
@@ -2338,7 +2341,7 @@ exports.dailyAlerts = onSchedule({
     const html = `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;background:#0f172a;border-radius:12px;overflow:hidden">
       <div style="padding:24px;background:#1e293b"><h1 style="color:white;margin:0 0 4px;font-size:22px">Stacklens</h1><p style="color:#94a3b8;margin:0">${total} new alert${total > 1 ? 's' : ''} in your environment</p></div>
       <div style="padding:24px">
-        ${section('Upcoming renewals', alerts.renewals.map(r => line(...renewalAlertLine(r, cur, fmt), r.days <= 7 ? '#ef4444' : '#f59e0b')))}
+        ${section('Renewals and last days to cancel', alerts.renewals.map(r => line(...renewalAlertLine(r, cur, fmt), r.kind === 'locked' || r.days <= 7 ? '#ef4444' : '#f59e0b')))}
         ${section('Budget thresholds', alerts.budgets.map(b => line(...budgetAlertLine(b, cur, fmt), b.pct >= 100 ? '#ef4444' : '#f59e0b')))}
         ${section('Access security', alerts.security.map(s => line(...securityAlertLine(s), '#ef4444')))}
         ${section('Warranties and leases', alerts.devices.map(d => line(...deviceAlertLine(d), d.days <= 7 ? '#ef4444' : '#f59e0b')))}
@@ -2349,7 +2352,11 @@ exports.dailyAlerts = onSchedule({
 
     const worst = alerts.security.length ? `🚨 ${alerts.security[0].name} still has access`
       : alerts.budgets.length ? `⚠️ ${alerts.budgets[0].department} budget at ${alerts.budgets[0].pct}%`
-      : alerts.renewals.length ? `🔔 ${alerts.renewals[0].name} renews in ${alerts.renewals[0].days} days`
+      : alerts.renewals.length ? (alerts.renewals[0].kind === 'notice'
+        ? `🔔 ${alerts.renewals[0].name}: decide within ${alerts.renewals[0].days} days to keep the option to cancel`
+        : alerts.renewals[0].kind === 'locked'
+          ? `🔔 ${alerts.renewals[0].name}: too late to cancel, it renews ${alerts.renewals[0].renewal_date}`
+          : `🔔 ${alerts.renewals[0].name} renews in ${alerts.renewals[0].days} days`)
       : `🗓️ ${alerts.devices[0].name}: ${alerts.devices[0].type || 'warranty or lease'} ends in ${alerts.devices[0].days} days`;
 
     try {

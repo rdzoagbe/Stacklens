@@ -5,6 +5,7 @@ import { todayISO } from '../lib/db';
 import { CATEGORIES, TOOL_STATUS, CRITICALITY, RISK_SCORE } from '../lib/constants';
 import { computeToolDerivedStatus, computeToolDerivedRisk, getRiskEvidence, formatMoney } from '../lib/dataUtils';
 import { sourceLabelKey } from '../lib/dataSources';
+import { DEFAULT_PROCUREMENT_LEAD_DAYS } from '../lib/renewalNotice';
 import { useDbQuery, useDbMutations } from '../hooks/useDbQuery';
 import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
@@ -68,6 +69,13 @@ export function ToolForm({ initial, employees, onSubmit, onClose }) {
           seats: Math.max(0, Math.round(Number(form.seats) || 0)) || undefined,
           billing_cycle: ['monthly', 'quarterly', 'yearly'].includes(form.billing_cycle) ? form.billing_cycle : 'monthly',
           auto_renew: form.auto_renew !== false,
+          // Cancellation notice (lib/renewalNotice.js). Blank stays unknown,
+          // which is not the same as no notice: the page asks for it.
+          notice_days: form.notice_days === '' || form.notice_days == null ? undefined : Math.max(0, Math.round(Number(form.notice_days) || 0)),
+          contract_owner_email: String(form.contract_owner_email || '').trim().toLowerCase() || undefined,
+          procurement_required: form.procurement_required === true,
+          procurement_lead_days: form.procurement_required === true && form.procurement_lead_days !== '' && form.procurement_lead_days != null
+            ? Math.max(0, Math.round(Number(form.procurement_lead_days) || 0)) : undefined,
         });
         onClose();
       }}
@@ -163,6 +171,34 @@ export function ToolForm({ initial, employees, onSubmit, onClose }) {
           </Select>
         </div>
       </div>
+
+      <div className="grid gap-3 md:grid-cols-4">
+        <div>
+          <div className="mb-1 text-xs font-semibold text-slate-400">{t('tool_notice_days')}</div>
+          <Input type="number" min="0" step="1" value={form.notice_days ?? ''} placeholder="—" aria-label={t('tool_notice_days')}
+            onChange={(e) => setForm((f) => ({ ...f, notice_days: e.target.value }))} />
+        </div>
+        <div>
+          <div className="mb-1 text-xs font-semibold text-slate-400">{t('tool_contract_owner')}</div>
+          <Input type="email" value={form.contract_owner_email || ''} placeholder={form.owner_email || ''} aria-label={t('tool_contract_owner')}
+            onChange={(e) => setForm((f) => ({ ...f, contract_owner_email: e.target.value }))} />
+        </div>
+        <div>
+          <div className="mb-1 text-xs font-semibold text-slate-400">{t('tool_procurement_required')}</div>
+          <Select value={form.procurement_required === true ? 'yes' : 'no'} aria-label={t('tool_procurement_required')}
+            onChange={(e) => setForm((f) => ({ ...f, procurement_required: e.target.value === 'yes' }))}>
+            <option value="no">{t('no')}</option>
+            <option value="yes">{t('yes')}</option>
+          </Select>
+        </div>
+        <div>
+          <div className="mb-1 text-xs font-semibold text-slate-400">{t('tool_procurement_lead')}</div>
+          <Input type="number" min="0" step="1" disabled={form.procurement_required !== true} aria-label={t('tool_procurement_lead')}
+            value={form.procurement_lead_days ?? ''} placeholder={String(DEFAULT_PROCUREMENT_LEAD_DAYS)}
+            onChange={(e) => setForm((f) => ({ ...f, procurement_lead_days: e.target.value }))} />
+        </div>
+      </div>
+      <p className="-mt-2 text-xs text-slate-500">{t('tool_notice_hint')}</p>
 
       <div className="grid gap-3 md:grid-cols-3">
         <div className="md:col-span-2">
