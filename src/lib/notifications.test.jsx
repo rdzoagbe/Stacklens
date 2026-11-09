@@ -41,8 +41,10 @@ describe('each switch is read by the server', () => {
     expect(daily).toMatch(/budget_alerts === false \? \[\]\s*: \(data\.budgets/);
     expect(daily).toMatch(/access_alerts === false \? \[\] : \(data\.access/);
     expect(daily).toMatch(/device_alerts !== false\) \{\s*for \(const d of deviceCoverageAlerts\(data\.assets/);
-    // Four kinds of alert, four pushes, nothing else sent.
-    expect([...daily.matchAll(/alerts\.(\w+)\.push/g)].map((m) => m[1]).sort()).toEqual(['budgets', 'devices', 'renewals', 'security']);
+    // Assignments (lib/lifecycle.js) ride the access switch: they are about who still holds access.
+    expect(daily).toMatch(/access_alerts !== false\) \{\s*for \(const r of lifecycleAlerts\(data,/);
+    // Five kinds of alert, five pushes, nothing else sent.
+    expect([...daily.matchAll(/alerts\.(\w+)\.push/g)].map((m) => m[1]).sort()).toEqual(['assignments', 'budgets', 'devices', 'renewals', 'security']);
   });
 
   it('every switch has its words in English and French', () => {

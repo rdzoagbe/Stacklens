@@ -17,6 +17,7 @@ import { startReview, decide, decideRemaining, signOff, summary as reviewSummary
 import { withDecision } from '../lib/renewalNotice';
 import { approveRemoval, requestRemoval, completeRemoval, verifyRemoval, cancelRemoval } from '../lib/removals';
 import { approveSaving, rejectSaving, reopenSaving, realiseSaving } from '../lib/savings';
+import { withException, withoutException, closeAssignment } from '../lib/lifecycle';
 import { cleanAsset, mergeAssets } from '../lib/assets';
 import { applyIntune } from '../lib/intuneDevices';
 
@@ -55,6 +56,25 @@ export function useDbQuery() {
 // auto_renew (yes/no). Absent columns set nothing, so an older file leaves
 // MFA unknown rather than "off".
 const YES = /^(1|true|yes|oui|y|o)$/i; const NO = /^(0|false|no|non|n)$/i;
+// A person's assignment from a file (lib/lifecycle.js): the contract type in
+// the words people write, and the manager who answers for it.
+const WORKER_WORDS = [
+  ['contractor', /^(contractor|freelance|freelancer|prestataire|independant|indépendant|intermittent|consultant|externe)/i],
+  ['intern', /^(intern|stagiaire|stage|alternant|alternance|apprenti)/i],
+  ['temporary', /^(temporary|temp|cdd|interim|intérim|temporaire|saisonnier)/i],
+  ['employee', /^(employee|salarie|salarié|cdi|permanent|staff)/i],
+];
+export function csvPersonExtras(r) {
+  const out = {};
+  const type = String(r.worker_type ?? '').trim();
+  const hit = type && WORKER_WORDS.find(([, re]) => re.test(type));
+  if (hit) out.worker_type = hit[0];
+  const manager = String(r.manager_email ?? '').trim().toLowerCase();
+  if (/^[^\s@]+@[^\s@]+$/.test(manager)) out.manager_email = manager;
+  return out;
+}
+const csvDate = (v) => (/^\d{4}-\d{2}-\d{2}$/.test(String(v || '').trim()) ? String(v).trim() : '');
+
 export function csvToolExtras(r, prefix) {
   const out = {};
   const mfa = String(r[prefix + 'mfa'] ?? r[prefix + 'mfa_enabled'] ?? '').trim();
@@ -352,6 +372,46 @@ export function useDbMutations() {
     onError: () => toast.error(t('err_update_access')),
   });
 
+  // ── Assignments (lib/lifecycle.js) ───────────────────────────────────────
+  // except_access | unexcept_access | except_device | unexcept_device | close.
+  // An exception needs a reason and an end date; closing is refused while any
+  // access or device is still open. Nothing here reaches a vendor or device.
+  const recordAssignment = useMutation({
+    mutationFn: async ({ step, id, reason, until }) => {
+      let action = null; let details = '';
+      setDb((db) => {
+        const by = auditActor(db);
+        if (step === 'except_access' || step === 'unexcept_access') {
+          db.access = (db.access || []).map((a) => {
+            if (a.id !== id) return a;
+            details = `${a.employee_name || a.employee_email || '?'} → ${a.tool_name || '?'}`;
+            return step === 'except_access' ? withException(a, { reason, until, by }) : withoutException(a);
+          });
+          action = step === 'except_access' ? 'access.exception_granted' : 'access.exception_removed';
+        } else if (step === 'except_device' || step === 'unexcept_device') {
+          db.assets = (db.assets || []).map((x) => {
+            if (x.id !== id) return x;
+            details = `${x.name || x.serial || '?'} — ${x.assigned_name || x.assigned_email || '?'}`;
+            return { ...cleanAsset(step === 'except_device' ? withException(x, { reason, until, by }) : withoutException(x)), id: x.id };
+          });
+          action = step === 'except_device' ? 'asset.exception_granted' : 'asset.exception_removed';
+        } else if (step === 'close') {
+          db.employees = (db.employees || []).map((e) => {
+            if (e.id !== id) return e;
+            details = e.full_name || e.email || '?';
+            return closeAssignment(e, db, { by });
+          });
+          action = 'assignment.closed';
+        } else {
+          throw new Error(`unknown assignment step ${step}`);
+        }
+        return db;
+      }, () => (action ? { action, details: `${details}${until ? `, until ${until}` : ''}${reason ? ` — ${String(reason).trim().slice(0, 160)}` : ''}` } : null));
+    },
+    onSuccess: (_r, { step }) => { invalidate(); track('assignment_step', { step }); },
+    onError: (err) => toast.error(t({ reason_required: 'lc_err_reason', until_required: 'lc_err_until', until_too_far: 'lc_err_until_far', items_open: 'lc_err_items_open', not_ended: 'lc_err_not_ended' }[err?.message] || 'err_update_access')),
+  });
+
   // ── Savings with their evidence (lib/savings.js) ─────────────────────────
   // approve | reject (reason required) | reopen | realise (evidence required:
   // the cancellation confirmation; marks the tool decommissioned).
@@ -642,6 +702,8 @@ export function useDbMutations() {
                 department: r.department       || existing.department,
                 role:       r.role             || existing.role,
                 status:     r.employee_status  || existing.status,
+                ...(r.end_date ? { end_date: r.end_date } : {}),
+                ...csvPersonExtras(r),
               } : {
                 id:         uid('emp'),
                 full_name:  r.employee_name   || '',
@@ -651,6 +713,7 @@ export function useDbMutations() {
                 status:     r.employee_status || 'active',
                 start_date: r.start_date      || '',
                 end_date:   r.end_date        || '',
+                ...csvPersonExtras(r),
               };
             }
             const toolName = (r.tool_name || '').trim();
@@ -694,7 +757,7 @@ export function useDbMutations() {
             if (email && toolName) {
               accessRows.push({
                 email, toolName: toolKey, access_level: r.access_level || 'member',
-                status: r.access_status || '', last_accessed: r.access_last_used || '', last_reviewed: r.access_last_reviewed || '',
+                status: r.access_status || '', last_accessed: r.access_last_used || '', last_reviewed: r.access_last_reviewed || '', expires_on: csvDate(r.access_expires),
               });
             }
           });
@@ -728,6 +791,7 @@ export function useDbMutations() {
               status:         a.status || (emp.status === 'offboarded' ? 'revoked' : 'active'),
               ...(a.last_accessed ? { last_accessed_date: a.last_accessed } : {}),
               ...(a.last_reviewed ? { last_reviewed_date: a.last_reviewed } : {}),
+              ...(a.expires_on ? { expires_on: a.expires_on } : {}),
             };
           }).filter(Boolean);
           db.access = [...newAccess, ...keptAccess];
@@ -779,6 +843,7 @@ export function useDbMutations() {
               status:     r.status     || 'active',
               start_date: r.start_date || '',
               end_date:   r.end_date   || '',
+              ...csvPersonExtras(r),
               ...(r.github_login && { github_login: r.github_login }),
             })),
             ...db.employees,
@@ -802,6 +867,7 @@ export function useDbMutations() {
                 employee_email:     emp.email,
                 access_level:       r.access_level       || 'viewer',
                 granted_date:       r.granted_date        || '',
+                ...(csvDate(r.expires_on) ? { expires_on: csvDate(r.expires_on) } : {}),
                 last_accessed_date: r.last_accessed_date  || '',
                 last_reviewed_date: r.last_reviewed_date  || '',
                 status:             r.status              || 'active',
@@ -1143,7 +1209,7 @@ export function useDbMutations() {
     createTool, updateTool, deleteTool, reviewTool, decideRenewal, importAuditTools, createClientFromAudit, clearInvoiceFinding,
     startAccessReview, decideAccessReview, signOffAccessReview,
     createEmployee, updateEmployee, deleteEmployee,
-    createAccess, updateAccess, deleteAccess, recordRemoval, recordSaving,
+    createAccess, updateAccess, deleteAccess, recordRemoval, recordSaving, recordAssignment,
     createAsset, updateAsset, returnAsset, deleteAsset, importAssets, recordIntuneDevices,
     setPlan, setAuth, setBudgets, importInvoices, addUploadedInvoices, bulkImport, recordSourceRun,
   };

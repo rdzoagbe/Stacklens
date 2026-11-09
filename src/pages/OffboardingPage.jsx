@@ -10,6 +10,7 @@ import { Button, SkeletonRow, useEnumLabel } from '../components/ui';
 import { blockGraphUserSignIn, GRAPH_WRITE_SCOPES } from '../lib/m365-writeback';
 import { assetsHeldBy } from '../lib/assets';
 import { isMicrosoftTool, removalStage } from '../lib/removals';
+import { AssignmentsPanel } from '../components/AssignmentsPanel';
 import { RoleGate, hasRole } from '../components/gates';
 import { AppShell } from '../components/AppShell';
 
@@ -282,6 +283,9 @@ export function OffboardingPage() {
             </div>
           </div>
         )}
+
+        {/* ── Assignments ending and temporary access (lib/lifecycle.js) ── */}
+        <AssignmentsPanel db={db} />
 
         {/* ── Row 3: 2-column layout — Queue/History on left (8 col), Active workflow on right (4 col) ── */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-5">

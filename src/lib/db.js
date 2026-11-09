@@ -631,6 +631,16 @@ export function buildSeedDb() {
     { id: uid('emp'), full_name: 'Julie Mercier',  email: 'julie.mercier@acme.com',  department: 'marketing',   role: 'Content Lead',       status: 'active',      start_date: d(190), end_date: '' },
     { id: uid('emp'), full_name: 'Antoine Rey',    email: 'antoine.rey@acme.com',    department: 'finance',     role: 'Financial Analyst',  status: 'offboarded',  start_date: d(720), end_date: d(60) },
   ];
+  // A production team on fixed-length assignments (lib/lifecycle.js): Inès's
+  // contract ends in ten days, Malik's ended nine days ago with access and a
+  // laptop still out (escalated), Zoé's internship ended and every item is
+  // accounted for (one access kept under a written exception): ready to close.
+  employees.push(
+    { id: uid('emp'), full_name: 'Inès Garnier', email: 'ines.garnier@acme.com', department: 'design', role: 'Freelance motion designer', status: 'active', start_date: d(80), end_date: d(-10), worker_type: 'contractor', manager_email: 'emma.girard@acme.com' },
+    { id: uid('emp'), full_name: 'Malik Haddad', email: 'malik.haddad@acme.com', department: 'marketing', role: 'Video producer (contract)', status: 'active', start_date: d(120), end_date: d(9), worker_type: 'contractor', manager_email: 'julie.mercier@acme.com' },
+    { id: uid('emp'), full_name: 'Zoé Lambert', email: 'zoe.lambert@acme.com', department: 'design', role: 'Design intern', status: 'active', start_date: d(180), end_date: d(4), worker_type: 'intern', manager_email: 'emma.girard@acme.com' },
+  );
+  for (const e of employees) if (!e.worker_type) e.worker_type = 'employee';
   const byEmail = Object.fromEntries(employees.map(e => [e.email, e]));
 
   // r(n) = a renewal date n days from now, so the Renewals tab has a real queue.
@@ -733,6 +743,26 @@ export function buildSeedDb() {
     grant('Loom',        'antoine.rey@acme.com',    'editor',  { granted: 650, used: 70, reviewed: 300, status: 'revoked' }),
   ];
 
+  // The production team's access: Inès's Notion access is temporary and
+  // ends with her contract; Malik still holds Slack; Zoé's Figma was removed
+  // and verified, her Miro is kept for two weeks to hand over storyboards.
+  // Thomas's Datadog access was temporary and expired two days ago.
+  const teamAccess = [
+    grant('Slack', 'ines.garnier@acme.com', 'editor', { granted: 80, used: 0, reviewed: 80 }),
+    { ...grant('Notion', 'ines.garnier@acme.com', 'editor', { granted: 80, used: 1, reviewed: 80 }), expires_on: r(10) },
+    grant('Slack', 'malik.haddad@acme.com', 'editor', { granted: 120, used: 10, reviewed: 120 }),
+    { ...grant('Figma', 'zoe.lambert@acme.com', 'editor', { granted: 180, used: 5, reviewed: 90, status: 'revoked' }),
+      revoked_at: subDays(now, 3).toISOString(),
+      removal: { stage: 'verified',
+        approved: { by: 'emma.girard@acme.com', at: subDays(now, 6).toISOString(), source: 'offboarding' },
+        completed: { by: 'emma.girard@acme.com', at: subDays(now, 3).toISOString(), method: 'manual', evidence: 'Removed from the Figma team in the admin page' },
+        verified: { by: 'amina.dupont@acme.com', at: subDays(now, 1).toISOString(), method: 'manual', evidence: 'Not in the Figma members list on review' } } },
+    { ...grant('Miro', 'zoe.lambert@acme.com', 'editor', { granted: 180, used: 4, reviewed: 90 }),
+      exception: { reason: 'Hands over the storyboards to the agency', until: r(14), by: 'emma.girard@acme.com', at: subDays(now, 3).toISOString() } },
+    { ...grant('Datadog', 'thomas.leroy@acme.com', 'viewer', { granted: 30, used: 3, reviewed: 30 }), expires_on: d(2) },
+  ];
+  access.push(...teamAccess);
+
   // Removals at each step (lib/removals.js), so Access → Removals is not
   // empty: Antoine's Pennylane admin is approved and requested from IT but
   // not yet done (he can still sign in), his Notion was removed by hand and
@@ -827,6 +857,7 @@ export function buildSeedDb() {
     device('phone',   'Pixel 8',            'GA0DEMO0007', 'karim.benali@acme.com',  { purchase_date: d(340), purchase_cost: 699,  coverage_type: 'lease',    coverage_end: r(21) }),
     device('laptop',  'MacBook Air 13 M3',  'C02DEMO0008', '',                       { purchase_date: d(60),  purchase_cost: 1299, coverage_type: 'warranty', coverage_end: r(670), notes: 'Spare for the next joiner' }),
     device('monitor', 'Dell P2423D',        'CN0DEMO0009', '',                       { purchase_date: d(500), purchase_cost: 289 }),
+    device('laptop',  'MacBook Pro 16 M3',  'C02DEMO0010', 'malik.haddad@acme.com',  { purchase_date: d(120), purchase_cost: 2899, coverage_type: 'warranty', coverage_end: r(610), notes: 'Editing laptop for the shoot' }),
   ];
 
   // Five past months of spend, so Finance shows a trend and a month-on-month

@@ -149,6 +149,24 @@ export function EmployeeForm({ initial, onSubmit, onClose }) {
           </Select>
         </div>
       </div>
+      {/* The assignment (lib/lifecycle.js): what kind of contract, who answers
+          for it, and when it ends. Reminders go to the manager on screen. */}
+      <div className="grid gap-3 md:grid-cols-2">
+        <div>
+          <div className="mb-1 text-xs font-semibold text-slate-400">{t('lc_worker_type')}</div>
+          <Select value={form.worker_type || 'employee'} aria-label={t('lc_worker_type')} onChange={(e) => setForm(f => ({ ...f, worker_type: e.target.value }))}>
+            <option value="employee">{t('lc_type_employee')}</option>
+            <option value="contractor">{t('lc_type_contractor')}</option>
+            <option value="intern">{t('lc_type_intern')}</option>
+            <option value="temporary">{t('lc_type_temporary')}</option>
+          </Select>
+        </div>
+        <div>
+          <div className="mb-1 text-xs font-semibold text-slate-400">{t('lc_manager')}</div>
+          <Input type="email" value={form.manager_email || ''} aria-label={t('lc_manager')} placeholder="manager@…"
+            onChange={(e) => setForm(f => ({ ...f, manager_email: e.target.value.trim().toLowerCase() }))} />
+        </div>
+      </div>
       <div className="grid gap-3 md:grid-cols-2">
         <div>
           <div className="mb-1 text-xs font-semibold text-slate-400">{t('start_date')}</div>

@@ -118,6 +118,11 @@ export function cleanAsset(input = {}) {
     ...(isoDate(input.returned_at) ? { returned_at: isoDate(input.returned_at) } : {}),
     ...(ASSET_ORIGINS.includes(input.origin) ? { origin: input.origin } : {}),
     ...(cleanMdm(input.mdm) ? { mdm: cleanMdm(input.mdm) } : {}),
+    // Kept by agreement past the holder's end date (lib/lifecycle.js): a
+    // reason and an end date, and only while someone still holds it.
+    ...(keepsHolder && input.exception && isoDate(input.exception.until) && str(input.exception.reason)
+      ? { exception: { reason: str(input.exception.reason).slice(0, 300), until: isoDate(input.exception.until), by: str(input.exception.by), at: str(input.exception.at) } }
+      : {}),
   };
 }
 

@@ -19,6 +19,8 @@ const CANON = {
     status:     ['status', 'statut', 'etat'],
     start_date: ['start_date', 'date_entree', 'date_d_entree', 'date_debut', 'hire_date', 'arrivee', 'date_arrivee', 'entree'],
     end_date:   ['end_date', 'date_sortie', 'date_de_sortie', 'date_fin', 'depart', 'date_depart', 'sortie'],
+    worker_type: ['worker_type', 'type_contrat', 'type_de_contrat', 'contrat', 'contract_type', 'contract'],
+    manager_email: ['manager_email', 'manager', 'email_manager', 'responsable_hierarchique', 'email_responsable_hierarchique', 'superieur', 'n_1'],
   },
   tools: {
     name:           ['name', 'nom', 'outil', 'nom_outil', 'tool', 'tool_name', 'application', 'logiciel', 'app', 'service'],
@@ -44,6 +46,7 @@ const CANON = {
     access_level:   ['access_level', 'niveau', 'niveau_acces', 'niveau_d_acces', 'role', 'droits', 'permission', 'level'],
     status:         ['status', 'statut', 'etat'],
     granted_date:   ['granted_date', 'date_attribution', 'attribue_le', 'since', 'depuis'],
+    expires_on:     ['expires_on', 'expiration', 'date_expiration', 'fin_acces', 'access_expires', 'expire_le'],
   },
   company: {
     employee_name:     ['employee_name', 'nom', 'nom_complet', 'salarie', 'collaborateur', 'employe', 'employee', 'full_name', 'nom_salarie'],
@@ -74,6 +77,9 @@ const CANON = {
     access_status:     ['access_status', 'statut_acces'],
     access_last_used:  ['access_last_used'],
     access_last_reviewed: ['access_last_reviewed', 'derniere_revue', 'revu_le'],
+    worker_type:       ['worker_type', 'type_contrat', 'type_de_contrat', 'contrat', 'contract_type'],
+    manager_email:     ['manager_email', 'manager', 'email_manager', 'responsable_hierarchique'],
+    access_expires:    ['access_expires', 'expiration_acces', 'fin_acces', 'expires_on'],
   },
 };
 
