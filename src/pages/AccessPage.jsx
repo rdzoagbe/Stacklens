@@ -11,6 +11,7 @@ import { AppShell } from '../components/AppShell';
 import { AlertTriangle, Check } from 'lucide-react';
 import { EligibilityView } from '../components/EligibilityView';
 import { AccessReviewsView } from '../components/AccessReviewsView';
+import { RemovalsView } from '../components/RemovalsView';
 
 export function AccessForm({ initial, tools, employees, onSubmit, onClose }) {
   const { language } = useLang();
@@ -152,9 +153,13 @@ export function AccessPage() {
   const enumLabel = useEnumLabel();
   // ?view=eligibility opens the rules directly (a link from elsewhere in the app).
   const [viewMode, setViewMode] = useState(() => {
-    try { const v = new URLSearchParams(window.location.search).get('view'); return ['eligibility', 'reviews'].includes(v) ? v : 'map'; } catch { return 'map'; }
+    try { const v = new URLSearchParams(window.location.search).get('view'); return ['eligibility', 'reviews', 'removals'].includes(v) ? v : 'map'; } catch { return 'map'; }
   });
   const [filterRisk, setFilterRisk] = useState('all');
+  // Revoking records the decision (lib/removals.js): the person keeps the
+  // access until it is removed in the tool and marked done in Removals.
+  const approve = (id) => muts.recordRemoval.mutate({ ids: [id], step: 'approve', source: 'manual' },
+    { onSuccess: () => toast.success(t('rm_approved_toast')) });
   const [search, setSearch] = useState('');
 
   const unknown = t('access_unknown');
@@ -247,12 +252,12 @@ export function AccessPage() {
                 // Say exactly what will be revoked, by name, before doing it.
                 const lines = derived.highRisk.slice(0, 12).map(a => `• ${a.employee?.full_name || unknown} → ${a.tool?.name || a.tool_name || unknown}`);
                 if (derived.highRisk.length > 12) lines.push(`… +${derived.highRisk.length - 12}`);
-                if(window.confirm(t('access_revoke_all_confirm').replace('{n}', derived.highRisk.length) + '\n\n' + lines.join('\n'))) {
-                  derived.highRisk.forEach(a => muts.updateAccess.mutate({ id: a.id, patch: { status: 'revoked' } }));
-                  toast.success(t('all_high_risk_revoked'));
+                if(window.confirm(t('rm_confirm_all').replace('{n}', derived.highRisk.length) + '\n\n' + lines.join('\n'))) {
+                  muts.recordRemoval.mutate({ ids: derived.highRisk.map(a => a.id), step: 'approve', source: 'manual' },
+                    { onSuccess: () => toast.success(t('rm_approved_all_toast')) });
                 }
               }}>
-                {t("access_revoke_all_high")}
+                {t('rm_approve_all_high')}
               </Button>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -265,11 +270,17 @@ export function AccessPage() {
                     <div className="text-sm font-semibold text-white truncate">{a.employee?.full_name || unknown}</div>
                     <div className="text-xs text-slate-500 truncate">{a.tool?.name || a.tool_name} · {enumLabel(a.access_level)}</div>
                   </div>
-                  <button onClick={() => {
-                    muts.updateAccess.mutate({ id: a.id, patch: { status: 'revoked' } }, { onSuccess: () => toast.success(t('revoked')) });
-                  }} className="px-2.5 py-1 bg-red-600/30 hover:bg-red-600/50 text-red-400 rounded-lg text-xs font-semibold transition-colors flex-shrink-0">
-                    {t('revoke')}
-                  </button>
+                  {a.status === 'pending_revocation' ? (
+                    <button onClick={() => setViewMode('removals')}
+                      className="px-2.5 py-1 bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 rounded-lg text-xs font-semibold transition-colors flex-shrink-0">
+                      {t('rm_pending_short')}
+                    </button>
+                  ) : (
+                    <button onClick={() => approve(a.id)}
+                      className="px-2.5 py-1 bg-red-600/30 hover:bg-red-600/50 text-red-400 rounded-lg text-xs font-semibold transition-colors flex-shrink-0">
+                      {t('rm_approve')}
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -285,6 +296,7 @@ export function AccessPage() {
               { id: 'by-tool', label: t('access_by_tool') },
               { id: 'eligibility', label: t('elig_tab') },
               { id: 'reviews', label: t('ar_tab') },
+              { id: 'removals', label: t('rm_tab') },
             ].map(v => (
               <button key={v.id} onClick={() => setViewMode(v.id)}
                 className={"px-3 py-1.5 rounded-lg text-sm font-semibold transition-all " + (viewMode === v.id ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white')}>
@@ -292,7 +304,7 @@ export function AccessPage() {
               </button>
             ))}
           </div>
-          {!['eligibility', 'reviews'].includes(viewMode) && <>
+          {!['eligibility', 'reviews', 'removals'].includes(viewMode) && <>
           <div className="flex-1 min-w-0">
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t("search_placeholder_access")}
               className="w-full bg-slate-900 border border-line-control rounded-xl px-4 py-2 text-sm text-white placeholder-slate-500 outline-none focus:border-blue-500 transition-colors" />
@@ -309,6 +321,7 @@ export function AccessPage() {
 
         {viewMode === 'eligibility' && <EligibilityView db={db} />}
         {viewMode === 'reviews' && <AccessReviewsView db={db} />}
+        {viewMode === 'removals' && <RemovalsView db={db} />}
 
         {/* ── View: Access Map (Employee → Tools grid) ── */}
         {viewMode === 'map' && (
@@ -372,7 +385,7 @@ export function AccessPage() {
                                     const action = window.prompt(`${t('act_manage')}: ${empName} → ${toolName} (${enumLabel(access.level)})\n\n1=${t('badge_viewer')}  2=${t('badge_admin')}  3=${t('dash_revoke')}`);
                                     if (action === '1') muts.updateAccess.mutate({ id: access.id, patch: { access_level: 'viewer' } }, { onSuccess: () => toast.success(t('changed_to_viewer')) });
                                     else if (action === '2') muts.updateAccess.mutate({ id: access.id, patch: { access_level: 'admin' } }, { onSuccess: () => toast.success(t('changed_to_admin')) });
-                                    else if (action === '3') muts.updateAccess.mutate({ id: access.id, patch: { status: 'revoked' } }, { onSuccess: () => toast.success(t('revoked')) });
+                                    else if (action === '3') approve(access.id);
                                   }}
                                 />
                               </div>
@@ -599,10 +612,10 @@ export function AccessPage() {
                           const action = window.prompt(`${t('act_manage')}: ${a.employee?.full_name || ''} → ${a.tool?.name || a.tool_name}\n\n1=${t('badge_viewer')}  2=${t('badge_admin')}  3=${t('dash_revoke')}`);
                           if (action === '1') muts.updateAccess.mutate({ id: a.id, patch: { access_level: 'viewer' } }, { onSuccess: () => toast.success(t('changed_to_viewer')) });
                           else if (action === '2') muts.updateAccess.mutate({ id: a.id, patch: { access_level: 'admin' } }, { onSuccess: () => toast.success(t('changed_to_admin')) });
-                          else if (action === '3') muts.updateAccess.mutate({ id: a.id, patch: { status: 'revoked' } }, { onSuccess: () => toast.success(t('revoked')) });
+                          else if (action === '3') approve(a.id);
                         }} className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold">{t('act_manage')}</button>
                         <button onClick={() => {
-                          if(window.confirm(t('confirm_revoke_one'))) muts.updateAccess.mutate({ id: a.id, patch: { status: 'revoked' } }, { onSuccess: () => toast.success(t('revoked')) });
+                          if(window.confirm(t('confirm_revoke_one'))) approve(a.id);
                         }} className="px-2 py-1 bg-red-600/20 hover:bg-red-600/40 text-red-400 rounded-lg text-xs font-semibold">×</button>
                       </div>
                     </td>

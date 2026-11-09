@@ -9,6 +9,7 @@ import { useTranslation } from '../translations';
 import { Button, SkeletonRow, useEnumLabel } from '../components/ui';
 import { blockGraphUserSignIn, GRAPH_WRITE_SCOPES } from '../lib/m365-writeback';
 import { assetsHeldBy } from '../lib/assets';
+import { isMicrosoftTool, removalStage } from '../lib/removals';
 import { RoleGate, hasRole } from '../components/gates';
 import { AppShell } from '../components/AppShell';
 
@@ -74,6 +75,9 @@ export function OffboardingPage() {
 
   const employee = employees.find((e) => e.id === employeeId);
   const activeRecords = access.filter((a) => a.employee_id === employeeId && a.status === "active");
+  // Access still held: active, or a removal approved but not yet carried out
+  // in the tool (lib/removals.js). The person can still sign in to those.
+  const heldRecords = access.filter((a) => a.employee_id === employeeId && (a.status === "active" || a.status === "pending_revocation"));
   // Devices this person still holds (lib/assets.js): the laptop, phone and
   // screen to get back. Marking one returned only records it.
   const heldDevices = useMemo(() => assetsHeldBy(db, employee), [db, employee]);
@@ -82,19 +86,20 @@ export function OffboardingPage() {
     muts.returnAsset.mutate(asset.id, { onSuccess: () => toast.success(t('dev_returned_toast')) });
   };
 
+  // Revoking records the decision: the access stays held until someone
+  // removes it in the tool and records it in Access → Removals.
   const revokeOne = (id) => {
-    muts.updateAccess.mutate({ id, patch: { status: "revoked" } }, { onSuccess: () => toast.success(t('revoked')) });
+    muts.recordRemoval.mutate({ ids: [id], step: 'approve', source: 'offboarding' }, { onSuccess: () => toast.success(t('rm_approved_toast')) });
   };
   const revokeAll = () => {
     if (!employee) return;
-    if (!window.confirm(t('confirm_revoke_all_emp').replace('{n}', activeRecords.length).replace('{name}', employee.full_name))) return;
-    activeRecords.forEach((r) => muts.updateAccess.mutate({ id: r.id, patch: { status: "revoked" } }));
+    if (!window.confirm(t('rm_confirm_offboard').replace('{n}', activeRecords.length).replace('{name}', employee.full_name))) return;
+    if (activeRecords.length) muts.recordRemoval.mutate({ ids: activeRecords.map((r) => r.id), step: 'approve', source: 'offboarding' });
     muts.updateEmployee.mutate({
       id: employeeId,
       patch: { status: "offboarded", end_date: employee?.end_date || todayISO() },
     });
-    toast.success(t('offb_done_toast').replace('{name}', employee.full_name).replace('{n}', activeRecords.length));
-    setEmployeeId("");
+    toast.success(t('rm_offb_done_toast').replace('{name}', employee.full_name).replace('{n}', activeRecords.length));
   };
 
   // ── Microsoft 365 write-back ──────────────────────────────────────────────
@@ -126,6 +131,16 @@ export function OffboardingPage() {
           `${u.displayName || emp.full_name || emp.email} <${u.userPrincipalName || u.mail || emp.email}>`)),
       });
       if (cancelled) return;
+      // Microsoft's own tools are the rows this block actually closes. An
+      // account Microsoft reports already disabled is a verification; a
+      // block Stacklens just made is a removal done through the vendor.
+      const msRows = access.filter((a) => a.employee_id === emp.id && isMicrosoftTool(a.tool_name)
+        && ['active', 'pending_revocation', 'revoked'].includes(a.status) && removalStage(a) !== 'verified');
+      if (msRows.length) {
+        muts.recordRemoval.mutate(alreadyBlocked
+          ? { ids: msRows.map((a) => a.id), step: 'verify', method: 'connector', evidence: 'Microsoft 365 reported the account sign-in already blocked (accountEnabled false)' }
+          : { ids: msRows.map((a) => a.id), step: 'complete', method: 'vendor', evidence: 'Sign-in blocked by Stacklens in Microsoft 365 (accountEnabled set to false)' });
+      }
       toast.success(
         t(alreadyBlocked ? 'm365_block_already' : 'm365_block_done')
           .replace('{name}', emp.full_name || emp.email)
@@ -160,7 +175,7 @@ export function OffboardingPage() {
   const riskRecords = useMemo(() => {
     return access.filter(a => {
       const emp = employees.find(e => e.id === a.employee_id);
-      return emp?.status === "offboarded" && a.status === "active";
+      return emp?.status === "offboarded" && (a.status === "active" || a.status === "pending_revocation");
     });
   }, [access, employees]);
 
@@ -247,14 +262,22 @@ export function OffboardingPage() {
                     );
                   })}
                 </div>
-                <button onClick={() => {
-                  if (window.confirm(t('confirm_revoke_all_high').replace('{n}', riskRecords.length))) {
-                    riskRecords.forEach(a => muts.updateAccess.mutate({ id: a.id, patch: { status: "revoked" } }));
-                    toast.success(`Revoked ${riskRecords.length} access records`);
-                  }
-                }} className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-xl font-semibold text-sm text-white transition-colors">
-                  {t('off_revoke_all_risky')}
-                </button>
+                {riskRecords.some(a => a.status === 'active') ? (
+                  <button onClick={() => {
+                    const toApprove = riskRecords.filter(a => a.status === 'active');
+                    if (window.confirm(t('rm_confirm_all').replace('{n}', toApprove.length))) {
+                      muts.recordRemoval.mutate({ ids: toApprove.map(a => a.id), step: 'approve', source: 'offboarding' },
+                        { onSuccess: () => toast.success(t('rm_approved_all_toast')) });
+                    }
+                  }} className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-xl font-semibold text-sm text-white transition-colors">
+                    {t('rm_approve_all_high')}
+                  </button>
+                ) : (
+                  <button onClick={() => nav('/access?view=removals')}
+                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-xl font-semibold text-sm text-amber-300 transition-colors">
+                    {t('rm_open_removals')}
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -432,7 +455,7 @@ export function OffboardingPage() {
                     </div>
                     <div className="rounded-lg bg-slate-800/50 p-2">
                       <div className="text-[10px] text-slate-500 uppercase">{t("offboarding_access_label")}</div>
-                      <div className="text-xs font-semibold text-white">{activeRecords.length} active</div>
+                      <div className="text-xs font-semibold text-white">{t('rm_offb_held').replace('{n}', heldRecords.length)}</div>
                     </div>
                     <div className="rounded-lg bg-slate-800/50 p-2">
                       <div className="text-[10px] text-slate-500 uppercase">{t("offboarding_end_date")}</div>
@@ -445,18 +468,18 @@ export function OffboardingPage() {
                 <div className="p-5">
                   <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">{t("offboarding_workflow")}</div>
 
-                  {activeRecords.length === 0 ? (
+                  {heldRecords.length === 0 ? (
                     <div className="text-center py-6">
                       <div className="inline-flex p-2 rounded-lg bg-emerald-500/10 mb-2">
                         <CheckCircle className="h-5 w-5 text-emerald-400" />
                       </div>
-                      <div className="text-sm font-semibold text-emerald-400 mb-1">{t("offboarding_all_revoked")}</div>
+                      <div className="text-sm font-semibold text-emerald-400 mb-1">{t("rm_offb_none_held")}</div>
                       <div className="text-xs text-slate-500">{t("offboarding_all_revoked_sub")}</div>
                     </div>
                   ) : (
                     <>
                       <div className="space-y-2 mb-4 max-h-[280px] overflow-y-auto pr-1">
-                        {activeRecords.map((r) => (
+                        {heldRecords.map((r) => (
                           <div key={r.id} className="flex items-center gap-3 p-3 rounded-xl border border-slate-800 bg-slate-950/40">
                             <div className="flex-shrink-0">
                               <input type="checkbox" checked={Boolean(checked[r.id])}
@@ -469,23 +492,38 @@ export function OffboardingPage() {
                                 <span>{enumLabel(r.access_level)}</span> · {t('granted_date')} {r.granted_date || '—'}
                               </div>
                             </div>
-                            <button onClick={() => revokeOne(r.id)}
-                              className="px-2.5 py-1 bg-red-600/20 hover:bg-red-600/40 text-red-400 rounded-lg text-xs font-semibold transition-colors flex-shrink-0">
-                              {t('act_revoke')}
-                            </button>
+                            {r.status === 'pending_revocation' ? (
+                              <button onClick={() => nav('/access?view=removals')}
+                                className="px-2.5 py-1 bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 rounded-lg text-xs font-semibold transition-colors flex-shrink-0">
+                                {t(removalStage(r) === 'requested' ? 'rm_stage_requested' : 'rm_stage_approved')} →
+                              </button>
+                            ) : (
+                              <button onClick={() => revokeOne(r.id)}
+                                className="px-2.5 py-1 bg-red-600/20 hover:bg-red-600/40 text-red-400 rounded-lg text-xs font-semibold transition-colors flex-shrink-0">
+                                {t('rm_approve')}
+                              </button>
+                            )}
                           </div>
                         ))}
                       </div>
 
-                      {/* One-click button */}
+                      {/* One-click button: approves every removal at once. */}
+                      {activeRecords.length > 0 && <>
                       <button onClick={revokeAll}
                         className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-600 hover:bg-red-700 rounded-xl font-bold text-sm text-white transition-all shadow-lg shadow-red-500/20">
                         <BadgeX className="h-4 w-4" />
-                        One-Click Offboard ({activeRecords.length} access)
+                        {t('rm_offb_button').replace('{n}', activeRecords.length)}
                       </button>
                       <p className="text-[10px] text-slate-500 text-center mt-2">
-                        {t("offboarding_one_click_sub")}
+                        {t("rm_offb_sub")}
                       </p>
+                      </>}
+                      {heldRecords.length > activeRecords.length && (
+                        <p className="mt-3 text-xs text-amber-400 text-center">
+                          {t('rm_offb_pending').replace('{n}', heldRecords.length - activeRecords.length)}{' '}
+                          <button type="button" onClick={() => nav('/access?view=removals')} className="font-semibold underline">{t('rm_open_removals')}</button>
+                        </p>
+                      )}
 
                       {/* The one action that reaches outside Stacklens. Only
                           shown when the tenant is connected. */}

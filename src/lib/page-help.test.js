@@ -21,6 +21,8 @@ const routed = new Set([...app.matchAll(/<Route\s+path="([^"]+)"/g)].map((m) => 
 const LANGS = ['en', 'fr', 'de', 'es', 'pt'];
 
 const finTabs = JSON.parse(/VALID_FIN_TABS = (\[[^\]]+\])/.exec(read('src/pages/FinancePage.jsx'))[1].replace(/'/g, '"'));
+// The views Access opens from ?view= (AccessPage.jsx reads them from this list).
+const accessViews = JSON.parse(/return (\[[^\]]+\])\.includes\(v\) \? v : 'map'/.exec(read('src/pages/AccessPage.jsx'))[1].replace(/'/g, '"'));
 const setTabs = JSON.parse(/VALID_TABS = (\[[^\]]+\])/.exec(read('src/pages/SettingsPage.jsx'))[1].replace(/'/g, '"'));
 
 describe('every help link opens a real screen, on a real tab', () => {
@@ -30,7 +32,7 @@ describe('every help link opens a real screen, on a real tab', () => {
     const tab = url.searchParams.get('tab');
     if (url.pathname === '/finance' && tab) expect(finTabs).toContain(tab);
     if (url.pathname === '/settings' && tab) expect(setTabs).toContain(tab);
-    if (url.pathname === '/access' && url.searchParams.get('view')) expect(url.searchParams.get('view')).toBe('eligibility');
+    if (url.pathname === '/access' && url.searchParams.get('view')) expect(accessViews).toContain(url.searchParams.get('view'));
   });
 
   it('every page with an explanation is a route', () => {

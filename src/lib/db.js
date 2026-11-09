@@ -733,6 +733,30 @@ export function buildSeedDb() {
     grant('Loom',        'antoine.rey@acme.com',    'editor',  { granted: 650, used: 70, reviewed: 300, status: 'revoked' }),
   ];
 
+  // Removals at each step (lib/removals.js), so Access → Removals is not
+  // empty: Antoine's Pennylane admin is approved and requested from IT but
+  // not yet done (he can still sign in), his Notion was removed by hand and
+  // not verified, Noah's Slack is verified. The two Loom rows are left as
+  // older data with no record of how they were revoked.
+  const ago = (daysAgo) => subDays(now, daysAgo).toISOString();
+  const accessRow = (tool, email) => access.find((a) => a.tool_name === tool && a.employee_email === email);
+  Object.assign(accessRow('Pennylane', 'antoine.rey@acme.com'), { status: 'pending_revocation', removal: {
+    stage: 'requested',
+    approved: { by: 'amina.dupont@acme.com', at: ago(5), source: 'offboarding' },
+    requested: { by: 'amina.dupont@acme.com', at: ago(3), to: 'IT (Hugo Moreau)', reference: 'IT-2041' },
+  } });
+  Object.assign(accessRow('Notion', 'antoine.rey@acme.com'), { revoked_at: ago(58), removal: {
+    stage: 'completed',
+    approved: { by: 'amina.dupont@acme.com', at: ago(60), source: 'offboarding' },
+    completed: { by: 'lea.fontaine@acme.com', at: ago(58), method: 'manual', evidence: 'Removed from the Notion workspace members page' },
+  } });
+  Object.assign(accessRow('Slack', 'noah.petit@acme.com'), { revoked_at: ago(34), removal: {
+    stage: 'verified',
+    approved: { by: 'amina.dupont@acme.com', at: ago(35), source: 'offboarding' },
+    completed: { by: 'amina.dupont@acme.com', at: ago(34), method: 'manual', evidence: 'Deactivated in Slack admin, ticket IT-1987' },
+    verified: { by: 'hugo.moreau@acme.com', at: ago(20), method: 'manual', evidence: 'Not in the Slack member export of the monthly review' },
+  } });
+
   // Supplier invoices, so Finance → Budget's invoice check has something to
   // show (lib/invoiceCheck.js): Notion billed above the price agreed before
   // tax, HubSpot's price going up with nothing agreed, Slack billed twice.

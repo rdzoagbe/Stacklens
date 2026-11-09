@@ -17,6 +17,7 @@ import { uid } from './db';
 import { computeAccessDerivedRiskFlag } from './dataUtils';
 import { norm } from './eligibility';
 import { csvText } from './csvSafe';
+import { approveRemoval } from './removals';
 
 export const REVIEW_SCOPES = ['all', 'tool', 'department'];
 export const DECISIONS = ['keep', 'revoke'];
@@ -102,7 +103,8 @@ export const canSignOff = (review) => !review?.signed_off && (review?.rows || []
 
 /**
  * Signs the review and applies it to the access rows: kept ones carry today's
- * review date, revoked ones are revoked. Returns { db, review }. A review
+ * review date, revoked ones get an approved removal (still held until it is
+ * done in the tool). Returns { db, review }. A review
  * already signed, or with a row undecided, is left alone.
  */
 export function signOff(db, review, { name = '', by = '', now = new Date() } = {}) {
@@ -113,7 +115,9 @@ export function signOff(db, review, { name = '', by = '', now = new Date() } = {
   const access = (db.access || []).map((a) => {
     const d = byAccess.get(a.id);
     if (d === 'keep') return { ...a, last_reviewed_date: today, risk_flag: a.risk_flag === 'needs_review' ? 'none' : a.risk_flag };
-    if (d === 'revoke') return { ...a, status: 'revoked', last_reviewed_date: today };
+    // Signing approves the removal (lib/removals.js): the person keeps the
+    // access until it is removed in the tool and recorded in Removals.
+    if (d === 'revoke') return { ...approveRemoval(a, { by, at: now, source: 'review' }), last_reviewed_date: today };
     return a;
   });
   const reviews = (db.access_reviews || []).map((r) => (r.id === review.id ? signed : r));

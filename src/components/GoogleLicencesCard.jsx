@@ -21,7 +21,7 @@ const small = 'px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors di
 /** `deps` lets a test stand in for Google: { token, read }. */
 export function GoogleLicencesCard({ db, canEdit, t, deps = null }) {
   const isDemo = db?.user?.is_demo === true;
-  const { createTool, updateTool, createAccess, updateAccess, recordSourceRun } = useDbMutations();
+  const { createTool, updateTool, createAccess, recordRemoval, recordSourceRun } = useDbMutations();
   const [state, setState] = useState({ phase: 'idle' });
 
   const read = async () => {
@@ -69,9 +69,15 @@ export function GoogleLicencesCard({ db, canEdit, t, deps = null }) {
     }
     toast.success(fill(t('gl_recorded'), { n: emps.length, tool: tool.name }));
   };
-  const remove = (rows) => {
-    for (const a of rows) updateAccess.mutate({ id: a.id, patch: { status: 'revoked' } });
-    toast.success(fill(t('gl_removed'), { n: rows.length }));
+  // Google's own answer is the evidence: the person is not licensed there.
+  // That verifies the removal (lib/removals.js), and completes one nobody
+  // had marked done, with Google's read named as how it was established.
+  const remove = (rows, tool) => {
+    if (!rows.length) return;
+    recordRemoval.mutate({
+      ids: rows.map((a) => a.id), step: 'verify', method: 'connector',
+      evidence: `Google licence read ${new Date().toISOString().slice(0, 10)}: no ${tool?.name || 'licence'} assigned`,
+    }, { onSuccess: () => toast.success(fill(t('rm_gl_verified'), { n: rows.length })) });
   };
 
   const unavailable = isDemo ? t('gl_demo') : !deps && !CLIENT_ID ? t('gl_not_configured') : null;
@@ -137,7 +143,7 @@ export function GoogleLicencesCard({ db, canEdit, t, deps = null }) {
                         {r.notInGoogle.slice(0, 8).map((a) => <div key={a.id} className="text-xs text-slate-300 truncate">{a.employee_name || a.employee_email}</div>)}
                         {r.notInGoogle.length > 8 && <div className="text-xs text-slate-500">{fill(t('gl_and_more'), { n: r.notInGoogle.length - 8 })}</div>}
                         {canEdit && r.notInGoogle.length > 0 && (
-                          <button type="button" onClick={() => remove(r.notInGoogle)} className={small + ' mt-2 bg-red-600/30 hover:bg-red-600/50 text-red-300'}>{t('gl_mark_removed')}</button>
+                          <button type="button" onClick={() => remove(r.notInGoogle, tool)} className={small + ' mt-2 bg-red-600/30 hover:bg-red-600/50 text-red-300'}>{t('rm_gl_confirm')}</button>
                         )}
                       </div>
                       <div data-testid="gl-unknown">

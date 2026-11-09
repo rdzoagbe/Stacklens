@@ -127,7 +127,7 @@ describe('the two lists and what the buttons record', () => {
     expect(names('elig-to-grant')).toHaveLength(0);
   });
 
-  it('"Mark as removed" revokes; "Keep as an exception" keeps the licence and the list clears', async () => {
+  it('"Approve removal" is offered; "Keep as an exception" keeps the licence and the list clears', async () => {
     await mount({ rule, access: [held('a2', 'ana'), held('a4', 'cle'), held('a1', 'ben')] });
     await openTool();
     await click(button(/^Keep as an exception$/));
@@ -136,11 +136,11 @@ describe('the two lists and what the buttons record', () => {
     expect(document.body.textContent).toContain('1 kept as exceptions');
   });
 
-  it('"Mark as removed" revokes the access row', async () => {
+  it('"Approve removal" approves it; the licence stays held until done in the tool', async () => {
     await mount({ rule, access: [held('a2', 'ana'), held('a1', 'ben'), held('a4', 'cle')] });
     await openTool();
-    await click(button(/^Mark as removed$/));
-    expect(loadDb().access.find((a) => a.id === 'a2').status).toBe('revoked');
+    await click(button(/^Approve removal$/));
+    expect(loadDb().access.find((a) => a.id === 'a2')).toMatchObject({ status: 'pending_revocation', removal: { stage: 'approved', approved: { source: 'eligibility' } } });
   });
 
   it('a viewer reads the lists and has no buttons', async () => {
@@ -149,7 +149,7 @@ describe('the two lists and what the buttons record', () => {
     await openTool();
     expect(names('elig-to-grant')).toHaveLength(2);
     expect(button(/^Mark as granted$/)).toBeUndefined();
-    expect(button(/^Mark as removed$/)).toBeUndefined();
+    expect(button(/^Approve removal$/)).toBeUndefined();
   });
 
   it('reads in French', async () => {

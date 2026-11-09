@@ -61,7 +61,9 @@ export function computeAccessDerivedRiskFlag(accessRow, employeesById, toolsById
   const toolStatus  = tool ? computeToolDerivedStatus(tool) : 'active';
   const ownerMissing = tool ? !tool.owner_email : false;
 
-  if (accessRow.status !== 'active') return 'none';
+  // A removal approved or requested but not yet carried out in the tool is
+  // still access the person holds (lib/removals.js): it keeps its risk.
+  if (accessRow.status !== 'active' && accessRow.status !== 'pending_revocation') return 'none';
   if (emp?.status === 'offboarded')  return 'former_employee';
   // An end date that has passed is a departure whether or not anyone pressed
   // Offboard: a contract that ended last month (a freelancer, an intermittent,

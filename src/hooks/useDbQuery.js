@@ -15,6 +15,7 @@ import { toolFromHandoffRecord } from '../lib/auditHandoff';
 import { workspaceCreateOrg, workspaceRead, workspaceWrite } from '../firebase-config';
 import { startReview, decide, decideRemaining, signOff, summary as reviewSummary } from '../lib/accessReviews';
 import { withDecision } from '../lib/renewalNotice';
+import { approveRemoval, requestRemoval, completeRemoval, verifyRemoval, cancelRemoval } from '../lib/removals';
 import { cleanAsset, mergeAssets } from '../lib/assets';
 import { applyIntune } from '../lib/intuneDevices';
 
@@ -348,6 +349,48 @@ export function useDbMutations() {
     },
     onSuccess: invalidate,
     onError: () => toast.error(t('err_update_access')),
+  });
+
+  // ── Access removal (lib/removals.js) ─────────────────────────────────────
+  // One mutation for every step, so no screen can mark access gone without
+  // saying who, when and how. `step` is approve | request | complete |
+  // verify | cancel; `ids` one or several rows. Completing and verifying
+  // need evidence (lib/removals.js throws without it, and nothing is saved).
+  const REMOVAL_STEPS = {
+    approve: [approveRemoval, 'access.removal_approved'],
+    request: [requestRemoval, 'access.removal_requested'],
+    complete: [completeRemoval, 'access.revoked'],
+    verify: [verifyRemoval, 'access.removal_verified'],
+    cancel: [cancelRemoval, 'access.removal_cancelled'],
+  };
+  const recordRemoval = useMutation({
+    mutationFn: async ({ ids, step, ...opts }) => {
+      const [apply, action] = REMOVAL_STEPS[step] || [];
+      if (!apply) throw new Error(`unknown removal step ${step}`);
+      const want = new Set(Array.isArray(ids) ? ids : [ids]);
+      let changed = [];
+      setDb((db) => {
+        const by = auditActor(db);
+        changed = [];
+        db.access = (db.access || []).map((a) => {
+          if (!want.has(a.id)) return a;
+          const next = step === 'cancel' ? apply(a) : apply(a, { by, ...opts });
+          if (next !== a) changed.push(next);
+          return next;
+        });
+        return db;
+      }, () => {
+        if (!changed.length) return null;
+        const how = opts.method ? ` (${opts.method})` : opts.source ? ` (${opts.source})` : '';
+        const evidence = opts.evidence ? ` — ${String(opts.evidence).trim().slice(0, 160)}` : opts.reference ? ` — ${String(opts.reference).trim().slice(0, 120)}` : '';
+        const who = changed.slice(0, 5).map((a) => `${a.employee_name || a.employee_email || '?'} → ${a.tool_name || '?'}`).join('; ')
+          + (changed.length > 5 ? `; +${changed.length - 5}` : '');
+        return { action, details: `${who}${how}${evidence}` };
+      });
+      return { changed: changed.length };
+    },
+    onSuccess: (_r, { step }) => { invalidate(); track('access_removal_step', { step }); },
+    onError: (err) => toast.error(t(err?.message === 'evidence_required' ? 'rm_err_evidence' : 'err_update_access')),
   });
 
   const deleteAccess = useMutation({
@@ -866,7 +909,7 @@ export function useDbMutations() {
         let next = result.db;
         for (const r of result.review.rows) {
           if (r.decision !== 'revoke') continue;
-          next = { ...next, audit_log: appendAudit(next, { action: 'access.revoked', details: `${r.employee_name || r.employee_email || '?'} → ${r.tool_name || '?'} (access review)`, user: auditActor(next) }) };
+          next = { ...next, audit_log: appendAudit(next, { action: 'access.removal_approved', details: `${r.employee_name || r.employee_email || '?'} → ${r.tool_name || '?'} (review)`, user: auditActor(next) }) };
         }
         return next;
       }, () => {
@@ -1065,7 +1108,7 @@ export function useDbMutations() {
     createTool, updateTool, deleteTool, reviewTool, decideRenewal, importAuditTools, createClientFromAudit, clearInvoiceFinding,
     startAccessReview, decideAccessReview, signOffAccessReview,
     createEmployee, updateEmployee, deleteEmployee,
-    createAccess, updateAccess, deleteAccess,
+    createAccess, updateAccess, deleteAccess, recordRemoval,
     createAsset, updateAsset, returnAsset, deleteAsset, importAssets, recordIntuneDevices,
     setPlan, setAuth, setBudgets, importInvoices, addUploadedInvoices, bulkImport, recordSourceRun,
   };
