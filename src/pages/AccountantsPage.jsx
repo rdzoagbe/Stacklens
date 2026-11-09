@@ -57,7 +57,7 @@ const FAQ = [['acct_q1', 'acct_a1'], ['acct_q2', 'acct_a2'], ['acct_q3', 'acct_a
 // the page cannot promise more than the founder's grant button gives.
 const ea = (s) => String(s || '')
   .replaceAll('{n}', EARLY_ACCESS.SPOTS).replaceAll('{months}', EARLY_ACCESS.MONTHS)
-  .replaceAll('{calls}', EARLY_ACCESS.CALLS).replaceAll('{minutes}', EARLY_ACCESS.CALL_MINUTES)
+  .replaceAll('{minutes}', EARLY_ACCESS.CALL_MINUTES)
   .replaceAll('{clients}', CLIENT_WORKSPACE_LIMIT);
 
 // Module scope: a component created inside another's render remounts every render.

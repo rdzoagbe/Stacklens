@@ -212,7 +212,7 @@ The page promises the bank file never leaves the browser, and `accountant-channe
 From a simulated buyer panel of French accountants (0 of 20 paid; trust and "my clients won't pay" were the reasons), three answers, each held by `src/pages/DataNotePage.test.jsx`:
 - **Check it yourself.** The audit page's `OfflineCheck` tells people to load the page, switch the internet off and drop the file (the audit needs no network once loaded, verified in a browser with zero requests), and says so live when `navigator.onLine` is false.
 - **The data note** (`/note-donnees`, `pages/DataNotePage.jsx`, `dn_*`): one printable page (white, one A4) to hand to a client: the free audit, how to check it, what a paid workspace stores and where (worded as the sub-processors page), the exit rules (`EXIT_NOTICE_DAYS` in `lib/constants.js`, equal to terms section 10) and who runs Stacklens (`LEGAL_ENTITY`). The cookie banner never prints.
-- **Make it billable** (`Billable` on the accountants page, `acct_bill_*`): a client proposal to copy, fee left as a placeholder (no digit in any language: Stacklens suggests no price). Early access now lists the first client audit done together on the first call (`ea_get_3`, `ea_get_4`, `ea_give_1`).
+- **Make it billable** (`Billable` on the accountants page, `acct_bill_*`): a client proposal to copy, fee left as a placeholder (no digit in any language: Stacklens suggests no price). Early access asks for written feedback; a call to run the first client audit together is offered, never required (`ea_get_3`, `ea_get_4`, `ea_give_1`).
 
 ### Tools the app added by itself (`src/lib/toolReview.js`)
 
@@ -324,7 +324,7 @@ Empty until a real customer approves a quote; `components/Testimonials.jsx` rend
 
 ### Early access (`/experts-comptables#acces-anticipe`)
 
-The offer (10 firms, Pro free for 6 months, 3 calls of 20 minutes) is read from `EARLY_ACCESS` in `src/lib/earlyAccess.js`; the copy uses placeholders, never typed numbers (`claims.test.js` §9). Set `OPEN: false` when the places are taken. Applications go to hello@ through the contact form provider (Web3Forms), with a mailto fallback; nothing is stored.
+The offer (10 firms, Pro free for 6 months in return for written feedback on three questions; a 20-minute call offered, never required) is read from `EARLY_ACCESS` in `src/lib/earlyAccess.js`; the copy uses placeholders, never typed numbers (`claims.test.js` §9). Set `OPEN: false` when the places are taken. Applications go to hello@ through the contact form provider (Web3Forms), with a mailto fallback; nothing is stored.
 
 Granting it: **Early access** button on `/founder-admin` → `founderGrantPlan` writes `plan`, `plan_grant_until`, `plan_grant_reason` on `/users/{uid}`. Past `plan_grant_until` the account is free unless it has started paying: `grantExpired()` in `src/lib/plan.js` and its twin in `functions/workspace-write.js`, held together by `plan-parity.test.js`. The two grant fields are protected in `firestore.rules` (only the founder writes them). Setting a plan by hand clears any grant.
 

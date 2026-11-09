@@ -72,7 +72,8 @@ describe('the early-access offer', () => {
     const text = section().textContent;
     expect(text).toContain(`${EARLY_ACCESS.SPOTS} accounting firms`);
     expect(text).toContain(`${EARLY_ACCESS.MONTHS} months of Pro free`);
-    expect(text).toContain(`${EARLY_ACCESS.CALLS} conversations of ${EARLY_ACCESS.CALL_MINUTES} minutes`);
+    expect(text).toContain(`a ${EARLY_ACCESS.CALL_MINUTES}-minute call only if you want one`);
+    expect(text).toContain("answer three short questions in writing");
     expect(text).toContain('moves to the free plan');
     expect(text).toContain('No card');
   });

@@ -109,10 +109,11 @@ describe('the accountants page', () => {
     expect(document.querySelector('[data-testid="acct-bill-template"]').textContent).toBe(translations.fr.acct_bill_template);
   });
 
-  it('early access lists the first client audit done together, and the first call is that audit', () => {
+  it('early access asks for written feedback; the call is offered, never required', () => {
     for (const lang of ['en', 'fr', 'de', 'es', 'pt']) {
-      expect(translations[lang].ea_get_3, lang).toBeTruthy();
-      expect(translations[lang].ea_give_1, lang).toContain('{calls}');
+      expect(translations[lang].ea_get_3, lang).toContain('{minutes}');
+      expect(translations[lang].ea_give_1, lang).not.toContain('{minutes}');
+      expect(JSON.stringify(translations[lang]), lang).not.toContain('{calls}');
     }
     expect(read('src/pages/AccountantsPage.jsx')).toMatch(/ea_get_3[\s\S]*ea_get_4/);
   });

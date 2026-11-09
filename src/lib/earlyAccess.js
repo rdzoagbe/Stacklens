@@ -1,7 +1,7 @@
 // ── The early-access programme ─────────────────────────────────────────────
 //
 // Ten accounting firms get the Pro plan free for six months in exchange for
-// three short calls and honest feedback. Everything the offer page states is
+// honest written feedback; a short call is offered, never required. Everything the offer page states is
 // read from here, and the founder's "Grant early access" button grants
 // exactly this, so the page cannot promise a longer period, a different plan
 // or more places than the product gives.
@@ -14,7 +14,6 @@ export const EARLY_ACCESS = Object.freeze({
   SPOTS: 10,
   PLAN: 'pro',
   MONTHS: 6,
-  CALLS: 3,
   CALL_MINUTES: 20,
 });
 
