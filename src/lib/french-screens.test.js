@@ -118,9 +118,10 @@ describe('the rest of the walkthrough of 2026-10-06', () => {
     expect(read('src/pages/finance/RenewalsTab.jsx')).toMatch(/RENEWAL_SAVINGS_PCT/);
   });
 
-  it('the plan page sells every plan the same way, as the About page promises', () => {
-    expect(translations.fr.about_principle1_body).toMatch(/sans palier/);
-    expect(read('src/pages/TrialPage.jsx')).toMatch(/cta: c\.id === 'free' \? t\('start_free'\) : t\('start_trial'\)/);
+  it('the plan page sells as the About page says: by card up to 1,500 people, Enterprise by conversation', () => {
+    expect(translations.fr.about_principle1_body).toMatch(/1 500 personnes/);
+    expect(translations.fr.about_principle1_body).toMatch(/prix de départ publié/);
+    expect(read('src/pages/TrialPage.jsx')).toMatch(/cta: c\.contact \? planText\(language, 'plan_enterprise_cta'\) : c\.id === 'free' \? t\('start_free'\) : t\('start_trial'\)/);
   });
 
   it('SSO is not sold as an Enterprise feature, and the client-workspace page is named for what it is', () => {

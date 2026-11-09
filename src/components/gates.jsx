@@ -64,7 +64,7 @@ export function RoleBadge({ role }) {
 export function usePlanLimits() {
   const { data: db } = useDbQuery();
   const plan    = resolvePlan(db?.user);
-  const limits  = getPlanLimits(plan);
+  const limits  = getPlanLimits(plan, db?.user);
   const toolCount     = db?.tools?.length || 0;
   const employeeCount = db?.employees?.length || 0;
   return {
@@ -113,20 +113,20 @@ export function PlanGate({ requires, children, feature = null }) {
 // ── Module gate ────────────────────────────────────────────────────────────
 
 export const MODULE_PLANS = {
-  finance:   ['hr_finance', 'pro', 'enterprise', 'scale', 'unlimited', 'growth', 'professional'],
+  finance:   ['hr_finance', 'pro', 'business', 'enterprise', 'scale', 'unlimited', 'growth', 'professional'],
   // Every plan sells a number of employees (Free: 25, Starter: 250); without
   // this module the Employees, Access, Offboarding and Devices pages were
   // locked on Free while its card promised the people.
-  people:    ['free', 'starter', 'hr_finance', 'pro', 'enterprise', 'scale', 'unlimited', 'growth', 'professional'],
-  security:  ['pro', 'enterprise', 'scale', 'unlimited', 'growth', 'professional'],
-  ai:        ['pro', 'enterprise', 'scale', 'unlimited', 'growth', 'professional'],
-  analytics: ['pro', 'enterprise', 'scale', 'unlimited', 'growth', 'professional'],
+  people:    ['free', 'starter', 'hr_finance', 'pro', 'business', 'enterprise', 'scale', 'unlimited', 'growth', 'professional'],
+  security:  ['pro', 'business', 'enterprise', 'scale', 'unlimited', 'growth', 'professional'],
+  ai:        ['pro', 'business', 'enterprise', 'scale', 'unlimited', 'growth', 'professional'],
+  analytics: ['pro', 'business', 'enterprise', 'scale', 'unlimited', 'growth', 'professional'],
   // Must stay equal to API_PLANS in functions/index.js, which is what the
   // endpoint actually enforces. The Settings > API tab had no gate at all, so
   // a free user could mint a key, copy the curl example, and get 403 on every
   // call with nothing on the page saying a plan was needed.
   // Guarded by src/lib/plan-parity.test.js.
-  api:       ['enterprise', 'scale', 'unlimited', 'professional'],
+  api:       ['business', 'enterprise', 'scale', 'unlimited', 'professional'],
 };
 
 /** The lowest-priced card whose plan includes `module`, or null. */

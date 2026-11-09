@@ -376,6 +376,11 @@ exports.createPortal = onRequest({ secrets: [STRIPE_SECRET_KEY], cors: true, tim
 });
 
 // ── /stripeWebhook ───────────────────────────────────────────
+// When the subscription began (Stripe's start_date, which stays the same on
+// renewals and plan changes). src/lib/plan.js reads it: a Pro subscription
+// started before PRO_LIMIT_CUTOFF keeps the 1,500 people Pro used to sell.
+const subscriptionStart = (sub) => (Number(sub && sub.start_date) > 0 ? { subscription_started_at: Number(sub.start_date) * 1000 } : {});
+
 exports.stripeWebhook = onRequest({ secrets: [STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET], cors: false, timeoutSeconds: 30 }, async (req, res) => {
   if (req.method !== 'POST') return res.status(405).send('POST only');
   const stripe = require('stripe')(STRIPE_SECRET_KEY.value());
@@ -396,7 +401,7 @@ exports.stripeWebhook = onRequest({ secrets: [STRIPE_SECRET_KEY, STRIPE_WEBHOOK_
         if (uid && session.subscription) {
           const sub = await stripe.subscriptions.retrieve(session.subscription);
           const plan = getPlanFromSubscription(sub);
-          await db.collection('users').doc(uid).set({ plan, stripe_subscription_id: sub.id, stripe_customer_id: session.customer, subscription_status: sub.status, plan_updated_at: Date.now() }, { merge: true });
+          await db.collection('users').doc(uid).set({ plan, stripe_subscription_id: sub.id, stripe_customer_id: session.customer, subscription_status: sub.status, ...subscriptionStart(sub), plan_updated_at: Date.now() }, { merge: true });
           await getAuth().setCustomUserClaims(uid, { plan });
           console.log(`Plan updated for uid=${uid} to ${plan}`);
         } else {
@@ -416,7 +421,7 @@ exports.stripeWebhook = onRequest({ secrets: [STRIPE_SECRET_KEY, STRIPE_WEBHOOK_
           // cancel_at_period_end is recorded so an account whose subscription
           // is already cancelled can be deleted before the period runs out;
           // see subscriptionBlocksDeletion in purge-account.js.
-          await db.collection('users').doc(uid).set({ plan, subscription_status: sub.status, cancel_at_period_end: !!sub.cancel_at_period_end, plan_updated_at: Date.now() }, { merge: true });
+          await db.collection('users').doc(uid).set({ plan, subscription_status: sub.status, cancel_at_period_end: !!sub.cancel_at_period_end, ...subscriptionStart(sub), plan_updated_at: Date.now() }, { merge: true });
           await getAuth().setCustomUserClaims(uid, { plan });
         }
         break;
@@ -598,7 +603,7 @@ exports.sendInvite = onRequest({ cors: true, secrets: [BREVO_API_KEY] }, async (
 // Uses Admin SDK so it bypasses Firestore rules — the caller's founder status is
 // checked server-side before any write.
 const FOUNDER_RATE_LIMIT = { maxCalls: 30, windowMs: 60 * 60 * 1000 };
-const VALID_PLANS = ['free', 'trial', 'starter', 'hr_finance', 'pro', 'enterprise', 'scale'];
+const VALID_PLANS = ['free', 'trial', 'starter', 'hr_finance', 'pro', 'business', 'enterprise', 'scale'];
 // Founder allowlist, kept in sync with firestore.rules and src/lib/constants.js.
 // The UID entry exists because the founder's Google sign-in carries no email
 // claim, so neither the email check nor the is_founder doc flag can identify them.
@@ -900,7 +905,7 @@ exports.clientErrors = onRequest({
 // the doc ID, so lookup is a direct get). API calls are Enterprise-plan gated.
 const nodeCrypto = require('crypto');
 const API_RATE_LIMIT = { maxCalls: 120, windowMs: 60 * 60 * 1000 };
-const API_PLANS = new Set(['enterprise', 'scale', 'unlimited', 'professional', 'trial']);
+const API_PLANS = new Set(['business', 'enterprise', 'scale', 'unlimited', 'professional', 'trial']);
 const MAX_API_KEYS_PER_USER = 5;
 
 function hashApiKey(secret) {
