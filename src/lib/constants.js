@@ -73,6 +73,11 @@ export const LEGAL_ENTITY = {
   city:      'Paris, France',
 };
 
+// If Stacklens ends the service, how long every customer has to export first.
+// Terms of service section 10 states it in English and French; the data note
+// (/note-donnees) quotes this number, and data-note.test.js holds them equal.
+export const EXIT_NOTICE_DAYS = 30;
+
 // Typical saving at a renegotiated renewal, quoted on the Finance overview and
 // the Renewals tab. Two pages used to say 20 % and 15 % for the same thing.
 export const RENEWAL_SAVINGS_PCT = 15;

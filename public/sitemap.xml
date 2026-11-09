@@ -25,6 +25,12 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://stacklens.fr/note-donnees</loc>
+    <lastmod>2026-11-09</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://stacklens.fr/audit-saas</loc>
     <lastmod>2026-11-06</lastmod>
     <changefreq>monthly</changefreq>
