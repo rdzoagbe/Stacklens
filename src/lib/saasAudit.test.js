@@ -588,3 +588,37 @@ describe('the French export is untouched by all of this', () => {
       .toEqual(['2026-01-05', '2026-02-05']);
   });
 });
+
+// ── A US bank export ─────────────────────────────────────────────────────
+//
+// Chase's CSV starts with a "Details" column (DEBIT / CREDIT) and puts the
+// merchant under "Description"; the audit used to take "Details" as the
+// label and found no subscription at all. US dates are month first and the
+// file carries no currency symbol (detectSymbol in portfolio.test.js).
+describe('a US bank export', () => {
+  const lines = ['Details,Posting Date,Description,Amount,Type,Balance,Check or Slip #'];
+  const subs = [['SLACK TECHNOLOGIES', -87.5], ['ZOOM.US 888-799-9666', -149.9], ['NOTION LABS INC', -96], ['ADOBE *CREATIVE CLD', -59.99], ['MSFT * E0400ABCD', -264]];
+  for (let m = 1; m <= 12; m++) {
+    const mm = String(m).padStart(2, '0');
+    for (const [d, a] of subs) lines.push(`DEBIT,${mm}/15/2026,${d},${a},ACH_DEBIT,,`);
+    lines.push(`CREDIT,${mm}/28/2026,ACH DEPOSIT,5000.00,ACH_CREDIT,,`);
+  }
+  const chase = lines.join('\n');
+
+  it('reads the merchant from Description, not Details', () => {
+    expect(detectColumns(['Details', 'Posting Date', 'Description', 'Amount', 'Type', 'Balance', 'Check or Slip #']).label).toBe(2);
+    const p = parseBankExport(chase);
+    expect(p.dateOrder).toMatchObject({ order: 'mdy', evidence: 'proven' });
+    expect(p.transactions[0].label).toBe('SLACK TECHNOLOGIES');
+    expect(p.credits).toBe(12);
+  });
+
+  it('finds the subscriptions in it', () => {
+    const r = auditSaas(parseBankExport(chase).transactions, { now: new Date('2026-12-20') });
+    expect(r.subscriptions.map((s) => s.vendor).sort()).toEqual(['Adobe', 'Microsoft 365', 'Notion', 'Slack', 'Zoom']);
+  });
+
+  it('still prefers the French libellé over a looser column', () => {
+    expect(detectColumns(['Date', 'Nom du compte', 'Libellé', 'Montant']).label).toBe(2);
+  });
+});

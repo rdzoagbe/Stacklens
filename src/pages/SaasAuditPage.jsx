@@ -96,7 +96,7 @@ export function SaasAuditPage() {
     track('audit_run', { source, format: fec ? 'fec' : 'bank', transactions: parsed.transactions.length, subscriptions: first.totals.subscriptionCount });
     setVerdicts({});
     setState({
-      phase: 'done', transactions: parsed.transactions, symbol: fec ? '€' : detectSymbol(text),
+      phase: 'done', transactions: parsed.transactions, symbol: fec ? '€' : detectSymbol(text, parsed.dateOrder),
       format: fec ? 'fec' : 'bank', entries: parsed.entries,
       skipped: parsed.skipped, credits: parsed.credits || 0, unreadable: parsed.unreadable || [], dateOrder: parsed.dateOrder, text,
     });

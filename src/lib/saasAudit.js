@@ -81,6 +81,9 @@ export function splitLine(line, delimiter) {
 const COL = {
   date:   /^(date|date op[ée]ration|date de l'op[ée]ration|date valeur|date comptable|booking date|transaction date|value date|jour|posted|dated?)$/i,
   dateLoose: /date|jour|booking|posted/i,
+  // The column that names the counterparty, before looser matches: a Chase
+  // export starts with "Details" (DEBIT / CREDIT) and has "Description" later.
+  labelStrong: /libell|label|description|wording|narrative|payee|merchant|b[ée]n[ée]ficiaire|beneficiary/i,
   label:  /libell|label|description|wording|d[ée]tail|narrative|memo|payee|b[ée]n[ée]ficiaire|beneficiary|remittance|nom|name|merchant|counterparty|tiers|motif|communication|op[ée]ration/i,
   amount: /^(montant|amount|value|somme|sum|net)$/i,
   amountLoose: /montant|amount|value|somme/i,
@@ -111,7 +114,8 @@ export function detectColumns(headers) {
   }
 
   const taken = [date, amount, debit, credit].filter(i => i >= 0);
-  let label = find(COL.label, taken);
+  let label = find(COL.labelStrong, taken);
+  if (label < 0) label = find(COL.label, taken);
   if (label < 0) {
     // No named label column: take the widest text column that is not a
     // date or an amount.
