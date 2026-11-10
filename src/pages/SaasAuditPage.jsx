@@ -17,7 +17,7 @@ import { formatInSymbol } from '../lib/currency';
 import { track } from '../lib/analytics';
 import {
   decodeBankFile, parseBankExport, auditSaas, reportToCsv, csvStyleFor, CSV_BOM, sampleBankExport,
-  correctionsMailto, reviewCounts,
+  correctionsMailto, reviewCounts, reviewSummary,
 } from '../lib/saasAudit';
 import { isFec, parseFec, sampleFec } from '../lib/fec';
 import {
@@ -543,10 +543,19 @@ function ReadNotes({ skipped, credits, unreadable, t }) {
   );
 }
 
+// One sentence per action, in the reader's language (reviewSummary).
+function actionText(a, t, money, date) {
+  if (a.kind === 'duplicate') return fill(t('audit_act_duplicate'), { vendor: a.vendor, n: a.lines, amount: money(a.yearly) });
+  if (a.kind === 'forgotten') return fill(t('audit_act_forgotten'), { vendor: a.vendor, n: a.charges, amount: money(a.yearly) });
+  if (a.kind === 'renewal') return fill(t('audit_act_renewal'), { vendor: a.vendor, date: date(a.date), amount: money(a.amount) });
+  return fill(t('audit_act_price'), { vendor: a.vendor, from: money(a.from), to: money(a.to), pct: a.pct });
+}
+
 function Report({ report, symbol, t, onReset, language, skipped, credits = 0, unreadable = [], dateOrder, onFlipDateOrder, verdicts, setVerdict, format, entries, clientName = '', resetLabel }) {
   const money = useCallback((n) => formatInSymbol(n ?? 0, symbol, language), [symbol, language]);
   const date = (d) => d instanceof Date ? d.toLocaleDateString(language, { day: 'numeric', month: 'short', year: 'numeric' }) : '';
   const f = report.findings;
+  const summary = reviewSummary(report);
   const flagged = f.duplicates.length + f.multiPerMonth.length + f.priceIncreases.length + f.upcomingAnnual.length + f.forgotten.length;
   const [showOther, setShowOther] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -642,12 +651,35 @@ function Report({ report, symbol, t, onReset, language, skipped, credits = 0, un
         )}
       </div>
 
+      {(summary.yearly > 0 || summary.actions.length > 0) && (
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-5 py-4" data-testid="audit-review-summary">
+          {summary.yearly > 0 && <div className="text-xl font-bold text-amber-200">{fill(t('audit_rs_title'), { amount: money(summary.yearly) })}</div>}
+          {summary.yearly > 0 && <p className="text-sm text-amber-100/80 mt-1">{t('audit_rs_sub')}</p>}
+          {summary.actions.length > 0 && (
+            <>
+              <div className="text-xs font-semibold uppercase tracking-wider text-amber-300 mt-3">{t('audit_rs_actions')}</div>
+              <ol className="mt-1 list-decimal pl-5 text-sm text-slate-200 space-y-0.5">
+                {summary.actions.map((a, i) => <li key={i}>{actionText(a, t, money, date)}</li>)}
+              </ol>
+            </>
+          )}
+        </div>
+      )}
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Kpi label={t('audit_kpi_monthly')} value={money(report.totals.monthlySaas)} accent="text-blue-300" />
         <Kpi label={t('audit_kpi_annual')} value={money(report.totals.annualisedSaas)} />
         <Kpi label={t('audit_kpi_subs')} value={report.totals.subscriptionCount} />
         <Kpi label={t('audit_kpi_known')} value={report.totals.knownVendors} />
       </div>
+
+      {summary.ai.items.length > 0 && (
+        <div className="rounded-xl border border-violet-500/30 bg-violet-500/10 px-5 py-4" data-testid="audit-ai">
+          <div className="font-semibold text-violet-200">{fill(t('audit_ai_title'), { n: summary.ai.items.length, amount: money(summary.ai.monthly) })}</div>
+          <p className="text-sm text-violet-100/80 mt-1">{summary.ai.items.map((a) => `${a.vendor} (${money(a.monthlyEquivalent)}${t('audit_per_mo')})`).join(' · ')}</p>
+          {summary.ai.items.length > 1 && <p className="text-xs text-violet-200/70 mt-1">{t('audit_ai_sub')}</p>}
+        </div>
+      )}
 
       <div>
         <h3 className="text-lg font-semibold mb-3">{t('audit_findings_title')}</h3>
@@ -923,6 +955,7 @@ function ClientReportPanel({ report, money, language, t, onClose, counts, format
 // this surface uses gray-600 and darker, which read at 7:1 or better on white.
 export function PrintReport({ report, money, language, t, firm, client, note, format }) {
   const f = report.findings;
+  const summary = reviewSummary(report);
   const date = (d) => d instanceof Date ? d.toLocaleDateString(language, { day: 'numeric', month: 'long', year: 'numeric' }) : '';
   const checks = [
     ...f.duplicates.map((d) => [t('audit_f_duplicates'), `${d.vendor} · ${d.lines}×`, `${money(d.monthlyEquivalent)}${t('audit_per_mo')}`]),
@@ -956,6 +989,28 @@ export function PrintReport({ report, money, language, t, firm, client, note, fo
           </div>
         ))}
       </div>
+
+      {(summary.yearly > 0 || summary.actions.length > 0) && (
+        <div className="mb-6 rounded-lg border-2 border-gray-800 p-4" data-testid="print-review-summary">
+          {summary.yearly > 0 && <div className="text-lg font-bold">{fill(t('audit_rs_title'), { amount: money(summary.yearly) })}</div>}
+          {summary.yearly > 0 && <p className="text-xs text-gray-700 mt-1">{t('audit_rs_sub')}</p>}
+          {summary.actions.length > 0 && (
+            <>
+              <div className="font-semibold mt-3">{t('audit_rs_actions')}</div>
+              <ol className="list-decimal pl-5 mt-1">
+                {summary.actions.map((a, i) => <li key={i}>{actionText(a, t, money, date)}</li>)}
+              </ol>
+            </>
+          )}
+        </div>
+      )}
+      {summary.ai.items.length > 0 && (
+        <p className="mb-6 text-xs">
+          <span className="font-semibold">{fill(t('audit_ai_title'), { n: summary.ai.items.length, amount: money(summary.ai.monthly) })}</span>
+          {' — '}{summary.ai.items.map((a) => a.vendor).join(', ')}
+          {summary.ai.items.length > 1 && <> {t('audit_ai_sub')}</>}
+        </p>
+      )}
 
       <h4 className="font-bold mb-2">{t('audit_report_to_check')}</h4>
       {checks.length === 0 ? (
