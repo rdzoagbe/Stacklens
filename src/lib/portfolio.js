@@ -28,6 +28,9 @@ const CURRENCY_HINTS = [
  */
 export function detectSymbol(text, dateOrder = null) {
   for (const [re, sym] of CURRENCY_HINTS) if (re.test(text)) return sym;
+  // A UK account written as sort code and number ("20-32-06 12345678"), as
+  // Barclays exports it with no currency anywhere in the file.
+  if (/\b\d{2}-\d{2}-\d{2}\s+\d{8}\b/.test(text)) return '£';
   if (dateOrder?.order === 'mdy' && dateOrder?.evidence === 'proven') return '$';
   return '€';
 }
