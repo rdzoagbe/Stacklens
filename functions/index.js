@@ -1361,6 +1361,10 @@ const TRIAL_CLIENT_ORGS = 3;
 // held equal by plan-parity.test.js). Every paid plan could until 2026-11-10;
 // an account that already holds one keeps adding up to the cap.
 const CLIENT_PLANS = ['cabinet', 'business', 'enterprise', 'scale', 'unlimited', 'professional'];
+// Only a client workspace created before this moment keeps the right on
+// another plan (src/lib/plan.js CLIENT_PLAN_CUTOFF): one made during a trial
+// does not carry it into Starter.
+const CLIENT_PLAN_CUTOFF = Date.parse('2026-11-10T14:30:00Z');
 
 const REVOCATION_CHECKED_ACTIONS = new Set(['invite', 'revoke', 'setrole', 'createorg', 'deleteorg', 'restoreorg', 'deleteaccount']);
 
@@ -1515,7 +1519,8 @@ exports.workspace = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, re
         // Client workspaces come with the Cabinet plan (and Business and
         // Enterprise); a trial gets a few, and an account that already holds
         // one keeps the ability it had before the change.
-        if (!privileged && plan !== 'trial' && !CLIENT_PLANS.includes(plan) && existing.empty) {
+        const legacy = existing.docs.some(d => Number(d.data().created_at) > 0 && Number(d.data().created_at) < CLIENT_PLAN_CUTOFF);
+        if (!privileged && plan !== 'trial' && !CLIENT_PLANS.includes(plan) && !legacy) {
           return res.status(403).json({ code: 'client_plan_required', error: 'Client workspaces come with the Cabinet plan' });
         }
         const cap = privileged ? MAX_CLIENT_ORGS

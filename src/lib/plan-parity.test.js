@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
-import { TRIAL_DAYS, NO_TEAM_PLANS, canInviteTeam, resolvePlan, PAYING_STATUSES, PLAN_LIMITS, TEAM_INVITE_LIMIT, CLIENT_WORKSPACE_LIMIT, TRIAL_CLIENT_WORKSPACES, CLIENT_PLANS, mayCreateClientWorkspace } from './plan';
+import { TRIAL_DAYS, NO_TEAM_PLANS, canInviteTeam, resolvePlan, PAYING_STATUSES, PLAN_LIMITS, TEAM_INVITE_LIMIT, CLIENT_WORKSPACE_LIMIT, TRIAL_CLIENT_WORKSPACES, CLIENT_PLANS, mayCreateClientWorkspace, CLIENT_PLAN_CUTOFF, hasLegacyClientOrg } from './plan';
 import { MODULE_PLANS } from '../components/gates';
 import { PLAN_CARDS } from './planCards';
 import { EARLY_ACCESS, earlyAccessUntil } from './earlyAccess';
@@ -238,7 +238,13 @@ describe('who may create a client workspace', () => {
   it('the browser and the workspace function list the same plans', () => {
     const server = /const CLIENT_PLANS = \[([^\]]*)\]/.exec(index)[1].match(/'([a-z_]+)'/g).map((s) => s.slice(1, -1));
     expect(server).toEqual(CLIENT_PLANS);
-    expect(index).toMatch(/!CLIENT_PLANS\.includes\(plan\) && existing\.empty/);
+    expect(index).toMatch(/!CLIENT_PLANS\.includes\(plan\) && !legacy/);
+    expect(Date.parse(/const CLIENT_PLAN_CUTOFF = Date\.parse\('([^']+)'\)/.exec(index)[1])).toBe(CLIENT_PLAN_CUTOFF);
+  });
+  it('only a client workspace created before the change keeps the right on another plan', () => {
+    expect(hasLegacyClientOrg([{ created_at: CLIENT_PLAN_CUTOFF - 1 }])).toBe(true);
+    expect(hasLegacyClientOrg([{ created_at: CLIENT_PLAN_CUTOFF + 1 }])).toBe(false);
+    expect(hasLegacyClientOrg([{}])).toBe(false);
   });
   it('the Cabinet plan, a trial or an existing client workspace; not Starter or Pro on their own', () => {
     expect(mayCreateClientWorkspace('cabinet')).toBe(true);

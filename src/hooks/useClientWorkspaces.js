@@ -21,7 +21,7 @@ import { downloadWorkspaceExport } from '../lib/workspace-export';
 import { track } from '../lib/analytics';
 import { enterSharedView, getSharedView } from '../lib/db';
 import { isSsoRefusal, raiseSsoBlock } from '../lib/sso';
-import { resolvePlan, mayCreateClientWorkspace } from '../lib/plan';
+import { resolvePlan, mayCreateClientWorkspace, hasLegacyClientOrg } from '../lib/plan';
 import { useAuth } from './useAuth';
 import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
@@ -62,8 +62,12 @@ export function useClientWorkspaces() {
   // the Cabinet plan, Business, Enterprise or a trial, or an account that
   // already holds a client workspace. resolvePlan applies trial expiry, so an
   // expired trial correctly loses them.
-  const canManageClients = !isDemo && !!firebaseUser
-    && mayCreateClientWorkspace(resolvePlan(user), { hasClientOrgs: orgs.length + deletedOrgs.length > 0 });
+  // Inside someone else's workspace `user` is that owner's record, not the
+  // signer's own plan, so the controls stay offered and createorg (which reads
+  // the caller's own plan) answers.
+  const inShared = !!getSharedView();
+  const canManageClients = !isDemo && !!firebaseUser && (inShared
+    || mayCreateClientWorkspace(resolvePlan(user), { hasClientOrgs: hasLegacyClientOrg([...orgs, ...deletedOrgs]) }));
 
   useEffect(() => {
     if (!firebaseUser || isDemo) return;

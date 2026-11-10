@@ -47,7 +47,15 @@ export const TRIAL_CLIENT_WORKSPACES = 3;
 // (plan-parity.test.js).
 export const CLIENT_PLANS = ['cabinet', 'business', 'enterprise', 'scale', 'unlimited', 'professional'];
 
-/** May this account create a client workspace? `hasClientOrgs`: it already holds one (kept from before the change). */
+// Only a client workspace created before the change keeps the right on
+// another plan: one made during a trial does not carry it into Starter.
+// Server twin: CLIENT_PLAN_CUTOFF in functions/index.js.
+export const CLIENT_PLAN_CUTOFF = Date.parse('2026-11-10T14:30:00Z');
+
+/** Does this list of client workspaces ({ created_at }) include one from before the change? */
+export const hasLegacyClientOrg = (orgs = []) => orgs.some((o) => Number(o?.created_at) > 0 && Number(o.created_at) < CLIENT_PLAN_CUTOFF);
+
+/** May this account create a client workspace? `hasClientOrgs`: it holds one created before the change. */
 export function mayCreateClientWorkspace(plan, { hasClientOrgs = false } = {}) {
   if (plan === 'free') return false;
   return plan === 'trial' || CLIENT_PLANS.includes(plan) || hasClientOrgs;
