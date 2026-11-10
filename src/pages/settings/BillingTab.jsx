@@ -43,9 +43,10 @@ export function BillingPage({ noShell = false }) {
   const LOOK = {
     free:       { icon: '🎁', color: 'from-slate-600 to-slate-700', border: 'border-slate-600/40', isFree: true },
     starter:    { icon: '🌱', color: 'from-blue-500 to-blue-700', border: 'border-blue-500/40' },
-    hr_finance: { icon: '👥', color: 'from-teal-500 to-emerald-700', border: 'border-teal-500/40', badge: 'NEW' },
+    hr_finance: { icon: '👥', color: 'from-teal-500 to-emerald-700', border: 'border-teal-500/40' },
+    cabinet:    { icon: '📒', color: 'from-teal-500 to-emerald-700', border: 'border-teal-500/40', badge: 'NEW' },
     pro:        { icon: '🚀', color: 'from-emerald-600 to-teal-700', border: 'border-emerald-500/50', popular: true },
-    business:   { icon: '🏢', color: 'from-blue-600 to-indigo-700', border: 'border-blue-500/40', badge: 'NEW' },
+    business:   { icon: '🏢', color: 'from-blue-600 to-indigo-700', border: 'border-blue-500/40' },
     enterprise: { icon: '⚡', color: 'from-violet-600 to-purple-700', border: 'border-violet-500/40' },
   };
   const plans = PLAN_CARDS.map((c) => {

@@ -241,10 +241,12 @@ function getPlanFromSubscription(sub) {
     // Live mode price IDs (stacklens.fr)
     'price_1TMhOt1yFs6IziIVgJGBbzoG': 'starter',        // Starter monthly €29
     'price_1TMhfK1yFs6IziIVOtbhpy23': 'starter',        // Starter annual €278
-    'price_1TWxAB1yFs6IziIVjxw3CG2V': 'hr_finance',     // HR & Finance monthly €49
+    'price_1TWxAB1yFs6IziIVjxw3CG2V': 'hr_finance',     // HR & Finance monthly €49 (no longer sold; existing subscriptions)
     'price_1TWxFd1yFs6IziIVjPZnA8XT': 'hr_finance',     // HR & Finance annual €470
     'price_1TMhNW1yFs6IziIV5hwlssrt': 'pro',            // Pro monthly €79
     'price_1TMhNW1yFs6IziIVMxiacXD7': 'pro',            // Pro annual €758
+    'price_1UaFkM1yFs6IziIVL2Y9VxOO': 'cabinet',        // Cabinet monthly €79
+    'price_1UaFkT1yFs6IziIVFdns9j5x': 'cabinet',        // Cabinet annual €758
     'price_1UZsKz1yFs6IziIVtDrqBwBb': 'business',       // Business monthly €149
     'price_1UZsMY1yFs6IziIVfyUjcOKa': 'business',       // Business annual €1430
     'price_1TMhNk1yFs6IziIVPkv7RiLc': 'enterprise',     // Enterprise monthly €299
@@ -305,8 +307,8 @@ exports.createCheckout = onRequest({ secrets: [STRIPE_SECRET_KEY], cors: true, t
     if (!priceId) return res.status(400).json({ error: 'priceId required' });
     const ALLOWED_PRICE_IDS = new Set([
       'price_1TMhOt1yFs6IziIVgJGBbzoG','price_1TMhfK1yFs6IziIVOtbhpy23',
-      'price_1TWxAB1yFs6IziIVjxw3CG2V','price_1TWxFd1yFs6IziIVjPZnA8XT',
       'price_1TMhNW1yFs6IziIV5hwlssrt','price_1TMhNW1yFs6IziIVMxiacXD7',
+      'price_1UaFkM1yFs6IziIVL2Y9VxOO','price_1UaFkT1yFs6IziIVFdns9j5x',
       'price_1UZsKz1yFs6IziIVtDrqBwBb','price_1UZsMY1yFs6IziIVfyUjcOKa',
     ]);
     // Exactly the prices Settings → Billing offers (src/lib/stripePrices.js,
@@ -618,7 +620,7 @@ exports.sendInvite = onRequest({ cors: true, secrets: [BREVO_API_KEY] }, async (
 // Uses Admin SDK so it bypasses Firestore rules — the caller's founder status is
 // checked server-side before any write.
 const FOUNDER_RATE_LIMIT = { maxCalls: 30, windowMs: 60 * 60 * 1000 };
-const VALID_PLANS = ['free', 'trial', 'starter', 'hr_finance', 'pro', 'business', 'enterprise', 'scale'];
+const VALID_PLANS = ['free', 'trial', 'starter', 'hr_finance', 'pro', 'cabinet', 'business', 'enterprise', 'scale'];
 // Founder allowlist, kept in sync with firestore.rules and src/lib/constants.js.
 // The UID entry exists because the founder's Google sign-in carries no email
 // claim, so neither the email check nor the is_founder doc flag can identify them.
@@ -1355,6 +1357,10 @@ const MAX_CLIENT_ORGS = 50;
 // Enough for a trialling agency to load two real clients and see whether the
 // cross-client story works for them, without running a book of business free.
 const TRIAL_CLIENT_ORGS = 3;
+// Plans that may create client workspaces (src/lib/plan.js CLIENT_PLANS,
+// held equal by plan-parity.test.js). Every paid plan could until 2026-11-10;
+// an account that already holds one keeps adding up to the cap.
+const CLIENT_PLANS = ['cabinet', 'business', 'enterprise', 'scale', 'unlimited', 'professional'];
 
 const REVOCATION_CHECKED_ACTIONS = new Set(['invite', 'revoke', 'setrole', 'createorg', 'deleteorg', 'restoreorg', 'deleteaccount']);
 
@@ -1506,6 +1512,12 @@ exports.workspace = onRequest({ cors: true, timeoutSeconds: 60 }, async (req, re
         // window, and holding a slot hostage for ninety days would make a
         // trial's three effectively one.
         const liveCount = existing.docs.filter(d => !isOrgDeleted(d.data())).length;
+        // Client workspaces come with the Cabinet plan (and Business and
+        // Enterprise); a trial gets a few, and an account that already holds
+        // one keeps the ability it had before the change.
+        if (!privileged && plan !== 'trial' && !CLIENT_PLANS.includes(plan) && existing.empty) {
+          return res.status(403).json({ code: 'client_plan_required', error: 'Client workspaces come with the Cabinet plan' });
+        }
         const cap = privileged ? MAX_CLIENT_ORGS
           : plan === 'trial' ? TRIAL_CLIENT_ORGS : MAX_CLIENT_ORGS;
         if (liveCount >= cap) {

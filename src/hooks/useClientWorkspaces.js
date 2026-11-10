@@ -21,7 +21,7 @@ import { downloadWorkspaceExport } from '../lib/workspace-export';
 import { track } from '../lib/analytics';
 import { enterSharedView, getSharedView } from '../lib/db';
 import { isSsoRefusal, raiseSsoBlock } from '../lib/sso';
-import { resolvePlan } from '../lib/plan';
+import { resolvePlan, mayCreateClientWorkspace } from '../lib/plan';
 import { useAuth } from './useAuth';
 import { useLang } from '../contexts/LangContext';
 import { useTranslation } from '../translations';
@@ -58,10 +58,12 @@ export function useClientWorkspaces() {
   const nothingToFetch = !firebaseUser || isDemo;
   const loaded = fetched || nothingToFetch;
 
-  // createorg refuses a free plan, so the controls are offered to exactly the
-  // people the server would let through. resolvePlan applies trial expiry, so
-  // an expired trial correctly loses them.
-  const canManageClients = !isDemo && !!firebaseUser && resolvePlan(user) !== 'free';
+  // The same rule createorg applies (mayCreateClientWorkspace, lib/plan.js):
+  // the Cabinet plan, Business, Enterprise or a trial, or an account that
+  // already holds a client workspace. resolvePlan applies trial expiry, so an
+  // expired trial correctly loses them.
+  const canManageClients = !isDemo && !!firebaseUser
+    && mayCreateClientWorkspace(resolvePlan(user), { hasClientOrgs: orgs.length + deletedOrgs.length > 0 });
 
   useEffect(() => {
     if (!firebaseUser || isDemo) return;

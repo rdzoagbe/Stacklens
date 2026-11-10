@@ -1,6 +1,6 @@
 // ── The early-access programme ─────────────────────────────────────────────
 //
-// Ten accounting firms get the Pro plan free for six months in exchange for
+// Ten accounting firms get the Cabinet plan (Pro's pages plus client workspaces) free for six months in exchange for
 // honest written feedback; a short call is offered, never required. Everything the offer page states is
 // read from here, and the founder's "Grant early access" button grants
 // exactly this, so the page cannot promise a longer period, a different plan
@@ -12,7 +12,7 @@
 export const EARLY_ACCESS = Object.freeze({
   OPEN: true,
   SPOTS: 10,
-  PLAN: 'pro',
+  PLAN: 'cabinet',
   MONTHS: 6,
   CALL_MINUTES: 20,
 });

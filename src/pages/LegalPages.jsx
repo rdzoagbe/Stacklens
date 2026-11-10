@@ -13,7 +13,7 @@ import { LEGAL_ENTITY } from '../lib/constants';
 // in substance. They used to print "July 2026", "May 2026" and "April 17,
 // 2026" as literals: stale after the September corrections, and English
 // inside the French page. Change this when any of them changes.
-export const LEGAL_UPDATED = '2026-11-09';
+export const LEGAL_UPDATED = '2026-11-10';
 const LOCALE_OF = { en: 'en-GB', fr: 'fr-FR', de: 'de-DE', es: 'es-ES', pt: 'pt-PT' };
 // The legal notice (mentions légales) last changed in May 2026; only the month
 // is known, so only the month is shown.

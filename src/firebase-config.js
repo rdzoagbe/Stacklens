@@ -932,7 +932,7 @@ export async function founderExtendTrial(targetUid, extraDays = 7) {
 
 export async function founderSetPlan(targetUid, plan) {
   if (!firestoreDb) throw new Error('Firestore unavailable');
-  const validPlans = ['free', 'trial', 'starter', 'hr_finance', 'pro', 'business', 'enterprise', 'scale'];
+  const validPlans = ['free', 'trial', 'starter', 'hr_finance', 'pro', 'cabinet', 'business', 'enterprise', 'scale'];
   if (!validPlans.includes(plan)) throw new Error('Invalid plan');
   // A plan set by hand is permanent, so any end date left by an earlier
   // grant goes with it — otherwise it would quietly expire the new plan.
@@ -946,7 +946,7 @@ export async function founderSetPlan(targetUid, plan) {
 // date passes, unless the account has started paying.
 export async function founderGrantPlan(targetUid, { plan, until, reason }) {
   if (!firestoreDb) throw new Error('Firestore unavailable');
-  if (!['starter', 'hr_finance', 'pro', 'business', 'enterprise'].includes(plan)) throw new Error('Invalid plan');
+  if (!['starter', 'hr_finance', 'pro', 'cabinet', 'business', 'enterprise'].includes(plan)) throw new Error('Invalid plan');
   if (!(Number(until) > Date.now())) throw new Error('The grant must end in the future');
   await updateDoc(doc(firestoreDb, 'users', targetUid), {
     plan, plan_grant_until: Number(until), plan_grant_reason: String(reason || 'grant').slice(0, 40),

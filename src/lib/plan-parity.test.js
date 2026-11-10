@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
-import { TRIAL_DAYS, NO_TEAM_PLANS, canInviteTeam, resolvePlan, PAYING_STATUSES, PLAN_LIMITS, TEAM_INVITE_LIMIT, CLIENT_WORKSPACE_LIMIT, TRIAL_CLIENT_WORKSPACES } from './plan';
+import { TRIAL_DAYS, NO_TEAM_PLANS, canInviteTeam, resolvePlan, PAYING_STATUSES, PLAN_LIMITS, TEAM_INVITE_LIMIT, CLIENT_WORKSPACE_LIMIT, TRIAL_CLIENT_WORKSPACES, CLIENT_PLANS, mayCreateClientWorkspace } from './plan';
 import { MODULE_PLANS } from '../components/gates';
 import { PLAN_CARDS } from './planCards';
 import { EARLY_ACCESS, earlyAccessUntil } from './earlyAccess';
@@ -229,5 +229,24 @@ describe('an early-access grant ends on the same day on both sides', () => {
     expect(PLAN_CARDS.map((c) => c.id)).toContain(EARLY_ACCESS.PLAN);
     const until = earlyAccessUntil(Date.UTC(2026, 0, 15));
     expect(new Date(until).toISOString().slice(0, 10)).toBe(`2026-${String(1 + EARLY_ACCESS.MONTHS).padStart(2, '0')}-15`);
+  });
+});
+
+// ── Client workspaces come with the Cabinet plan ─────────────────────────
+describe('who may create a client workspace', () => {
+  const index = readFileSync(resolve(process.cwd(), 'functions/index.js'), 'utf8');
+  it('the browser and the workspace function list the same plans', () => {
+    const server = /const CLIENT_PLANS = \[([^\]]*)\]/.exec(index)[1].match(/'([a-z_]+)'/g).map((s) => s.slice(1, -1));
+    expect(server).toEqual(CLIENT_PLANS);
+    expect(index).toMatch(/!CLIENT_PLANS\.includes\(plan\) && existing\.empty/);
+  });
+  it('the Cabinet plan, a trial or an existing client workspace; not Starter or Pro on their own', () => {
+    expect(mayCreateClientWorkspace('cabinet')).toBe(true);
+    expect(mayCreateClientWorkspace('business')).toBe(true);
+    expect(mayCreateClientWorkspace('trial')).toBe(true);
+    expect(mayCreateClientWorkspace('starter')).toBe(false);
+    expect(mayCreateClientWorkspace('pro')).toBe(false);
+    expect(mayCreateClientWorkspace('pro', { hasClientOrgs: true })).toBe(true);
+    expect(mayCreateClientWorkspace('free', { hasClientOrgs: true })).toBe(false);
   });
 });

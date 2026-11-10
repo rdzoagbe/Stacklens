@@ -482,7 +482,7 @@ export function TrialPage() {
               // then a conversation (annual contract by headcount).
               contact: !!c.contact,
               cta: c.contact ? planText(language, 'plan_enterprise_cta') : c.id === 'free' ? t('start_free') : t('start_trial'),
-              highlight: c.id === 'pro', badge: c.id === 'hr_finance' ? t('lp_badge_new') : null,
+              highlight: c.id === 'pro', badge: c.id === 'cabinet' ? t('lp_badge_new') : null,
             })).map((p, i) => (
               <div
                 key={i}
