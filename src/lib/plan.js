@@ -18,6 +18,7 @@ export const PLAN_TIERS = {
   starter: 2,
   hr_finance: 2,
   pro: 3,
+  cabinet: 3,     // Pro's modules, for an accounting firm, with client workspaces
   business: 4,
   enterprise: 4,
   // legacy aliases
@@ -37,6 +38,21 @@ export const TEAM_INVITE_LIMIT = 10;
 export const CLIENT_WORKSPACE_LIMIT = 50;
 export const TRIAL_CLIENT_WORKSPACES = 3;
 
+// Which plans may create client workspaces. Until 2026-11-10 every paid plan
+// could, so a firm got the accountant offer for €29; it now comes with the
+// Cabinet plan (and Business and Enterprise, which are bigger anyway). A trial
+// still gets TRIAL_CLIENT_WORKSPACES, and an account that already holds a
+// client workspace keeps adding up to the cap whatever its plan: nobody loses
+// what they had. Server copy: CLIENT_PLANS in functions/index.js
+// (plan-parity.test.js).
+export const CLIENT_PLANS = ['cabinet', 'business', 'enterprise', 'scale', 'unlimited', 'professional'];
+
+/** May this account create a client workspace? `hasClientOrgs`: it already holds one (kept from before the change). */
+export function mayCreateClientWorkspace(plan, { hasClientOrgs = false } = {}) {
+  if (plan === 'free') return false;
+  return plan === 'trial' || CLIENT_PLANS.includes(plan) || hasClientOrgs;
+}
+
 // Hard limits enforced on data creation
 export const PLAN_LIMITS = {
   free:       { tools: 10,    employees: 25,    teamInvites: 0,   label: 'Free' },
@@ -45,6 +61,7 @@ export const PLAN_LIMITS = {
   starter:    { tools: 100,   employees: 250,   teamInvites: TEAM_INVITE_LIMIT,   label: 'Starter' },
   hr_finance: { tools: 100,   employees: 250,   teamInvites: TEAM_INVITE_LIMIT,   label: 'HR & Finance' },
   pro:        { tools: 500,   employees: 500,   teamInvites: TEAM_INVITE_LIMIT,  label: 'Pro' },
+  cabinet:    { tools: 500,   employees: 500,   teamInvites: TEAM_INVITE_LIMIT,  label: 'Cabinet' },
   business:   { tools: 99999, employees: 1500,  teamInvites: TEAM_INVITE_LIMIT,  label: 'Business' },
   enterprise: { tools: 99999, employees: 99999, teamInvites: TEAM_INVITE_LIMIT, label: 'Enterprise' },
   // legacy

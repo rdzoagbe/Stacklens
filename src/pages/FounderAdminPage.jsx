@@ -18,12 +18,13 @@ const PLAN_COLORS = {
   starter: 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30',
   hr_finance: 'bg-violet-600/20 text-violet-400 border border-violet-500/30',
   pro: 'bg-amber-600/20 text-amber-400 border border-amber-500/30',
+  cabinet: 'bg-teal-600/20 text-teal-400 border border-teal-500/30',
   business: 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30',
   enterprise: 'bg-red-600/20 text-red-400 border border-red-500/30',
   scale: 'bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-300 border border-amber-500/30',
 };
 
-const VALID_PLANS = ['free', 'trial', 'starter', 'hr_finance', 'pro', 'business', 'enterprise', 'scale'];
+const VALID_PLANS = ['free', 'trial', 'starter', 'hr_finance', 'pro', 'cabinet', 'business', 'enterprise', 'scale'];
 
 
 function timeAgo(ms) {

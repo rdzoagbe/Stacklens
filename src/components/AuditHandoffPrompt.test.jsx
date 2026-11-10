@@ -160,7 +160,7 @@ const typeInto = (input, value) => act(async () => {
 const settle = () => act(async () => { await new Promise((r) => setTimeout(r, 0)); });
 
 describe('into a client workspace', () => {
-  beforeEach(() => { invalidateWorkspaceCaches(); auth.firebaseUser = { uid: 'u1' }; auth.user = { plan: 'pro' }; });
+  beforeEach(() => { invalidateWorkspaceCaches(); auth.firebaseUser = { uid: 'u1' }; auth.user = { plan: 'cabinet' }; });
   afterEach(() => { delete auth.firebaseUser; delete auth.user; });
 
   it('a free account is not offered a client workspace', async () => {
@@ -172,7 +172,7 @@ describe('into a client workspace', () => {
   });
 
   it('a paid account chooses a new client, names it, and the tools go there, never into its own workspace', async () => {
-    seed({ user: { plan: 'pro' } });
+    seed({ user: { plan: 'cabinet' } });
     await mount();
     await settle();
     const dest = document.querySelector('[data-testid="handoff-destination"]');
@@ -196,7 +196,7 @@ describe('into a client workspace', () => {
 
   it('a refusal from the server is shown and the list is kept', async () => {
     workspaceCreateOrg.mockRejectedValueOnce(new Error('A trial covers 3 client workspaces. Subscribe to add more.'));
-    seed({ user: { plan: 'pro' } });
+    seed({ user: { plan: 'cabinet' } });
     await mount();
     await settle();
     await click(document.querySelector('[data-testid="handoff-destination"]').querySelectorAll('input[type="radio"]')[1]);
@@ -209,7 +209,7 @@ describe('into a client workspace', () => {
   });
 
   it('"Into my own workspace" still imports locally and writes nothing to a client', async () => {
-    seed({ user: { plan: 'pro' } });
+    seed({ user: { plan: 'cabinet' } });
     await mount();
     await settle();
     expect(document.querySelector('[data-testid="handoff-destination"] input[type="radio"]').checked).toBe(true);

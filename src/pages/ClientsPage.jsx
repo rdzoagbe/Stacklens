@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Building2, Download, Plus, RotateCcw, Trash2 } from 'lucide-react';
 import { useClientWorkspaces } from '../hooks/useClientWorkspaces';
 import { useLang } from '../contexts/LangContext';
@@ -85,6 +85,10 @@ export function ClientsPage() {
               <> {t('ws_own_currency')}</>
             )}
           </p>
+          {!canManageClients && loaded && (
+            <Link to="/settings?tab=billing" data-testid="ws-cabinet-needed"
+              className="text-sm text-indigo-300 hover:text-indigo-200 underline">{t('ws_cabinet_needed')}</Link>
+          )}
           {canManageClients && (
             <button onClick={() => setAdding(true)} disabled={busy}
               className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-xl font-semibold text-sm text-white transition-colors flex items-center gap-2 disabled:opacity-50">

@@ -17,12 +17,17 @@ import { PLAN_LIMITS, TEAM_INVITE_LIMIT, CLIENT_WORKSPACE_LIMIT } from './plan';
 export const PLAN_CARDS = [
   { id: 'free', monthly: 0, annual: 0,
     features: ['tools', 'employees', 'f_free_3', 'f_free_4', 'f_free_5', 'f_free_6'] },
+  // Starter took in HR & Finance (2026-11-10): one €29 plan with the Finance
+  // pages. HR & Finance subscribers keep their plan; it is no longer sold.
   { id: 'starter', monthly: 29, annual: 278,
-    features: ['tools', 'employees', 'f_starter_3', 'f_starter_4', 'f_starter_5', 'team', 'clients', 'f_starter_6'] },
-  { id: 'hr_finance', monthly: 49, annual: 470,
-    features: ['tools', 'employees', 'f_hrf_1', 'f_hrf_2', 'f_hrf_3', 'f_hrf_4', 'f_hrf_5', 'team', 'clients', 'f_hrf_6'] },
+    features: ['tools', 'employees', 'f_hrf_1', 'f_starter_3', 'f_hrf_5', 'f_starter_5', 'team', 'f_starter_6'] },
   { id: 'pro', monthly: 79, annual: 758,
-    features: ['tools', 'employees', 'f_pro_3', 'f_pro_4', 'f_pro_5', 'f_pro_6', 'team', 'clients', 'f_pro_7'] },
+    features: ['tools', 'employees', 'f_pro_3', 'f_pro_4', 'f_pro_5', 'f_pro_6', 'team', 'f_pro_7'] },
+  // For accounting firms and outsourced CFOs: Pro's pages in the firm's own
+  // workspace and in every client workspace (they run on the firm's plan).
+  // Client workspaces left Starter and Pro the same day (CLIENT_PLANS).
+  { id: 'cabinet', monthly: 79, annual: 758,
+    features: ['clients', 'f_cab_1', 'f_cab_2', 'tools', 'employees', 'team', 'f_pro_7'] },
   // Pro's people and the API used to differ only on a card at €299; Business
   // sits between them: unlimited tools, up to 1,500 people, the API and the
   // bank connection (the `api` module).
@@ -66,6 +71,7 @@ const COUNTED = {
 export const PLAN_COPY = {
   en: {
     plan_free:'Free', plan_free_tag:'For small teams getting started',
+    plan_cabinet:'Cabinet', plan_cabinet_tag:'For accounting firms and outsourced CFOs', f_cab_1:'Everything in Pro, in every client workspace', f_cab_2:'Turn a free audit into a client workspace',
     plan_starter:'Starter', plan_starter_tag:'For growing teams',
     plan_hr_finance:'HR & Finance', plan_hr_finance_tag:'For HR & Finance directors',
     plan_pro:'Pro', plan_pro_tag:'For teams that need full visibility and control',
@@ -79,6 +85,7 @@ export const PLAN_COPY = {
   },
   fr: {
     plan_free:'Gratuit', plan_free_tag:'Pour les petites équipes qui débutent',
+    plan_cabinet:'Cabinet', plan_cabinet_tag:'Pour les experts-comptables et DAF externalisés', f_cab_1:'Tout le plan Pro, dans chaque espace client', f_cab_2:"Transformez un audit gratuit en espace client",
     plan_starter:'Starter', plan_starter_tag:'Pour les équipes en croissance',
     plan_hr_finance:'RH & Finance', plan_hr_finance_tag:'Pour les DRH et directeurs financiers',
     plan_pro:'Pro', plan_pro_tag:'Pour les équipes qui ont besoin de visibilité totale',
@@ -92,6 +99,7 @@ export const PLAN_COPY = {
   },
   de: {
     plan_free:'Kostenlos', plan_free_tag:'Für kleine Teams am Anfang',
+    plan_cabinet:'Kanzlei', plan_cabinet_tag:'Für Steuerberater und externe CFOs', f_cab_1:'Alles aus Pro, in jedem Mandanten-Workspace', f_cab_2:'Ein kostenloses Audit zum Mandanten-Workspace machen',
     plan_starter:'Starter', plan_starter_tag:'Für wachsende Teams',
     plan_hr_finance:'HR & Finanzen', plan_hr_finance_tag:'Für HR- und Finanzleiter',
     plan_pro:'Pro', plan_pro_tag:'Für Teams, die volle Transparenz brauchen',
@@ -105,6 +113,7 @@ export const PLAN_COPY = {
   },
   es: {
     plan_free:'Gratis', plan_free_tag:'Para equipos pequeños que empiezan',
+    plan_cabinet:'Despacho', plan_cabinet_tag:'Para despachos contables y CFO externos', f_cab_1:'Todo lo del plan Pro, en cada espacio de cliente', f_cab_2:'Convierta una auditoría gratuita en un espacio de cliente',
     plan_starter:'Starter', plan_starter_tag:'Para equipos en crecimiento',
     plan_hr_finance:'RRHH y Finanzas', plan_hr_finance_tag:'Para directores de RRHH y finanzas',
     plan_pro:'Pro', plan_pro_tag:'Para equipos que necesitan visibilidad total',
@@ -118,6 +127,7 @@ export const PLAN_COPY = {
   },
   pt: {
     plan_free:'Grátis', plan_free_tag:'Para pequenas equipas a começar',
+    plan_cabinet:'Gabinete', plan_cabinet_tag:'Para contabilistas e CFO externos', f_cab_1:'Tudo do plano Pro, em cada espaço de cliente', f_cab_2:'Transforme uma auditoria gratuita num espaço de cliente',
     plan_starter:'Starter', plan_starter_tag:'Para equipas em crescimento',
     plan_hr_finance:'RH e Finanças', plan_hr_finance_tag:'Para diretores de RH e financeiros',
     plan_pro:'Pro', plan_pro_tag:'Para equipas que precisam de visibilidade total',

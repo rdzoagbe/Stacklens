@@ -113,14 +113,15 @@ export function PlanGate({ requires, children, feature = null }) {
 // ── Module gate ────────────────────────────────────────────────────────────
 
 export const MODULE_PLANS = {
-  finance:   ['hr_finance', 'pro', 'business', 'enterprise', 'scale', 'unlimited', 'growth', 'professional'],
+  // Starter took in HR & Finance (2026-11-10): one €29 plan with Finance.
+  finance:   ['starter', 'hr_finance', 'pro', 'cabinet', 'business', 'enterprise', 'scale', 'unlimited', 'growth', 'professional'],
   // Every plan sells a number of employees (Free: 25, Starter: 250); without
   // this module the Employees, Access, Offboarding and Devices pages were
   // locked on Free while its card promised the people.
-  people:    ['free', 'starter', 'hr_finance', 'pro', 'business', 'enterprise', 'scale', 'unlimited', 'growth', 'professional'],
-  security:  ['pro', 'business', 'enterprise', 'scale', 'unlimited', 'growth', 'professional'],
-  ai:        ['pro', 'business', 'enterprise', 'scale', 'unlimited', 'growth', 'professional'],
-  analytics: ['pro', 'business', 'enterprise', 'scale', 'unlimited', 'growth', 'professional'],
+  people:    ['free', 'starter', 'hr_finance', 'pro', 'cabinet', 'business', 'enterprise', 'scale', 'unlimited', 'growth', 'professional'],
+  security:  ['pro', 'cabinet', 'business', 'enterprise', 'scale', 'unlimited', 'growth', 'professional'],
+  ai:        ['pro', 'cabinet', 'business', 'enterprise', 'scale', 'unlimited', 'growth', 'professional'],
+  analytics: ['pro', 'cabinet', 'business', 'enterprise', 'scale', 'unlimited', 'growth', 'professional'],
   // Must stay equal to API_PLANS in functions/index.js, which is what the
   // endpoint actually enforces. The Settings > API tab had no gate at all, so
   // a free user could mint a key, copy the curl example, and get 403 on every

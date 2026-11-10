@@ -15,12 +15,15 @@ export const PRICE_IDS = {
   starter:    { monthly: 'price_1TMhOt1yFs6IziIVgJGBbzoG', annual: 'price_1TMhfK1yFs6IziIVOtbhpy23' },
   hr_finance: { monthly: 'price_1TWxAB1yFs6IziIVjxw3CG2V', annual: 'price_1TWxFd1yFs6IziIVjPZnA8XT' },
   pro:        { monthly: 'price_1TMhNW1yFs6IziIV5hwlssrt', annual: 'price_1TMhNW1yFs6IziIVMxiacXD7' },
+  cabinet:    { monthly: 'price_1UaFkM1yFs6IziIVL2Y9VxOO', annual: 'price_1UaFkT1yFs6IziIVFdns9j5x' },
   business:   { monthly: 'price_1UZsKz1yFs6IziIVtDrqBwBb', annual: 'price_1UZsMY1yFs6IziIVfyUjcOKa' },
   enterprise: { monthly: 'price_1TMhNk1yFs6IziIVPkv7RiLc', annual: 'price_1TMhNk1yFs6IziIViMLzewdQ' },
 };
 
 /** The plans a customer can buy by card from Settings → Billing. */
-export const CHECKOUT_PLANS = ['starter', 'hr_finance', 'pro', 'business'];
+// HR & Finance is no longer sold (merged into Starter on 2026-11-10); its
+// prices stay above and in PLAN_MAP for the subscriptions billed on them.
+export const CHECKOUT_PLANS = ['starter', 'pro', 'cabinet', 'business'];
 
 export const priceIdFor = (plan, billing = 'monthly') =>
   CHECKOUT_PLANS.includes(plan) ? (PRICE_IDS[plan]?.[billing] || PRICE_IDS[plan]?.monthly || null) : null;

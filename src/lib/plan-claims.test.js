@@ -37,7 +37,7 @@ describe('plan claims match enforced limits', () => {
   const LANGS = ['en', 'fr', 'de', 'es', 'pt'];
 
   it.each(LANGS)('%s: each capped plan states exactly its enforced tool and employee limits', (lang) => {
-    for (const id of ['free', 'starter', 'hr_finance', 'pro']) {
+    for (const id of ['free', 'starter', 'pro', 'cabinet']) {
       const lines = planFeatures(id, lang);
       const numbers = lines.map(numberIn).filter((n) => !Number.isNaN(n) && n > 0);
       expect(numbers, `${id}/${lang}: ${lines.join(' | ')}`).toContain(PLAN_LIMITS[id].tools);
@@ -104,7 +104,7 @@ describe('plan claims match enforced limits', () => {
     // Before, every non-finance module said "Pro", including the API, which
     // only Enterprise unlocks.
     expect(cheapestPlanFor('people').id).toBe('free');
-    expect(cheapestPlanFor('finance').id).toBe('hr_finance');
+    expect(cheapestPlanFor('finance').id).toBe('starter');
     expect(cheapestPlanFor('security').id).toBe('pro');
     expect(cheapestPlanFor('api').id).toBe('business');
   });
