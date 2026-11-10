@@ -251,7 +251,7 @@ describe('the audit report', () => {
 
   it('flags the price rise', () => {
     expect(report.findings.priceIncreases).toEqual([
-      { vendor: 'Notion', from: 12, to: 14, pct: 17 },
+      expect.objectContaining({ vendor: 'Notion', from: 12, to: 14, pct: 17 }),
     ]);
   });
 
@@ -651,5 +651,30 @@ describe('reviewSummary: one figure, three actions, the AI tools', () => {
     expect(s.actions.length).toBeLessThanOrEqual(3);
     const ys = s.actions.map((a) => a.yearly);
     expect([...ys].sort((a, b) => b - a)).toEqual(ys);
+  });
+});
+
+describe('reviewSummary counts by vendor and by the line that changed', () => {
+  it('one AI vendor paid through two labels is one AI tool', () => {
+    const lines = ['Date;Libellé;Montant'];
+    for (let m = 1; m <= 12; m++) {
+      const mm = String(m).padStart(2, '0');
+      lines.push(`10/${mm}/2026;CB OPENAI;-20,00`);
+      lines.push(`20/${mm}/2026;PRLV CHATGPT;-25,00`);
+    }
+    const s = reviewSummary(auditSaas(parseBankExport(lines.join('\n')).transactions, { now: new Date('2026-12-25') }));
+    expect(s.ai.items).toEqual([{ vendor: 'OpenAI', monthlyEquivalent: 45 }]);
+  });
+
+  it('a price rise is annualised from its own line, not the vendor\'s first', () => {
+    const report = {
+      subscriptions: [
+        { key: 'NOTION A', vendor: 'Notion', category: 'Productivity', avgAmount: 100, monthlyEquivalent: 100 },
+        { key: 'NOTION B', vendor: 'Notion', category: 'Productivity', avgAmount: 150, monthlyEquivalent: 12.5 },
+      ],
+      findings: { duplicates: [], forgotten: [], upcomingAnnual: [],
+        priceIncreases: [{ vendor: 'Notion', key: 'NOTION B', from: 100, to: 200, pct: 100 }] },
+    };
+    expect(reviewSummary(report).actions[0]).toMatchObject({ kind: 'price', yearly: 100 });
   });
 });

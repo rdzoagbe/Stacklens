@@ -651,6 +651,7 @@ export function auditSaas(transactions, { now, verdicts } = {}) {
       (s.lastAmount - s.firstAmount) / s.firstAmount * 100 >= PRICE_RISE_PCT)
     .map(s => ({
       vendor: s.vendor,
+      key: s.key,
       from: s.firstAmount,
       to: s.lastAmount,
       pct: Math.round((s.lastAmount - s.firstAmount) / s.firstAmount * 100),
@@ -750,14 +751,21 @@ export function reviewSummary(report) {
     actions.push({ kind: 'renewal', vendor: u.vendor, date: u.renewsOn, amount: u.amount, yearly: round2(u.amount) });
   }
   for (const p of f.priceIncreases || []) {
-    const s = (byVendor.get(p.vendor) || [])[0];
+    // The line the rise was seen on, not the vendor's first: a monthly and an
+    // annual line of one vendor convert to a year very differently.
+    const s = subs.find((x) => x.key === p.key) || (byVendor.get(p.vendor) || [])[0];
     const factor = s && s.avgAmount > 0 && s.monthlyEquivalent ? s.monthlyEquivalent / s.avgAmount : 1;
     actions.push({ kind: 'price', vendor: p.vendor, from: p.from, to: p.to, pct: p.pct, yearly: round2((p.to - p.from) * factor * 12) });
   }
   actions.sort((a, b) => b.yearly - a.yearly);
-  const ai = subs.filter((s) => s.category === 'AI')
-    .map((s) => ({ vendor: s.vendor, monthlyEquivalent: s.monthlyEquivalent }))
-    .sort((a, b) => (b.monthlyEquivalent ?? 0) - (a.monthlyEquivalent ?? 0));
+  // One entry per vendor: OpenAI paid through two labels is one AI tool, not
+  // two, or a company using only ChatGPT is told to choose between them.
+  const aiByVendor = new Map();
+  for (const s of subs.filter((x) => x.category === 'AI')) {
+    aiByVendor.set(s.vendor, round2((aiByVendor.get(s.vendor) ?? 0) + (s.monthlyEquivalent ?? 0)));
+  }
+  const ai = [...aiByVendor].map(([vendor, monthlyEquivalent]) => ({ vendor, monthlyEquivalent }))
+    .sort((a, b) => b.monthlyEquivalent - a.monthlyEquivalent);
   return {
     yearly: round2(monthly * 12),
     actions: actions.slice(0, 3),
