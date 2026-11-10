@@ -79,16 +79,17 @@ export function splitLine(line, delimiter) {
 // ── 3. Columns ──────────────────────────────────────────────────────────────
 
 const COL = {
-  date:   /^(date|date op[ée]ration|date de l'op[ée]ration|date valeur|date comptable|booking date|transaction date|value date|jour|posted|dated?)$/i,
-  dateLoose: /date|jour|booking|posted/i,
+  date:   /^(date|date op[ée]ration|date de l'op[ée]ration|date valeur|date comptable|booking date|transaction date|value date|jour|posted|dated?|buchungstag|buchungsdatum|datum|einkaufsdatum|transaktionsdatum|data|data lan[cç]amento|data (do )?movimento|data mov\.?|fecha|fecha operaci[oó]n|fecha valor)$/i,
+  dateLoose: /date|jour|booking|posted|datum|^data\b|^fecha\b/i,
   // The column that names the counterparty, before looser matches: a Chase
-  // export starts with "Details" (DEBIT / CREDIT) and has "Description" later.
-  labelStrong: /libell|label|description|wording|narrative|payee|merchant|b[ée]n[ée]ficiaire|beneficiary/i,
-  label:  /libell|label|description|wording|d[ée]tail|narrative|memo|payee|b[ée]n[ée]ficiaire|beneficiary|remittance|nom|name|merchant|counterparty|tiers|motif|communication|op[ée]ration/i,
-  amount: /^(montant|amount|value|somme|sum|net)$/i,
-  amountLoose: /montant|amount|value|somme/i,
-  debit:  /d[ée]bit|sortie|withdraw|out|paid out|charge/i,
-  credit: /cr[ée]dit|entr[ée]e|deposit|in$|paid in/i,
+  // export starts with "Details" (DEBIT / CREDIT) and has "Description" later;
+  // a Sparkasse export has "Buchungstext" (FOLGELASTSCHRIFT) before the payee.
+  labelStrong: /libell|label|description|descri[cç][aã]o|descripci[oó]n|concepto|wording|narrative|payee|merchant|b[ée]n[ée]ficiaire|beneficiary|beg[uü]e?nstigt|zahlungsempf|empf[aä]nger|avisierungstext|omschrijving|naam tegenpartij/i,
+  label:  /libell|label|description|wording|d[ée]tail|narrative|memo|payee|b[ée]n[ée]ficiaire|beneficiary|remittance|nom|name|merchant|counterparty|tiers|motif|communication|op[ée]ration|buchungstext|verwendungszweck|text/i,
+  amount: /^(montant|amount|value|somme|sum|net|betrag|bedrag|montante|importe)$/i,
+  amountLoose: /montant|amount|value|somme|betrag|bedrag|montante|importe/i,
+  debit:  /d[ée]bit|sortie|withdraw|out|paid out|charge|lastschrift in|belastung|debet|soll/i,
+  credit: /cr[ée]dit|entr[ée]e|deposit|in$|paid in|gutschrift|haben/i,
 };
 
 /**
@@ -102,6 +103,17 @@ export function detectColumns(headers) {
 
   let date = find(COL.date);
   if (date < 0) date = find(COL.dateLoose);
+
+  // A UBS card statement has an unsigned "Betrag" beside "Belastung" and
+  // "Gutschrift": the pair says which way the money went, the amount does not.
+  const belastung = h.findIndex((x) => /^belastung/i.test(x));
+  const gutschrift = h.findIndex((x) => /^gutschrift/i.test(x));
+  if (date >= 0 && belastung >= 0 && gutschrift >= 0) {
+    const taken = [date, belastung, gutschrift];
+    let label = find(COL.labelStrong, taken);
+    if (label < 0) label = find(COL.label, taken);
+    return { date, label, amount: -1, debit: belastung, credit: gutschrift };
+  }
 
   // Prefer a single signed amount column; otherwise separate debit/credit.
   let amount = find(COL.amount, [date]);
@@ -327,6 +339,10 @@ export function parseBankExport(text, forceOrder) {
 
 const NOISE = [
   /\b(prlv|prelevement|pr[ée]l[èe]vement|sepa|cb|carte|card|paiement|payment|achat|facture|invoice|vir(ement)?|transfer|dd|direct debit|pos|purchase)\b/gi,
+  // Words other banks put before the merchant: German and Swiss ("KAUF/
+  // DIENSTLEISTUNG VOM … KARTEN NR. …"), Belgian ("DOMICILIATION EUROPEENNE",
+  // "EUROPESE DOMICILIERING") and Portuguese ("COMPRA", "TRF").
+  /\b(kauf|dienstleistung|vom|karten?|nr|kartenzahlung|lastschrift|folgelastschrift|erstlastschrift|domiciliation|domiciliering|europese|europeenne|compra|trf)\b/gi,
   /\b\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}\b/g,         // dates: 05/01/2026
   /\b\d{1,2}[/.-]\d{1,2}\b/g,                    // dates: 05/01 (two rules, not one
                                                    // optional group, which the unsafe-regex
