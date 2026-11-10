@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   decodeBankFile, sniffDelimiter, detectColumns, parseAmount, parseDate,
   parseBankExport, normaliseLabel, identifyVendor, detectRecurring, auditSaas,
-  reportToCsv, csvStyleFor, CSV_BOM, sampleBankExport, detectDateOrder, isStopped,
+  reportToCsv, csvStyleFor, CSV_BOM, sampleBankExport, detectDateOrder, isStopped, reviewSummary,
 } from './saasAudit';
 
 // ── The public audit has to work on a real French bank export ─────────────
@@ -251,7 +251,7 @@ describe('the audit report', () => {
 
   it('flags the price rise', () => {
     expect(report.findings.priceIncreases).toEqual([
-      { vendor: 'Notion', from: 12, to: 14, pct: 17 },
+      expect.objectContaining({ vendor: 'Notion', from: 12, to: 14, pct: 17 }),
     ]);
   });
 
@@ -620,5 +620,61 @@ describe('a US bank export', () => {
 
   it('still prefers the French libellé over a looser column', () => {
     expect(detectColumns(['Date', 'Nom du compte', 'Libellé', 'Montant']).label).toBe(2);
+  });
+});
+
+// ── What to look at first ────────────────────────────────────────────────
+describe('reviewSummary: one figure, three actions, the AI tools', () => {
+  const lines = ['Date;Libellé;Montant'];
+  for (let m = 1; m <= 12; m++) {
+    const mm = String(m).padStart(2, '0');
+    lines.push(`05/${mm}/2026;PRLV NOTION LABS;-96,00`);
+    lines.push(`07/${mm}/2026;CB NOTION;-40,00`);
+    lines.push(`10/${mm}/2026;CB OPENAI CHATGPT;-20,00`);
+    lines.push(`12/${mm}/2026;CB ANTHROPIC;-18,00`);
+    lines.push(`15/${mm}/2026;CB PERPLEXITY;-20,00`);
+  }
+  const report = auditSaas(parseBankExport(lines.join('\n')).transactions, { now: new Date('2026-12-20') });
+  const s = reviewSummary(report);
+
+  it('counts only the extra lines of a vendor paid twice, never the dearest one', () => {
+    expect(s.actions[0]).toMatchObject({ kind: 'duplicate', vendor: 'Notion', lines: 2, yearly: 480 });
+    expect(s.yearly).toBeGreaterThanOrEqual(480);
+  });
+
+  it('lists the AI tools apart, dearest first, with their monthly total', () => {
+    expect(s.ai.items.map((a) => a.vendor)).toEqual(['OpenAI', 'Perplexity', 'Anthropic']);
+    expect(s.ai.monthly).toBe(58);
+  });
+
+  it('keeps at most three actions, biggest first', () => {
+    expect(s.actions.length).toBeLessThanOrEqual(3);
+    const ys = s.actions.map((a) => a.yearly);
+    expect([...ys].sort((a, b) => b - a)).toEqual(ys);
+  });
+});
+
+describe('reviewSummary counts by vendor and by the line that changed', () => {
+  it('one AI vendor paid through two labels is one AI tool', () => {
+    const lines = ['Date;Libellé;Montant'];
+    for (let m = 1; m <= 12; m++) {
+      const mm = String(m).padStart(2, '0');
+      lines.push(`10/${mm}/2026;CB OPENAI;-20,00`);
+      lines.push(`20/${mm}/2026;PRLV CHATGPT;-25,00`);
+    }
+    const s = reviewSummary(auditSaas(parseBankExport(lines.join('\n')).transactions, { now: new Date('2026-12-25') }));
+    expect(s.ai.items).toEqual([{ vendor: 'OpenAI', monthlyEquivalent: 45 }]);
+  });
+
+  it('a price rise is annualised from its own line, not the vendor\'s first', () => {
+    const report = {
+      subscriptions: [
+        { key: 'NOTION A', vendor: 'Notion', category: 'Productivity', avgAmount: 100, monthlyEquivalent: 100 },
+        { key: 'NOTION B', vendor: 'Notion', category: 'Productivity', avgAmount: 150, monthlyEquivalent: 12.5 },
+      ],
+      findings: { duplicates: [], forgotten: [], upcomingAnnual: [],
+        priceIncreases: [{ vendor: 'Notion', key: 'NOTION B', from: 100, to: 200, pct: 100 }] },
+    };
+    expect(reviewSummary(report).actions[0]).toMatchObject({ kind: 'price', yearly: 100 });
   });
 });

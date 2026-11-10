@@ -278,6 +278,15 @@ export function AccountantsPage() {
               {t('acct_cta_secondary')}
             </Link>
           </div>
+          {/* The two answers a firm needs before it tries anything (the panel's
+              first objections): the client's file stays on the computer, and
+              this fits work the firm is already doing. Shown under the buttons,
+              not halfway down the page. */}
+          <ul className="mt-6 space-y-2 text-sm text-slate-300" data-testid="acct-hero-trust">
+            <li className="flex gap-2"><Lock className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+              <span>{t('acct_hero_trust')} <Link to="/note-donnees" className="underline hover:text-white">{t('acct_trust_4')}</Link></span></li>
+            <li className="flex gap-2"><FileCheck className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" /><span>{t('acct_hero_einv')}</span></li>
+          </ul>
         </div>
 
         {/* Why */}

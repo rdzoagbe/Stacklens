@@ -15,7 +15,7 @@ vi.mock('../firebase-config', () => ({
 }));
 vi.mock('../lib/analytics', () => ({ track: vi.fn() }));
 vi.mock('react-hot-toast', () => ({ default: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }) }));
-const authState = { firebaseUser: { uid: 'u1' }, isDemo: false, user: { plan: 'pro' } };   // stable: the hook refetches when it changes
+const authState = { firebaseUser: { uid: 'u1' }, isDemo: false, user: { plan: 'cabinet' } };   // stable: the hook refetches when it changes
 vi.mock('../hooks/useAuth', () => ({ useAuth: () => authState }));
 vi.mock('../components/AppShell', () => ({ AppShell: ({ children }) => <div>{children}</div> }));
 

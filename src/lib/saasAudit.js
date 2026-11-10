@@ -421,6 +421,11 @@ export const VENDORS = [
   { re: /\b(OPENAI|CHATGPT)\b/, name: 'OpenAI', category: 'AI' },
   { re: /\bANTHROPIC\b/, name: 'Anthropic', category: 'AI' },
   { re: /\bMIDJOURNEY\b/, name: 'Midjourney', category: 'AI' },
+  { re: /\bPERPLEXITY\b/, name: 'Perplexity', category: 'AI' },
+  { re: /\bMISTRAL\b/, name: 'Mistral AI', category: 'AI' },
+  { re: /\bCURSOR\b/, name: 'Cursor', category: 'AI' },
+  { re: /\bELEVENLABS\b/, name: 'ElevenLabs', category: 'AI' },
+  { re: /\bRUNWAYML\b/, name: 'Runway', category: 'AI' },
   // Sales, marketing, support
   { re: /\bHUBSPOT\b/, name: 'HubSpot', category: 'CRM' },
   { re: /\bSALESFORCE\b/, name: 'Salesforce', category: 'CRM' },
@@ -646,6 +651,7 @@ export function auditSaas(transactions, { now, verdicts } = {}) {
       (s.lastAmount - s.firstAmount) / s.firstAmount * 100 >= PRICE_RISE_PCT)
     .map(s => ({
       vendor: s.vendor,
+      key: s.key,
       from: s.firstAmount,
       to: s.lastAmount,
       pct: Math.round((s.lastAmount - s.firstAmount) / s.firstAmount * 100),
@@ -707,6 +713,66 @@ const STOP_MIN_DAYS = 21;
  * last charge is well past the gap it was billed on. A line seen once has no
  * gap to measure (an annual licence in a one-year ledger), so it never is.
  */
+// ── What to look at first ──────────────────────────────────────────────
+//
+// An accountant (and the panel of them we asked) wants one figure and a short
+// to-do on page one, not a list to read through. `yearly` is the money the
+// findings put in question, never called a saving: the extra lines of a
+// vendor paid more than once (all but the dearest), and the small
+// subscriptions that may be forgotten. Price rises and renewals are not added
+// in (they are decisions, not waste) but can be actions. `actions` are the
+// three biggest by yearly amount. `ai` lists the AI tools paid for, apart,
+// because several at once usually means teams chose their own.
+export function reviewSummary(report) {
+  const subs = report.subscriptions || [];
+  const f = report.findings || {};
+  const byVendor = new Map();
+  for (const s of subs) {
+    if (!byVendor.has(s.vendor)) byVendor.set(s.vendor, []);
+    byVendor.get(s.vendor).push(s);
+  }
+  const actions = [];
+  const counted = new Set();
+  let monthly = 0;
+  for (const d of f.duplicates || []) {
+    const lines = (byVendor.get(d.vendor) || []).map((s) => s.monthlyEquivalent ?? 0).sort((a, b) => b - a);
+    const extra = round2(lines.slice(1).reduce((a, b) => a + b, 0));
+    if (extra <= 0) continue;
+    monthly += extra;
+    counted.add(d.vendor);
+    actions.push({ kind: 'duplicate', vendor: d.vendor, lines: d.lines, yearly: round2(extra * 12) });
+  }
+  for (const g of f.forgotten || []) {
+    if (counted.has(g.vendor)) continue;
+    monthly += g.monthlyEquivalent ?? 0;
+    actions.push({ kind: 'forgotten', vendor: g.vendor, charges: g.charges, monthly: g.monthlyEquivalent, yearly: round2((g.monthlyEquivalent ?? 0) * 12) });
+  }
+  for (const u of f.upcomingAnnual || []) {
+    actions.push({ kind: 'renewal', vendor: u.vendor, date: u.renewsOn, amount: u.amount, yearly: round2(u.amount) });
+  }
+  for (const p of f.priceIncreases || []) {
+    // The line the rise was seen on, not the vendor's first: a monthly and an
+    // annual line of one vendor convert to a year very differently.
+    const s = subs.find((x) => x.key === p.key) || (byVendor.get(p.vendor) || [])[0];
+    const factor = s && s.avgAmount > 0 && s.monthlyEquivalent ? s.monthlyEquivalent / s.avgAmount : 1;
+    actions.push({ kind: 'price', vendor: p.vendor, from: p.from, to: p.to, pct: p.pct, yearly: round2((p.to - p.from) * factor * 12) });
+  }
+  actions.sort((a, b) => b.yearly - a.yearly);
+  // One entry per vendor: OpenAI paid through two labels is one AI tool, not
+  // two, or a company using only ChatGPT is told to choose between them.
+  const aiByVendor = new Map();
+  for (const s of subs.filter((x) => x.category === 'AI')) {
+    aiByVendor.set(s.vendor, round2((aiByVendor.get(s.vendor) ?? 0) + (s.monthlyEquivalent ?? 0)));
+  }
+  const ai = [...aiByVendor].map(([vendor, monthlyEquivalent]) => ({ vendor, monthlyEquivalent }))
+    .sort((a, b) => b.monthlyEquivalent - a.monthlyEquivalent);
+  return {
+    yearly: round2(monthly * 12),
+    actions: actions.slice(0, 3),
+    ai: { items: ai, monthly: round2(ai.reduce((a, s) => a + (s.monthlyEquivalent ?? 0), 0)) },
+  };
+}
+
 export function isStopped(sub, asOf) {
   if (!sub || sub.charges < 2 || !(asOf instanceof Date)) return false;
   let period = PERIOD_DAYS[sub.cadence];
