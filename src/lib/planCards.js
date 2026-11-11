@@ -17,9 +17,9 @@ import { PLAN_LIMITS, TEAM_INVITE_LIMIT, CLIENT_WORKSPACE_LIMIT } from './plan';
 export const PLAN_CARDS = [
   { id: 'free', monthly: 0, annual: 0,
     features: ['tools', 'employees', 'f_free_3', 'f_free_4', 'f_free_5', 'f_free_6'] },
-  // Starter took in HR & Finance (2026-11-10): one €29 plan with the Finance
+  // Starter took in HR & Finance (2026-11-10): one plan (€39 since 2026-11-11) with the Finance
   // pages. HR & Finance subscribers keep their plan; it is no longer sold.
-  { id: 'starter', monthly: 29, annual: 278,
+  { id: 'starter', monthly: 39, annual: 374,
     features: ['tools', 'employees', 'f_hrf_1', 'f_starter_3', 'f_hrf_5', 'f_starter_5', 'team', 'f_starter_6'] },
   { id: 'pro', monthly: 79, annual: 758,
     features: ['tools', 'employees', 'f_pro_4', 'f_pro_3', 'f_pro_5', 'f_pro_6', 'team', 'f_pro_7'] },

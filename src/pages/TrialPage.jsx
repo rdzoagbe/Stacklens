@@ -82,6 +82,9 @@ export function TrialPage() {
   const wantsSignup = arrival.get('signup') === 'true';
   const wantsSignin = arrival.get('signin') === 'true';
   const [showAuth, setShowAuth] = useState(wantsSignup || wantsSignin);
+  // Pricing grid: monthly by default; Yearly shows the per-month figure of the
+  // yearly price and the yearly total under it, as Settings → Billing sells it.
+  const [billing, setBilling] = useState('monthly');
   useEffect(() => {
     if (arrival.get('demo') !== 'true') return;
     track('cta_click', { location: 'menu_demo' });
@@ -472,6 +475,15 @@ export function TrialPage() {
           <div className="text-center mb-14">
             <h2 className="text-3xl md:text-4xl font-bold text-white mb-3">{t('transparent_pricing')}</h2>
             <p className="text-slate-500">{t('public_pricing')}</p>
+            <div className="mt-6 inline-flex items-center gap-1 p-1 bg-slate-900 rounded-xl border border-slate-800" role="group" data-testid="lp-billing-toggle">
+              {['monthly', 'annual'].map((c) => (
+                <button key={c} type="button" onClick={() => setBilling(c)} aria-pressed={billing === c}
+                  className={"px-4 py-2 rounded-lg text-sm font-semibold transition-colors " + (billing === c ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white')}>
+                  {c === 'monthly' ? t('monthly') : t('annual')}
+                  {c === 'annual' && <span className="ml-1.5 text-[10px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-full">{t('save_20')}</span>}
+                </button>
+              ))}
+            </div>
           </div>
           {/* Company plans only. Cabinet (the accounting firms' plan) sat
               beside Pro at the same price and read as the same card twice;
@@ -482,8 +494,18 @@ export function TrialPage() {
               // Words, prices and every number come from src/lib/planCards.js,
               // shared with Settings → Billing, and each number from the limits
               // the app and server enforce. (See plan-claims.test.js.)
-              id: c.id, name: planText(language, 'plan_' + c.id), eur: c.monthly,
-              sub: c.monthly === 0 ? t('forever') : t('per_month'),
+              // Yearly: what the yearly price comes to per month (to the
+              // cent, never rounded down), with the yearly total under it.
+              // Enterprise is agreed by conversation, so it keeps its
+              // starting price either way.
+              ...(billing === 'annual' && c.annual > 0 && !c.contact
+                ? {
+                  eur: Math.round((c.annual / 12) * 100) / 100,
+                  sub: t('lp_per_month_yearly'),
+                  yearly: t('lp_billed_yearly').replace('{amount}', pricing.format(c.annual)).replace('{saved}', pricing.format(c.monthly * 12 - c.annual)),
+                }
+                : { eur: c.monthly, sub: c.monthly === 0 ? t('forever') : t('per_month'), yearly: null }),
+              id: c.id, name: planText(language, 'plan_' + c.id),
               features: planFeatures(c.id, language),
               // Enterprise is above 1,500 people: a published starting price,
               // then a conversation (annual contract by headcount).
@@ -519,6 +541,7 @@ export function TrialPage() {
                       visitor who does not think in euros. Explicitly
                       approximate, so it stays true whether Stripe converts at
                       checkout or the customer's bank converts afterwards. */}
+                  {p.yearly && <div className="text-xs text-emerald-400 mt-1" data-testid={'lp-yearly-' + p.id}>{p.yearly}</div>}
                   {pricing.approx(p.eur) && (
                     <div className="text-xs text-slate-500 mt-0.5">{pricing.approx(p.eur)}</div>
                   )}
