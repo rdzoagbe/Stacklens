@@ -70,7 +70,9 @@ export const LEGAL_ENTITY = {
   siret:     '10483872700014',
   phone:     '09 53 26 97 91',
   email:     'hello@stacklens.fr',
-  city:      'Paris, France',
+  // Where the SIRET is registered (INSEE): the legal notice must say where
+  // the business is established. City only, no street.
+  city:      'Bondy, Seine-Saint-Denis, France',
 };
 
 // If Stacklens ends the service, how long every customer has to export first.

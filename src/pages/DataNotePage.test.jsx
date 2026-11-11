@@ -60,6 +60,7 @@ describe('the data note', () => {
     expect(who).toContain(LEGAL_ENTITY.publisher);
     expect(who).toContain(LEGAL_ENTITY.siret);
     expect(who).toContain(LEGAL_ENTITY.email);
+    expect(who).toContain(LEGAL_ENTITY.city);
     expect(document.querySelector('[data-testid="dn-exit"]').textContent).toContain(`${EXIT_NOTICE_DAYS} jours`);
     expect(document.body.textContent).not.toMatch(/\{\w+\}/);
     expect(document.querySelectorAll('[data-testid="dn-check"] li')).toHaveLength(4);
@@ -144,6 +145,24 @@ describe('the Cabinet plan is offered to firms, not beside Pro', () => {
     } finally {
       globalThis.Element.prototype.scrollIntoView = had;
       vi.useRealTimers();
+    }
+  });
+});
+
+// ── Where Stacklens is established ─────────────────────────────────────────
+//
+// The legal notice must give the place the business is registered (the SIRET
+// is registered in Bondy). Every page that names the publisher's location
+// reads LEGAL_ENTITY.city; none types a town of its own.
+describe('the publisher\'s location is one value', () => {
+  it('is Bondy, and no legal page or the DPA types another town', () => {
+    expect(LEGAL_ENTITY.city).toBe('Bondy, Seine-Saint-Denis, France');
+    const legal = read('src/pages/LegalPages.jsx');
+    expect(legal).not.toMatch(/>\s*Paris, France/);
+    expect((legal.match(/LEGAL_ENTITY\.city/g) || []).length).toBeGreaterThanOrEqual(3);
+    for (const lang of ['en', 'fr']) {
+      expect(translations[lang].dpa_s1_body).toContain('{city}');
+      expect(translations[lang].dpa_s1_body).not.toMatch(/Paris/);
     }
   });
 });
