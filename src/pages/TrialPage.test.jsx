@@ -124,3 +124,35 @@ describe('Microsoft sign-in', () => {
     expect(goToDashboard).not.toHaveBeenCalled();
   });
 });
+
+// ── The pricing grid sells yearly too ──────────────────────────────────────
+//
+// Settings → Billing always had Monthly / Yearly; the public grid showed only
+// the monthly price. Yearly shows what the yearly price comes to per month,
+// to the cent, with the yearly total and the saving under it, from the same
+// plan cards checkout uses.
+describe('the pricing grid', () => {
+  const card = (id) => document.querySelector(`[data-testid="lp-yearly-${id}"]`);
+  const toggle = (label) => [...document.querySelectorAll('[data-testid="lp-billing-toggle"] button')]
+    .find((b) => b.textContent.startsWith(label));
+
+  it('opens on monthly, with Starter at €39', async () => {
+    await open('');
+    expect(toggle('Monthly').getAttribute('aria-pressed')).toBe('true');
+    expect(card('starter')).toBeNull();
+    expect(document.getElementById('pricing').textContent).toContain('€39');
+  });
+
+  it('yearly shows the per-month figure and the yearly total, and leaves Enterprise and Free alone', async () => {
+    await open('');
+    await act(async () => { toggle('Annual').click(); });
+    const grid = document.getElementById('pricing').textContent;
+    expect(grid).toContain('€31.17');
+    expect(card('starter').textContent).toBe('€374 once a year, €94 less than monthly');
+    expect(card('pro').textContent).toContain('€758');
+    expect(card('business').textContent).toContain('€1,430');
+    expect(card('enterprise')).toBeNull();
+    expect(card('free')).toBeNull();
+    expect(grid).toContain('€299');
+  });
+});

@@ -113,7 +113,7 @@ export function PlanGate({ requires, children, feature = null }) {
 // ── Module gate ────────────────────────────────────────────────────────────
 
 export const MODULE_PLANS = {
-  // Starter took in HR & Finance (2026-11-10): one €29 plan with Finance.
+  // Starter took in HR & Finance (2026-11-10): one plan with Finance (€39 since 2026-11-11).
   finance:   ['starter', 'hr_finance', 'pro', 'cabinet', 'business', 'enterprise', 'scale', 'unlimited', 'growth', 'professional'],
   // Every plan sells a number of employees (Free: 25, Starter: 250); without
   // this module the Employees, Access, Offboarding and Devices pages were

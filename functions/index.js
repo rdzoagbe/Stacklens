@@ -239,8 +239,10 @@ function getPlanFromSubscription(sub) {
   const priceId = sub.items?.data?.[0]?.price?.id || '';
   const PLAN_MAP = {
     // Live mode price IDs (stacklens.fr)
-    'price_1TMhOt1yFs6IziIVgJGBbzoG': 'starter',        // Starter monthly €29
-    'price_1TMhfK1yFs6IziIVOtbhpy23': 'starter',        // Starter annual €278
+    'price_1UaPKj1yFs6IziIV6MqK7gyb': 'starter',        // Starter monthly €39
+    'price_1UaPKj1yFs6IziIVyn7xtPyI': 'starter',        // Starter annual €374
+    'price_1TMhOt1yFs6IziIVgJGBbzoG': 'starter',        // Starter monthly €29 (until 2026-11-11; existing subscriptions)
+    'price_1TMhfK1yFs6IziIVOtbhpy23': 'starter',        // Starter annual €278 (until 2026-11-11; existing subscriptions)
     'price_1TWxAB1yFs6IziIVjxw3CG2V': 'hr_finance',     // HR & Finance monthly €49 (no longer sold; existing subscriptions)
     'price_1TWxFd1yFs6IziIVjPZnA8XT': 'hr_finance',     // HR & Finance annual €470
     'price_1TMhNW1yFs6IziIV5hwlssrt': 'pro',            // Pro monthly €79
@@ -306,7 +308,7 @@ exports.createCheckout = onRequest({ secrets: [STRIPE_SECRET_KEY], cors: true, t
     const { priceId } = req.body;
     if (!priceId) return res.status(400).json({ error: 'priceId required' });
     const ALLOWED_PRICE_IDS = new Set([
-      'price_1TMhOt1yFs6IziIVgJGBbzoG','price_1TMhfK1yFs6IziIVOtbhpy23',
+      'price_1UaPKj1yFs6IziIV6MqK7gyb','price_1UaPKj1yFs6IziIVyn7xtPyI',
       'price_1TMhNW1yFs6IziIV5hwlssrt','price_1TMhNW1yFs6IziIVMxiacXD7',
       'price_1UaFkM1yFs6IziIVL2Y9VxOO','price_1UaFkT1yFs6IziIVFdns9j5x',
       'price_1UZsKz1yFs6IziIVtDrqBwBb','price_1UZsMY1yFs6IziIVfyUjcOKa',

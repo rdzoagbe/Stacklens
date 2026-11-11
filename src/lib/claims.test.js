@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import vm from 'node:vm';
+import { PLAN_CARDS } from './planCards';
 
 /* eslint-disable security/detect-non-literal-fs-filename --
    every path read here is a literal file in this repository, not user input. */
@@ -454,12 +455,23 @@ describe('small claims', () => {
     expect(html).not.toMatch(/maps everything automatically/i);
     expect(html).not.toMatch(/SearchAction/);
     expect(html).not.toMatch(/\d+[–-]\d+% waste/);
-    for (const name of ['Free', 'Starter', 'HR & Finance', 'Pro', 'Enterprise']) {
-      expect(html, name).toMatch(new RegExp(`"name": "${name.replace('&', '&')}"`));
-    }
+    // The offers are the plan cards the site sells, at the cards' prices: they
+    // used to list HR & Finance after it stopped being sold, and Starter at
+    // €29 after its price changed.
+    const ld = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)]
+      .map((m) => JSON.parse(m[1])).find((d) => d.offers);
+    const offers = Object.fromEntries(ld.offers.map((o) => [o.name.toLowerCase(), Number(o.price)]));
+    expect(offers).toEqual(Object.fromEntries(PLAN_CARDS.map((c) => [c.id, c.monthly])));
     // No FAQ structured data: Google requires it to match the visible FAQ,
     // and the visible FAQ is translated copy the static file cannot carry.
     expect(html).not.toMatch(/FAQPage/);
+  });
+
+  it('the About page\'s starting price is the cheapest paid card', () => {
+    const cheapest = Math.min(...PLAN_CARDS.filter((c) => c.monthly > 0).map((c) => c.monthly));
+    const lines = [...translations.matchAll(/about_approach_p2:\s*"([^"]*)"/g)].map((m) => m[1]);
+    expect(lines).toHaveLength(5);
+    for (const line of lines) expect(line).toMatch(new RegExp(`(€${cheapest}\\b|\\b${cheapest} €)`));
   });
 
   it('Web3Forms is described as receiving name and email, which it does', () => {
