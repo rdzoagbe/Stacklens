@@ -7,21 +7,21 @@
 // paid for and mapped to the wrong plan.
 //
 // Starter is €39 a month since 2026-11-11 (it was €29). Every yearly price is
-// twelve whole months (€31, €63, €119 a month): Starter €372, Pro and Cabinet
-// €756, Business €1,428. Earlier prices stay in PLAN_MAP for subscriptions
-// billed on them.
+// ten months for twelve ("2 months free"): Starter €390, Pro and Cabinet €790,
+// Business €1,490. Earlier prices stay in PLAN_MAP for subscriptions billed
+// on them.
 //
-// Business (€149 a month, €1,428 a year) is the plan between Pro and
+// Business (€149 a month, €1,490 a year) is the plan between Pro and
 // Enterprise. Enterprise is no longer sold by card checkout (its card opens
 // the contact form); its prices stay here because existing Enterprise
 // subscriptions are billed on them.
 
 export const PRICE_IDS = {
-  starter:    { monthly: 'price_1UaPKj1yFs6IziIV6MqK7gyb', annual: 'price_1UaPbp1yFs6IziIVFHZTQmjB' },
+  starter:    { monthly: 'price_1UaPKj1yFs6IziIV6MqK7gyb', annual: 'price_1UaQ951yFs6IziIVA1tgIyMk' },
   hr_finance: { monthly: 'price_1TWxAB1yFs6IziIVjxw3CG2V', annual: 'price_1TWxFd1yFs6IziIVjPZnA8XT' },
-  pro:        { monthly: 'price_1TMhNW1yFs6IziIV5hwlssrt', annual: 'price_1UaPbp1yFs6IziIVi2wHaXtZ' },
-  cabinet:    { monthly: 'price_1UaFkM1yFs6IziIVL2Y9VxOO', annual: 'price_1UaPbp1yFs6IziIV39GU6WB0' },
-  business:   { monthly: 'price_1UZsKz1yFs6IziIVtDrqBwBb', annual: 'price_1UaPbp1yFs6IziIVvaTB8L6g' },
+  pro:        { monthly: 'price_1TMhNW1yFs6IziIV5hwlssrt', annual: 'price_1UaQ951yFs6IziIVuBTWbOIR' },
+  cabinet:    { monthly: 'price_1UaFkM1yFs6IziIVL2Y9VxOO', annual: 'price_1UaQ951yFs6IziIVv8OziTFl' },
+  business:   { monthly: 'price_1UZsKz1yFs6IziIVtDrqBwBb', annual: 'price_1UaQ951yFs6IziIVvzfXxMQu' },
   enterprise: { monthly: 'price_1TMhNk1yFs6IziIVPkv7RiLc', annual: 'price_1TMhNk1yFs6IziIViMLzewdQ' },
 };
 
