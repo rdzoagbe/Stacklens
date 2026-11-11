@@ -41,6 +41,24 @@ const F = {
     ...months.flatMap(m => [...SUBS.map(([n, a]) => `15-${pad(m)}-2026;15-${pad(m)}-2026;DD ${n};-${fr(a)};1000,00`), `28-${pad(m)}-2026;28-${pad(m)}-2026;TRF CLIENTE LDA;5000,00;6000,00`])],
   'PT CGD': () => ['Data mov.;Data valor;Descrição;Débito;Crédito;Saldo contabilístico;Saldo disponível;Categoria',
     ...months.flatMap(m => [...SUBS.map(([n, a]) => `15-${pad(m)}-2026;15-${pad(m)}-2026;COMPRA ${n};${fr(a)};;1000,00;1000,00;Software`), `28-${pad(m)}-2026;28-${pad(m)}-2026;TRF CLIENTE;;5000,00;6000,00;6000,00;Receitas`])],
+  // Netherlands. ING writes dates as 20260115 and the amount unsigned, with
+  // "Af"/"Bij" saying which way it went; the classic export uses commas, the
+  // current one semicolons. Rabobank signs its amounts (+/-) and dates ISO.
+  // ABN AMRO puts the counterparty inside a SEPA string (/NAME/…/).
+  'NL ING': () => ['"Datum","Naam / Omschrijving","Rekening","Tegenrekening","Code","Af Bij","Bedrag (EUR)","Mutatiesoort","Mededelingen"',
+    ...months.flatMap(m => [...SUBS.map(([n, a]) => `"2026${pad(m)}15","${n}","NL12INGB0001234567","IE00BANK0000","IC","Af","${fr(a)}","Incasso","Naam: ${n} Omschrijving: abonnement"`), `"2026${pad(m)}28","KLANT BV","NL12INGB0001234567","NL99RABO0000","GT","Bij","5000,00","Overschrijving","Factuur"`])],
+  'NL ING (semicolon)': () => ['"Datum";"Naam / Omschrijving";"Rekening";"Tegenrekening";"Code";"Af Bij";"Bedrag (EUR)";"Mutatiesoort";"Mededelingen";"Saldo na mutatie";"Tag"',
+    ...months.flatMap(m => [...SUBS.map(([n, a]) => `"2026${pad(m)}15";"${n}";"NL12INGB0001234567";"IE00BANK0000";"IC";"Af";"${fr(a)}";"Incasso";"Naam: ${n}";"1000,00";""`), `"2026${pad(m)}28";"KLANT BV";"NL12INGB0001234567";"NL99RABO0000";"GT";"Bij";"5000,00";"Overschrijving";"Factuur";"6000,00";""`])],
+  'NL Rabobank': () => ['"IBAN/BBAN","Munt","BIC","Volgnr","Datum","Rentedatum","Bedrag","Saldo na trn","Tegenrekening IBAN/BBAN","Naam tegenpartij","Naam uiteindelijke partij","Naam initiërende partij","BIC tegenpartij","Code","Batch ID","Transactiereferentie","Machtigingskenmerk","Incassant ID","Betalingskenmerk","Omschrijving-1","Omschrijving-2","Omschrijving-3","Reden retour","Oorspr bedrag","Oorspr munt","Koers"',
+    ...months.flatMap(m => [...SUBS.map(([n, a], i) => `"NL12RABO0123456789","EUR","RABONL2U","00000${m}${i}","2026-${pad(m)}-15","2026-${pad(m)}-15","-${fr(a)}","+1000,00","IE00BANK0000","${n}","","","BIC","id","","","MNDT","IE00ZZZ","","Abonnement","","","","","",""`), `"NL12RABO0123456789","EUR","RABONL2U","00000${m}9","2026-${pad(m)}-28","2026-${pad(m)}-28","+5000,00","+6000,00","NL99INGB0000","KLANT BV","","","BIC","cb","","","","","","Factuur","","","","","",""`])],
+  'NL ABN AMRO': () => ['Rekeningnummer\tMuntsoort\tTransactiedatum\tRentedatum\tBeginsaldo\tEindsaldo\tTransactiebedrag\tOmschrijving',
+    ...months.flatMap(m => [...SUBS.map(([n, a]) => `123456789\tEUR\t2026${pad(m)}15\t2026${pad(m)}15\t1000,00\t900,00\t-${fr(a)}\t/TRTP/SEPA Incasso algemeen doorlopend/CSID/IE00ZZZ000/NAME/${n}/MARF/M123/REMI/Abonnement/IBAN/IE00BANK0000/BIC/BANKIE2D/EREF/E${m}`), `123456789\tEUR\t2026${pad(m)}28\t2026${pad(m)}28\t900,00\t5900,00\t5000,00\t/TRTP/SEPA OVERBOEKING/IBAN/NL99INGB0000/BIC/INGBNL2A/NAME/KLANT BV/REMI/Factuur/EREF/NOTPROVIDED`])],
+  // Canada. RBC writes month-first dates and a signed "CAD$" column. TD's
+  // export has no header row: date, description, withdrawal, deposit, balance.
+  'CA RBC': () => ['"Account Type","Account Number","Transaction Date","Cheque Number","Description 1","Description 2","CAD$","USD$"',
+    ...months.flatMap(m => [...SUBS.map(([n, a]) => `Chequing,01234-5678901,${m}/15/2026,,"${n}","",-${a.toFixed(2)},`), `Chequing,01234-5678901,${m}/28/2026,,"DEPOSIT CLIENT INC","",5000.00,`])],
+  'CA TD': () => [
+    ...months.flatMap(m => [...SUBS.map(([n, a]) => `${pad(m)}/15/2026,${n},${a.toFixed(2)},,1000.00`), `${pad(m)}/28/2026,DEPOSIT CLIENT INC,,5000.00,6000.00`])],
 };
 
 const EXPECTED = ['Adobe', 'Microsoft 365', 'Notion', 'Slack', 'Zoom'];
@@ -48,6 +66,13 @@ const CURRENCY = {
   'DE Sparkasse': '€', 'DE DKB': '€', 'UK Barclays': '£', 'UK Monzo': '£', 'UK Starling': '£',
   'CH PostFinance': 'CHF ', 'CH UBS': 'CHF ', 'BE Belfius': '€', 'BE KBC': '€', 'LU Spuerkeess': '€',
   'PT Millennium': '€', 'PT CGD': '€',
+  'NL ING': '€', 'NL ING (semicolon)': '€', 'NL Rabobank': '€', 'NL ABN AMRO': '€',
+  'CA RBC': '$', 'CA TD': '$',
+};
+// Dates written 20260115 or 2026-01-15 carry no day/month question at all.
+const DATE_ORDER = {
+  'NL ING': { evidence: 'none' }, 'NL ING (semicolon)': { evidence: 'none' }, 'NL Rabobank': { evidence: 'none' }, 'NL ABN AMRO': { evidence: 'none' },
+  'CA RBC': { order: 'mdy', evidence: 'proven' }, 'CA TD': { order: 'mdy', evidence: 'proven' },
 };
 
 describe('bank exports from outside France', () => {
@@ -58,7 +83,7 @@ describe('bank exports from outside France', () => {
       expect(p.transactions).toHaveLength(60);
       expect(p.credits).toBe(12);
       expect(p.skipped).toBe(0);
-      expect(p.dateOrder).toMatchObject({ order: 'dmy', evidence: 'proven' });
+      expect(p.dateOrder).toMatchObject(DATE_ORDER[name] || { order: 'dmy', evidence: 'proven' });
       const vendors = auditSaas(p.transactions, { now: new Date('2026-12-20') }).subscriptions.map((s) => s.vendor).sort();
       expect(vendors).toEqual(EXPECTED);
       expect(detectSymbol(text, p.dateOrder)).toBe(CURRENCY[name]);

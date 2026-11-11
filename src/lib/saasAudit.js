@@ -86,7 +86,8 @@ const COL = {
   // a Sparkasse export has "Buchungstext" (FOLGELASTSCHRIFT) before the payee.
   labelStrong: /libell|label|description|descri[cç][aã]o|descripci[oó]n|concepto|wording|narrative|payee|merchant|b[ée]n[ée]ficiaire|beneficiary|beg[uü]e?nstigt|zahlungsempf|empf[aä]nger|avisierungstext|omschrijving|naam tegenpartij/i,
   label:  /libell|label|description|wording|d[ée]tail|narrative|memo|payee|b[ée]n[ée]ficiaire|beneficiary|remittance|nom|name|merchant|counterparty|tiers|motif|communication|op[ée]ration|buchungstext|verwendungszweck|text/i,
-  amount: /^(montant|amount|value|somme|sum|net|betrag|bedrag|montante|importe)$/i,
+  // RBC (Canada) names its signed amount columns after the currency: "CAD$", "USD$".
+  amount: /^(montant|amount|value|somme|sum|net|betrag|bedrag|montante|importe|cad\$|usd\$)$/i,
   amountLoose: /montant|amount|value|somme|betrag|bedrag|montante|importe/i,
   debit:  /d[ée]bit|sortie|withdraw|out|paid out|charge|lastschrift in|belastung|debet|soll/i,
   credit: /cr[ée]dit|entr[ée]e|deposit|in$|paid in|gutschrift|haben/i,
@@ -115,9 +116,13 @@ export function detectColumns(headers) {
     return { date, label, amount: -1, debit: belastung, credit: gutschrift };
   }
 
+  // ING (Netherlands) writes every amount unsigned and says which way it went
+  // in an "Af Bij" column: Af is money out, Bij money in.
+  const direction = h.findIndex((x) => /^af\s*\/?\s*bij$/i.test(x));
+
   // Prefer a single signed amount column; otherwise separate debit/credit.
-  let amount = find(COL.amount, [date]);
-  if (amount < 0) amount = find(COL.amountLoose, [date]);
+  let amount = find(COL.amount, [date, direction]);
+  if (amount < 0) amount = find(COL.amountLoose, [date, direction]);
   let debit = -1, credit = -1;
   if (amount < 0 || /d[ée]bit/i.test(h[amount])) {
     debit  = find(COL.debit, [date]);
@@ -125,7 +130,7 @@ export function detectColumns(headers) {
     if (debit >= 0) amount = -1;
   }
 
-  const taken = [date, amount, debit, credit].filter(i => i >= 0);
+  const taken = [date, amount, debit, credit, direction].filter(i => i >= 0);
   let label = find(COL.labelStrong, taken);
   if (label < 0) label = find(COL.label, taken);
   if (label < 0) {
@@ -135,7 +140,26 @@ export function detectColumns(headers) {
   }
 
   if (date < 0 || (amount < 0 && debit < 0)) return null;
-  return { date, label, amount, debit, credit };
+  return { date, label, amount, debit, credit, direction: amount >= 0 ? direction : -1 };
+}
+
+/**
+ * Some banks export no header row at all. TD Canada Trust writes
+ * date, description, withdrawal, deposit, balance. That one shape is read when
+ * every sampled line has it: a date first, text second, then two money
+ * columns of which exactly one is filled. Anything else stays unreadable
+ * rather than guessed.
+ */
+function detectHeaderless(lines, delimiter) {
+  const sample = lines.slice(0, 20).map((l) => splitLine(l, delimiter));
+  if (sample.length < 2) return null;
+  const n = sample[0].length;
+  const money = (v) => v === '' || (/^[-+(]?[\d.,\s]+\)?$/.test(v) && Number.isFinite(parseAmount(v)));
+  const ok = sample.every((f) => f.length === n && n >= 4
+    && /^(\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4}|\d{4}[-/.]\d{1,2}[-/.]\d{1,2})$/.test(f[0])
+    && /[A-Za-z]/.test(f[1])
+    && money(f[2]) && money(f[3]) && ((f[2] === '') !== (f[3] === '')));
+  return ok ? { date: 0, label: 1, amount: -1, debit: 2, credit: 3, direction: -1 } : null;
 }
 
 // ── 4. Values ───────────────────────────────────────────────────────────────
@@ -241,6 +265,10 @@ export function parseDate(raw, order = DMY) {
   if ((m = /^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/.exec(s))) {
     return mk(+m[1], +m[2], +m[3]);
   }
+  // ING and ABN AMRO (Netherlands) write 20260115.
+  if ((m = /^(\d{4})(\d{2})(\d{2})$/.exec(s))) {
+    return mk(+m[1], +m[2], +m[3]);
+  }
   if ((m = /^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})/.exec(s))) {
     let y = +m[3];
     if (y < 100) y += 2000;
@@ -282,6 +310,10 @@ export function parseBankExport(text, forceOrder) {
     const cols = detectColumns(splitLine(lines[i], delimiter));
     if (cols) { headerAt = i; columns = cols; break; }
   }
+  if (!columns) {
+    columns = detectHeaderless(lines, delimiter);
+    if (columns) headerAt = -1;
+  }
   if (!columns) return { transactions: [], skipped: lines.length, columns: null, delimiter, dateOrder: noDates };
 
   // Read the date convention off the whole column before parsing any row.
@@ -312,7 +344,12 @@ export function parseBankExport(text, forceOrder) {
     const date = parseDate(f[columns.date], dateOrder.order);
     let amount;
     let isCredit;
-    if (columns.amount >= 0) {
+    if (columns.amount >= 0 && columns.direction >= 0) {
+      const a = Math.abs(parseAmount(f[columns.amount]));
+      const out = /^(af|d|debit|dr)$/i.test(String(f[columns.direction] || '').trim());
+      amount = out ? a : NaN;
+      isCredit = !out && Number.isFinite(a) && a > 0;
+    } else if (columns.amount >= 0) {
       const a = parseAmount(f[columns.amount]);
       amount = a < 0 ? -a : NaN;          // only money out
       isCredit = a > 0;
@@ -322,7 +359,11 @@ export function parseBankExport(text, forceOrder) {
       const c = columns.credit >= 0 ? parseAmount(f[columns.credit]) : NaN;
       isCredit = !Number.isFinite(amount) && Number.isFinite(c) && c > 0;
     }
-    const label = String(f[columns.label] ?? '').trim();
+    // ABN AMRO puts the counterparty inside a SEPA string:
+    // "/TRTP/SEPA Incasso…/NAME/SLACK TECHNOLOGIES/MARF/…". Read that name.
+    const rawLabel = String(f[columns.label] ?? '').trim();
+    const sepaName = /\/NAME\/([^/]+)\//.exec(rawLabel);
+    const label = sepaName ? sepaName[1].trim() : rawLabel;
     if (date && label && isCredit) { credits++; continue; }
     if (!date || !Number.isFinite(amount) || amount <= 0 || !label) {
       skipped++;
