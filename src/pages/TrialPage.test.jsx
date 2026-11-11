@@ -147,10 +147,11 @@ describe('the pricing grid', () => {
     await open('');
     await act(async () => { toggle('Annual').click(); });
     const grid = document.getElementById('pricing').textContent;
-    expect(grid).toContain('€31.17');
-    expect(card('starter').textContent).toBe('€374 once a year, €94 less than monthly');
-    expect(card('pro').textContent).toContain('€758');
-    expect(card('business').textContent).toContain('€1,430');
+    expect(grid).toContain('€31');
+    expect(grid).not.toMatch(/€\d+\.\d/);
+    expect(card('starter').textContent).toBe('€372 once a year, €96 less than monthly');
+    expect(card('pro').textContent).toContain('€756');
+    expect(card('business').textContent).toContain('€1,428');
     expect(card('enterprise')).toBeNull();
     expect(card('free')).toBeNull();
     expect(grid).toContain('€299');
