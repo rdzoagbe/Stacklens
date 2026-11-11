@@ -140,7 +140,14 @@ export function detectColumns(headers) {
   }
 
   if (date < 0 || (amount < 0 && debit < 0)) return null;
-  return { date, label, amount, debit, credit, direction: amount >= 0 ? direction : -1 };
+  // RBC has a "CAD$" and a "USD$" column and fills the one of the account's
+  // currency: a USD account leaves CAD$ empty. Each row reads whichever is
+  // filled (`altAmount`).
+  let altAmount = -1;
+  if (amount >= 0 && /^(cad|usd)\$$/i.test(h[amount])) {
+    altAmount = h.findIndex((x, i) => i !== amount && /^(cad|usd)\$$/i.test(x));
+  }
+  return { date, label, amount, debit, credit, direction: amount >= 0 ? direction : -1, altAmount };
 }
 
 /**
@@ -350,7 +357,9 @@ export function parseBankExport(text, forceOrder) {
       amount = out ? a : NaN;
       isCredit = !out && Number.isFinite(a) && a > 0;
     } else if (columns.amount >= 0) {
-      const a = parseAmount(f[columns.amount]);
+      const cell = String(f[columns.amount] ?? '').trim() === '' && columns.altAmount >= 0
+        ? f[columns.altAmount] : f[columns.amount];
+      const a = parseAmount(cell);
       amount = a < 0 ? -a : NaN;          // only money out
       isCredit = a > 0;
     } else {

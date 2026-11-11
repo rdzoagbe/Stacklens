@@ -57,6 +57,8 @@ const F = {
   // export has no header row: date, description, withdrawal, deposit, balance.
   'CA RBC': () => ['"Account Type","Account Number","Transaction Date","Cheque Number","Description 1","Description 2","CAD$","USD$"',
     ...months.flatMap(m => [...SUBS.map(([n, a]) => `Chequing,01234-5678901,${m}/15/2026,,"${n}","",-${a.toFixed(2)},`), `Chequing,01234-5678901,${m}/28/2026,,"DEPOSIT CLIENT INC","",5000.00,`])],
+  'CA RBC (USD account)': () => ['"Account Type","Account Number","Transaction Date","Cheque Number","Description 1","Description 2","CAD$","USD$"',
+    ...months.flatMap(m => [...SUBS.map(([n, a]) => `Chequing,01234-5678902,${m}/15/2026,,"${n}","",,-${a.toFixed(2)}`), `Chequing,01234-5678902,${m}/28/2026,,"DEPOSIT CLIENT INC","",,5000.00`])],
   'CA TD': () => [
     ...months.flatMap(m => [...SUBS.map(([n, a]) => `${pad(m)}/15/2026,${n},${a.toFixed(2)},,1000.00`), `${pad(m)}/28/2026,DEPOSIT CLIENT INC,,5000.00,6000.00`])],
 };
@@ -67,12 +69,12 @@ const CURRENCY = {
   'CH PostFinance': 'CHF ', 'CH UBS': 'CHF ', 'BE Belfius': '€', 'BE KBC': '€', 'LU Spuerkeess': '€',
   'PT Millennium': '€', 'PT CGD': '€',
   'NL ING': '€', 'NL ING (semicolon)': '€', 'NL Rabobank': '€', 'NL ABN AMRO': '€',
-  'CA RBC': '$', 'CA TD': '$',
+  'CA RBC': '$', 'CA RBC (USD account)': '$', 'CA TD': '$',
 };
 // Dates written 20260115 or 2026-01-15 carry no day/month question at all.
 const DATE_ORDER = {
   'NL ING': { evidence: 'none' }, 'NL ING (semicolon)': { evidence: 'none' }, 'NL Rabobank': { evidence: 'none' }, 'NL ABN AMRO': { evidence: 'none' },
-  'CA RBC': { order: 'mdy', evidence: 'proven' }, 'CA TD': { order: 'mdy', evidence: 'proven' },
+  'CA RBC': { order: 'mdy', evidence: 'proven' }, 'CA RBC (USD account)': { order: 'mdy', evidence: 'proven' }, 'CA TD': { order: 'mdy', evidence: 'proven' },
 };
 
 describe('bank exports from outside France', () => {
