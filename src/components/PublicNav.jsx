@@ -17,8 +17,8 @@ export const PUBLIC_NAV_CLASS = 'sticky top-0 z-50 border-b border-slate-800/60 
 export function PublicNav({ t }) {
   return (
     <nav className={PUBLIC_NAV_CLASS}>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
-        <Link to="/" className="flex items-center gap-3" aria-label="Stacklens">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-6">
+        <Link to="/" className="flex items-center gap-3 shrink-0" aria-label="Stacklens">
           <RDLogo size="md" />
           <span className="text-lg font-bold text-white">Stacklens</span>
         </Link>

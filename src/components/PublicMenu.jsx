@@ -59,7 +59,7 @@ export function PublicMenu({ t, landing = false, onSignIn = null, onStart = null
 
   return (
     <>
-      <div className="hidden xl:flex items-center gap-5" data-testid="public-menu">
+      <div className="hidden xl:flex items-center gap-4 2xl:gap-5" data-testid="public-menu">
         {pageLinks(false)}
         <LangSelectorCompact />
         {signIn}
