@@ -118,3 +118,18 @@ describe('the accountants page', () => {
     expect(read('src/pages/AccountantsPage.jsx')).toMatch(/ea_get_3[\s\S]*ea_get_4/);
   });
 });
+
+describe('the Cabinet plan is offered to firms, not beside Pro', () => {
+  it('the landing grid leaves Cabinet out and links to the accountants page instead', () => {
+    const landing = read('src/pages/TrialPage.jsx');
+    expect(landing).toMatch(/PLAN_CARDS\.filter\(\(c\) => c\.id !== 'cabinet'\)/);
+    expect(landing).toContain('/experts-comptables#cabinet');
+  });
+  it('the accountants page shows the Cabinet plan with its price and lines', async () => {
+    await render(<AccountantsPage />, 'fr');
+    const box = document.querySelector('[data-testid="acct-cabinet"]');
+    expect(box.id).toBe('cabinet');
+    expect(box.textContent).toContain('€79');
+    expect(box.textContent).not.toMatch(/\{\w+\}/);
+  });
+});
