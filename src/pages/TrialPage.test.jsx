@@ -143,15 +143,17 @@ describe('the pricing grid', () => {
     expect(document.getElementById('pricing').textContent).toContain('€39');
   });
 
-  it('yearly shows the per-month figure and the yearly total, and leaves Enterprise and Free alone', async () => {
+  it('yearly shows the price for the year and the two months saved, and leaves Enterprise and Free alone', async () => {
     await open('');
     await act(async () => { toggle('Annual').click(); });
     const grid = document.getElementById('pricing').textContent;
-    expect(grid).toContain('€31');
+    expect(grid).toContain('€390');
     expect(grid).not.toMatch(/€\d+\.\d/);
-    expect(card('starter').textContent).toBe('€372 once a year, €96 less than monthly');
-    expect(card('pro').textContent).toContain('€756');
-    expect(card('business').textContent).toContain('€1,428');
+    expect(card('starter').textContent).toBe('2 months free: €78 less than paying monthly');
+    expect(card('pro').textContent).toContain('€158');
+    expect(grid).toContain('€790');
+    expect(card('business').textContent).toContain('€298');
+    expect(grid).toContain('€1,490');
     expect(card('enterprise')).toBeNull();
     expect(card('free')).toBeNull();
     expect(grid).toContain('€299');
