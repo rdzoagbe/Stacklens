@@ -15,6 +15,9 @@ import { RDLogo, ScrollToTop } from '../components/ui';
 import { _openCookieBanner } from '../components/AppShell';
 import { usePlanPricing } from '../contexts/CurrencyContext';
 import { PLAN_CARDS, planFeatures, planText } from '../lib/planCards';
+import { CLIENT_WORKSPACE_LIMIT } from '../lib/plan';
+
+const CABINET = PLAN_CARDS.find((c) => c.id === 'cabinet');
 import { EARLY_ACCESS } from '../lib/earlyAccess';
 import { Testimonials } from '../components/Testimonials';
 import { PublicMenu } from '../components/PublicMenu';
@@ -470,8 +473,12 @@ export function TrialPage() {
             <h2 className="text-3xl md:text-4xl font-bold text-white mb-3">{t('transparent_pricing')}</h2>
             <p className="text-slate-500">{t('public_pricing')}</p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-            {PLAN_CARDS.map((c) => ({
+          {/* Company plans only. Cabinet (the accounting firms' plan) sat
+              beside Pro at the same price and read as the same card twice;
+              it is offered on the accountants page and in Settings → Billing,
+              and the line under this grid points there. */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+            {PLAN_CARDS.filter((c) => c.id !== 'cabinet').map((c) => ({
               // Words, prices and every number come from src/lib/planCards.js,
               // shared with Settings → Billing, and each number from the limits
               // the app and server enforce. (See plan-claims.test.js.)
@@ -482,7 +489,7 @@ export function TrialPage() {
               // then a conversation (annual contract by headcount).
               contact: !!c.contact,
               cta: c.contact ? planText(language, 'plan_enterprise_cta') : c.id === 'free' ? t('start_free') : t('start_trial'),
-              highlight: c.id === 'pro', badge: c.id === 'cabinet' ? t('lp_badge_new') : null,
+              highlight: c.id === 'pro', badge: null,
             })).map((p, i) => (
               <div
                 key={i}
@@ -543,7 +550,13 @@ export function TrialPage() {
               </div>
             ))}
           </div>
-          <p className="text-center text-xs text-slate-500 mt-8">
+          <p className="text-center mt-8" data-testid="lp-cabinet-link">
+            <Link to="/experts-comptables#cabinet" onClick={() => track('cta_click', { location: 'pricing_cabinet_link' })}
+              className="text-sm font-semibold text-teal-300 hover:text-teal-200 underline">
+              {t('lp_cabinet_link').replace('{price}', pricing.format(CABINET.monthly)).replace('{n}', CLIENT_WORKSPACE_LIMIT)}
+            </Link>
+          </p>
+          <p className="text-center text-xs text-slate-500 mt-4">
             {t('lp_pricing_fine_print')}
           </p>
           {/* Beside the EU-storage line, where it is read: what runs outside

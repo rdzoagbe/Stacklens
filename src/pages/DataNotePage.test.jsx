@@ -28,13 +28,13 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 let root;
 const read = (p) => readFileSync(resolve(process.cwd(), p), 'utf8');
 
-async function render(el, lang = 'en') {
+async function render(el, lang = 'en', path = '/') {
   localStorage.clear();
   localStorage.setItem('language', lang);
   const host = document.createElement('div');
   document.body.appendChild(host);
   root = createRoot(host);
-  await act(async () => { root.render(<LanguageProvider><MemoryRouter>{el}</MemoryRouter></LanguageProvider>); });
+  await act(async () => { root.render(<LanguageProvider><MemoryRouter initialEntries={[path]}>{el}</MemoryRouter></LanguageProvider>); });
 }
 afterEach(async () => { if (root) await act(async () => root.unmount()); root = null; document.body.innerHTML = ''; });
 
@@ -116,5 +116,34 @@ describe('the accountants page', () => {
       expect(JSON.stringify(translations[lang]), lang).not.toContain('{calls}');
     }
     expect(read('src/pages/AccountantsPage.jsx')).toMatch(/ea_get_3[\s\S]*ea_get_4/);
+  });
+});
+
+describe('the Cabinet plan is offered to firms, not beside Pro', () => {
+  it('the landing grid leaves Cabinet out and links to the accountants page instead', () => {
+    const landing = read('src/pages/TrialPage.jsx');
+    expect(landing).toMatch(/PLAN_CARDS\.filter\(\(c\) => c\.id !== 'cabinet'\)/);
+    expect(landing).toContain('/experts-comptables#cabinet');
+  });
+  it('the accountants page shows the Cabinet plan with its price and lines', async () => {
+    await render(<AccountantsPage />, 'fr');
+    const box = document.querySelector('[data-testid="acct-cabinet"]');
+    expect(box.id).toBe('cabinet');
+    expect(box.textContent).toContain('€79');
+    expect(box.textContent).not.toMatch(/\{\w+\}/);
+  });
+  it('arriving from the pricing grid scrolls to the Cabinet plan', async () => {
+    vi.useFakeTimers();
+    const seen = [];
+    const had = globalThis.Element.prototype.scrollIntoView;
+    globalThis.Element.prototype.scrollIntoView = function () { seen.push(this.id); };
+    try {
+      await render(<AccountantsPage />, 'fr', '/experts-comptables#cabinet');
+      await act(async () => { vi.advanceTimersByTime(100); });
+      expect(seen).toEqual(['cabinet']);
+    } finally {
+      globalThis.Element.prototype.scrollIntoView = had;
+      vi.useRealTimers();
+    }
   });
 });

@@ -8,7 +8,8 @@ import { track } from '../lib/analytics';
 import { submitContactForm, mailtoFallback } from '../lib/contact';
 import { EARLY_ACCESS } from '../lib/earlyAccess';
 import { Testimonials } from '../components/Testimonials';
-import { CLIENT_WORKSPACE_LIMIT } from '../lib/plan';
+import { CLIENT_WORKSPACE_LIMIT, TRIAL_DAYS } from '../lib/plan';
+import { PLAN_CARDS, planFeatures, planText } from '../lib/planCards';
 import { LEGAL_ENTITY } from '../lib/constants';
 
 // ── /experts-comptables ─────────────────────────────────────────────────────
@@ -63,6 +64,31 @@ const ea = (s) => String(s || '')
 // Module scope: a component created inside another's render remounts every render.
 function Item({ children }) {
   return <li className="flex gap-2"><Check className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" /><span>{children}</span></li>;
+}
+
+// ── The Cabinet plan ──────────────────────────────────────────────────────
+//
+// The accounting firms' plan lives here, not in the landing page's grid,
+// where it sat beside Pro at the same price and read as the same card twice.
+// Price and lines come from planCards.js like every other card.
+function CabinetPlan({ t, language }) {
+  const card = PLAN_CARDS.find((c) => c.id === 'cabinet');
+  return (
+    <section id="cabinet" className="mb-20 scroll-mt-24 rounded-2xl border border-teal-500/30 bg-teal-500/5 p-6 md:p-8" data-testid="acct-cabinet">
+      <div className="flex flex-wrap items-baseline justify-between gap-3 mb-4">
+        <h2 className="text-2xl md:text-3xl font-bold">{planText(language, 'plan_cabinet')}</h2>
+        <div className="text-2xl font-black">€{card.monthly} <span className="text-sm font-normal text-slate-400">{t('acct_cab_per_month')}</span></div>
+      </div>
+      <p className="text-slate-400 mb-4">{planText(language, 'plan_cabinet_tag')}</p>
+      <ul className="grid sm:grid-cols-2 gap-2 mb-6">
+        {planFeatures('cabinet', language).map((line) => <Item key={line}>{line}</Item>)}
+      </ul>
+      <Link to="/?signup=true" onClick={() => track('cta_click', { location: 'accountants_cabinet', target: 'signup' })}
+        className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 font-semibold transition-colors">
+        {t('acct_cab_cta').replace('{days}', TRIAL_DAYS)} <ArrowRight className="w-4 h-4" />
+      </Link>
+    </section>
+  );
 }
 
 // ── Make it billable ────────────────────────────────────────────────────────
@@ -238,12 +264,14 @@ function EarlyAccess({ t }) {
 export function AccountantsPage() {
   const { language } = useLang();
   const t = useTranslation(language);
-  // Links from the homepage and the free audit land on the offer itself. The
+  // Links from the homepage and the free audit land on the offer itself, and
+  // the pricing grid's Cabinet line on the Cabinet plan. The
   // router scrolls to the top on navigation, so the hash is honoured here.
   const { hash } = useLocation();
   useEffect(() => {
-    if (!['#acces-anticipe'].includes(hash)) return;
-    const id = setTimeout(() => document.getElementById('acces-anticipe')?.scrollIntoView({ behavior: 'smooth' }), 50);
+    if (!['#acces-anticipe', '#cabinet'].includes(hash)) return;
+    const target = hash.slice(1);
+    const id = setTimeout(() => document.getElementById(target)?.scrollIntoView({ behavior: 'smooth' }), 50);
     return () => clearTimeout(id);
   }, [hash]);
 
@@ -329,6 +357,8 @@ export function AccountantsPage() {
         </section>
 
         <Billable t={t} />
+
+        <CabinetPlan t={t} language={language} />
 
         {/* FAQ */}
         <section className="mb-20">
