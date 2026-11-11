@@ -502,7 +502,7 @@ export function TrialPage() {
                 ? {
                   eur: c.annual,
                   sub: t('lp_per_year'),
-                  yearly: t('lp_billed_yearly').replace('{saved}', pricing.format(c.monthly * 12 - c.annual)),
+                  yearly: t('lp_billed_yearly').replace('{full}', pricing.format(c.monthly * 12)).replace('{monthly}', pricing.format(c.monthly)),
                 }
                 : { eur: c.monthly, sub: c.monthly === 0 ? t('forever') : t('per_month'), yearly: null }),
               id: c.id, name: planText(language, 'plan_' + c.id),

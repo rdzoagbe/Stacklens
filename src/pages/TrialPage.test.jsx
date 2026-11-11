@@ -149,10 +149,10 @@ describe('the pricing grid', () => {
     const grid = document.getElementById('pricing').textContent;
     expect(grid).toContain('€390');
     expect(grid).not.toMatch(/€\d+\.\d/);
-    expect(card('starter').textContent).toBe('2 months free: €78 less than paying monthly');
-    expect(card('pro').textContent).toContain('€158');
+    expect(card('starter').textContent).toBe('Instead of €468 (12 × €39): 2 months free');
+    expect(card('pro').textContent).toContain('€948');
     expect(grid).toContain('€790');
-    expect(card('business').textContent).toContain('€298');
+    expect(card('business').textContent).toContain('€1,788');
     expect(grid).toContain('€1,490');
     expect(card('enterprise')).toBeNull();
     expect(card('free')).toBeNull();
