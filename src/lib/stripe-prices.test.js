@@ -56,10 +56,9 @@ describe('Stripe prices', () => {
     expect(index).toMatch(/pro_since: Number\(planSource\.pro_since\) \|\| null/);
   });
 
-  it('every yearly price is twelve whole months, so the grid never shows cents', () => {
+  it('every yearly price is ten months for twelve ("2 months free")', () => {
     for (const card of PLAN_CARDS.filter((c) => CHECKOUT_PLANS.includes(c.id))) {
-      expect(card.annual % 12, `${card.id} annual ${card.annual}`).toBe(0);
-      expect(card.annual, card.id).toBeLessThan(card.monthly * 12);
+      expect(card.annual, `${card.id} annual`).toBe(card.monthly * 10);
     }
   });
 

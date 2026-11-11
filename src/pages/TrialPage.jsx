@@ -480,7 +480,7 @@ export function TrialPage() {
                 <button key={c} type="button" onClick={() => setBilling(c)} aria-pressed={billing === c}
                   className={"px-4 py-2 rounded-lg text-sm font-semibold transition-colors " + (billing === c ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white')}>
                   {c === 'monthly' ? t('monthly') : t('annual')}
-                  {c === 'annual' && <span className="ml-1.5 text-[10px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-full">{t('save_20')}</span>}
+                  {c === 'annual' && <span className="ml-1.5 text-[10px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-full">{t('lp_two_months_free')}</span>}
                 </button>
               ))}
             </div>
@@ -494,16 +494,15 @@ export function TrialPage() {
               // Words, prices and every number come from src/lib/planCards.js,
               // shared with Settings → Billing, and each number from the limits
               // the app and server enforce. (See plan-claims.test.js.)
-              // Yearly: what the yearly price comes to per month (each yearly
-              // price is twelve whole months, stripe-prices.test.js), with the
-              // yearly total under it.
-              // Enterprise is agreed by conversation, so it keeps its
-              // starting price either way.
+              // Yearly: the price for the year, as a director reads a
+              // contract (ten months for twelve, "2 months free"), never a
+              // per-month figure divided out of it. Enterprise is agreed by
+              // conversation, so it keeps its starting price either way.
               ...(billing === 'annual' && c.annual > 0 && !c.contact
                 ? {
-                  eur: c.annual / 12,
-                  sub: t('lp_per_month_yearly'),
-                  yearly: t('lp_billed_yearly').replace('{amount}', pricing.format(c.annual)).replace('{saved}', pricing.format(c.monthly * 12 - c.annual)),
+                  eur: c.annual,
+                  sub: t('lp_per_year'),
+                  yearly: t('lp_billed_yearly').replace('{full}', pricing.format(c.monthly * 12)).replace('{monthly}', pricing.format(c.monthly)),
                 }
                 : { eur: c.monthly, sub: c.monthly === 0 ? t('forever') : t('per_month'), yearly: null }),
               id: c.id, name: planText(language, 'plan_' + c.id),

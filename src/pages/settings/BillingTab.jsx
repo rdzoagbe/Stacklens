@@ -201,7 +201,7 @@ export function BillingPage({ noShell = false }) {
             <button key={c} onClick={() => setBilling(c)}
               className={"px-4 py-2 rounded-lg text-sm font-semibold transition-all " + (billing === c ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-white')}>
               {c === 'monthly' ? t('monthly') : t('annual')}
-              {c === 'annual' && <span className="ml-1.5 text-[10px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-full">{t('save_20')}</span>}
+              {c === 'annual' && <span className="ml-1.5 text-[10px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-full">{t('lp_two_months_free')}</span>}
             </button>
           ))}
         </div>
