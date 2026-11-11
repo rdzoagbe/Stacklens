@@ -494,13 +494,14 @@ export function TrialPage() {
               // Words, prices and every number come from src/lib/planCards.js,
               // shared with Settings → Billing, and each number from the limits
               // the app and server enforce. (See plan-claims.test.js.)
-              // Yearly: what the yearly price comes to per month (to the
-              // cent, never rounded down), with the yearly total under it.
+              // Yearly: what the yearly price comes to per month (each yearly
+              // price is twelve whole months, stripe-prices.test.js), with the
+              // yearly total under it.
               // Enterprise is agreed by conversation, so it keeps its
               // starting price either way.
               ...(billing === 'annual' && c.annual > 0 && !c.contact
                 ? {
-                  eur: Math.round((c.annual / 12) * 100) / 100,
+                  eur: c.annual / 12,
                   sub: t('lp_per_month_yearly'),
                   yearly: t('lp_billed_yearly').replace('{amount}', pricing.format(c.annual)).replace('{saved}', pricing.format(c.monthly * 12 - c.annual)),
                 }

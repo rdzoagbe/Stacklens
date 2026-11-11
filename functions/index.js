@@ -240,17 +240,21 @@ function getPlanFromSubscription(sub) {
   const PLAN_MAP = {
     // Live mode price IDs (stacklens.fr)
     'price_1UaPKj1yFs6IziIV6MqK7gyb': 'starter',        // Starter monthly €39
-    'price_1UaPKj1yFs6IziIVyn7xtPyI': 'starter',        // Starter annual €374
+    'price_1UaPbp1yFs6IziIVFHZTQmjB': 'starter',        // Starter annual €372
+    'price_1UaPKj1yFs6IziIVyn7xtPyI': 'starter',        // Starter annual €374 (until 2026-11-11; existing subscriptions)
     'price_1TMhOt1yFs6IziIVgJGBbzoG': 'starter',        // Starter monthly €29 (until 2026-11-11; existing subscriptions)
     'price_1TMhfK1yFs6IziIVOtbhpy23': 'starter',        // Starter annual €278 (until 2026-11-11; existing subscriptions)
     'price_1TWxAB1yFs6IziIVjxw3CG2V': 'hr_finance',     // HR & Finance monthly €49 (no longer sold; existing subscriptions)
     'price_1TWxFd1yFs6IziIVjPZnA8XT': 'hr_finance',     // HR & Finance annual €470
     'price_1TMhNW1yFs6IziIV5hwlssrt': 'pro',            // Pro monthly €79
-    'price_1TMhNW1yFs6IziIVMxiacXD7': 'pro',            // Pro annual €758
+    'price_1UaPbp1yFs6IziIVi2wHaXtZ': 'pro',            // Pro annual €756
+    'price_1TMhNW1yFs6IziIVMxiacXD7': 'pro',            // Pro annual €758 (until 2026-11-11; existing subscriptions)
     'price_1UaFkM1yFs6IziIVL2Y9VxOO': 'cabinet',        // Cabinet monthly €79
-    'price_1UaFkT1yFs6IziIVFdns9j5x': 'cabinet',        // Cabinet annual €758
+    'price_1UaPbp1yFs6IziIV39GU6WB0': 'cabinet',        // Cabinet annual €756
+    'price_1UaFkT1yFs6IziIVFdns9j5x': 'cabinet',        // Cabinet annual €758 (until 2026-11-11; existing subscriptions)
     'price_1UZsKz1yFs6IziIVtDrqBwBb': 'business',       // Business monthly €149
-    'price_1UZsMY1yFs6IziIVfyUjcOKa': 'business',       // Business annual €1430
+    'price_1UaPbp1yFs6IziIVvaTB8L6g': 'business',       // Business annual €1428
+    'price_1UZsMY1yFs6IziIVfyUjcOKa': 'business',       // Business annual €1430 (until 2026-11-11; existing subscriptions)
     'price_1TMhNk1yFs6IziIVPkv7RiLc': 'enterprise',     // Enterprise monthly €299
     'price_1TMhNk1yFs6IziIViMLzewdQ': 'enterprise',     // Enterprise annual €2870
     'price_1TMhND1yFs6IziIVFqZSPoGR': 'free',           // Trial/free
@@ -308,10 +312,10 @@ exports.createCheckout = onRequest({ secrets: [STRIPE_SECRET_KEY], cors: true, t
     const { priceId } = req.body;
     if (!priceId) return res.status(400).json({ error: 'priceId required' });
     const ALLOWED_PRICE_IDS = new Set([
-      'price_1UaPKj1yFs6IziIV6MqK7gyb','price_1UaPKj1yFs6IziIVyn7xtPyI',
-      'price_1TMhNW1yFs6IziIV5hwlssrt','price_1TMhNW1yFs6IziIVMxiacXD7',
-      'price_1UaFkM1yFs6IziIVL2Y9VxOO','price_1UaFkT1yFs6IziIVFdns9j5x',
-      'price_1UZsKz1yFs6IziIVtDrqBwBb','price_1UZsMY1yFs6IziIVfyUjcOKa',
+      'price_1UaPKj1yFs6IziIV6MqK7gyb','price_1UaPbp1yFs6IziIVFHZTQmjB',
+      'price_1TMhNW1yFs6IziIV5hwlssrt','price_1UaPbp1yFs6IziIVi2wHaXtZ',
+      'price_1UaFkM1yFs6IziIVL2Y9VxOO','price_1UaPbp1yFs6IziIV39GU6WB0',
+      'price_1UZsKz1yFs6IziIVtDrqBwBb','price_1UaPbp1yFs6IziIVvaTB8L6g',
     ]);
     // Exactly the prices Settings → Billing offers (src/lib/stripePrices.js,
     // held equal by stripe-prices.test.js). Enterprise and the old test-mode

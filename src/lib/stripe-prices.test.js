@@ -56,6 +56,13 @@ describe('Stripe prices', () => {
     expect(index).toMatch(/pro_since: Number\(planSource\.pro_since\) \|\| null/);
   });
 
+  it('every yearly price is twelve whole months, so the grid never shows cents', () => {
+    for (const card of PLAN_CARDS.filter((c) => CHECKOUT_PLANS.includes(c.id))) {
+      expect(card.annual % 12, `${card.id} annual ${card.annual}`).toBe(0);
+      expect(card.annual, card.id).toBeLessThan(card.monthly * 12);
+    }
+  });
+
   it('Enterprise is not sold by card; every other paid card is', () => {
     expect(priceIdFor('enterprise')).toBeNull();
     for (const card of PLAN_CARDS.filter((c) => c.monthly > 0)) {

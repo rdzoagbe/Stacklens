@@ -19,19 +19,19 @@ export const PLAN_CARDS = [
     features: ['tools', 'employees', 'f_free_3', 'f_free_4', 'f_free_5', 'f_free_6'] },
   // Starter took in HR & Finance (2026-11-10): one plan (€39 since 2026-11-11) with the Finance
   // pages. HR & Finance subscribers keep their plan; it is no longer sold.
-  { id: 'starter', monthly: 39, annual: 374,
+  { id: 'starter', monthly: 39, annual: 372,
     features: ['tools', 'employees', 'f_hrf_1', 'f_starter_3', 'f_hrf_5', 'f_starter_5', 'team', 'f_starter_6'] },
-  { id: 'pro', monthly: 79, annual: 758,
+  { id: 'pro', monthly: 79, annual: 756,
     features: ['tools', 'employees', 'f_pro_4', 'f_pro_3', 'f_pro_5', 'f_pro_6', 'team', 'f_pro_7'] },
   // For accounting firms and outsourced CFOs: Pro's pages in the firm's own
   // workspace and in every client workspace (they run on the firm's plan).
   // Client workspaces left Starter and Pro the same day (CLIENT_PLANS).
-  { id: 'cabinet', monthly: 79, annual: 758,
+  { id: 'cabinet', monthly: 79, annual: 756,
     features: ['clients', 'f_cab_1', 'f_cab_2', 'tools', 'employees', 'team', 'f_pro_7'] },
   // Pro's people and the API used to differ only on a card at €299; Business
   // sits between them: unlimited tools, up to 1,500 people, the API and the
   // bank connection (the `api` module).
-  { id: 'business', monthly: 149, annual: 1430,
+  { id: 'business', monthly: 149, annual: 1428,
     features: ['f_ent_1', 'employees', 'f_bus_1', 'f_ent_6', 'f_bus_2', 'team', 'clients', 'f_ent_5'] },
   // Above 1,500 people: a starting price, an annual contract priced by
   // headcount, through a conversation rather than card checkout (`contact`).
