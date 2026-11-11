@@ -194,7 +194,7 @@ export function ContactPage() {
 
             <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6">
               <h3 className="text-sm font-bold text-white mb-3">{t('contact_based_in')}</h3>
-              <p className="text-sm text-slate-400">Paris, France 🇫🇷</p>
+              <p className="text-sm text-slate-400">{LEGAL_ENTITY.city} 🇫🇷</p>
               <p className="text-xs text-slate-500 mt-2">{t('contact_timezone')}</p>
             </div>
           </div>
@@ -224,7 +224,7 @@ export function DpaPage() {
         <div className="space-y-8 text-sm text-slate-300 leading-relaxed">
           <section>
             <h2 className="text-lg font-semibold text-white mb-3">{t('dpa_s1_title')}</h2>
-            <p>{t('dpa_s1_body').replace('{publisher}', LEGAL_ENTITY.publisher).replace('{status}', LEGAL_ENTITY.status.toLowerCase())}</p>
+            <p>{t('dpa_s1_body').replace('{publisher}', LEGAL_ENTITY.publisher).replace('{status}', LEGAL_ENTITY.status.toLowerCase()).replace('{city}', LEGAL_ENTITY.city)}</p>
           </section>
 
           <section>
