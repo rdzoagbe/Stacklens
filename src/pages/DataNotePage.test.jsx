@@ -28,13 +28,13 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 let root;
 const read = (p) => readFileSync(resolve(process.cwd(), p), 'utf8');
 
-async function render(el, lang = 'en') {
+async function render(el, lang = 'en', path = '/') {
   localStorage.clear();
   localStorage.setItem('language', lang);
   const host = document.createElement('div');
   document.body.appendChild(host);
   root = createRoot(host);
-  await act(async () => { root.render(<LanguageProvider><MemoryRouter>{el}</MemoryRouter></LanguageProvider>); });
+  await act(async () => { root.render(<LanguageProvider><MemoryRouter initialEntries={[path]}>{el}</MemoryRouter></LanguageProvider>); });
 }
 afterEach(async () => { if (root) await act(async () => root.unmount()); root = null; document.body.innerHTML = ''; });
 
@@ -131,5 +131,19 @@ describe('the Cabinet plan is offered to firms, not beside Pro', () => {
     expect(box.id).toBe('cabinet');
     expect(box.textContent).toContain('€79');
     expect(box.textContent).not.toMatch(/\{\w+\}/);
+  });
+  it('arriving from the pricing grid scrolls to the Cabinet plan', async () => {
+    vi.useFakeTimers();
+    const seen = [];
+    const had = globalThis.Element.prototype.scrollIntoView;
+    globalThis.Element.prototype.scrollIntoView = function () { seen.push(this.id); };
+    try {
+      await render(<AccountantsPage />, 'fr', '/experts-comptables#cabinet');
+      await act(async () => { vi.advanceTimersByTime(100); });
+      expect(seen).toEqual(['cabinet']);
+    } finally {
+      globalThis.Element.prototype.scrollIntoView = had;
+      vi.useRealTimers();
+    }
   });
 });

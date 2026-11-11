@@ -264,12 +264,14 @@ function EarlyAccess({ t }) {
 export function AccountantsPage() {
   const { language } = useLang();
   const t = useTranslation(language);
-  // Links from the homepage and the free audit land on the offer itself. The
+  // Links from the homepage and the free audit land on the offer itself, and
+  // the pricing grid's Cabinet line on the Cabinet plan. The
   // router scrolls to the top on navigation, so the hash is honoured here.
   const { hash } = useLocation();
   useEffect(() => {
-    if (!['#acces-anticipe'].includes(hash)) return;
-    const id = setTimeout(() => document.getElementById('acces-anticipe')?.scrollIntoView({ behavior: 'smooth' }), 50);
+    if (!['#acces-anticipe', '#cabinet'].includes(hash)) return;
+    const target = hash.slice(1);
+    const id = setTimeout(() => document.getElementById(target)?.scrollIntoView({ behavior: 'smooth' }), 50);
     return () => clearTimeout(id);
   }, [hash]);
 
