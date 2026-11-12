@@ -51,6 +51,7 @@ import { REV_FIELD, revOf, nextRev, isStaleWrite, StaleWriteError } from './lib/
 import { removeItem as removeStoredItem } from './lib/workspaceStore';
 import { setAuditSender } from './lib/auditSync';
 import { askForSecondFactor } from './lib/secondFactor';
+import { currentCampaign } from './lib/pulse';
 import { initializeAppCheck, ReCaptchaV3Provider, getToken as getAppCheckToken } from 'firebase/app-check';
 
 // Firebase config — values come from environment variables (VITE_FIREBASE_*).
@@ -723,7 +724,8 @@ export async function createCheckoutSession(priceId) {
   const res = await fetch(`${FUNCTIONS_BASE}/createCheckout`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, ...(await appCheckHeader()) },
-    body: JSON.stringify({ priceId }),
+    // The campaign tag only (lib/pulse.js), so Stripe's return address keeps it.
+    body: JSON.stringify({ priceId, campaign: currentCampaign() }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Checkout failed');
@@ -1148,6 +1150,7 @@ async function callFounderops(body) {
 export const founderSetBankCreds   = (clientId, clientSecret) => callFounderops({ action: 'setBankCreds', clientId, clientSecret });
 export const founderBankCredsStatus = () => callFounderops({ action: 'bankCredsStatus' });
 export const founderListErrors      = () => callFounderops({ action: 'listErrors' });
+export const founderPulse           = () => callFounderops({ action: 'pulse' });
 // Two-step sign-in for the project (functions/index.js founderops).
 export const founderTotpStatus = () => callFounderops({ action: 'totpStatus' });
 export const founderEnableTotp = () => callFounderops({ action: 'enableTotp' });

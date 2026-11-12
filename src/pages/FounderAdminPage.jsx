@@ -5,6 +5,7 @@ import {
   Users, Clock, Shield, Search,
   Zap, Crown, RefreshCw, Pencil, Check, X, ArrowLeft, Trash2, Mail, ShieldCheck,
 } from 'lucide-react';
+import PulseCard from '../components/PulseCard';
 import { loadAllUsersAdmin, founderExtendTrial, founderSetPlan, founderGrantPlan, founderEnrichProfiles, founderDeleteUser, founderTestEmail, founderSetBankCreds, founderBankCredsStatus, founderListErrors, founderTotpStatus, founderEnableTotp, PUBLIC_FIREBASE_CONFIG } from '../firebase-config';
 import { probeAppCheck } from '../lib/appCheckProbe';
 import { getFirestore, doc, updateDoc } from 'firebase/firestore';
@@ -537,6 +538,8 @@ export function FounderAdminPage() {
           </button>
         </form>
       </div>
+
+      <PulseCard />
 
       <div className="rounded-xl border border-slate-700/50 bg-slate-900/40 p-4">
         <div className="flex items-center justify-between gap-2">

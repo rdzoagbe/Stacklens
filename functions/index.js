@@ -74,6 +74,7 @@ const { ssoRefusal } = require('./sso-policy');
 const { purgeAccount, subscriptionBlocksDeletion } = require('./purge-account.js');
 const { appendToChain, readChain } = require('./audit-chain.js');
 const { shouldAlert, recordAlert, MAX_PER_HOUR } = require('./crash-alerts.js');
+const { pulseField, pulseDay, pulseRows, campaignReturnParam } = require('./pulse.js');
 const {
   allocSpendByDept, spentToDateByDept, reportRecipients, buildMonthlyReport, renderMonthlyReport,
 } = require('./monthly-report.js');
@@ -334,7 +335,9 @@ exports.createCheckout = onRequest({ secrets: [STRIPE_SECRET_KEY], cors: true, t
         payment_method_types: ['card'],
         line_items: [{ price: priceId, quantity: 1 }],
         mode: 'subscription',
-        success_url: 'https://stacklens.fr/settings?success=true',
+        // The campaign the visitor arrived by (lib/pulse.js), so the payment
+        // is counted under it after Stripe's round trip. Listed tags only.
+        success_url: `https://stacklens.fr/settings?success=true${campaignReturnParam(req.body.campaign)}`,
         cancel_url: 'https://stacklens.fr/settings?cancelled=true',
         subscription_data: { metadata: { firebase_uid: decoded.uid } },
         allow_promotion_codes: true,
@@ -761,6 +764,11 @@ exports.founderops = onRequest({ cors: true, timeoutSeconds: 30, secrets: [BREVO
         const snap = await db.collection('client_errors').orderBy('at', 'desc').limit(50).get();
         return res.json({ errors: snap.docs.map(d => d.data()) });
       }
+      // The anonymous visit counter (exports.pulse), last 60 days.
+      if (action === 'pulse') {
+        const snap = await db.collection('pulse_counts').orderBy('__name__', 'desc').limit(60).get();
+        return res.json({ rows: pulseRows(snap.docs.map(d => ({ day: d.id, counts: d.data().counts }))) });
+      }
 
       // ── Actions below require a target user ──
       if (!targetUid || typeof targetUid !== 'string') {
@@ -1028,6 +1036,37 @@ exports.apikeys = onRequest({ cors: true, timeoutSeconds: 30 }, async (req, res)
 
 // Public read-only API: GET .../api/v1/{tools|employees|spend}
 // Auth: Authorization: Bearer sk_live_...
+// ── Anonymous visit counter (functions/pulse.js) ─────────────────────────
+// No sign-in: it counts visits before anyone has an account. What it checks
+// instead is the report itself: an event from a fixed list, a campaign tag of
+// a fixed shape, a page from a fixed list; anything else is dropped. It keeps
+// one number per day per (event, page, campaign) and nothing about who sent
+// it: no IP address, no user agent, no identifier, nothing in the browser.
+// Abuse is bounded by the fixed lists and a per-instance throttle.
+let _pulseReports = 0;
+setInterval(() => { _pulseReports = 0; }, 60 * 1000).unref?.();
+exports.pulse = onRequest({ cors: true, timeoutSeconds: 10, maxInstances: 5 }, async (req, res) => {
+  if (req.method === 'OPTIONS') return res.status(204).send('');
+  if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
+  if (_pulseReports++ > 600) return res.status(429).end();
+  let body = req.body;
+  // navigator.sendBeacon posts text/plain, which avoids a CORS preflight.
+  if (Buffer.isBuffer(body)) body = body.toString('utf8');
+  if (typeof body === 'string') {
+    if (body.length > 300) return res.status(413).end();
+    try { body = JSON.parse(body); } catch { return res.status(400).end(); }
+  }
+  const field = pulseField(body);
+  if (!field) return res.status(204).end();
+  try {
+    await getFirestore().collection('pulse_counts').doc(pulseDay())
+      .set({ counts: { [field]: FieldValue.increment(1) } }, { merge: true });
+  } catch (err) {
+    console.error('pulse failed:', err?.message);
+  }
+  return res.status(204).end();
+});
+
 exports.api = onRequest({ timeoutSeconds: 30 }, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Headers', 'Authorization, Content-Type');

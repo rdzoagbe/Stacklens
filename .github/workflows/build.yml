@@ -325,7 +325,7 @@ jobs:
       # exports in functions/index.js and fails the build if they diverge.
       - name: Deploy Cloud Functions (batch 1/4)
         if: steps.scope.outputs.deploy == 'true'
-        run: firebase deploy --project accessguard-v2 --force --non-interactive --only functions:ai,functions:api,functions:apikeys,functions:bankfeed,functions:clientErrors
+        run: firebase deploy --project accessguard-v2 --force --non-interactive --only functions:ai,functions:api,functions:apikeys,functions:bankfeed,functions:clientErrors,functions:pulse
 
       - name: Let batch 1 drain before batch 2
         if: steps.scope.outputs.deploy == 'true'
