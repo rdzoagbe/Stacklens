@@ -1148,6 +1148,7 @@ async function callFounderops(body) {
 export const founderSetBankCreds   = (clientId, clientSecret) => callFounderops({ action: 'setBankCreds', clientId, clientSecret });
 export const founderBankCredsStatus = () => callFounderops({ action: 'bankCredsStatus' });
 export const founderListErrors      = () => callFounderops({ action: 'listErrors' });
+export const founderPulse           = () => callFounderops({ action: 'pulse' });
 // Two-step sign-in for the project (functions/index.js founderops).
 export const founderTotpStatus = () => callFounderops({ action: 'totpStatus' });
 export const founderEnableTotp = () => callFounderops({ action: 'enableTotp' });

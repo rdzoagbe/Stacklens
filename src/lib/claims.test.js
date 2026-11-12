@@ -337,8 +337,8 @@ describe('"export everything" covers everything', () => {
 // ── 6. Which endpoints take no sign-in ─────────────────────────────────────
 //
 // The security page said "every server API requires an authenticated token".
-// Four HTTP endpoints do not, by design, each checking something else. The
-// page now names all four; this fails the day a fifth appears unannounced.
+// Five HTTP endpoints do not, by design, each checking something else. The
+// page now names all five; this fails the day a sixth appears unannounced.
 
 describe('the security page names every endpoint that takes no sign-in', () => {
   const exportsList = [...functionsSrc.matchAll(/^exports\.(\w+)\s*=\s*onRequest/gm)].map((m, i, all) => {
@@ -351,14 +351,14 @@ describe('the security page names every endpoint that takes no sign-in', () => {
     expect(exportsList.length).toBeGreaterThan(10);
   });
 
-  it('is exactly the four the page describes', () => {
+  it('is exactly the five the page describes', () => {
     expect(noSignIn, 'an endpoint without sign-in was added or removed: update sec_card_abuse_body')
-      .toEqual(['api', 'clientErrors', 'invoiceInbound', 'stripeWebhook']);
+      .toEqual(['api', 'clientErrors', 'invoiceInbound', 'pulse', 'stripeWebhook']);
   });
 
   it('and the page names each one with what it checks instead', () => {
     const text = copy('en', 'sec_card_abuse_body');
-    for (const phrase of ['public API (your API key)', "Stripe's signature", 'invoice inbox', 'crash reports']) {
+    for (const phrase of ['public API (your API key)', "Stripe's signature", 'invoice inbox', 'crash reports', 'anonymous visit counter']) {
       expect(text).toContain(phrase);
     }
     expect(text).not.toMatch(/every server API/i);

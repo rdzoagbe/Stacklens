@@ -26,8 +26,9 @@ function endpoints() {
 }
 
 // No browser calls these: a customer's own server (api), Stripe, SendGrid's
-// inbound door, and a crash report that may fire before App Check initialises.
-const EXEMPT = ['api', 'stripeWebhook', 'invoiceInbound', 'clientErrors'];
+// inbound door, a crash report that may fire before App Check initialises,
+// and the anonymous visit counter, sent as the page loads.
+const EXEMPT = ['api', 'stripeWebhook', 'invoiceInbound', 'clientErrors', 'pulse'];
 
 describe('verifyAppCheck', () => {
   const fn = src.slice(src.indexOf('async function verifyAppCheck'), src.indexOf('async function checkRateLimit'));
@@ -57,7 +58,7 @@ describe('which endpoints check it', () => {
     }
   });
 
-  it('the four endpoints no browser calls are left alone', () => {
+  it('the endpoints that never carry a token are left alone', () => {
     for (const name of EXEMPT) {
       expect(eps[name], `${name} is no longer exported`).toBeTruthy();
       expect(eps[name], `${name} must not require App Check`).not.toMatch(/verifyAppCheck/);

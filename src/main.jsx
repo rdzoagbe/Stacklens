@@ -7,6 +7,7 @@ import './index.css'
 import { purgeLegacyCredentials } from './lib/legacyCredentials'
 import { loadHandoff } from './lib/auditHandoff'
 import { primeWorkspaceStore } from './lib/workspaceStore'
+import { startPulse } from './lib/pulse'
 
 // Remove integration credentials that older builds kept in localStorage.
 // Runs before React mounts so it reaches every session, not just users who
@@ -30,6 +31,10 @@ window.addEventListener('vite:preloadError', () => {
   }
 });
 window.addEventListener('load', () => sessionStorage.removeItem('sg_chunk_reloaded'));
+
+// The anonymous visit counter (lib/pulse.js): one count per page load, with
+// the campaign tag of the link the visitor came from. Live site only.
+startPulse();
 
 // Lightweight crash reporting — works with zero external accounts. Uncaught
 // errors and promise rejections are POSTed to our own clientErrors function

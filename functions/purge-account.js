@@ -86,6 +86,9 @@ const RETAINED = {
   // Uncaught client errors. No uid is recorded, and the collection self-prunes
   // past 300 rows.
   client_errors: 'no uid recorded; self-pruning',
+  // The anonymous visit counter (functions/pulse.js): one document per day of
+  // totals per page, campaign tag and event. Nothing in it names anybody.
+  pulse_counts: 'daily totals, no uid or identifier recorded',
   // Global configuration, not user data.
   app_config: 'not user data',
   // One document holding crash fingerprints and alert send times, so a broken
