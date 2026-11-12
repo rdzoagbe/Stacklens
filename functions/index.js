@@ -74,7 +74,7 @@ const { ssoRefusal } = require('./sso-policy');
 const { purgeAccount, subscriptionBlocksDeletion } = require('./purge-account.js');
 const { appendToChain, readChain } = require('./audit-chain.js');
 const { shouldAlert, recordAlert, MAX_PER_HOUR } = require('./crash-alerts.js');
-const { pulseField, pulseDay, pulseRows } = require('./pulse.js');
+const { pulseField, pulseDay, pulseRows, campaignReturnParam } = require('./pulse.js');
 const {
   allocSpendByDept, spentToDateByDept, reportRecipients, buildMonthlyReport, renderMonthlyReport,
 } = require('./monthly-report.js');
@@ -335,7 +335,9 @@ exports.createCheckout = onRequest({ secrets: [STRIPE_SECRET_KEY], cors: true, t
         payment_method_types: ['card'],
         line_items: [{ price: priceId, quantity: 1 }],
         mode: 'subscription',
-        success_url: 'https://stacklens.fr/settings?success=true',
+        // The campaign the visitor arrived by (lib/pulse.js), so the payment
+        // is counted under it after Stripe's round trip. Listed tags only.
+        success_url: `https://stacklens.fr/settings?success=true${campaignReturnParam(req.body.campaign)}`,
         cancel_url: 'https://stacklens.fr/settings?cancelled=true',
         subscription_data: { metadata: { firebase_uid: decoded.uid } },
         allow_promotion_codes: true,

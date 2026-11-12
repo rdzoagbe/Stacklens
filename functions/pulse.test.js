@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { PULSE_EVENTS, cleanCampaign, pageOf, pulseField, pulseDay, pulseRows } from './pulse.js';
+import { PULSE_EVENTS, PULSE_PAGES, PULSE_CAMPAIGNS, cleanCampaign, campaignReturnParam, pageOf, pulseField, pulseDay, pulseRows } from './pulse.js';
 import { PULSE_EVENTS as BROWSER_EVENTS, campaignFrom, pulseByCampaign } from '../src/lib/pulse.js';
 
 // ── The anonymous visit counter counts, and knows nobody ────────────────────
@@ -28,9 +28,10 @@ describe('what the server counts', () => {
     expect(pulseField({ e: 'drop_table', c: 'nl' })).toBeNull();
     expect(pulseField(null)).toBeNull();
     expect(pulseField('visit')).toBeNull();
-    expect(cleanCampaign('<script>')).toBe('direct');
-    expect(cleanCampaign('a'.repeat(25))).toBe('direct');
-    expect(cleanCampaign('a__b')).toBe('direct');
+    expect(cleanCampaign('<script>')).toBe('other');
+    expect(cleanCampaign('a'.repeat(25))).toBe('other');
+    expect(cleanCampaign('random-tag-42')).toBe('other');
+    expect(cleanCampaign('')).toBe('direct');
     expect(cleanCampaign('NL')).toBe('nl');
     expect(pageOf('/unknown')).toBe('other');
   });
@@ -40,6 +41,33 @@ describe('what the server counts', () => {
     const rows = pulseRows([{ day: '2026-11-12', counts: { visit__home__nl: 3, audit_run__nl: 1 } }]);
     expect(rows).toContainEqual({ day: '2026-11-12', event: 'visit', page: 'home', campaign: 'nl', count: 3 });
     expect(rows).toContainEqual({ day: '2026-11-12', event: 'audit_run', page: '', campaign: 'nl', count: 1 });
+  });
+});
+
+describe('a stranger cannot grow a day without bound', () => {
+  it('every field is one of a fixed, small set', () => {
+    const fields = new Set();
+    const tags = ['', 'nl', 'x1', 'x2', 'zzz', ...PULSE_CAMPAIGNS];
+    for (const e of PULSE_EVENTS) for (const p of [...Object.keys(PULSE_PAGES), '/x', '/y']) for (const c of tags) {
+      fields.add(pulseField({ e, c, p }));
+    }
+    const pages = new Set(Object.values(PULSE_PAGES)).size + 1;
+    const campaigns = PULSE_CAMPAIGNS.length + 2;
+    expect(fields.size).toBe(campaigns * pages + (PULSE_EVENTS.length - 1) * campaigns);
+    expect(fields.size).toBeLessThan(500);
+  });
+});
+
+describe('a payment keeps its campaign through Stripe', () => {
+  it('only a listed tag goes on the return address', () => {
+    expect(campaignReturnParam('nl')).toBe('&c=nl');
+    expect(campaignReturnParam('')).toBe('');
+    expect(campaignReturnParam('evil&x=1')).toBe('');
+  });
+
+  it('the checkout sends the tag and the server puts it on the success URL', () => {
+    expect(read('src/firebase-config.js')).toMatch(/JSON\.stringify\(\{ priceId, campaign: currentCampaign\(\) \}\)/);
+    expect(read('functions/index.js')).toMatch(/success_url: `https:\/\/stacklens\.fr\/settings\?success=true\$\{campaignReturnParam\(req\.body\.campaign\)\}`/);
   });
 });
 

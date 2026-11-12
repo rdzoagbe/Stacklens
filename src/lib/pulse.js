@@ -35,6 +35,11 @@ function isLive() {
   try { return LIVE_HOSTS.includes(window.location.hostname); } catch { return false; }
 }
 
+/** The campaign tag this page was opened with ('' when none). */
+export function currentCampaign() {
+  return campaign;
+}
+
 /** Count one event. Never throws, never waits. */
 export function pulse(event, page) {
   try {

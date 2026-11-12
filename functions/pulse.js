@@ -37,10 +37,32 @@ const PULSE_PAGES = {
   '/security-info': 'security',
 };
 
-/** A campaign tag: lower-case letters, digits, - and _, at most 24. */
+/**
+ * The campaign tags counted by name: the ones put on outreach links. Any other
+ * tag counts as `other`, so a stranger sending a new tag on every request
+ * cannot grow the day's document without bound (every field is then one of
+ * PULSE_EVENTS × PULSE_PAGES × these). Add a tag here before using it on a
+ * link; the counter then needs the functions deployed.
+ */
+const PULSE_CAMPAIGNS = [
+  'fr', 'fr-relance', 'be-lu', 'pt', 'uk-ie', 'us', 'ch', 'nl', 'qc',
+  'linkedin', 'newsletter',
+];
+
+/** A campaign tag from the list, `other` for any other tag, `direct` for none. */
 function cleanCampaign(c) {
   const s = String(c ?? '').trim().toLowerCase();
-  return /^[a-z0-9_-]{1,24}$/.test(s) && !s.includes('__') ? s : 'direct';
+  if (!s) return 'direct';
+  return PULSE_CAMPAIGNS.includes(s) ? s : 'other';
+}
+
+/**
+ * The `&c=` to add to the address Stripe sends a buyer back to, so the payment
+ * is counted under the campaign the checkout began with. Only a listed tag.
+ */
+function campaignReturnParam(c) {
+  const s = cleanCampaign(c);
+  return s === 'direct' || s === 'other' ? '' : `&c=${s}`;
 }
 
 function pageOf(path) {
@@ -80,4 +102,4 @@ function pulseRows(days) {
   return rows.sort((a, b) => (a.day < b.day ? 1 : a.day > b.day ? -1 : 0));
 }
 
-module.exports = { PULSE_EVENTS, PULSE_PAGES, cleanCampaign, pageOf, pulseField, pulseDay, pulseRows };
+module.exports = { PULSE_EVENTS, PULSE_PAGES, PULSE_CAMPAIGNS, cleanCampaign, campaignReturnParam, pageOf, pulseField, pulseDay, pulseRows };
