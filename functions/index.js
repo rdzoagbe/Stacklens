@@ -73,7 +73,7 @@ const {
 const { ssoRefusal } = require('./sso-policy');
 const { purgeAccount, subscriptionBlocksDeletion } = require('./purge-account.js');
 const { appendToChain, readChain } = require('./audit-chain.js');
-const { shouldAlert, recordAlert, MAX_PER_HOUR } = require('./crash-alerts.js');
+const { shouldAlert, recordAlert, isNoise, MAX_PER_HOUR } = require('./crash-alerts.js');
 const { pulseField, pulseDay, pulseDays, pulseRows, campaignReturnParam } = require('./pulse.js');
 const {
   allocSpendByDept, spentToDateByDept, reportRecipients, buildMonthlyReport, renderMonthlyReport,
@@ -762,7 +762,8 @@ exports.founderops = onRequest({ cors: true, timeoutSeconds: 30, secrets: [BREVO
       // Recent client-side crashes captured by the clientErrors endpoint.
       if (action === 'listErrors') {
         const snap = await db.collection('client_errors').orderBy('at', 'desc').limit(50).get();
-        return res.json({ errors: snap.docs.map(d => d.data()) });
+        // Reports stored before the noise filter existed are hidden too.
+        return res.json({ errors: snap.docs.map(d => d.data()).filter(e => !isNoise(e.message)) });
       }
       // The anonymous visit counter (exports.pulse), last 60 days.
       if (action === 'pulse') {
@@ -868,6 +869,8 @@ exports.clientErrors = onRequest({
         at: new Date().toISOString(),
       };
       if (!doc.message) return res.status(400).json({ error: 'message required' });
+      // Known non-crashes (functions/crash-alerts.js NOISE): not stored, not mailed.
+      if (isNoise(doc.message)) return res.status(204).end();
       console.error('CLIENT ERROR:', doc.message, '@', doc.url);
       const db = getFirestore();
       await db.collection('client_errors').add(doc);
