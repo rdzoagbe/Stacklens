@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
-  fingerprint, shouldAlert, recordAlert, COOLDOWN_MS, MAX_PER_HOUR, HOUR_MS,
+  fingerprint, shouldAlert, recordAlert, isNoise, COOLDOWN_MS, MAX_PER_HOUR, HOUR_MS,
 } from './crash-alerts.js';
 
 // ── An alerting system that cries wolf gets switched off ────────────────────
@@ -230,5 +230,33 @@ describe('the crash endpoint alerts, and never at the expense of the record', ()
     // "Why did nobody tell me" must be answerable from the logs, or the first
     // instinct will be to assume the whole thing is broken.
     expect(body).toMatch(/suppressed/);
+  });
+});
+
+// ── Reports that are not our crashes are dropped ───────────────────────────
+//
+// Microsoft's link scanner and a dropped connection filled the founder's list
+// and could fire the crash email. Each pattern is narrow: a real error with a
+// similar word in it must still get through.
+describe('known non-crashes are dropped before they are stored or mailed', () => {
+  it('recognises the two kinds seen live', () => {
+    expect(isNoise('Object Not Found Matching Id:2, MethodName:update, ParamCount:4')).toBe(true);
+    expect(isNoise('Installations: Could not process request. Application offline. (installations/app-offline).')).toBe(true);
+  });
+
+  it('lets real errors through', () => {
+    expect(isNoise("Cannot read properties of undefined (reading 'update')")).toBe(false);
+    expect(isNoise('Object Not Found Matching Id:2 in workspace')).toBe(false);
+    expect(isNoise('')).toBe(false);
+  });
+
+  it('runs before anything is stored, and filters the founder list', () => {
+    const src = readFileSync(resolve(process.cwd(), 'functions/index.js'), 'utf8');
+    const start = src.indexOf('exports.clientErrors');
+    const end = src.indexOf('\nexports.', start + 10);
+    const ep = src.slice(start, end);
+    expect(ep.indexOf('isNoise(doc.message)')).toBeGreaterThan(-1);
+    expect(ep.indexOf('isNoise(doc.message)')).toBeLessThan(ep.indexOf(".collection('client_errors').add"));
+    expect(src).toMatch(/filter\(e => !isNoise\(e\.message\)\)/);
   });
 });

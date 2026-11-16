@@ -110,7 +110,31 @@ function recordAlert(state, fp, now = Date.now()) {
   return { seen, sent: [...recentSends(state, now), now] };
 }
 
+/**
+ * Reports that are not crashes of ours, dropped before they are stored or
+ * mailed. Each entry says where it comes from, so a real bug is never hidden
+ * by a pattern nobody can explain.
+ */
+const NOISE = [
+  // Microsoft's link scanner (Outlook / Microsoft 365 Safe Links) opens every
+  // link in an email in a headless browser whose automation bridge throws this
+  // on many sites. It arrived on /, /audit-saas and /note-donnees the night the
+  // outreach emails went out. Not a visitor and not our code.
+  /^Object Not Found Matching Id:\d+, MethodName:\w+, ParamCount:\d+$/,
+  // Firebase Installations failing because the visitor's connection dropped:
+  // nothing broke, and it resolves itself once they are back online.
+  /\(installations\/app-offline\)/,
+];
+
+/** True when a reported message is one of the known non-crashes above. */
+function isNoise(message) {
+  const m = String(message || '').trim();
+  return NOISE.some((re) => re.test(m));
+}
+
 module.exports = {
+  NOISE,
+  isNoise,
   COOLDOWN_MS,
   MAX_PER_HOUR,
   HOUR_MS,
