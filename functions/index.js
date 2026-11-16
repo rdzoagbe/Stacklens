@@ -74,7 +74,7 @@ const { ssoRefusal } = require('./sso-policy');
 const { purgeAccount, subscriptionBlocksDeletion } = require('./purge-account.js');
 const { appendToChain, readChain } = require('./audit-chain.js');
 const { shouldAlert, recordAlert, MAX_PER_HOUR } = require('./crash-alerts.js');
-const { pulseField, pulseDay, pulseRows, campaignReturnParam } = require('./pulse.js');
+const { pulseField, pulseDay, pulseDays, pulseRows, campaignReturnParam } = require('./pulse.js');
 const {
   allocSpendByDept, spentToDateByDept, reportRecipients, buildMonthlyReport, renderMonthlyReport,
 } = require('./monthly-report.js');
@@ -766,8 +766,10 @@ exports.founderops = onRequest({ cors: true, timeoutSeconds: 30, secrets: [BREVO
       }
       // The anonymous visit counter (exports.pulse), last 60 days.
       if (action === 'pulse') {
-        const snap = await db.collection('pulse_counts').orderBy('__name__', 'desc').limit(60).get();
-        return res.json({ rows: pulseRows(snap.docs.map(d => ({ day: d.id, counts: d.data().counts }))) });
+        // Read by id: ordering this collection by document id, newest first,
+        // needs an index Firestore does not build by itself, and it failed live.
+        const snaps = await db.getAll(...pulseDays(60).map(day => db.collection('pulse_counts').doc(day)));
+        return res.json({ rows: pulseRows(snaps.filter(d => d.exists).map(d => ({ day: d.id, counts: d.data().counts }))) });
       }
 
       // ── Actions below require a target user ──

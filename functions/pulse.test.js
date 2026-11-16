@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { PULSE_EVENTS, PULSE_PAGES, PULSE_CAMPAIGNS, cleanCampaign, campaignReturnParam, pageOf, pulseField, pulseDay, pulseRows } from './pulse.js';
+import { PULSE_EVENTS, PULSE_PAGES, PULSE_CAMPAIGNS, cleanCampaign, campaignReturnParam, pageOf, pulseField, pulseDay, pulseDays, pulseRows } from './pulse.js';
 import { PULSE_EVENTS as BROWSER_EVENTS, campaignFrom, pulseByCampaign } from '../src/lib/pulse.js';
 
 // ── The anonymous visit counter counts, and knows nobody ────────────────────
@@ -124,6 +124,21 @@ describe('the browser half stores nothing and sends no params', () => {
 
   it('runs on the live site only', () => {
     expect(mod).toMatch(/LIVE_HOSTS = \['stacklens\.fr', 'www\.stacklens\.fr'\]/);
+  });
+});
+
+describe('the founder screen reads days by id', () => {
+  it('lists the last days newest first', () => {
+    expect(pulseDays(3, new Date('2026-11-16T07:00:00Z'))).toEqual(['2026-11-16', '2026-11-15', '2026-11-14']);
+    expect(pulseDays()).toHaveLength(60);
+  });
+
+  it('never orders the collection, which needs an index Firestore lacks', () => {
+    const src = read('functions/index.js');
+    const i = src.indexOf("if (action === 'pulse')");
+    const body = src.slice(i, src.indexOf('return res.json', i) + 200);
+    expect(body).toMatch(/db\.getAll\(\.\.\.pulseDays\(60\)/);
+    expect(body).not.toMatch(/orderBy/);
   });
 });
 

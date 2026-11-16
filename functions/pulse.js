@@ -87,6 +87,11 @@ function pulseDay(date = new Date()) {
   return date.toISOString().slice(0, 10);
 }
 
+/** The ids of the last `n` days' counter documents, newest first. */
+function pulseDays(n = 60, now = new Date()) {
+  return Array.from({ length: n }, (_, i) => pulseDay(new Date(now.getTime() - i * 86400000)));
+}
+
 /** Days of counter documents turned into rows for the founder's screen. */
 function pulseRows(days) {
   const rows = [];
@@ -102,4 +107,4 @@ function pulseRows(days) {
   return rows.sort((a, b) => (a.day < b.day ? 1 : a.day > b.day ? -1 : 0));
 }
 
-module.exports = { PULSE_EVENTS, PULSE_PAGES, PULSE_CAMPAIGNS, cleanCampaign, campaignReturnParam, pageOf, pulseField, pulseDay, pulseRows };
+module.exports = { PULSE_EVENTS, PULSE_PAGES, PULSE_CAMPAIGNS, cleanCampaign, campaignReturnParam, pageOf, pulseField, pulseDay, pulseDays, pulseRows };
