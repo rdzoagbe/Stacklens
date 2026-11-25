@@ -309,6 +309,10 @@ describe('the sample result', () => {
     // Opened on the result without a click, counted apart from the button.
     expect(Number(kpi('Subscriptions found'))).toBeGreaterThan(0);
     expect(track).toHaveBeenCalledWith('audit_run', expect.objectContaining({ source: 'sample_link' }));
+    // Flipping the date order opens no new audit, so it is not counted again.
+    const flip = buttons().find((b) => /month first|day first|jour|mois/i.test(b.textContent));
+    if (flip) await click(flip);
+    expect(track.mock.calls.filter(([e, p]) => e === 'audit_run' && p.source === 'sample_link')).toHaveLength(1);
   });
 
   it('is offered before the file picker, with the promise beside it', async () => {

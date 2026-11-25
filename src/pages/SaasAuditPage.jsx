@@ -121,9 +121,13 @@ export function SaasAuditPage() {
   }, []);
 
   // A sample opened from a link is counted like one opened by the button,
-  // apart (`sample_link`), once. Counts only, as everywhere on this page.
+  // apart (`sample_link`), and once: flipping the date order replaces the
+  // transactions but opens no new audit. Counts only, as everywhere here.
+  const linkCounted = useRef(false);
   useEffect(() => {
-    if (state.source === 'sample_link') track('audit_run', { source: 'sample_link', format: 'bank', transactions: state.transactions.length, subscriptions: auditSaas(state.transactions).totals.subscriptionCount });
+    if (state.source !== 'sample_link' || linkCounted.current) return;
+    linkCounted.current = true;
+    track('audit_run', { source: 'sample_link', format: 'bank', transactions: state.transactions.length, subscriptions: auditSaas(state.transactions).totals.subscriptionCount });
   }, [state.source, state.transactions]);
 
   // `04/03` is 4 March here and 3 April in the United States. The parser reads
