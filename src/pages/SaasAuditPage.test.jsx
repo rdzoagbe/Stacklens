@@ -39,7 +39,7 @@ beforeEach(async () => {
   document.body.appendChild(host);
   root = createRoot(host);
   await act(async () => { root.render(<MemoryRouter><SaasAuditPage /><Where /></MemoryRouter>); });
-  await click(button('Try with sample data'));
+  await click(button('See a result on sample data'));
 });
 
 afterEach(async () => {
@@ -285,5 +285,47 @@ describe('an FEC instead of a bank statement', () => {
     const rows = [...document.querySelectorAll('tbody tr')].map((r) => r.textContent);
     expect(rows.some((r) => r.includes('Zeendoc') && r.includes('account 6512'))).toBe(true);
     expect(rows.some((r) => /GOOGLE IRELAND|QONTO|MONDAY CAFE/.test(r))).toBe(false);
+  });
+});
+
+// ── Seeing a result needs no file of the reader's ──────────────────────────
+//
+// Every refusal from the outreach said "we cannot share client data". The
+// sample is now the first thing offered, the page says no file is needed,
+// and `?sample=1` lands an email link straight on the finished audit.
+describe('the sample result', () => {
+  it('is the first action, says no file is needed, and the result is reached from a link', async () => {
+    await act(async () => root.unmount());
+    document.body.innerHTML = '';
+    track.mockClear();
+    host = document.createElement('div');
+    document.body.appendChild(host);
+    root = createRoot(host);
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: { search: '?sample=1', get href() { return assign; }, set href(v) { assign = v; } },
+    });
+    await act(async () => { root.render(<MemoryRouter><SaasAuditPage /><Where /></MemoryRouter>); });
+    // Opened on the result without a click, counted apart from the button.
+    expect(Number(kpi('Subscriptions found'))).toBeGreaterThan(0);
+    expect(track).toHaveBeenCalledWith('audit_run', expect.objectContaining({ source: 'sample_link' }));
+  });
+
+  it('is offered before the file picker, with the promise beside it', async () => {
+    await act(async () => root.unmount());
+    document.body.innerHTML = '';
+    host = document.createElement('div');
+    document.body.appendChild(host);
+    root = createRoot(host);
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: { search: '', get href() { return assign; }, set href(v) { assign = v; } },
+    });
+    await act(async () => { root.render(<MemoryRouter><SaasAuditPage /><Where /></MemoryRouter>); });
+    const sample = document.querySelector('[data-testid="audit-try-sample"]');
+    const choose = button('Choose a file');
+    // 4 is DOCUMENT_POSITION_FOLLOWING: the file picker comes after the sample.
+    expect(sample.compareDocumentPosition(choose) & 4).toBeTruthy();
+    expect(document.querySelector('[data-testid="audit-sample-note"]').textContent).toMatch(/No file of yours is needed/);
   });
 });
