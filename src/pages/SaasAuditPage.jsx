@@ -44,10 +44,28 @@ import {
 
 const fill = (s, vars) => Object.entries(vars).reduce((acc, [k, v]) => acc.replaceAll(`{${k}}`, String(v)), String(s || ''));
 
+/** The page state for the sample bank export already read: what `runOn` builds, without the click. */
+function sampleState(text) {
+  const parsed = parseBankExport(text);
+  return {
+    phase: 'done', source: 'sample_link', transactions: parsed.transactions, symbol: detectSymbol(text, parsed.dateOrder),
+    format: 'bank', entries: parsed.entries,
+    skipped: parsed.skipped, credits: parsed.credits || 0, unreadable: parsed.unreadable || [], dateOrder: parsed.dateOrder, text,
+  };
+}
+
 export function SaasAuditPage() {
   const { language } = useLang();
   const t = useTranslation(language);
-  const [state, setState] = useState({ phase: 'idle' }); // idle | reading | error | done
+  // `/audit-saas?sample=1` opens straight on the sample result, so a link in
+  // an email lands on a finished audit with nothing of the reader's involved.
+  // The address is read once, here, and nothing is fetched or stored.
+  const [state, setState] = useState(() => { // idle | reading | error | done
+    try {
+      if (new URLSearchParams(window.location.search).get('sample') === '1') return sampleState(sampleBankExport());
+    } catch { /* no address to read */ }
+    return { phase: 'idle' };
+  });
   // The reader's corrections, keyed by normalised bank label. They live in
   // memory only, like the file, and survive a date-order flip because the
   // keys do not depend on the dates.
@@ -101,6 +119,16 @@ export function SaasAuditPage() {
       skipped: parsed.skipped, credits: parsed.credits || 0, unreadable: parsed.unreadable || [], dateOrder: parsed.dateOrder, text,
     });
   }, []);
+
+  // A sample opened from a link is counted like one opened by the button,
+  // apart (`sample_link`), and once: flipping the date order replaces the
+  // transactions but opens no new audit. Counts only, as everywhere here.
+  const linkCounted = useRef(false);
+  useEffect(() => {
+    if (state.source !== 'sample_link' || linkCounted.current) return;
+    linkCounted.current = true;
+    track('audit_run', { source: 'sample_link', format: 'bank', transactions: state.transactions.length, subscriptions: auditSaas(state.transactions).totals.subscriptionCount });
+  }, [state.source, state.transactions]);
 
   // `04/03` is 4 March here and 3 April in the United States. The parser reads
   // which one off the file, but when every date falls on the 1st to the 12th
@@ -200,20 +228,24 @@ export function SaasAuditPage() {
               <FileSpreadsheet className="w-10 h-10 mx-auto text-blue-400 mb-4" />
               <div className="text-lg font-semibold mb-1">{t('audit_drop_title')}</div>
               <p className="text-sm text-slate-400 mb-6 max-w-md mx-auto">{t('audit_drop_sub')}</p>
+              {/* The sample comes first and in blue: every refusal from the
+                  outreach said "we cannot share client data", and nothing
+                  here said that none is needed to see the result. */}
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                <button onClick={() => inputRef.current?.click()} disabled={state.phase === 'reading'}
-                  className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-blue-600 font-semibold text-sm transition-colors">
-                  <Upload className="w-4 h-4" /> {state.phase === 'reading' ? t('audit_parsing') : t('audit_choose_file')}
-                </button>
-                <button onClick={() => runOn(sampleBankExport(), 'sample')}
-                  className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 font-semibold text-sm text-slate-200 transition-colors">
+                <button onClick={() => runOn(sampleBankExport(), 'sample')} data-testid="audit-try-sample"
+                  className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 font-semibold text-sm transition-colors">
                   <Eye className="w-4 h-4" /> {t('audit_try_sample')}
+                </button>
+                <button onClick={() => inputRef.current?.click()} disabled={state.phase === 'reading'}
+                  className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed font-semibold text-sm text-slate-200 transition-colors">
+                  <Upload className="w-4 h-4" /> {state.phase === 'reading' ? t('audit_parsing') : t('audit_choose_file')}
                 </button>
                 <button onClick={() => runOn(sampleFec(), 'sample_fec')}
                   className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 font-semibold text-sm text-slate-200 transition-colors">
                   <FileText className="w-4 h-4" /> {t('audit_try_fec')}
                 </button>
               </div>
+              <p className="mt-3 text-sm text-slate-400" data-testid="audit-sample-note">{t('audit_sample_note')}</p>
               {/* Several files at once: one row per client (lib/portfolio.js). */}
               <p className="mt-5 text-sm text-slate-400">
                 <Users className="inline w-4 h-4 mr-1 -mt-0.5 text-blue-400" />
